@@ -1,0 +1,850 @@
+{
+  "status": "INCOMPLETE",
+  "mandatory_tree_replaced": false,
+  "witness_status": "PASS",
+  "proofs": {
+    "PUT": {
+      "status": "INCOMPLETE",
+      "reason": "pilot stopped with native failures and missing rows",
+      "levels": [
+        {
+          "n": 4096,
+          "scales": [
+            {
+              "spot_bump": 1.0,
+              "raw": [
+                {
+                  "vector": [
+                    0.0609053174778078,
+                    -0.4112018526115624,
+                    2.298034923139003
+                  ],
+                  "missing_or_failed": []
+                },
+                {
+                  "vector": [
+                    0.06090528080568017,
+                    -0.411199504884324,
+                    2.299276269747974
+                  ],
+                  "missing_or_failed": []
+                }
+              ],
+              "mean": [
+                0.06090529914174399,
+                -0.4112006787479432,
+                2.2986555964434885
+              ]
+            },
+            {
+              "spot_bump": 0.5,
+              "raw": [
+                {
+                  "vector": [
+                    0.0609053174778078,
+                    -0.4110947271263452,
+                    2.297645139831417
+                  ],
+                  "missing_or_failed": []
+                },
+                {
+                  "vector": [
+                    0.06090528080568017,
+                    -0.4110902934958771,
+                    2.299819677916659
+                  ],
+                  "missing_or_failed": []
+                }
+              ],
+              "mean": [
+                0.06090529914174399,
+                -0.41109251031111116,
+                2.298732408874038
+              ]
+            },
+            {
+              "spot_bump": 0.25,
+              "raw": [
+                {
+                  "vector": [
+                    0.0609053174778078,
+                    -0.4110610834294359,
+                    2.2879476691500145
+                  ],
+                  "missing_or_failed": []
+                },
+                {
+                  "vector": [
+                    0.06090528080568017,
+                    -0.41106973487218745,
+                    2.3073033217329453
+                  ],
+                  "missing_or_failed": []
+                }
+              ],
+              "mean": [
+                0.06090529914174399,
+                -0.4110654091508117,
+                2.29762549544148
+              ]
+            }
+          ]
+        },
+        {
+          "n": 8192,
+          "scales": [
+            {
+              "spot_bump": 1.0,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "d6f491ff2bd871c53359ee24539b91d0c43f8fbbf7aa80804f6406f3465ed71c"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "5546c733611d00c44038a086fc3fadba03ee9ca59bd137aa43837de68a281ee0"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.5,
+              "raw": [
+                {
+                  "vector": [
+                    0.060904531942357815,
+                    -0.4110928596240502,
+                    2.2989005764436854
+                  ],
+                  "missing_or_failed": []
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "b0ec0922a9b11101e54cf54b7183266dfdaa159c5a8bbf021e851b050b3ac913"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.25,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "eb78e1ae2d1fe441147369a00605a903b751a045d74e5663bbad69b3a8cfe0bf"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "0024476531fcd13e886a1b7a93b3407770251a8cd4c9862d53a1dd8f223f6707"
+                  ]
+                }
+              ],
+              "mean": null
+            }
+          ]
+        },
+        {
+          "n": 16384,
+          "scales": [
+            {
+              "spot_bump": 1.0,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "28acc12cbc0d7623702418c273fb08ca5429ad12b109957a8323074d6435f5dd"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "5153b78511f641746fb9a89a427588dad1824ef10c64d7c8c07ce597f8315038",
+                    "f0d1b825332d3c555931c0f5a409fdb22f9996bf7b6c03fefa3d7761bbf85b8f"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.5,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "1a6a822b313e86fb77e1abb3f5f908a9dbd2acf17b585d279fea355ad33ddc24"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "5153b78511f641746fb9a89a427588dad1824ef10c64d7c8c07ce597f8315038",
+                    "04330572563fae494dbb66a2631c966ec7303c03d0f0caa25364f6c8a7927407"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.25,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "4a1a358ea3aaf2efa475b68234e17eed2cbd5de26f21698771771bc1e76c255f"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "5153b78511f641746fb9a89a427588dad1824ef10c64d7c8c07ce597f8315038",
+                    "3e7b325b1559a4f2f55fe56d956234e8b6be4ff58f6ed25825f99e0aeeeff362"
+                  ]
+                }
+              ],
+              "mean": null
+            }
+          ]
+        }
+      ],
+      "scales": [
+        {
+          "spot_bump": 1.0,
+          "status": "INCOMPLETE",
+          "mesh_difference": null,
+          "parity_difference": null,
+          "fine_extra_half_difference": null,
+          "strict_limits": [
+            2.5e-05,
+            0.0005,
+            0.005
+          ]
+        },
+        {
+          "spot_bump": 0.5,
+          "status": "INCOMPLETE",
+          "mesh_difference": null,
+          "parity_difference": null,
+          "fine_extra_half_difference": null,
+          "strict_limits": [
+            2.5e-05,
+            0.0005,
+            0.005
+          ]
+        },
+        {
+          "spot_bump": 0.25,
+          "status": "INCOMPLETE",
+          "mesh_difference": null,
+          "parity_difference": null,
+          "fine_extra_half_difference": null,
+          "strict_limits": [
+            2.5e-05,
+            0.0005,
+            0.005
+          ]
+        }
+      ]
+    },
+    "CALL": {
+      "status": "INCOMPLETE",
+      "reason": "pilot stopped with native failures and missing rows",
+      "levels": [
+        {
+          "n": 4096,
+          "scales": [
+            {
+              "spot_bump": 1.0,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "48cdd8f3331fb5fd573cff4f08faf1f3534e19b1ca95d3bd762fcc3df37df003"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "064f1bd83fcea2d9eeaa4a0bd7971ac42bb20eb6adb7520743aafd43853c77a9",
+                    "c0a918cfd80d8279742eed9c9d49ef2c7c0167524b20d011a267ab9325360a6c"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.5,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "65ccce4c1c4ec2995f0b79c90d8ba7d900ea4e6c9f37eac216892749c0a1eb9f"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "064f1bd83fcea2d9eeaa4a0bd7971ac42bb20eb6adb7520743aafd43853c77a9",
+                    "e5f2c6f06109eead97c6aab9586a9b7cdaf00457f705ed02f43f810f853f4823"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.25,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "9b85cf515a40b5e5a749ad776f3f0e89902be86483871b3cbcece84e52dab503"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "064f1bd83fcea2d9eeaa4a0bd7971ac42bb20eb6adb7520743aafd43853c77a9",
+                    "77fcc0b133e8be7031ac5336e29796de39ae1b480daf68ddf06f9db9549e0956"
+                  ]
+                }
+              ],
+              "mean": null
+            }
+          ]
+        },
+        {
+          "n": 8192,
+          "scales": [
+            {
+              "spot_bump": 1.0,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "0a8d276dc018db5d9ae1adb3108232974bfdb229a75a0c99f7a597893e940703"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "f341b88b7c0e600073cad421378274f90a3176b3734f972920f2cf4d4c642e38",
+                    "2687e7349289737c1b580eca48da8ec37b28c033d75274859353fc8016e2966f"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.5,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "b5f08e66892a53ec1e4720772d806cd54854ac594053edb02278b1af88dbe31b"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "f341b88b7c0e600073cad421378274f90a3176b3734f972920f2cf4d4c642e38",
+                    "27aa50f180032afd4ff3b552915c8956365ccca94d2bf6af8e6e5797a51c38d9"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.25,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "4a67a7cd654b035cceaad0531d6fd23edf6949e600d29071812504e34dfdf971"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "f341b88b7c0e600073cad421378274f90a3176b3734f972920f2cf4d4c642e38",
+                    "12e544b8bb9a6ca3cab914ef52c675532c0e22b67ad6a7f6367d105cd8efc85c"
+                  ]
+                }
+              ],
+              "mean": null
+            }
+          ]
+        },
+        {
+          "n": 16384,
+          "scales": [
+            {
+              "spot_bump": 1.0,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "aec6f83e1f74e5392c5bb779b3b2d84658f460d772e291ecaa2b3b9c958c30ce"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "0700c8d8eba39252e717aa4751bedf10ead367cd7d3eb539bcbea0b10f483993",
+                    "8e2fdc628a6714f6c322e1eb3e3e9a72f565da5ca5bb9f392c42c5a9e24a0db9",
+                    "1001befe8fde7ca16b234a0173bc20c0e3829ca773c64009034d4871e77d4ea8"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.5,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "03b04dfdad5270e23f7748245d4830cb8be5c7a0f2b4779d994a5f39861589a2"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "0700c8d8eba39252e717aa4751bedf10ead367cd7d3eb539bcbea0b10f483993",
+                    "1c4abb9b3f43ad9adacdaebd30143113d5d81418dfb6baac8bec20543e510ccb"
+                  ]
+                }
+              ],
+              "mean": null
+            },
+            {
+              "spot_bump": 0.25,
+              "raw": [
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "bd0cae0d0aed98bb6c39ea6e9a28b2d726a6418346bbb9bd108d155c3513cc32"
+                  ]
+                },
+                {
+                  "vector": null,
+                  "missing_or_failed": [
+                    "0700c8d8eba39252e717aa4751bedf10ead367cd7d3eb539bcbea0b10f483993",
+                    "9d4e534d2130e920b5300adf2a59e0776a81611ef71ac189bd57ed43054c79cd",
+                    "b79cb26218cc1c819bff4b14e653645caa289713a78cac68ae6e5c3b876c57ba"
+                  ]
+                }
+              ],
+              "mean": null
+            }
+          ]
+        }
+      ],
+      "scales": [
+        {
+          "spot_bump": 1.0,
+          "status": "INCOMPLETE",
+          "mesh_difference": null,
+          "parity_difference": null,
+          "fine_extra_half_difference": null,
+          "strict_limits": [
+            2.5e-05,
+            0.0005,
+            0.005
+          ]
+        },
+        {
+          "spot_bump": 0.5,
+          "status": "INCOMPLETE",
+          "mesh_difference": null,
+          "parity_difference": null,
+          "fine_extra_half_difference": null,
+          "strict_limits": [
+            2.5e-05,
+            0.0005,
+            0.005
+          ]
+        },
+        {
+          "spot_bump": 0.25,
+          "status": "INCOMPLETE",
+          "mesh_difference": null,
+          "parity_difference": null,
+          "fine_extra_half_difference": null,
+          "strict_limits": [
+            2.5e-05,
+            0.0005,
+            0.005
+          ]
+        }
+      ]
+    }
+  },
+  "unexpected_failures": {
+    "d6f491ff2bd871c53359ee24539b91d0c43f8fbbf7aa80804f6406f3465ed71c": {
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "pilot",
+        "name": "PUT",
+        "offset": -1.0,
+        "request": {
+          "spot": 99.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 8192
+        }
+      },
+      "result": {
+        "error": "BBS invalid European value",
+        "visited_nodes": 4118,
+        "bs_evaluations": 4118,
+        "obstacle_hits": 4097,
+        "terminal_obstacle_hits": 4097
+      }
+    },
+    "b0ec0922a9b11101e54cf54b7183266dfdaa159c5a8bbf021e851b050b3ac913": {
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "pilot",
+        "name": "PUT",
+        "offset": 0.5,
+        "request": {
+          "spot": 100.5,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 8193
+        }
+      },
+      "result": {
+        "error": "BBS invalid European value",
+        "visited_nodes": 4115,
+        "bs_evaluations": 4115,
+        "obstacle_hits": 4094,
+        "terminal_obstacle_hits": 4094
+      }
+    },
+    "8e2fdc628a6714f6c322e1eb3e3e9a72f565da5ca5bb9f392c42c5a9e24a0db9": {
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "pilot",
+        "name": "CALL",
+        "offset": -1.0,
+        "request": {
+          "spot": 99.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 16385
+        }
+      },
+      "result": {
+        "error": "BBS invalid European value",
+        "visited_nodes": 8177,
+        "bs_evaluations": 8177,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      }
+    }
+  },
+  "american": {
+    "1392ff96f0ec208391144c9382c2d404aae971a4c5f39de6aa359826bed0bc5c": {
+      "continuation": true,
+      "obstacle_hits": 4089831,
+      "premium": 0.5170057255238163
+    },
+    "2b0d3a95b9b5b946e44a9b81d755531c09a6058894221e48a915a1a5663c0d1e": {
+      "continuation": true,
+      "obstacle_hits": 4096316,
+      "premium": null
+    },
+    "02c79deb37660ca07fb18133a9e08e2d1a5bed83499e793f5edd5483a889f19b": {
+      "continuation": true,
+      "obstacle_hits": 4083412,
+      "premium": null
+    },
+    "c0a9556fc99dcbbf8d0451592511f37890b0955ecad2ffb4cad74128cdcc0945": {
+      "continuation": true,
+      "obstacle_hits": 4093054,
+      "premium": null
+    },
+    "055557de1e8853c8b856ae1fd30a2003db891b9d5849c45628a9bd1491af8254": {
+      "continuation": true,
+      "obstacle_hits": 4086612,
+      "premium": null
+    },
+    "422d2d34f56384061ebaec7d0d6bc9cef30a000c401d9de73ac8cc59ed3609f2": {
+      "continuation": true,
+      "obstacle_hits": 4091435,
+      "premium": null
+    },
+    "36c9ae387a41840a8341d175fbc0f75ff0d9cee37a960a9d3307d76cd80c56be": {
+      "continuation": true,
+      "obstacle_hits": 4088225,
+      "premium": null
+    },
+    "a222e8568d21e9c6cf22578ad44e7e08bd22254738310193d589cf8bc110f87c": {
+      "continuation": true,
+      "obstacle_hits": 4091841,
+      "premium": 0.5170020583110535
+    },
+    "128ff8e7b02659ae1c747967cc610a0d52932dfa0f78e446219c2335c7e058b9": {
+      "continuation": true,
+      "obstacle_hits": 4098330,
+      "premium": null
+    },
+    "9b341f303621301eff1c4fecfe9a0301a0b95632b5588bd8282834544221a972": {
+      "continuation": true,
+      "obstacle_hits": 4085421,
+      "premium": null
+    },
+    "49c824a814613097b9e2a39c996612882b9d87ce2415454710b8fc47cad7d848": {
+      "continuation": true,
+      "obstacle_hits": 4095069,
+      "premium": null
+    },
+    "13af241a57e413405d89e36ceca91d2a1de5da13c7925660b9d6a5a2b362a030": {
+      "continuation": true,
+      "obstacle_hits": 4088623,
+      "premium": null
+    },
+    "44e75f69c0c265249d21437156ed90f91ab3a2dcd4caa28362b3b9811431c453": {
+      "continuation": true,
+      "obstacle_hits": 4093453,
+      "premium": null
+    },
+    "2b9ee91c7f7f1d3f944b1507b8942b716f1644d25814fc1eea31fe9dfc471436": {
+      "continuation": true,
+      "obstacle_hits": 4090233,
+      "premium": null
+    },
+    "b4660e62081893d15805659d27b9d85bc9833dcd20935c752ecb27fc87b3a8d5": {
+      "continuation": true,
+      "obstacle_hits": 16479189,
+      "premium": 0.5169271719788178
+    },
+    "fe5787da6c6010096322658a36802b5da6599b90bb7d0f0d7f4edb5cb4cb3e5c": {
+      "continuation": true,
+      "obstacle_hits": 16460962,
+      "premium": null
+    },
+    "e71d10321b36e64d15c88b61ab6cdab48c29821c892c749e250d2140a1ac4086": {
+      "continuation": true,
+      "obstacle_hits": 16488382,
+      "premium": null
+    },
+    "841b289e66a15557fa94433f0d42fdda62b72b013311d5443686d5f59fb91591": {
+      "continuation": true,
+      "obstacle_hits": 16470047,
+      "premium": null
+    },
+    "a50486706df4096a1f1d55b2fed917956315b5c9b30614567f511b235698a3cf": {
+      "continuation": true,
+      "obstacle_hits": 16474611,
+      "premium": null
+    },
+    "ef9632ba33f62f552e6be51c661ccadd0381899b855380b81d1cda75e97ef9cb": {
+      "continuation": true,
+      "obstacle_hits": 16483223,
+      "premium": 0.5169255090481535
+    },
+    "ba7db89bc91934cdf4f542d1482d2342a1aeeb48233d4ade7ca310ca7bc27ed4": {
+      "continuation": true,
+      "obstacle_hits": 16501655,
+      "premium": null
+    },
+    "7d4e912bde2d2db21ebd429d0dfa74fb1f579a883653645b53db711f1f885343": {
+      "continuation": true,
+      "obstacle_hits": 16492432,
+      "premium": null
+    },
+    "328e4604b7063bd71ebd87c7b4a86f9f3f45d2741f0a20c48232663203e2b9ec": {
+      "continuation": true,
+      "obstacle_hits": 16487814,
+      "premium": null
+    },
+    "23703fc6fa68038307d456e455a40e097504be98534e03a8caaf50d39555f254": {
+      "continuation": true,
+      "obstacle_hits": 66260832,
+      "premium": 0.5168871194529059
+    },
+    "443ab3c1e3d7b9892ed309a2d362cf9f41fcfef56e689e55b775597241929093": {
+      "continuation": true,
+      "obstacle_hits": 66209085,
+      "premium": null
+    },
+    "f4803653aa62389c422acbb3ba44ed7f17f26145a5ef96f6892debb371e10db4": {
+      "continuation": true,
+      "obstacle_hits": 66234891,
+      "premium": null
+    },
+    "41c27f20c6465959a485805affe93df5d851c96b701c83f3a595844f0b2ec876": {
+      "continuation": true,
+      "obstacle_hits": 66247835,
+      "premium": null
+    },
+    "5b8f8fdc95a9ab36f04d7c5806ab36e47f72b5607ddde61cb620f0745fba2173": {
+      "continuation": true,
+      "obstacle_hits": 66321209,
+      "premium": null
+    },
+    "f96fb37c92fa61fb8b1c5c779bd1188499e45744aab39c935ab38ed04e6bb7d5": {
+      "continuation": true,
+      "obstacle_hits": 66295011,
+      "premium": null
+    },
+    "0f5cc2f422ca0962948dc9ff9961a63dbf93f0cb985007ee6b08f11985c44df3": {
+      "continuation": true,
+      "obstacle_hits": 66281948,
+      "premium": null
+    },
+    "6e952fe12da75deee458cfd72526898d6916ad83f493301efcbc963fe1ca239c": {
+      "continuation": true,
+      "obstacle_hits": 4077687,
+      "premium": 0.3992751649635773
+    },
+    "768c689b9012bb6767793351db5ae0098120bddd0a9a1314c40882741c91c9ab": {
+      "continuation": true,
+      "obstacle_hits": 4084101,
+      "premium": null
+    },
+    "36e236a23d7025e7b86cbcf8b16411b647a4ecab54a62bca431b1cc61e06c67d": {
+      "continuation": true,
+      "obstacle_hits": 4080896,
+      "premium": null
+    },
+    "3f4cf3156f4bfa3e2715c2f8462f0109c166e6f897a1bd35b3732d1833e4bc3a": {
+      "continuation": true,
+      "obstacle_hits": 4079292,
+      "premium": null
+    },
+    "1b1b72436e6c82252963f19f8d4dc584383d0b0539e68b1d1170978e075a1766": {
+      "continuation": true,
+      "obstacle_hits": 4073221,
+      "premium": null
+    },
+    "217eb049dddf08e7ff05ecec710f39d7210fc48d5111edee9134f78457fcd70a": {
+      "continuation": true,
+      "obstacle_hits": 4076463,
+      "premium": null
+    },
+    "068e7a5073a96993865bb4702e4789be4e1313bfffb3ed442d07a1f2e2284f26": {
+      "continuation": true,
+      "obstacle_hits": 4078091,
+      "premium": null
+    },
+    "e629c1f11636cb46f138edbad6c29faa26b346cc66675ab18e16c6861beeef0e": {
+      "continuation": true,
+      "obstacle_hits": 16444617,
+      "premium": 0.3991876559741989
+    },
+    "14606c59687217cdba00cc012992cce6aa545d4a236714e9f6d81c4159c48574": {
+      "continuation": true,
+      "obstacle_hits": 16462837,
+      "premium": null
+    },
+    "575ec2a4ce9ae969443d7af0842629e8913a7eadf0508664f3476c775595b58c": {
+      "continuation": true,
+      "obstacle_hits": 16453741,
+      "premium": null
+    },
+    "3fd885e83ae4376e8fb9614f80ec34f6e699839e21ebdff58937c022acfcc20f": {
+      "continuation": true,
+      "obstacle_hits": 16449181,
+      "premium": null
+    },
+    "b9b2e8a7917f9b3ffb330ebb4fcc5f4a98ba20a561b0e78a82d64b1beba133d5": {
+      "continuation": true,
+      "obstacle_hits": 16430270,
+      "premium": null
+    },
+    "85cba0b60fbfdc6ab3f4904ec7784eb56db959bccb97e905fd47c5857bc2ebd4": {
+      "continuation": true,
+      "obstacle_hits": 16439487,
+      "premium": null
+    },
+    "e6868b17afead7023594bfe99a3b5398822eb48d8150eace8a47e9e425549bcc": {
+      "continuation": true,
+      "obstacle_hits": 16444071,
+      "premium": null
+    },
+    "291947f58bc8fc04ffbe5771bf0189e622ffba1a678e9bb98613c41e89cd9905": {
+      "continuation": true,
+      "obstacle_hits": 66162577,
+      "premium": 0.3991425335398695
+    },
+    "d4a7b99c958ce2ea908c45e02eb51974a21abceb85c1002f3d3e8d43444f2258": {
+      "continuation": true,
+      "obstacle_hits": 66214277,
+      "premium": null
+    },
+    "4821dae47b02ee3114cea9450778c090e13d14f96b4cc4978df642009a46f353": {
+      "continuation": true,
+      "obstacle_hits": 66188509,
+      "premium": null
+    },
+    "0707a8c07b365a95d7407bb2f6aba9c82a8082f89cba08fab3bf3c4cc5ac9d78": {
+      "continuation": true,
+      "obstacle_hits": 66175538,
+      "premium": null
+    },
+    "582718d3b4ecbdd7cf55ac91e433c1f76b4afee74400c5b14ff823a85da02c9d": {
+      "continuation": true,
+      "obstacle_hits": 66144629,
+      "premium": null
+    }
+  },
+  "new_scalar_calls": 0,
+  "resources": {
+    "planned_jobs": 113,
+    "executed_jobs": 81,
+    "unexecuted_jobs": 32,
+    "reserved_nodes": 5638979836,
+    "attempted_charged_nodes": 3230701750,
+    "actual_visited_nodes": 3028789320,
+    "actual_bs_calls": 544860,
+    "scalar_bs_calls": 25,
+    "reserved_bs": 917672,
+    "old_consumed_nodes": 2997881833992,
+    "total_attempted_charged_nodes": 3001112535742,
+    "total_reserved_nodes": 3003520813828,
+    "total_cap": 3003881833992,
+    "numeric_wall_seconds": 2.9574134349823,
+    "max_rss_kib": 4444,
+    "raw_bytes": 319478
+  }
+}

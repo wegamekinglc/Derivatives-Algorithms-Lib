@@ -149,6 +149,8 @@ in the active acceptance contract. `bbsplan.py` uses a new method/source/
 configuration/executable identity and never imports a CRR price or bridge.
 
 ```bash
+cmake -S dal-cpp/test-support/pde-risk-qualification -B build/dal502-bbs-tools \
+  -DCMAKE_BUILD_TYPE=Release -DDAL_CORE_BUILD="$PWD/build/dal502-make"
 cmake --build build/dal502-bbs-tools --target dal502_bbs -j4
 python dal-cpp/test-support/pde-risk-qualification/bbsplan.py \
   --output build/dal502-bbs/data --driver build/dal502-bbs-tools/dal502_bbs

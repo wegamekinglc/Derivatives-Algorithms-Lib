@@ -1,0 +1,1073 @@
+{
+  "status": "PASS",
+  "results": {
+    "8fcf09a0fba2ab8174e58cf31ec74b2386ee192a67a61916aa531e26861da6e8": {
+      "status": "PASS",
+      "normalized_error": 1.2518049787590968e-06,
+      "limit": 2.5e-05,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.5736512027548395,
+        "root_continuation": 5.5736512027548395,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 8390656,
+        "bs_evaluations": 4096,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "PUT",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 4096
+        }
+      }
+    },
+    "4f23a5f3d54246ce5c71abe883a3c7518931e0b071646a344cc5b20c1eb23187": {
+      "status": "PASS",
+      "normalized_error": 1.1980163936620158e-06,
+      "limit": 2.5e-05,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.57364582389633,
+        "root_continuation": 5.57364582389633,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 8394753,
+        "bs_evaluations": 4097,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "PUT",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 4097
+        }
+      }
+    },
+    "9b65d2a792538fc86d3abca350e769c79228e1ebabe9c9709aae5b473f43d894": {
+      "status": "PASS",
+      "normalized_error": 6.259523295248925e-07,
+      "limit": 2.5e-05,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.573588617489916,
+        "root_continuation": 5.573588617489916,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 33558528,
+        "bs_evaluations": 8192,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "PUT",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 8192
+        }
+      }
+    },
+    "bbfa9c8adeaa082244378cfeb6658c4ab793f865ace090b5efd5e3d8ad55d883": {
+      "status": "PASS",
+      "normalized_error": 5.991538526117779e-07,
+      "limit": 2.5e-05,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.573585937642225,
+        "root_continuation": 5.573585937642225,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 33566721,
+        "bs_evaluations": 8193,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "PUT",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 8193
+        }
+      }
+    },
+    "659f6ed6be7b9de36e6fdcf63a4e6bc9e8276472dd31bdf0ff8e79e0273be990": {
+      "status": "PASS",
+      "normalized_error": 3.1298827572356915e-07,
+      "limit": 2.5e-05,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.573557321084536,
+        "root_continuation": 5.573557321084536,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 134225920,
+        "bs_evaluations": 16384,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "PUT",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 16384
+        }
+      }
+    },
+    "15dcc5ba08a64895341337c58a1fd70767d6f8f694e5d7d7ebe896a5f053ae97": {
+      "status": "PASS",
+      "normalized_error": 2.9961317059346017e-07,
+      "limit": 2.5e-05,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.573555983574023,
+        "root_continuation": 5.573555983574023,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 134242305,
+        "bs_evaluations": 16385,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "PUT",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 16385
+        }
+      }
+    },
+    "31ea6ee9a56e3f128dfb2a4769280c334313c436aac7a65ca925127262ef4e13": {
+      "status": "PASS",
+      "normalized_error": 1.4065759860137915e-06,
+      "limit": 2.5e-05,
+      "expected": 6.142998472007747,
+      "raw": {
+        "price": 6.1431391296063484,
+        "root_continuation": 6.1431391296063484,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 8390656,
+        "bs_evaluations": 4096,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "CALL",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 4096
+        }
+      }
+    },
+    "a2789dcf8508dc6b68a66a5655a0ec6e4353cdc2ef3d09e525d180f06b7610f5": {
+      "status": "PASS",
+      "normalized_error": 1.353808636359588e-06,
+      "limit": 2.5e-05,
+      "expected": 6.142998472007747,
+      "raw": {
+        "price": 6.143133852871383,
+        "root_continuation": 6.143133852871383,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 8394753,
+        "bs_evaluations": 4097,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "CALL",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 4097
+        }
+      }
+    },
+    "6ef722ddd67773963bda5e04fb535803f31825ab4c28ed201eb2477e8e2c9214": {
+      "status": "PASS",
+      "normalized_error": 7.03346224177892e-07,
+      "limit": 2.5e-05,
+      "expected": 6.142998472007747,
+      "raw": {
+        "price": 6.143068806630165,
+        "root_continuation": 6.143068806630165,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 33558528,
+        "bs_evaluations": 8192,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "CALL",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 8192
+        }
+      }
+    },
+    "e35bcb53f653153a493c32cd5123dd3b5a1dcff7592e29476b598f00f7c56b73": {
+      "status": "PASS",
+      "normalized_error": 6.770671650713212e-07,
+      "limit": 2.5e-05,
+      "expected": 6.142998472007747,
+      "raw": {
+        "price": 6.143066178724254,
+        "root_continuation": 6.143066178724254,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 33566721,
+        "bs_evaluations": 8193,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "CALL",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 8193
+        }
+      }
+    },
+    "5be7feb2571cdb11c61363edbe4631d66beff1474fcde126588f2bdd710719ad": {
+      "status": "PASS",
+      "normalized_error": 3.516878476261809e-07,
+      "limit": 2.5e-05,
+      "expected": 6.142998472007747,
+      "raw": {
+        "price": 6.14303364079251,
+        "root_continuation": 6.14303364079251,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 134225920,
+        "bs_evaluations": 16384,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "CALL",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 16384
+        }
+      }
+    },
+    "55731b9a75b80e9c5bd36ac00b92b7a040821b59667287b1330b15825ff5c634": {
+      "status": "PASS",
+      "normalized_error": 3.3857470381093437e-07,
+      "limit": 2.5e-05,
+      "expected": 6.142998472007747,
+      "raw": {
+        "price": 6.143032329478128,
+        "root_continuation": 6.143032329478128,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 134242305,
+        "bs_evaluations": 16385,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "european",
+        "name": "CALL",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 16385
+        }
+      }
+    },
+    "a7ba2ab878954dd3485d5774a7aad46e66b05e46b55ff78a248612b7bcd56cff": {
+      "status": "PASS",
+      "normalized_error": 7.105427357601002e-17,
+      "limit": 1e-12,
+      "expected": 5.573526022256964,
+      "raw": {
+        "price": 5.573526022256971,
+        "root_continuation": 5.573526022256971,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 1,
+        "bs_evaluations": 1,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "one",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "e4de744a44b9218325fcdf1de9062025b35544d5230e65dc093c5d4c512b3d19": {
+      "status": "PASS",
+      "normalized_error": 0.0,
+      "limit": 1e-12,
+      "expected": 50.0,
+      "raw": {
+        "price": 50.0,
+        "root_continuation": 45.12534186762472,
+        "root_intrinsic": 50.0,
+        "root_exercised": true,
+        "visited_nodes": 1,
+        "bs_evaluations": 1,
+        "obstacle_hits": 1,
+        "terminal_obstacle_hits": 1
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "one",
+        "offset": 0.0,
+        "request": {
+          "spot": 50.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "5b40fe262729ef1ec75b6531b944bfa8f22d125dc148faca78d7f5141240379b": {
+      "status": "PASS",
+      "normalized_error": 0.0,
+      "limit": 1e-12,
+      "expected": 50.0,
+      "raw": {
+        "price": 50.0,
+        "root_continuation": 43.61254519455703,
+        "root_intrinsic": 50.0,
+        "root_exercised": true,
+        "visited_nodes": 1,
+        "bs_evaluations": 1,
+        "obstacle_hits": 1,
+        "terminal_obstacle_hits": 1
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "one",
+        "offset": 0.0,
+        "request": {
+          "spot": 150.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "f127c755b0c9e3bd1cec19d8aaccef95d40f7ab02b84291d91108d213dbf9399": {
+      "status": "PASS",
+      "normalized_error": 0.0,
+      "limit": 1e-12,
+      "expected": 45.12534186762472,
+      "raw": {
+        "price": 45.12534186762472,
+        "root_continuation": 45.12534186762472,
+        "root_intrinsic": 50.0,
+        "root_exercised": false,
+        "visited_nodes": 1,
+        "bs_evaluations": 1,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "one",
+        "offset": 0.0,
+        "request": {
+          "spot": 50.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "254d3a6d028719c79bbb73853dae88336acadfbee6cfe62ac0f736c67bd57044": {
+      "status": "PASS",
+      "normalized_error": 0.0,
+      "limit": 1e-12,
+      "expected": 43.61254519455703,
+      "raw": {
+        "price": 43.61254519455703,
+        "root_continuation": 43.61254519455703,
+        "root_intrinsic": 50.0,
+        "root_exercised": false,
+        "visited_nodes": 1,
+        "bs_evaluations": 1,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "one",
+        "offset": 0.0,
+        "request": {
+          "spot": 150.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": false,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "410ac30339964f4374c66d25e971687a27e61db6e05edbb2e1e0fe6d06a9f7f7": {
+      "status": "PASS",
+      "normalized_error": 0.0,
+      "limit": 1e-12,
+      "expected": 50.0,
+      "raw": {
+        "price": 50.0,
+        "root_continuation": 47.53099120283326,
+        "root_intrinsic": 50.0,
+        "root_exercised": true,
+        "visited_nodes": 3,
+        "bs_evaluations": 2,
+        "obstacle_hits": 3,
+        "terminal_obstacle_hits": 2
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "two",
+        "offset": 0.0,
+        "request": {
+          "spot": 50.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 2
+        }
+      }
+    },
+    "796123056072828c061961152c328587c5b9166b7a47aadfa94494bf87b4f8c7": {
+      "status": "PASS",
+      "normalized_error": 0.0,
+      "limit": 1e-12,
+      "expected": 50.0,
+      "raw": {
+        "price": 50.0,
+        "root_continuation": 46.58742467001521,
+        "root_intrinsic": 50.0,
+        "root_exercised": true,
+        "visited_nodes": 3,
+        "bs_evaluations": 2,
+        "obstacle_hits": 3,
+        "terminal_obstacle_hits": 2
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "two",
+        "offset": 0.0,
+        "request": {
+          "spot": 150.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 2
+        }
+      }
+    },
+    "a36175df217ab23fd211c26f10c6ba572f85b8eb9de33f02028cbd5c8b98c72e": {
+      "status": "PASS",
+      "normalized_error": 1.7763568394002505e-17,
+      "limit": 1e-12,
+      "expected": 6.213241811912686,
+      "raw": {
+        "price": 6.213241811912685,
+        "root_continuation": 6.213241811912685,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 3,
+        "bs_evaluations": 2,
+        "obstacle_hits": 1,
+        "terminal_obstacle_hits": 1
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "two",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 2
+        }
+      }
+    },
+    "9d7be82aa54137fd54cfd691c56d37dac74613dfa4dca3e42130b68f38355513": {
+      "status": "PASS",
+      "normalized_error": 1.7763568394002505e-17,
+      "limit": 1e-12,
+      "expected": 6.602676936711708,
+      "raw": {
+        "price": 6.602676936711706,
+        "root_continuation": 6.602676936711706,
+        "root_intrinsic": 0.0,
+        "root_exercised": false,
+        "visited_nodes": 3,
+        "bs_evaluations": 2,
+        "obstacle_hits": 1,
+        "terminal_obstacle_hits": 1
+      },
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "formula",
+        "name": "two",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 2
+        }
+      }
+    },
+    "6bd256286fe140584823399f2c057fd8c79b10a9cd36388552431df674e4ca2b": {
+      "status": "PASS",
+      "raw": {
+        "error": "BBS step count outside pilot range",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "step count",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-0",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 0
+        }
+      }
+    },
+    "751d09d1f60ae52d4d8cf6c250f1bfa5195300e1ba0b9e863387b8fc7de004c6": {
+      "status": "PASS",
+      "raw": {
+        "error": "BBS step count outside pilot range",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "step count",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-1",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 16386
+        }
+      }
+    },
+    "c57fb5e222b4489c9908fa5f1494e551859ea3f5625ba7ed40cf3812f244ad8f": {
+      "status": "PASS",
+      "raw": {
+        "error": "BBS nonfinite or nonpositive input/node",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "nonpositive",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-2",
+        "offset": 0.0,
+        "request": {
+          "spot": 0.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "14e008d6f5500f65a479e07c18112893c4a8e89df9fd701a36c25ef70a9791e0": {
+      "status": "PASS",
+      "raw": {
+        "error": "BBS nonfinite or nonpositive input/node",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "nonpositive",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-3",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.0,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "860e8f56572dcf01065e75c5f265a074ce82feb626c148852d762752ebd0c491": {
+      "status": "PASS",
+      "raw": {
+        "error": "TREE requires constant carry and American or terminal exercise",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "requires constant",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-4",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              137.0,
+              0.05,
+              0.0
+            ],
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "65fed4a80402bd2d19cabd1423e5cf568cd898ab3449122b9db766d9712e2ce3": {
+      "status": "PASS",
+      "raw": {
+        "error": "BBS invalid probability",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "invalid probability",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-5",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.01,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              1.0,
+              0.0
+            ]
+          ],
+          "tree_steps": 1
+        }
+      }
+    },
+    "9c61fcdefbf7a93097db53513abde0e6fd24a12108cde338dd86942ba54fd1eb": {
+      "status": "PASS",
+      "raw": {
+        "error": "reference wall-clock budget exhausted",
+        "visited_nodes": 0,
+        "bs_evaluations": 0,
+        "obstacle_hits": 0,
+        "terminal_obstacle_hits": 0
+      },
+      "expected_message": "wall-clock",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-6",
+        "offset": 0.0,
+        "request": {
+          "spot": 100.0,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": false,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.0
+            ]
+          ],
+          "tree_steps": 1,
+          "deadline_epoch": 1.0
+        }
+      }
+    },
+    "edf1471e2dfa6f5ecc0c4fe71822f897fa67dd1f2620fe205e0073a401343dba": {
+      "status": "PASS",
+      "raw": {
+        "error": "BBS nonfinite or nonpositive input/node",
+        "visited_nodes": 2,
+        "bs_evaluations": 1,
+        "obstacle_hits": 1,
+        "terminal_obstacle_hits": 1
+      },
+      "expected_message": "nonpositive",
+      "spec": {
+        "method": "BBS-last-step-v1",
+        "kind": "failure",
+        "name": "failure-7",
+        "offset": 0.0,
+        "request": {
+          "spot": 1.75e+308,
+          "strike": 100.0,
+          "vol": 0.2,
+          "days": 365.0,
+          "call": true,
+          "american": true,
+          "carry": [
+            [
+              365.0,
+              0.05,
+              0.08
+            ]
+          ],
+          "tree_steps": 2
+        }
+      }
+    }
+  }
+}
