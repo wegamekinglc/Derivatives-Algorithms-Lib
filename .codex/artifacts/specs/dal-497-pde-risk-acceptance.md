@@ -297,6 +297,15 @@ TREE replacement or N3/N6/N7 upgrade. Product fixtures/budgets, pure CRR cap
 and all error thresholds are unchanged. S3 remains unqualified, S4 paused,
 DAL-502 in progress and PR #685 draft without auto merge.
 
+Accounting addendum from review `01a1b94d-d29c-7480-97e6-8d6b4e64ab41`
+and coordinator `01a1b94f-073d-73e7-ad1c-071cf7df68d2`: separately append
+six already executed BS calls (two native, four independent scalar), zero
+tree nodes, from the saved switch-boundary review receipts. Reuse these
+results without reevaluation. The corrected full-plan BS expectation is
+1,511,945, while actual cumulative BS must use actual restart consumption
+plus six. Preserve original reservations and execution receipts separately;
+all caps, inputs, method and qualification rules above remain unchanged.
+
 ## N1 — European degeneration
 
 Cross product: PUT/CALL; S=80,100,120; q=0,0.03; r=0.05; D0/D1;
