@@ -13,7 +13,8 @@ acceptance. S5 examples/performance/release work remains separate.
 
 ## Review repair
 
-Repair source: `bfe35d7cae7a32700609e2a61c466c1e217fa824`; reviewed head:
+Final repair source: `c8fae8bd63b6a38af9c0edba6d5a16e9ae596837`;
+initial binding repair: `bfe35d7cae7a32700609e2a61c466c1e217fa824`; reviewed head:
 `a795e679b1e19bbaac9898f8ef64ec16ef654c0a`. The `review_repair` object in the
 identity manifest records this batch separately from the initial receipt.
 Review findings are from comment `01a1bb47-1a48-7501-b1ab-db6ebbeb8e3b`;
@@ -62,9 +63,16 @@ This is not a Windows ABI or live-Excel test.
   pass. No unrelated unit matrix, core/example/installed rebuild, S3 numerical
   qualification or S5 performance is repeated.
 
+At intermediate head `5ed288e5`, actual Codacy check `128745802591` reported
+five new subprocess-runner annotations and no longer listed the original seven.
+It remained `action_required`, not PASS. The runner was therefore replaced:
+Python now only generates source, CMake builds the trusted configured target,
+and GTest executes all 17 cases in-process. No subprocess import/launch or
+ignore rule remains in the Python generator. The final CMake/GTest regression
+passes **17/17**; this replaces the retired pytest launcher, retaining its
+RED/GREEN receipts. New-head remote acceptance remains a separate snapshot.
+
 ```bash
-DAL_S4_PROBE_DIR="$PWD/../s4-repair-probe-red" python3 -m pytest \
-  dal-excel/tests/test_early_exercise_pde_risk_input.py -q
 cmake --build build/s4 --target dal_generate -j 4
 make -C build/s4 -f dal-excel/CMakeFiles/dal_excel_portable_tests.dir/build.make \
   dal-excel/CMakeFiles/dal_excel_portable_tests.dir/src/__earlyexercisepderisk.cpp.o \
@@ -78,8 +86,11 @@ the corresponding `build/s4/dal-excel` and `build/s4/dal-python` directories.
 The targets are `dal_excel_portable_tests` and `_dal`. Final commands:
 
 ```bash
-DAL_S4_PROBE_DIR="$PWD/../s4-repair-probe-final" python3 -m pytest \
-  dal-excel/tests/test_early_exercise_pde_risk_input.py -q
+cmake -S dal-excel/tests/inputprobe -B build/s4-input-probe \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-15 \
+  -DPython3_EXECUTABLE=/home/wegamekinglc/anaconda3/bin/python3
+cmake --build build/s4-input-probe -j 2
+ctest --test-dir build/s4-input-probe --output-on-failure
 build/s4/dal-excel/dal_excel_portable_tests --gtest_filter='ExcelEarlyExercisePdeRiskTest.*'
 python3 -S dal-python/tests/run_build_pytest.py build/s4/dal-python \
   /home/wegamekinglc/anaconda3/lib/python3.13/site-packages \

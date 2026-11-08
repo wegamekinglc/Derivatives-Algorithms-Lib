@@ -2,8 +2,10 @@
   "schema_version": 1,
   "review_repair": {
     "reviewed_head": "a795e679b1e19bbaac9898f8ef64ec16ef654c0a",
-    "source_commit": "bfe35d7cae7a32700609e2a61c466c1e217fa824",
+    "source_commit": "c8fae8bd63b6a38af9c0edba6d5a16e9ae596837",
     "source_sha256": {
+      ".codex/artifacts/validation/dal-503-pde-risk-bindings-identity.json": "3e8714b7dafb26bcd9636b01d58fe80eeeb06554ceacd95b1c63fa7eb21c6482",
+      ".codex/artifacts/validation/dal-503-pde-risk-bindings.md": "0622aa107c9d07d68786136cad4fd43d12dac71b40e5ad0652ac8ace304326d7",
       "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_Get_Settings_public.inc": "5422cbc240e8e47de2de0bbe3eb223cc73746483d8430ba5de837aeadc4a2cd3",
       "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_Get_Valuation_public.inc": "f200374b7167e062ab1606d8cb2b2939a1da39ff1d96aa62bbc4b9c15fbe13ab",
       "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_New_public.inc": "647d907ef19e4ebb1481dfceb6949f49488c3eb3981d7fbc34baf7878c38757d",
@@ -28,9 +30,10 @@
       "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_New_public.inc": "4646c6e51437e52d4ef4f37a8a7e1602ca49e3bd0dfcdae1b8e86753afcd966b",
       "dal-excel/src/__earlyexercisepderisk.cpp": "fcec2ff238ce8289f260a116b0fd406765c7dda24284fa81ff2d2730b148e854",
       "dal-excel/src/__earlyexercisepderiskinput.hpp": "1baf7b2d813959bd99230e672956dcba513d45affc3de4b861804a4f573b578c",
-      "dal-excel/tests/earlyexerciseinputprobe.in": "71a3dc63627ce7c9f0f78909fdc11cb09d144bf23dbd437fd2918b49481fc5ad",
+      "dal-excel/tests/earlyexerciseinputprobe.in": "3b740ccc15dd672ee065a443153c39c6717aad839ecc7c2b99a2b358def26d71",
+      "dal-excel/tests/inputprobe/CMakeLists.txt": "04c1257c305971ec9b6500e450ffcd846600b91d8231d2a94dcf2056f099dee3",
+      "dal-excel/tests/inputprobe/prepare.py": "2d5ec3b9bbfc9d87ec56167598e7f9ba3f89d1b826e41727dc270e6c0d04a218",
       "dal-excel/tests/test_early_exercise_pde_risk.cpp": "05c68d7bee0930fdd796d9012cedd4e510956403be7ef6b1723808e9d61b522e",
-      "dal-excel/tests/test_early_exercise_pde_risk_input.py": "2a538b9a292cbf8923c414007748fa5b66271fcd21365596dc3547ac9f246433",
       "dal-python/src/bindings/earlyexercisepderisk.cpp": "a69dbe59759643018a63cba8376c619eacb087efe704e6f237a667b51cee14b7",
       "docs/methodology/pde/early-exercise.md": "f6707571f50bb2ad0352188744b58e30b3fb6a1f40d91a8764c4b78f64d64ed8"
     },
@@ -70,6 +73,10 @@
       "../s4-repair-probe-final/probe": {
         "sha256": "8a89ded8e5963897ee68b6a82cad90ad3696c4ed3863e66d2af9ee6a5312068a",
         "bytes": 288064
+      },
+      "build/s4-input-probe/dal_s4_input_probe": {
+        "sha256": "df5d44569641cc49a94de145598c8d16912822c9a13f2bfcf0e3e7de341cf90d",
+        "bytes": 377472
       }
     },
     "original_flags_equal": {
@@ -204,9 +211,121 @@
         "passed": 8
       },
       "native_windows_generated_entries": "NOT_EXECUTED",
-      "codacy_new_head": "PENDING_ACTUAL_CHECK"
+      "codacy_new_head": "PENDING_ACTUAL_CHECK",
+      "green_cmake_probe": {
+        "passed": 17,
+        "failed": 0
+      }
     },
-    "scope": "Only three affected translation units rebuilt and existing targets relinked with CMake commands; unchanged core, public, installed, S3 evidence reused."
+    "scope": "Only three affected translation units rebuilt and existing targets relinked with CMake commands; unchanged core, public, installed, S3 evidence reused. The final probe uses CMake compilation and in-process GTest; intermediate pytest runner is removed.",
+    "initial_binding_repair_source": "bfe35d7cae7a32700609e2a61c466c1e217fa824",
+    "green_cmake_probe": {
+      "source_sha256": "be5838c5906418e371147930800fbe8a551e42cefd3440baa3778086bec8f49d",
+      "generated_sha256": {
+        "MG_EarlyExercisePdeRiskRequest_Get_Settings_public.inc": "5422cbc240e8e47de2de0bbe3eb223cc73746483d8430ba5de837aeadc4a2cd3",
+        "MG_EarlyExercisePdeRiskRequest_Get_Valuation_public.inc": "f200374b7167e062ab1606d8cb2b2939a1da39ff1d96aa62bbc4b9c15fbe13ab",
+        "MG_EarlyExercisePdeRiskRequest_New_public.inc": "647d907ef19e4ebb1481dfceb6949f49488c3eb3981d7fbc34baf7878c38757d",
+        "MG_EarlyExercisePdeRiskResult_Get_BaseResult_public.inc": "fdd1689cad7b46efa43abc2ad0e9561b572de520878a424d9bef9f31a407e607",
+        "MG_EarlyExercisePdeRiskResult_Get_BumpOrigins_public.inc": "a3002fd9961798af6003cd57775811731ecdaeb9a9662f5605017c741940a243",
+        "MG_EarlyExercisePdeRiskResult_Get_Execution_public.inc": "4e0d0581fbefe86804bcc1122ad57f67404156eef9cd4e2dd58a42e66fe8c4f2",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanGrid_public.inc": "3130339a42bb5a1dba97fd33c4001fe0fd3dd3b65ee5b445ab0ca1e24527cfa1",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanSteps_public.inc": "635aa1ab2c3f9bab364c11a98369ce5c6e62a2d420ae1000b9d12465ae45b223",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanTimeGrid_public.inc": "143377eafa2ddd16cb23b031f5a322e6c6fc0cda7133d679fc04f5937edf1d2d",
+        "MG_EarlyExercisePdeRiskResult_Get_Plan_public.inc": "e3e9d3e2c3b51fa061be5c5cbe73196db3b393cc0dde48fb7f84e6dad0236a7f",
+        "MG_EarlyExercisePdeRiskResult_Get_Price_public.inc": "79d1fd7326434953752f310af686cfb41f815080ec5946001d3878daa9177c71",
+        "MG_EarlyExercisePdeRiskResult_Get_Request_public.inc": "d9aabeb06df8da4c57936d660a890107124311935ea05577fd8af7f573e2eeb2",
+        "MG_EarlyExercisePdeRiskResult_Get_ResolvedSettings_public.inc": "de6745d941a3f793e342340096e4becd6d8d70f2e450526d3afd7efc4466fa85",
+        "MG_EarlyExercisePdeRiskResult_Get_RiskValue_public.inc": "6aaf154d01533c6976a4e67aff19cc2b6d520b38a2ea902b86b2e626b70fa675",
+        "MG_EarlyExercisePdeRiskResult_Get_Risks_public.inc": "5d3be1b576a127abc32d8e50f3ecf1d0093007617f8c75f9e8b437b1f161afe3",
+        "MG_EarlyExercisePdeRiskResult_Get_Scenarios_public.inc": "164c9886a3c85b3e68287274d7b87e6acd71e2734fb447a3eb3e71092043bd7d",
+        "MG_EarlyExercisePdeRiskResult_Get_Stencils_public.inc": "358b97481737117eb3f5bc1e654fcab8ec42e3357dd5deef629976fdd7b19749",
+        "MG_EarlyExercisePdeRiskResult_Get_Summary_public.inc": "c164b846ac194805f89db8fe97c4b55897794fb9f7df7b9c2ba804bd62c2a1d8",
+        "MG_EarlyExercisePdeRiskResult_New_public.inc": "d082c274eefaa874d7262bcfa98284ab1a95c7e6a70a6e1b73361e94ad35c9f9",
+        "MG_EarlyExercisePdeRiskSettings_Get_CarryBumps_public.inc": "926886fb167352399085863cd23d004da18be616272409717fc6799ca05f3ee0",
+        "MG_EarlyExercisePdeRiskSettings_Get_Configuration_public.inc": "d084541ce413e71ce535e079e7a2adc957209ed9152f20b96f15433790cbd97b",
+        "MG_EarlyExercisePdeRiskSettings_New_public.inc": "4646c6e51437e52d4ef4f37a8a7e1602ca49e3bd0dfcdae1b8e86753afcd966b"
+      },
+      "scope": "Production generated bodies and guards; isolated OPER/registry/return adapters, not Windows ABI.",
+      "flags": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = -DGTEST_LINKED_AS_SHARED_LIBRARY=1\n\nCXX_INCLUDES = -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/include\n\nCXX_FLAGS = -O3 -DNDEBUG\n\n"
+    },
+    "intermediate_ci": {
+      "head": "5ed288e532dc5b61c92a5d8f2c58ec359a578967",
+      "codacy": {
+        "conclusion": "action_required",
+        "head_sha": "5ed288e532dc5b61c92a5d8f2c58ec359a578967",
+        "output": {
+          "annotations_count": 5,
+          "annotations_url": "https://api.github.com/repos/wegamekinglc/Derivatives-Algorithms-Lib/check-runs/128745802591/annotations",
+          "summary": "",
+          "text": null,
+          "title": "5 new issues (0 max.) of at least minor severity."
+        },
+        "status": "completed"
+      },
+      "annotations": [
+        {
+          "path": "dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5ed288e532dc5b61c92a5d8f2c58ec359a578967/dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "start_line": 7,
+          "start_column": null,
+          "end_line": 7,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "dal-excel/tests/test_early_exercise_pde_risk_input.py#L7",
+          "message": "Consider possible security implications associated with the subprocess module.",
+          "raw_details": null
+        },
+        {
+          "path": "dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5ed288e532dc5b61c92a5d8f2c58ec359a578967/dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "start_line": 59,
+          "start_column": null,
+          "end_line": 59,
+          "end_column": null,
+          "annotation_level": "failure",
+          "title": "dal-excel/tests/test_early_exercise_pde_risk_input.py#L59",
+          "message": "Detected subprocess function 'run' without a static string.",
+          "raw_details": null
+        },
+        {
+          "path": "dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5ed288e532dc5b61c92a5d8f2c58ec359a578967/dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "start_line": 59,
+          "start_column": null,
+          "end_line": 59,
+          "end_column": null,
+          "annotation_level": "warning",
+          "title": "dal-excel/tests/test_early_exercise_pde_risk_input.py#L59",
+          "message": "subprocess call - check for execution of untrusted input.",
+          "raw_details": null
+        },
+        {
+          "path": "dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5ed288e532dc5b61c92a5d8f2c58ec359a578967/dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "start_line": 78,
+          "start_column": null,
+          "end_line": 78,
+          "end_column": null,
+          "annotation_level": "failure",
+          "title": "dal-excel/tests/test_early_exercise_pde_risk_input.py#L78",
+          "message": "Detected subprocess function 'run' without a static string.",
+          "raw_details": null
+        },
+        {
+          "path": "dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5ed288e532dc5b61c92a5d8f2c58ec359a578967/dal-excel/tests/test_early_exercise_pde_risk_input.py",
+          "start_line": 78,
+          "start_column": null,
+          "end_line": 78,
+          "end_column": null,
+          "annotation_level": "warning",
+          "title": "dal-excel/tests/test_early_exercise_pde_risk_input.py#L78",
+          "message": "subprocess call - check for execution of untrusted input.",
+          "raw_details": null
+        }
+      ],
+      "disposition": "Original seven no longer reported; five runner subprocess findings repaired by CMake/in-process GTest. This intermediate check remains action_required."
+    }
   },
   "raw_archive": {
     "filename": "dal-503-bindings-evidence.tar.gz",
