@@ -61,11 +61,13 @@ namespace {
     size_t Count(const py::handle& value, const char* field) {
         if (!PyLong_Check(value.ptr()) || PyBool_Check(value.ptr()) || IsEnum(value))
             throw py::type_error(InputContext(value, field, "nonnegative size_t int excluding bool and enums", IDENTIFIER));
-        return RequestUnsigned(value, {field, IDENTIFIER});
+        return RequestUnsigned(value, {field, IDENTIFIER}, "nonnegative size_t int excluding bool and enums");
     }
     Vector_<double> Numbers(const py::handle& value, const char* field) {
         Vector_<double> result;
-        const auto sequence = RequestSequence(value, {field, IDENTIFIER});
+        if (!py::isinstance<py::list>(value) && !py::isinstance<py::tuple>(value))
+            throw py::type_error(InputContext(value, field, "list or tuple of finite positive numbers", IDENTIFIER));
+        const auto sequence = py::reinterpret_borrow<py::sequence>(value);
         result.reserve(sequence.size());
         for (size_t i = 0; i < sequence.size(); ++i)
             result.push_back(Real(sequence[i], std::string(field) + "[" + std::to_string(i) + "]"));
