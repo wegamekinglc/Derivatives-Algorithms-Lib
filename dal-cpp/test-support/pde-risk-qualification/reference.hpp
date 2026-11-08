@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <stdexcept>
 #include <vector>
@@ -40,26 +41,40 @@ namespace PdeRiskReference {
         }
         return result;
     }
-    inline double Tree(const Input_& r, int n) {
+    inline void ValidateTree(const Input_& r) {
         if (r.carry_.size() != 1 || (!r.american_ && r.exercise_ != std::vector<double>{r.days_}))
             throw std::runtime_error("TREE requires constant carry and American or terminal exercise");
+    }
+    inline void TreeLayer(const Input_& r, int layer, double u, double up, double down, std::vector<double>* value) {
+        double spot = r.spot_ * std::exp(-layer * std::log(u));
+        for (int j = 0; j <= layer; ++j) {
+            (*value)[j] = down * (*value)[j] + up * (*value)[j + 1];
+            if (r.american_)
+                (*value)[j] = std::max((*value)[j], Payoff(r, spot));
+            spot *= u * u;
+        }
+    }
+    inline void Deadline(double epoch) {
+        if (epoch == 0.0)
+            return;
+        const double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+        if (now >= epoch)
+            throw std::runtime_error("reference wall-clock budget exhausted");
+    }
+    inline double Tree(const Input_& r, int n, double deadlineEpoch = 0.0) {
+        ValidateTree(r);
         const double dt = r.days_ / (365.0 * n), u = std::exp(r.volatility_ * std::sqrt(dt)), d = 1.0 / u;
         const double p = (std::exp((r.carry_[0].rate_ - r.carry_[0].yield_) * dt) - d) / (u - d);
         const double discount = std::exp(-r.carry_[0].rate_ * dt), up = discount * p, down = discount * (1.0 - p);
         if (!(p >= 0.0 && p <= 1.0))
             throw std::runtime_error("TREE invalid probability");
         std::vector<double> value(n + 1);
-        // Re-anchor each layer to avoid exponential recurrence drift across O(n^2) nodes.
         for (int j = 0; j <= n; ++j)
             value[j] = Payoff(r, r.spot_ * std::exp((2 * j - n) * std::log(u)));
         for (int layer = n - 1; layer >= 0; --layer) {
-            double spot = r.spot_ * std::exp(-layer * std::log(u));
-            for (int j = 0; j <= layer; ++j) {
-                value[j] = down * value[j] + up * value[j + 1];
-                if (r.american_)
-                    value[j] = std::max(value[j], Payoff(r, spot));
-                spot *= u * u;
-            }
+            if ((layer & 255) == 0)
+                Deadline(deadlineEpoch);
+            TreeLayer(r, layer, u, up, down, &value);
         }
         return value[0];
     }
@@ -73,34 +88,39 @@ namespace PdeRiskReference {
         }
         return {rate, yield};
     }
-    inline double Envelope(const Input_& r, double spot, double day) {
-        std::vector<double> opportunities;
-        if (r.american_) {
-            opportunities.push_back(day);
-            double start = 0.0;
-            for (const auto& s : r.carry_) {
-                const double left = std::max(day, start);
-                if (s.end_ >= left) {
-                    opportunities.push_back(s.end_);
-                    const auto integral = Integral(r, day, left);
-                    if (s.rate_ * s.yield_ > 0.0 && s.rate_ != s.yield_ && spot > 0.0) {
-                        const double stationary =
-                            left + 365.0 *
-                                       std::log(s.rate_ * r.strike_ * std::exp(-integral.first) / (s.yield_ * spot * std::exp(-integral.second))) /
-                                       (s.rate_ - s.yield_);
-                        if (stationary > left && stationary < s.end_)
-                            opportunities.push_back(stationary);
-                    }
-                }
-                start = s.end_;
-            }
-        } else {
+    inline void StationaryOpportunity(const Input_& r, const Carry_& s, double spot, double day, double left, std::vector<double>* out) {
+        const auto integral = Integral(r, day, left);
+        if (s.rate_ * s.yield_ > 0.0 && s.rate_ != s.yield_ && spot > 0.0) {
+            const double stationary =
+                left + 365.0 * std::log(s.rate_ * r.strike_ * std::exp(-integral.first) / (s.yield_ * spot * std::exp(-integral.second))) /
+                           (s.rate_ - s.yield_);
+            if (stationary > left && stationary < s.end_)
+                out->push_back(stationary);
+        }
+    }
+    inline std::vector<double> Opportunities(const Input_& r, double spot, double day) {
+        std::vector<double> out;
+        if (!r.american_) {
             for (double exercise : r.exercise_)
                 if (exercise >= day)
-                    opportunities.push_back(exercise);
+                    out.push_back(exercise);
+            return out;
         }
+        out.push_back(day);
+        double start = 0.0;
+        for (const auto& s : r.carry_) {
+            const double left = std::max(day, start);
+            if (s.end_ >= left) {
+                out.push_back(s.end_);
+                StationaryOpportunity(r, s, spot, day, left, &out);
+            }
+            start = s.end_;
+        }
+        return out;
+    }
+    inline double Envelope(const Input_& r, double spot, double day) {
         double best = 0.0;
-        for (double exercise : opportunities) {
+        for (double exercise : Opportunities(r, spot, day)) {
             const auto integral = Integral(r, day, exercise);
             const double forwardIntrinsic = spot * std::exp(-integral.second) - r.strike_ * std::exp(-integral.first);
             best = std::max(best, r.call_ ? forwardIntrinsic : -forwardIntrinsic);
@@ -111,86 +131,129 @@ namespace PdeRiskReference {
         double price_ = 0.0, maxResidual_ = 0.0;
         int maxIterations_ = 0, steps_ = 0;
     };
-    inline LogResult_ LogLcp(const Input_& r, int level) {
-        const int nodes[] = {4097, 8193, 16385}, subdivisions[] = {16, 32, 64};
-        const double bound[] = {4.0, 5.0, 6.0};
-        if (level < 0 || level > 2)
-            throw std::runtime_error("LOG-LCP level outside frozen range");
-        const int n = nodes[level], sub = subdivisions[level];
-        const double dx = 2.0 * bound[level] / (n - 1);
-        std::vector<double> grid(n), obstacle(n), value(n), rhs(n), inverse(n), multiplier(n);
-        for (int i = 0; i < n; ++i) {
-            grid[i] = r.strike_ * std::exp(-bound[level] + i * dx);
-            obstacle[i] = value[i] = Payoff(r, grid[i]);
+    struct LogGrid_ {
+        const Input_& r_;
+        int n_, sub_;
+        double bound_, dx_, dt_, a_ = 0.0, b_ = 0.0, c_ = 0.0;
+        std::vector<double> grid_, obstacle_, value_, rhs_, inverse_, multiplier_;
+        LogResult_ result_;
+        LogGrid_(const Input_& r, int level) : r_(r) {
+            const int nodes[] = {4097, 8193, 16385}, subdivisions[] = {16, 32, 64};
+            const double bound[] = {4.0, 5.0, 6.0};
+            if (level < 0 || level > 2)
+                throw std::runtime_error("LOG-LCP level outside frozen range");
+            n_ = nodes[level];
+            sub_ = subdivisions[level];
+            bound_ = bound[level];
+            dx_ = 2.0 * bound[level] / (n_ - 1);
+            grid_.resize(n_);
+            obstacle_.resize(n_);
+            value_.resize(n_);
+            rhs_.resize(n_);
+            inverse_.resize(n_);
+            multiplier_.resize(n_);
+            for (int i = 0; i < n_; ++i) {
+                grid_[i] = r.strike_ * std::exp(-bound[level] + i * dx_);
+                obstacle_[i] = value_[i] = Payoff(r, grid_[i]);
+            }
+            dt_ = 1.0 / (365.0 * sub_);
         }
-        LogResult_ result;
-        const double dt = 1.0 / (365.0 * sub);
-        for (int day = static_cast<int>(r.days_) - 1; day >= 0; --day) {
+        void Coefficients(int day) {
             size_t segment = 0;
-            while (segment + 1 < r.carry_.size() && r.carry_[segment].end_ <= day)
+            while (segment + 1 < r_.carry_.size() && r_.carry_[segment].end_ <= day)
                 ++segment;
-            const auto carry = r.carry_[segment];
-            const double diffusion = .5 * r.volatility_ * r.volatility_ / (dx * dx);
-            const double drift = (carry.rate_ - carry.yield_ - .5 * r.volatility_ * r.volatility_) / (2.0 * dx);
-            const double a = -dt * (diffusion - drift), b = 1.0 + dt * (2.0 * diffusion + carry.rate_), c = -dt * (diffusion + drift);
-            if (a > 0 || c > 0)
+            const auto carry = r_.carry_[segment];
+            const double diffusion = .5 * r_.volatility_ * r_.volatility_ / (dx_ * dx_);
+            const double drift = (carry.rate_ - carry.yield_ - .5 * r_.volatility_ * r_.volatility_) / (2.0 * dx_);
+            a_ = -dt_ * (diffusion - drift);
+            b_ = 1.0 + dt_ * (2.0 * diffusion + carry.rate_);
+            c_ = -dt_ * (diffusion + drift);
+            if (a_ > 0 || c_ > 0)
                 throw std::runtime_error("LOG-LCP central operator is not monotone");
-            inverse[1] = 1.0 / b;
-            for (int i = 2; i < n - 1; ++i) {
-                multiplier[i] = a * inverse[i - 1];
-                inverse[i] = 1.0 / (b - multiplier[i] * c);
+            inverse_[1] = 1.0 / b_;
+            for (int i = 2; i < n_ - 1; ++i) {
+                multiplier_[i] = a_ * inverse_[i - 1];
+                inverse_[i] = 1.0 / (b_ - multiplier_[i] * c_);
             }
-            for (int k = sub - 1; k >= 0; --k) {
-                const double target = day + double(k) / sub;
-                rhs = value;
-                value[0] = Envelope(r, grid[0], target);
-                value[n - 1] = Envelope(r, grid[n - 1], target);
-                rhs[1] -= a * value[0];
-                rhs[n - 2] -= c * value[n - 1];
-                if (!r.american_) {
-                    for (int i = 2; i < n - 1; ++i)
-                        rhs[i] -= multiplier[i] * rhs[i - 1];
-                    value[n - 2] = rhs[n - 2] * inverse[n - 2];
-                    for (int i = n - 3; i > 0; --i)
-                        value[i] = (rhs[i] - c * value[i + 1]) * inverse[i];
-                    if (k == 0 && std::find(r.exercise_.begin(), r.exercise_.end(), double(day)) != r.exercise_.end())
-                        for (int i = 1; i < n - 1; ++i)
-                            value[i] = std::max(value[i], obstacle[i]);
-                } else {
-                    bool converged = false;
-                    for (int iteration = 1; iteration <= 100000; ++iteration) {
-                        double residual = 0.0;
-                        for (int i = 1; i < n - 1; ++i) {
-                            const double left = i == 1 ? 0.0 : a * value[i - 1];
-                            const double right = i == n - 2 ? 0.0 : c * value[i + 1];
-                            value[i] = std::max(obstacle[i], value[i] + 1.2 * ((rhs[i] - left - right) / b - value[i]));
-                        }
-                        for (int i = 1; i < n - 1; ++i) {
-                            const double dual = b * value[i] - rhs[i] + (i == 1 ? 0.0 : a * value[i - 1]) + (i == n - 2 ? 0.0 : c * value[i + 1]);
-                            residual = std::max(residual, std::abs(std::min(value[i] - obstacle[i], dual)));
-                        }
-                        if (residual <= 1e-11) {
-                            result.maxResidual_ = std::max(result.maxResidual_, residual);
-                            result.maxIterations_ = std::max(result.maxIterations_, iteration);
-                            converged = true;
-                            break;
-                        }
-                    }
-                    if (!converged)
-                        throw std::runtime_error("LOG-LCP original residual failed at frozen iteration cap");
+        }
+        void Boundaries(double target) {
+            rhs_ = value_;
+            value_[0] = Envelope(r_, grid_[0], target);
+            value_[n_ - 1] = Envelope(r_, grid_[n_ - 1], target);
+            rhs_[1] -= a_ * value_[0];
+            rhs_[n_ - 2] -= c_ * value_[n_ - 1];
+        }
+        void Thomas() {
+            for (int i = 2; i < n_ - 1; ++i)
+                rhs_[i] -= multiplier_[i] * rhs_[i - 1];
+            value_[n_ - 2] = rhs_[n_ - 2] * inverse_[n_ - 2];
+            for (int i = n_ - 3; i > 0; --i)
+                value_[i] = (rhs_[i] - c_ * value_[i + 1]) * inverse_[i];
+        }
+        void Projection(int day, int k) {
+            if (k == 0 && std::find(r_.exercise_.begin(), r_.exercise_.end(), double(day)) != r_.exercise_.end())
+                for (int i = 1; i < n_ - 1; ++i)
+                    value_[i] = std::max(value_[i], obstacle_[i]);
+        }
+        void SorSweep() {
+            for (int i = 1; i < n_ - 1; ++i) {
+                const double left = i == 1 ? 0.0 : a_ * value_[i - 1];
+                const double right = i == n_ - 2 ? 0.0 : c_ * value_[i + 1];
+                value_[i] = std::max(obstacle_[i], value_[i] + 1.2 * ((rhs_[i] - left - right) / b_ - value_[i]));
+            }
+        }
+        double Residual() const {
+            double residual = 0.0;
+            for (int i = 1; i < n_ - 1; ++i) {
+                const double dual = b_ * value_[i] - rhs_[i] + (i == 1 ? 0.0 : a_ * value_[i - 1]) + (i == n_ - 2 ? 0.0 : c_ * value_[i + 1]);
+                residual = std::max(residual, std::abs(std::min(value_[i] - obstacle_[i], dual)));
+            }
+            return residual;
+        }
+        void Sor() {
+            for (int iteration = 1; iteration <= 100000; ++iteration) {
+                SorSweep();
+                const double residual = Residual();
+                if (residual <= 1e-11) {
+                    result_.maxResidual_ = std::max(result_.maxResidual_, residual);
+                    result_.maxIterations_ = std::max(result_.maxIterations_, iteration);
+                    return;
                 }
-                ++result.steps_;
+            }
+            throw std::runtime_error("LOG-LCP original residual failed at frozen iteration cap");
+        }
+        void Day(int day) {
+            Coefficients(day);
+            for (int k = sub_ - 1; k >= 0; --k) {
+                Boundaries(day + double(k) / sub_);
+                if (r_.american_)
+                    Sor();
+                else {
+                    Thomas();
+                    Projection(day, k);
+                }
+                ++result_.steps_;
             }
         }
-        const double position = (std::log(r.spot_ / r.strike_) + bound[level]) / dx;
-        const int center = std::clamp(static_cast<int>(std::round(position)), 1, n - 2);
-        for (int i = center - 1; i <= center + 1; ++i) {
-            double weight = 1.0;
-            for (int j = center - 1; j <= center + 1; ++j)
-                if (i != j)
-                    weight *= (r.spot_ - grid[j]) / (grid[i] - grid[j]);
-            result.price_ += weight * value[i];
+        double Interpolate() const {
+            const double position = (std::log(r_.spot_ / r_.strike_) + bound_) / dx_;
+            const int center = std::clamp(static_cast<int>(std::round(position)), 1, n_ - 2);
+            double result = 0.0;
+            for (int i = center - 1; i <= center + 1; ++i) {
+                double weight = 1.0;
+                for (int j = center - 1; j <= center + 1; ++j)
+                    if (i != j)
+                        weight *= (r_.spot_ - grid_[j]) / (grid_[i] - grid_[j]);
+                result += weight * value_[i];
+            }
+            return result;
         }
-        return result;
+    };
+    inline LogResult_ LogLcp(const Input_& r, int level) {
+        LogGrid_ grid(r, level);
+        for (int day = static_cast<int>(r.days_) - 1; day >= 0; --day)
+            grid.Day(day);
+        grid.result_.price_ = grid.Interpolate();
+        return grid.result_;
     }
 } // namespace PdeRiskReference

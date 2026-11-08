@@ -138,6 +138,33 @@ cross-check but cannot be the sole independent oracle. Fixed reference levels
 that fail self-qualification stop that qualification; expansion requires
 recorded evidence and an explicit follow-up decision, not a hidden retry.
 
+### Approved bounded TREE continuation (DAL-502)
+
+Coordinator decision `01a1b884-3818-7d26-bb9a-2493636a2df9` authorizes an
+append-only continuation after the original TREE INCOMPLETE result. Keep all
+4096/8192/16384 evidence. Append paired 32768/32769 and 65536/65537 in order;
+both are mandatory. If the latest level still fails self-qualification, only
+131072/131073 may follow, then stop. No favorable intermediate level/parity
+selection, smoothing, replacement oracle, fixture change or threshold change.
+
+The independent reference budget is cumulative 3e12 TREE terminal/rollback
+node calculations, at most four workers, RSS 128 MiB per worker / 512 MiB
+total, raw output 64 MiB and wall time 90 minutes. A tree with n steps costs
+(n+1)(n+2)/2 nodes. Charge every actual cache miss, including equivalence
+witnesses and missing old-level scales; do not reset the budget per stage.
+Product Q/C/L caps remain unchanged. Cache identities include physical inputs,
+axis, absolute offset, n/parity, source, configuration and executable. Reuse of
+an older identity needs an explicit recorded equivalence bridge, preserving
+the original result's source identity.
+
+Each actual product coarse/fine/extra-half triple needs its own full-vector
+self-qualification, including Vega. At the latest layer, all three raw parity
+differences, the last adjacent pair-mean refinement and fine/extra-half
+difference must be strictly below the original quarter limits before a product
+comparison can pass. Missing/nonfinite rows, any exhausted resource budget or
+failure at the maximum level remain INCOMPLETE with the raw data retained.
+No further layer or budget increase is implicit in this decision.
+
 ## N1 — European degeneration
 
 Cross product: PUT/CALL; S=80,100,120; q=0,0.03; r=0.05; D0/D1;

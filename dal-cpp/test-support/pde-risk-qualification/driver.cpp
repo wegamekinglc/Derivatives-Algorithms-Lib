@@ -1,16 +1,22 @@
 #include <dal/platform/platform.hpp>
 
+#include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
 
 #include <rapidjson/document.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/writer.h>
 
-#include <dal/math/pde/earlyexercisepderisk.hpp>
 #include <dal/math/pde/earlyexercisepdeinternal.hpp>
+#include <dal/math/pde/earlyexercisepderisk.hpp>
 
 #include "reference.hpp"
 
@@ -209,26 +215,10 @@ namespace {
             r.exercise_.push_back(d.GetDouble());
         return r;
     }
-    Dal::PDE::EarlyExercisePdeRiskRequest_ Request(const rapidjson::Value& j) {
+    void Settings(const rapidjson::Value& j, Dal::PDE::EarlyExercisePdeRiskRequest_* request) {
         using namespace Dal;
-        using namespace Dal::PDE;
+        auto& r = *request;
         const auto input = ReferenceInput(j);
-        const auto& e = j["evaluation"];
-        const Date_ evaluation(e[0].GetInt(), e[1].GetInt(), e[2].GetInt());
-        const auto date = [&](int day) { return Date::FromExcel(Date::ToExcel(evaluation) + day); };
-        const auto maturity = date(static_cast<int>(input.days_));
-        EarlyExercisePdeRiskRequest_ r;
-        r.valuation_.contract_ = {evaluation,
-                                  maturity,
-                                  input.strike_,
-                                  OptionType_(input.call_ ? "CALL" : "PUT"),
-                                  EarlyExerciseStyle_(input.american_ ? "AMERICAN" : "BERMUDAN"),
-                                  {}};
-        for (double day : input.exercise_)
-            r.valuation_.contract_.exerciseDates_.push_back(date(static_cast<int>(day)));
-        r.valuation_.market_ = {input.spot_, input.volatility_, {}};
-        for (const auto& s : input.carry_)
-            r.valuation_.market_.carry_.push_back({date(static_cast<int>(s.end_)), s.rate_, s.yield_});
         auto& s = r.valuation_.settings_;
         s.gridPoints_ = static_cast<int>(Number(j, "nodes", 1601));
         s.ordinarySteps_ = static_cast<int>(Number(j, "steps", 8000));
@@ -259,6 +249,28 @@ namespace {
         }
         if (j.HasMember("work"))
             r.risk_.maxWorkUnits_ = j["work"].GetUint64();
+    }
+    Dal::PDE::EarlyExercisePdeRiskRequest_ Request(const rapidjson::Value& j) {
+        using namespace Dal;
+        using namespace Dal::PDE;
+        const auto input = ReferenceInput(j);
+        const auto& e = j["evaluation"];
+        const Date_ evaluation(e[0].GetInt(), e[1].GetInt(), e[2].GetInt());
+        const auto date = [&](int day) { return Date::FromExcel(Date::ToExcel(evaluation) + day); };
+        const auto maturity = date(static_cast<int>(input.days_));
+        EarlyExercisePdeRiskRequest_ r;
+        r.valuation_.contract_ = {evaluation,
+                                  maturity,
+                                  input.strike_,
+                                  OptionType_(input.call_ ? "CALL" : "PUT"),
+                                  EarlyExerciseStyle_(input.american_ ? "AMERICAN" : "BERMUDAN"),
+                                  {}};
+        for (double day : input.exercise_)
+            r.valuation_.contract_.exerciseDates_.push_back(date(static_cast<int>(day)));
+        r.valuation_.market_ = {input.spot_, input.volatility_, {}};
+        for (const auto& s : input.carry_)
+            r.valuation_.market_.carry_.push_back({date(static_cast<int>(s.end_)), s.rate_, s.yield_});
+        Settings(j, &r);
         return r;
     }
     Dal::PDE::EarlyExercisePdeMarket_ ScenarioMarket(const Dal::PDE::EarlyExercisePdeMarket_& base,
@@ -276,76 +288,92 @@ namespace {
             market.carry_[*scenario.segmentIndex_].dividendYield_ = *scenario.parameterValue_;
         return market;
     }
+    Dal::Vector_<Dal::PDE::EarlyExercisePdeExerciseRegion_> Regions(const Dal::PDE::EarlyExercisePdeResult_& observed) {
+        Dal::Vector_<Dal::PDE::EarlyExercisePdeExerciseRegion_> evaluation;
+        for (const auto& level : observed.ExerciseLevels())
+            if (level.timeIndex_ == 0)
+                for (size_t k = 0; k < level.regionCount_; ++k)
+                    evaluation.push_back(observed.ExerciseRegions()[level.regionOffset_ + k]);
+        return evaluation;
+    }
+    size_t NonterminalRegions(const Dal::PDE::EarlyExercisePdeResult_& observed) {
+        size_t result = 0;
+        for (const auto& level : observed.ExerciseLevels())
+            if (level.kind_ != Dal::EarlyExercisePdeLevelKind_("TERMINAL"))
+                result += level.regionCount_;
+        return result;
+    }
+    void Contact(Writer_& w,
+                 const Dal::PDE::EarlyExercisePdeRequest_& request,
+                 const Dal::PDE::EarlyExercisePdeRiskScenario_& scenario,
+                 const Dal::PDE::EarlyExercisePdeInternal::Plan_& plan) {
+        auto r = request;
+        r.market_ = ScenarioMarket(request.market_, scenario);
+        const auto observed = Dal::PDE::EarlyExercisePdeInternal::Rollback(r, plan);
+        w.StartObject();
+        w.Key("scenario");
+        Write(w, scenario.scenarioId_);
+        w.Key("same_price");
+        Write(w, observed.IsSuccess() && scenario.price_ == observed.Price());
+        w.Key("market");
+        Write(w, r.market_);
+        w.Key("nonterminal_regions");
+        Write(w, NonterminalRegions(observed));
+        w.Key("evaluation_regions");
+        Write(w, Regions(observed));
+        w.EndObject();
+    }
+    void Parallel(Writer_& w,
+                  const rapidjson::Value& j,
+                  const Dal::PDE::EarlyExercisePdeRequest_& request,
+                  const Dal::PDE::EarlyExercisePdeInternal::Plan_& plan,
+                  bool rate) {
+        const double bump = Number(j, "carry_bump", .0001) / 2;
+        double values[2]{};
+        for (int side = 0; side < 2; ++side) {
+            auto r = request;
+            for (auto& segment : r.market_.carry_)
+                (rate ? segment.rate_ : segment.dividendYield_) += side == 0 ? -bump : bump;
+            const auto observed = Dal::PDE::EarlyExercisePdeInternal::Rollback(r, plan);
+            if (!observed.IsSuccess())
+                throw std::runtime_error("parallel audit price failed");
+            values[side] = observed.Price();
+        }
+        w.StartObject();
+        w.Key("rate");
+        Write(w, rate);
+        w.Key("bump");
+        Write(w, bump);
+        w.Key("minus");
+        Write(w, values[0]);
+        w.Key("plus");
+        Write(w, values[1]);
+        w.Key("partial");
+        Write(w, (values[1] - values[0]) / (2 * bump));
+        w.EndObject();
+    }
     void Audit(Writer_& w,
                const rapidjson::Value& j,
                const Dal::PDE::EarlyExercisePdeRiskRequest_& request,
                const Dal::PDE::EarlyExercisePdeRiskResult_& result) {
-        using namespace Dal::PDE;
-        Dal::Vector_<EarlyExercisePdeMarket_> markets;
+        Dal::Vector_<Dal::PDE::EarlyExercisePdeMarket_> markets;
         for (const auto& row : result.Scenarios())
             markets.push_back(ScenarioMarket(request.valuation_.market_, row));
-        const auto plan = EarlyExercisePdeInternal::BuildPlan(request.valuation_, markets);
+        const auto plan = Dal::PDE::EarlyExercisePdeInternal::BuildPlan(request.valuation_, markets);
         w.Key("audit_plan_id");
         Write(w, plan.Id());
         if (Flag(j, "audit_contacts", false)) {
             w.Key("contact_audit");
             w.StartArray();
-            for (size_t i = 0; i < markets.size(); ++i) {
-                auto r = request.valuation_;
-                r.market_ = markets[i];
-                const auto observed = EarlyExercisePdeInternal::Rollback(r, plan);
-                size_t nonterminal = 0;
-                Dal::Vector_<EarlyExercisePdeExerciseRegion_> evaluation;
-                for (const auto& level : observed.ExerciseLevels()) {
-                    if (level.kind_ != Dal::EarlyExercisePdeLevelKind_("TERMINAL"))
-                        nonterminal += level.regionCount_;
-                    if (level.timeIndex_ == 0)
-                        for (size_t k = 0; k < level.regionCount_; ++k)
-                            evaluation.push_back(observed.ExerciseRegions()[level.regionOffset_ + k]);
-                }
-                w.StartObject();
-                w.Key("scenario");
-                Write(w, result.Scenarios()[i].scenarioId_);
-                w.Key("same_price");
-                Write(w, observed.IsSuccess() && result.Scenarios()[i].price_ == observed.Price());
-                w.Key("market");
-                Write(w, markets[i]);
-                w.Key("nonterminal_regions");
-                Write(w, nonterminal);
-                w.Key("evaluation_regions");
-                Write(w, evaluation);
-                w.EndObject();
-            }
+            for (const auto& scenario : result.Scenarios())
+                Contact(w, request.valuation_, scenario, plan);
             w.EndArray();
         }
         if (Flag(j, "audit_parallel", false)) {
             w.Key("parallel_audit");
             w.StartArray();
-            for (bool rate : {true, false}) {
-                const double bump = Number(j, "carry_bump", .0001) / 2;
-                double values[2]{};
-                for (int side = 0; side < 2; ++side) {
-                    auto r = request.valuation_;
-                    for (auto& segment : r.market_.carry_)
-                        (rate ? segment.rate_ : segment.dividendYield_) += side == 0 ? -bump : bump;
-                    const auto observed = EarlyExercisePdeInternal::Rollback(r, plan);
-                    if (!observed.IsSuccess())
-                        throw std::runtime_error("parallel audit price failed");
-                    values[side] = observed.Price();
-                }
-                w.StartObject();
-                w.Key("rate");
-                Write(w, rate);
-                w.Key("bump");
-                Write(w, bump);
-                w.Key("minus");
-                Write(w, values[0]);
-                w.Key("plus");
-                Write(w, values[1]);
-                w.Key("partial");
-                Write(w, (values[1] - values[0]) / (2 * bump));
-                w.EndObject();
-            }
+            for (bool rate : {true, false})
+                Parallel(w, j, request.valuation_, plan, rate);
             w.EndArray();
         }
     }
@@ -385,54 +413,132 @@ namespace {
         if (audit)
             Audit(w, j, request, result);
     }
+    void Reference(Writer_& w, const rapidjson::Value& j, const std::string& mode) {
+        const auto r = ReferenceInput(j);
+        if (mode == "analytic") {
+            w.Key("values");
+            w.StartArray();
+            for (double v : PdeRiskReference::Analytic(r))
+                Write(w, v);
+            w.EndArray();
+            return;
+        }
+        if (mode == "tree") {
+            w.Key("price");
+            Write(w, PdeRiskReference::Tree(r, j["tree_steps"].GetInt(), Number(j, "deadline_epoch", 0)));
+            return;
+        }
+        if (mode != "log")
+            throw std::runtime_error("unknown mode");
+        const auto result = PdeRiskReference::LogLcp(r, j["level"].GetInt());
+        w.Key("price");
+        Write(w, result.price_);
+        w.Key("residual");
+        Write(w, result.maxResidual_);
+        w.Key("iterations");
+        Write(w, result.maxIterations_);
+        w.Key("steps");
+        Write(w, result.steps_);
+    }
+    std::string Run(const std::string& mode, const rapidjson::Value& j) {
+        std::ostringstream output;
+        rapidjson::OStreamWrapper stream(output);
+        Writer_ w(stream);
+        w.StartObject();
+        try {
+            if (mode == "product" || mode == "audit")
+                Product(w, j, mode == "audit");
+            else
+                Reference(w, j, mode);
+        } catch (const std::exception& e) {
+            w.Key("error");
+            w.String(e.what());
+        }
+        w.EndObject();
+        return output.str();
+    }
+    rapidjson::Document Parse(const std::string& text) {
+        rapidjson::Document j;
+        j.Parse(text.c_str());
+        if (j.HasParseError() || !j.IsObject())
+            throw std::runtime_error("invalid job JSON");
+        return j;
+    }
+    size_t RssKiB() {
+#ifndef _WIN32
+        struct rusage usage{};
+        if (getrusage(RUSAGE_SELF, &usage) != 0)
+            throw std::runtime_error("getrusage failed");
+        return static_cast<size_t>(usage.ru_maxrss);
+#else
+        throw std::runtime_error("reference RSS accounting unavailable");
+#endif
+    }
+    uint64_t Charge(const rapidjson::Value& job) {
+        if (std::string(job["mode"].GetString()) != "tree")
+            return 0;
+        const auto n = job["request"]["tree_steps"].GetUint64();
+        if (n > 131073)
+            throw std::runtime_error("reference level exceeds approved maximum");
+        const auto required = (n + 1) * (n + 2) / 2;
+        if (required != job["nodes"].GetUint64())
+            throw std::runtime_error("reference node charge mismatch");
+        return required;
+    }
+    void BatchJob(std::ostream& output, const rapidjson::Value& job) {
+        const auto start = std::chrono::steady_clock::now();
+        const auto result = Run(job["mode"].GetString(), job["request"]);
+        rapidjson::OStreamWrapper stream(output);
+        Writer_ w(stream);
+        w.StartObject();
+        w.Key("id");
+        w.String(job["id"].GetString());
+        w.Key("result");
+        w.RawValue(result.c_str(), result.size(), rapidjson::kObjectType);
+        w.Key("elapsed_seconds");
+        Write(w, std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+        w.Key("max_rss_kib");
+        Write(w, RssKiB());
+        w.Key("nodes");
+        w.Uint64(Charge(job));
+        w.EndObject();
+        output << '\n';
+        output.flush();
+    }
+    int Batch(const std::filesystem::path& path) {
+        std::ifstream input(path);
+        std::ofstream output(path.string() + ".results.jsonl");
+        if (!input || !output)
+            throw std::runtime_error("cannot open batch input/output");
+        uint64_t charged = 0;
+        std::string line;
+        while (std::getline(input, line)) {
+            const auto job = Parse(line);
+            charged += Charge(job);
+            if (charged > 3000000000000ULL)
+                throw std::runtime_error("reference node budget exhausted");
+            BatchJob(output, job);
+            const std::string mode = job["mode"].GetString();
+            const auto limit = mode == "product" || mode == "audit" ? 1073741824 : 16777216;
+            if (output.tellp() > limit)
+                throw std::runtime_error("batch output budget exhausted");
+        }
+        return 0;
+    }
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        std::cerr << "usage: driver product|analytic|tree|log request.json\n";
-        return 2;
-    }
-    std::ifstream input(argv[2]);
-    const std::string text((std::istreambuf_iterator<char>(input)), {});
-    rapidjson::Document j;
-    j.Parse(text.c_str());
-    if (j.HasParseError())
-        return 2;
-    rapidjson::OStreamWrapper stream(std::cout);
-    Writer_ w(stream);
-    w.StartObject();
     try {
-        const std::string mode(argv[1]);
-        if (mode == "product" || mode == "audit")
-            Product(w, j, mode == "audit");
-        else {
-            const auto r = ReferenceInput(j);
-            if (mode == "analytic") {
-                w.Key("values");
-                w.StartArray();
-                for (double v : PdeRiskReference::Analytic(r))
-                    Write(w, v);
-                w.EndArray();
-            } else if (mode == "tree") {
-                w.Key("price");
-                Write(w, PdeRiskReference::Tree(r, j["tree_steps"].GetInt()));
-            } else if (mode == "log") {
-                const auto result = PdeRiskReference::LogLcp(r, j["level"].GetInt());
-                w.Key("price");
-                Write(w, result.price_);
-                w.Key("residual");
-                Write(w, result.maxResidual_);
-                w.Key("iterations");
-                Write(w, result.maxIterations_);
-                w.Key("steps");
-                Write(w, result.steps_);
-            } else
-                throw std::runtime_error("unknown mode");
-        }
+        if (argc != 3)
+            throw std::runtime_error("usage: driver MODE request.json | --batchfile jobs.jsonl");
+        if (std::string(argv[1]) == "--batchfile")
+            return Batch(argv[2]);
+        std::ifstream input(argv[2]);
+        const std::string text((std::istreambuf_iterator<char>(input)), {});
+        std::cout << Run(argv[1], Parse(text)) << '\n';
+        return 0;
     } catch (const std::exception& e) {
-        w.Key("error");
-        w.String(e.what());
+        std::cerr << e.what() << '\n';
+        return 2;
     }
-    w.EndObject();
-    std::cout << '\n';
 }
