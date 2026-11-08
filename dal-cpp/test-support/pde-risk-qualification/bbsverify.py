@@ -237,7 +237,32 @@ def resources(directory, ledger):
     )
 
 
+def valid_receipt_row(key, row, ledger):
+    job = ledger["jobs"][key]
+    return (
+        row["status"] == "PASS"
+        and row["spec"] == job["spec"]
+        and row["raw"] == job["output"]["result"]
+    )
+
+
+def check_witness_receipt(directory, ledger):
+    path = directory / "witnesses.json"
+    if not path.is_file():
+        raise RuntimeError("BBS witness receipt missing")
+    receipt = json.loads(path.read_text())
+    expected = {
+        key for key, j in ledger["jobs"].items() if j["spec"]["kind"] != "pilot"
+    }
+    if receipt["status"] != "PASS" or set(receipt["results"]) != expected:
+        raise RuntimeError("BBS witness receipt failed/incomplete")
+    for key, row in receipt["results"].items():
+        if not valid_receipt_row(key, row, ledger):
+            raise RuntimeError("BBS witness receipt identity differs")
+
+
 def finish(directory, ledger):
+    check_witness_receipt(directory, ledger)
     proofs = pilot_proofs(ledger)
     american = american_checks(ledger)
     status = (

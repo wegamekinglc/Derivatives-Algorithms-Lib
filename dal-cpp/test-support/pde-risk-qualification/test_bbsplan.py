@@ -1,11 +1,26 @@
 import copy
+import json
+import pathlib
+import tempfile
 import unittest
 
 from bbsplan import BS_CAP, METHOD, NODE_CAP, cache_key, reserve, specifications
-from bbsverify import price, self_proof
+from bbsverify import price, self_proof, check_witness_receipt
 
 
 class BbsPilotTest(unittest.TestCase):
+    def test_missing_or_incomplete_witness_receipt_cannot_admit(self):
+        with tempfile.TemporaryDirectory(prefix="bbs-receipt-", dir=".") as temporary:
+            directory = pathlib.Path(temporary)
+            ledger = dict(jobs={"required": dict(spec=dict(kind="formula"))})
+            with self.assertRaises(RuntimeError):
+                check_witness_receipt(directory, ledger)
+            (directory / "witnesses.json").write_text(
+                json.dumps(dict(status="PASS", results={}))
+            )
+            with self.assertRaises(RuntimeError):
+                check_witness_receipt(directory, ledger)
+
     def test_fixed_plan_accounts_for_all_native_witnesses(self):
         ledger = dict(charged_nodes=0, reserved_bs=100)
         specs = specifications()

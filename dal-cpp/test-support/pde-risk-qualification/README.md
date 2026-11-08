@@ -165,7 +165,7 @@ python dal-cpp/test-support/pde-risk-qualification/bbsverify.py finish \
 Unexpected numerical errors stop the worker and retain its partial counters.
 After a stopped batch, `bbs_stopped.py --output ...` derives a partial report
 from saved results without new BS/tree evaluations. No rerun or expansion is
-implicit. The first bounded pilot stopped on three negative European-value
+implicit. The first bounded pilot stopped on three invalid-European-value
 guards; its missing rows and all six final scale qualifications remain
 INCOMPLETE. European/formula controls passing does not establish American
 pilot feasibility or replace S3 mandatory TREE evidence.
