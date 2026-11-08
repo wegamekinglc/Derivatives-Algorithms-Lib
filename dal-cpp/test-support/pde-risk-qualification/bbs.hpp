@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 
 #include "reference.hpp"
 
@@ -24,14 +27,40 @@ namespace PdeRiskBbs {
             if (!std::isfinite(value))
                 throw std::runtime_error("BBS nonfinite carry");
     }
+    inline double MillsDifferenceQuotient(double x, double h) {
+        double lower = 0.0, upper = 0.0, relative = 0.0;
+        // Track (M(x)-M(x+h))/h directly through the positive continued fraction.
+        for (int k = 64; k > 0; --k) {
+            const double a = x + lower, b = x + h + upper;
+            relative = k * (1.0 - relative) / a / b;
+            lower = k / a;
+            upper = k / b;
+        }
+        return (1.0 - relative) / (x + lower) / (x + h + upper);
+    }
+    inline double EuropeanTail(const PdeRiskReference::Input_& r, double spot, double dt, double sd, double x) {
+        const double logAmount = r.call_ ? std::log(spot) - r.carry_[0].yield_ * dt : std::log(r.strike_) - r.carry_[0].rate_ * dt;
+        const double logValue =
+            logAmount - .5 * x * x - .5 * std::log(2.0 * std::acos(-1.0)) + std::log(sd) + std::log(MillsDifferenceQuotient(x, sd));
+        return std::exp(logValue);
+    }
+    [[noreturn]] inline void EuropeanError(const PdeRiskReference::Input_& r, double spot, double dt, double sd, double d1, double d2, double value) {
+        std::ostringstream message;
+        message << std::setprecision(std::numeric_limits<double>::max_digits10) << "BBS invalid European value: call=" << r.call_ << " spot=" << spot
+                << " strike=" << r.strike_ << " vol=" << r.volatility_ << " rate=" << r.carry_[0].rate_ << " yield=" << r.carry_[0].yield_
+                << " dt=" << dt << " sd=" << sd << " d1=" << d1 << " d2=" << d2 << " value=" << value;
+        throw std::runtime_error(message.str());
+    }
     inline double European(const PdeRiskReference::Input_& r, double spot, double dt) {
         const double sd = r.volatility_ * std::sqrt(dt);
         const double d1 = (std::log(spot / r.strike_) + (r.carry_[0].rate_ - r.carry_[0].yield_) * dt + .5 * sd * sd) / sd;
         const double d2 = d1 - sd, sign = r.call_ ? 1.0 : -1.0;
-        const double value = sign * (spot * std::exp(-r.carry_[0].yield_ * dt) * PdeRiskReference::Phi(sign * d1) -
-                                     r.strike_ * std::exp(-r.carry_[0].rate_ * dt) * PdeRiskReference::Phi(sign * d2));
-        if (!std::isfinite(value) || value < 0.0)
-            throw std::runtime_error("BBS invalid European value");
+        const double tail = r.call_ ? -d1 : d2;
+        const double value = tail >= 8.0 ? EuropeanTail(r, spot, dt, sd, tail)
+                                         : sign * (spot * std::exp(-r.carry_[0].yield_ * dt) * PdeRiskReference::Phi(sign * d1) -
+                                                   r.strike_ * std::exp(-r.carry_[0].rate_ * dt) * PdeRiskReference::Phi(sign * d2));
+        if (!std::isfinite(value) || value < 0.0 || !std::isfinite(sd) || sd <= 0.0)
+            EuropeanError(r, spot, dt, sd, d1, d2, value);
         return value;
     }
     inline double Obstacle(const PdeRiskReference::Input_& r, double spot, double continuation, bool terminal, bool root, Result_* result) {
