@@ -15,13 +15,15 @@ def valuation(style, spot=100.0):
 
 def display(label, result):
     print(f"{label}  {result.status}  {result.method}")
-    assert result.price_available
+    if not result.price_available:
+        raise RuntimeError("example base price unavailable")
     print(f"Price per unit underlying: {format_float(result.price)}")
     print(f"{'Risk':<20}{'Value':<14}{'Status':<46}Unit")
     print("-" * 125)
     for row in result.risks:
         available = row.status in ("AVAILABLE", "AVAILABLE_EXERCISE_REGION")
-        assert available == (row.value is not None)
+        if available != (row.value is not None):
+            raise RuntimeError(f"availability/value mismatch: {row.risk_id}")
         value = format_float(row.value) if available else "unavailable"
         print(f"{row.risk_id:<20}{value:<14}{row.status:<46}{row.unit}")
     print("Gamma: FINITE_SCALE_MODEL_APPROXIMATION; carry: NATIVE_MARKET_PARAMETER_PARTIAL\n")
@@ -30,16 +32,21 @@ def display(label, result):
 def main():
     for style in ("BERMUDAN", "AMERICAN"):
         result = dal.EarlyExercisePdeRiskResult_New(dal.EarlyExercisePdeRiskRequest_(valuation(style)))
-        assert result.is_complete
+        if not result.is_complete:
+            raise RuntimeError(f"smooth {style} example must be complete")
         display(style, result)
     price = dal.EarlyExercisePdeResult_New(valuation("AMERICAN"))
-    assert price.is_success
+    if not price.is_success:
+        raise RuntimeError("boundary control price failed")
     region = price.exercise_regions[price.exercise_levels[0].region_offset]
-    assert not region.right_clipped
+    if region.right_clipped:
+        raise RuntimeError("boundary control edge is clipped")
     spot = 0.5 * (price.grid[region.last_node] + price.grid[region.last_node + 1])
     result = dal.EarlyExercisePdeRiskResult_New(dal.EarlyExercisePdeRiskRequest_(valuation("AMERICAN", spot)))
-    assert result.status == "PARTIAL"
-    assert result.risks[0].status == "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY"
+    if result.status != "PARTIAL":
+        raise RuntimeError("boundary example must be PARTIAL")
+    if result.risks[0].status != "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY":
+        raise RuntimeError("boundary Delta must be unavailable near exercise boundary")
     display("Boundary", result)
 
 

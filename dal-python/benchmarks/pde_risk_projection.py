@@ -36,6 +36,15 @@ def copies(result, reads):
     return count
 
 
+def validate_projection(result, computed, before, records, reference, reads, expected_rows):
+    if records != reference["records"] or records != reads * expected_rows:
+        raise RuntimeError("projection record count drift")
+    if counters(result) != before or counters(computed) != before:
+        raise RuntimeError("projection native counters/payload changed")
+    if (reference["work"], reference["solves"], reference["payload"]) != before:
+        raise RuntimeError("native copy control counters/payload mismatch")
+
+
 def main():
     for two_carry, name in ((False, "Bermudan17"), (True, "TwoCarry25")):
         r = request(two_carry)
@@ -55,9 +64,7 @@ def main():
             copies(result, reads)
             live, peak = tracemalloc.get_traced_memory()
             tracemalloc.stop()
-            assert records == reference["records"] == reads * expected_rows
-            assert counters(result) == before == counters(computed)
-            assert (reference["work"], reference["solves"], reference["payload"]) == before
+            validate_projection(result, computed, before, records, reference, reads, expected_rows)
             print(json.dumps(dict(case=name, reads=reads, records=records, binding_compute_ns=compute_ns,
                 binding_copy_ns=copy_ns, binding_incremental_ns=compute_ns + copy_ns - reference["compute_ns"] - reference["copy_ns"],
                 python_traced_live_bytes=live, python_traced_peak_bytes=peak, native=reference,
