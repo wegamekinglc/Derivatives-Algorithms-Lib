@@ -31,19 +31,83 @@ def reference_origins(old, directory):
     write_json(directory / "parallel-reference-origins.json", origins)
 
 
+def refresh_view_link(source, target):
+    if not source.is_file():
+        raise RuntimeError("missing audit source: " + str(source))
+    if target.is_symlink():
+        target.unlink()
+    elif target.exists():
+        raise RuntimeError("unmanaged audit-view target: " + str(target))
+    target.symlink_to(source.resolve(strict=True))
+
+
+def view_case(view, source, name, origin):
+    files = {}
+    for suffix in [".json.gz", ".input.json"]:
+        target = view / (name + suffix)
+        refresh_view_link(source / target.name, target)
+        actual = target.resolve(strict=True)
+        files[suffix] = dict(path=str(actual), sha256=digest(actual))
+    return dict(origin=origin, files=files)
+
+
+def view_auxiliary(directory, view, name):
+    source = directory / name
+    target = view / name
+    if target.is_symlink():
+        target.unlink()
+    shutil.copyfile(source, target)
+    return dict(
+        origin="current",
+        files={"": dict(path=str(target.resolve()), sha256=digest(target))},
+        copied_from=dict(path=str(source.resolve()), sha256=digest(source)),
+    )
+
+
 def prepare_view(old, directory, view):
     view.mkdir(parents=True, exist_ok=True)
     origins = {}
+    sources = {}
     for name in fixtures():
         current = (directory / (name + ".json.gz")).exists()
         source = directory if current else old
         origins[name] = "current" if current else "historical"
-        for suffix in [".json.gz", ".input.json"]:
-            link(source / (name + suffix), view / (name + suffix))
+        sources[name] = view_case(view, source, name, origins[name])
     for name in ["supplement.json", "n9a-audit.json"]:
-        shutil.copyfile(directory / name, view / name)
+        sources[name] = view_auxiliary(directory, view, name)
     write_json(view / "origins.json", origins)
+    write_json(view / "view-sources.json", sources)
     return origins
+
+
+def validate_view_file(view, name, suffix, expected):
+    target = view / (name + suffix)
+    if not target.is_file() or str(target.resolve()) != expected["path"]:
+        raise RuntimeError("audit-view source changed: " + str(target))
+    if digest(target) != expected["sha256"]:
+        raise RuntimeError("audit-view payload changed: " + str(target))
+
+
+def validate_view(view, origins):
+    sources = json.loads((view / "view-sources.json").read_text())
+    expected = dict(
+        origins, **{"supplement.json": "current", "n9a-audit.json": "current"}
+    )
+    if set(sources) != set(expected):
+        raise RuntimeError("audit-view source inventory differs")
+    for name, source in sources.items():
+        if source["origin"] != expected[name]:
+            raise RuntimeError("audit-view origin differs: " + name)
+        for suffix, row in source["files"].items():
+            validate_view_file(view, name, suffix, row)
+    return sources
+
+
+def required_sources(name, required, sources):
+    result = {key: sources[key] for key in required if key in sources}
+    if name == "N9a-layers":
+        result["n9a-audit.json"] = sources["n9a-audit.json"]
+    return result
 
 
 def dependencies(name, row, names):
@@ -68,13 +132,20 @@ def dependencies(name, row, names):
 
 
 def admit_audits(view, directory, origins):
+    sources = validate_view(view, origins)
     audit.summarize(view)
+    validate_view(view, origins)
     records = json.loads((view / "audits.json").read_text())
     admitted = {}
     for name, row in records.items():
         required = dependencies(name, row, fixtures())
         historical = [n for n in required if origins.get(n) == "historical"]
-        admitted[name] = dict(row, required_cases=required, historical_cases=historical)
+        admitted[name] = dict(
+            row,
+            required_cases=required,
+            historical_cases=historical,
+            required_sources=required_sources(name, required, sources),
+        )
         if historical:
             admitted[name].update(status="INCOMPLETE", historical_status=row["status"])
     write_json(directory / "audits-admitted.json", admitted)
