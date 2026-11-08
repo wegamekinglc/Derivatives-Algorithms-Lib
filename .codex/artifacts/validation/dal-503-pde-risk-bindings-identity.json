@@ -1,5 +1,359 @@
 {
   "schema_version": 1,
+  "current_evidence": {
+    "validated_head": "20401a29539606384723ae1b1cce9dd6708bdf1d",
+    "repair_source_commit": "c8fae8bd63b6a38af9c0edba6d5a16e9ae596837",
+    "review": {
+      "author": "dal-reviewer",
+      "comment_id": "01a1bb70-9c0f-73e6-a679-397217234a8a",
+      "verdict": "Approve",
+      "scope": "Repair increment a795e679..20401a29; retains other original main-review conclusions; does not grant final release acceptance.",
+      "closed_findings": [
+        "F1",
+        "F2",
+        "F3",
+        "F4"
+      ],
+      "archive": {
+        "attachment_id": "01a1bb70-9ac8-7f2e-a41c-dce6534c6f97",
+        "sha256": "21039f506ba6e0d057527f6d70d5419cd6aad74e3b93871936c28730b7439106",
+        "bytes": 11715
+      },
+      "codacy": {
+        "check_run_id": 128748318897,
+        "head_sha": "20401a29539606384723ae1b1cce9dd6708bdf1d",
+        "status": "completed",
+        "conclusion": "success",
+        "annotations_count": 0,
+        "completed_at": "2026-11-08T13:41:22Z",
+        "receipt": "codacy-success.json"
+      }
+    },
+    "windows_b10": {
+      "verdict": "PASS",
+      "producer": "dal-tester",
+      "producer_comment_id": "01a1bb86-a0be-7e8f-b824-b8b7a6397d25",
+      "producer_head": "20401a29539606384723ae1b1cce9dd6708bdf1d",
+      "repair_source_commit": "c8fae8bd63b6a38af9c0edba6d5a16e9ae596837",
+      "producer_source_tree": "b2370012c94a8c56107b417ff6d4ef1200489f9e",
+      "archive": {
+        "attachment_id": "01a1bb86-985f-71d8-b413-2adffd78d383",
+        "filename": "dal-503-b10-native-20401a29.tar.gz",
+        "sha256": "7d2864704d215d4e8dd38261edb599108ceba1edacb6e14a49294992b1677822",
+        "bytes": 14639256,
+        "member_prefix": "s4-windows-20401a29/"
+      },
+      "workbook": {
+        "attachment_id": "01a1bb86-9f71-70c5-8712-f26b054dd46b",
+        "filename": "DAL-503-B10-20401a29.xlsx",
+        "sha256": "679ede891f42a5117fe066b3cf22564e932bc1f4c934280e3dd08bfef46979e0",
+        "bytes": 117402,
+        "sheets": 28
+      },
+      "environment": {
+        "windows": "Windows-10-10.0.26300-SP0",
+        "architecture": "x64",
+        "msvc": "19.44.35228.0",
+        "cmake": "3.27.6",
+        "excel": "16.0.20527.20150",
+        "configuration": "Release / Ninja / static MSVC runtime / AADET / Eigen",
+        "product_python_binding": "OFF",
+        "core_benchmarks": "OFF",
+        "core_examples": "OFF",
+        "native_arch": "OFF"
+      },
+      "loaded_xll": {
+        "path": "C:\\Users\\wegam\\AppData\\Local\\Multica\\DAL-503\\S4-20401a29\\build\\dal-excel\\dal_excel.xll",
+        "sha256": "d1cfc3dff6ecefbac8c77578d2fd399c06f8bcc9daab4711b3673d0a528ec945"
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\wegam\\AppData\\Local\\Multica\\DAL-503\\S4-20401a29\\build\\dal-excel\\dal_excel.xll",
+          "bytes": 15161344,
+          "sha256": "d1cfc3dff6ecefbac8c77578d2fd399c06f8bcc9daab4711b3673d0a528ec945",
+          "pe_machine": "0x8664",
+          "file_version": null
+        },
+        {
+          "path": "C:\\Users\\wegam\\AppData\\Local\\Multica\\DAL-503\\S4-20401a29\\build\\dal-excel\\dal_excel_tests.exe",
+          "bytes": 14472192,
+          "sha256": "cd67c280b6d55a0e67eb430cc445715441781c76a113065e449cd5d624ae93fa",
+          "pe_machine": "0x8664",
+          "file_version": null
+        },
+        {
+          "path": "C:\\Users\\wegam\\AppData\\Local\\Multica\\DAL-503\\S4-20401a29\\build\\CMakeCache.txt",
+          "bytes": 24277,
+          "sha256": "c75d8e91f5dc432dc116259cc5997e13bd68694158ad9b30fbf1790f139c22de"
+        },
+        {
+          "path": "C:\\Users\\wegam\\AppData\\Local\\Multica\\DAL-503\\S4-20401a29\\build\\compile_commands.json",
+          "bytes": 1066644,
+          "sha256": "c296cdec892a1037520cefbe6b79291964bc598ee7df7a9e7112a2f6de2b00fd"
+        }
+      ],
+      "dependencies": [
+        {
+          "path": "dal-cpp/externals/eigen",
+          "commit": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+          "file_count": 1784,
+          "archive_sha256": "a378af54cb5befc28cdfe409c26ec65cc3d81ac6f160a4797a2fa846f338d217"
+        },
+        {
+          "path": "dal-cpp/externals/googletest",
+          "commit": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+          "file_count": 251,
+          "archive_sha256": "1dfceb7fc2cc5bacb08027be40819fdeb71f2d9a18b3a836c65fbc9a1872a68f"
+        },
+        {
+          "path": "dal-cpp/externals/machinist",
+          "commit": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+          "file_count": 49,
+          "archive_sha256": "010b08f4fc88c44ef492768853edaebb98ecfff156d9a946f2eac60ef2d36375"
+        },
+        {
+          "path": "dal-cpp/externals/pybind11",
+          "commit": "8a099e44b3d5f85b20f05828d919d2332a8de841",
+          "file_count": 258,
+          "archive_sha256": "1d825315bf9c874e5822277196b0743f810f01341e92aebb5ff71daadcb0241e"
+        },
+        {
+          "path": "dal-cpp/externals/rapidjson",
+          "commit": "ea152ded01708ff1657b275ed0bcbf0681d64519",
+          "file_count": 313,
+          "archive_sha256": "f46793f633ccde0afa41ece3f7eb29504b4f199cf03cd013ffe85c32c284d5b8"
+        },
+        {
+          "path": "dal-cpp/externals/rapidjson/thirdparty/gtest",
+          "commit": "ba96d0b1161f540656efdaed035b3c062b60e006",
+          "file_count": 319,
+          "archive_sha256": "629083f71ebff83548d969bf6082390294befd712de0f5aa465e090094a7c2b0"
+        }
+      ],
+      "source_files_post_verified": 6712,
+      "results": {
+        "existing_native_tests": {
+          "pass": 10,
+          "fail": 0,
+          "new_or_modified_product_tests": 0
+        },
+        "actual_generated_native_entry_tests": {
+          "pass": 2,
+          "fail": 0
+        },
+        "live_registrations": 22,
+        "runtime_help_and_generated_html": 22,
+        "worksheet_formula_family_entries": 22,
+        "complete": {
+          "SchemaVersion": 1,
+          "Status": "COMPLETE",
+          "PriceAvailable": true,
+          "RiskComplete": true,
+          "Price": 6.726424327368208,
+          "PriceUnit": "price per unit underlying",
+          "Method": "BlackScholesEarlyExerciseFullRepriceFixedPlan",
+          "RiskBasis": "NATIVE_MARKET_PARAMETER_PARTIAL",
+          "AadUsed": false,
+          "PlanId": "p3v1:sha256:e02d219d2b48ef8dd851834469ca7debc4d104be853dd9d648040aa13c95852c"
+        },
+        "complete_execution": {
+          "PlannedScenarios": 17,
+          "AttemptedScenarios": 17,
+          "SuccessfulScenarios": 17,
+          "FailedScenarios": 0,
+          "NotRunScenarios": 0,
+          "TotalSolves": 8500,
+          "WorkUnits": 3391500,
+          "PlannedNumericPayloadBytes": 361012,
+          "PlannedWorkspaceBytes": 408696,
+          "PlannedPeakNativeBytes": 769708,
+          "NumericPayloadBytes": 151454,
+          "PeakWorkspaceBytes": 182650,
+          "PeakNativeBytes": 334104,
+          "WorkLimitScenarioIndex": "",
+          "WorkLimitSource": "NONE"
+        },
+        "partial": {
+          "SchemaVersion": 1,
+          "Status": "PARTIAL",
+          "PriceAvailable": true,
+          "RiskComplete": false,
+          "Price": 0,
+          "PriceUnit": "price per unit underlying",
+          "Method": "BlackScholesEarlyExerciseFullRepriceFixedPlan",
+          "RiskBasis": "NATIVE_MARKET_PARAMETER_PARTIAL",
+          "AadUsed": false,
+          "PlanId": "p3v1:sha256:6fde6e9cb35978339ba216e604bb0e83a19141d4bab0e2abd50c074703088f4a"
+        },
+        "partial_execution": {
+          "PlannedScenarios": 1,
+          "AttemptedScenarios": 1,
+          "SuccessfulScenarios": 1,
+          "FailedScenarios": 0,
+          "NotRunScenarios": 0,
+          "TotalSolves": 0,
+          "WorkUnits": 0,
+          "PlannedNumericPayloadBytes": 3543464,
+          "PlannedWorkspaceBytes": 3648080,
+          "PlannedPeakNativeBytes": 7191544,
+          "NumericPayloadBytes": 2172890,
+          "PeakWorkspaceBytes": 138364,
+          "PeakNativeBytes": 2243774,
+          "WorkLimitScenarioIndex": "",
+          "WorkLimitSource": "NONE"
+        },
+        "unavailable_blank_risks": 5,
+        "strict_input_error_cases": 5,
+        "full_recalculation_stable": true,
+        "complete_risks": [
+          {
+            "RiskId": "Delta",
+            "Value": -0.4085650931712126,
+            "Status": "AVAILABLE"
+          },
+          {
+            "RiskId": "Gamma",
+            "Value": 0.018986887065558955,
+            "Status": "AVAILABLE"
+          },
+          {
+            "RiskId": "Vega",
+            "Value": 37.949640048834226,
+            "Status": "AVAILABLE"
+          },
+          {
+            "RiskId": "Rate[0]",
+            "Value": -47.55686651378346,
+            "Status": "AVAILABLE"
+          },
+          {
+            "RiskId": "DividendYield[0]",
+            "Value": 40.82515819443506,
+            "Status": "AVAILABLE"
+          }
+        ],
+        "partial_scalar_error": "EarlyExercisePdeRiskValueUnavailable"
+      },
+      "evidence_member_sha256": {
+        "artifacts/final-summary.json": "aadbc3b3fcb94db4f3d3bfd040d01364cff2fa817355853bfd7b5510b31cd51d",
+        "artifacts/native-identity.json": "4bef37cffc52a48a07ca3e91534296967a2038514ae47a4b5ff989b307c6b8c2",
+        "snapshot-identity.json": "cc6af3ef6fa0d2b87d696f5bb75357a545e1ca7e3977a002e0cda151ed26947a",
+        "artifacts/workbook-evidence.json": "46d7bbb36febaf125c16f0696895fd5ae55aacb69468cda30c09e243c9c1cc8b",
+        "artifacts/registration-evidence.json": "d4e61599f5dfb4394af866fc2d05a3ccbd90d854f63067b6328974c23e80b8f7",
+        "native-build.ps1": "7d6d2ec9f1e8ad314bd5582c9020fb75bd2260a78c80ec3142983858d1c3bad5",
+        "verify_workbook.py": "2fa6b42f442a00445bb5d84fe247bf303b0b01396f27e35a079d4e40d523d6d7"
+      },
+      "successful_command_receipts": {
+        "configure.meta.json": {
+          "returncode": 0,
+          "finished_utc": "2026-11-08T14:03:08.287460+00:00"
+        },
+        "build.meta.json": {
+          "returncode": 0,
+          "finished_utc": "2026-11-08T14:08:20.481429+00:00"
+        },
+        "native-tests.meta.json": {
+          "returncode": 0,
+          "finished_utc": "2026-11-08T14:08:50.579447+00:00"
+        },
+        "registration-native-flags.meta.json": {
+          "returncode": 0,
+          "finished_utc": "2026-11-08T14:09:28.933112+00:00"
+        },
+        "worksheet-readback.meta.json": {
+          "returncode": 0,
+          "finished_utc": "2026-11-08T14:11:48.408486+00:00"
+        },
+        "native-identity-unsigned-version.meta.json": {
+          "returncode": 0,
+          "finished_utc": "2026-11-08T14:13:20.120318+00:00"
+        }
+      },
+      "harness_history": [
+        "Interrupted only initial WSL-to-NTFS extractor; resumed using native extraction",
+        "Restored archive CRLF export conversion to exact canonical Git blobs; verified all contents",
+        "Added omitted WIN32/_WINDOWS flags to standalone registration helper",
+        "Replaced late-bound COM Resize default-Item call with explicit range and input readback",
+        "Used numeric version cell for Excel General-format readback",
+        "Decoded unsigned version DWORDs correctly in identity collector"
+      ],
+      "harness_history_scope": "Intermediate failures and failed workbook captures remain in the archive; final successful receipts above supersede those harness attempts. Product fixes: 0.",
+      "owned_excel_cleanup": {
+        "pid": 55588,
+        "quit_exited": true,
+        "terminated_only_owned_instance": false
+      }
+    },
+    "documentation_reuse": {
+      "author": "dal-doc-writer",
+      "reference_producer_head": "20401a29539606384723ae1b1cce9dd6708bdf1d",
+      "unchanged_product_and_build_git_entries": {
+        "dal-cpp": {
+          "mode": "040000",
+          "kind": "tree",
+          "git_object": "4798440eee2512887281efa7c0f204ff003a18fe"
+        },
+        "dal-public": {
+          "mode": "040000",
+          "kind": "tree",
+          "git_object": "d60006fdc7e7bd93212469c4f7f6eaf50cd257df"
+        },
+        "dal-python": {
+          "mode": "040000",
+          "kind": "tree",
+          "git_object": "4756e9aa710eaa174c5dc072bcfac8c7826ff28c"
+        },
+        "dal-excel": {
+          "mode": "040000",
+          "kind": "tree",
+          "git_object": "e1541c078ed0b2b13b702e78165c6506f186dd96"
+        },
+        "tests": {
+          "mode": "040000",
+          "kind": "tree",
+          "git_object": "150348b0538130e25006d9fb2de8b5d7239a8958"
+        },
+        ".github": {
+          "mode": "040000",
+          "kind": "tree",
+          "git_object": "1b9bed7f00b4cec56cab095b8e806813a3d447d2"
+        },
+        ".gitmodules": {
+          "mode": "100644",
+          "kind": "blob",
+          "git_object": "3a65c7ab2c5de7c168c9f784647a07142dba10a5"
+        },
+        "CMakeLists.txt": {
+          "mode": "100644",
+          "kind": "blob",
+          "git_object": "0d023304d1913fa55f78d968a92be4862a012dfc"
+        },
+        "CMakePresets.json": {
+          "mode": "100644",
+          "kind": "blob",
+          "git_object": "ee38d368fc42e4459c05be9ea1ad1e6b6daa67b9"
+        },
+        "build_linux.sh": {
+          "mode": "100755",
+          "kind": "blob",
+          "git_object": "25ba23bc2c115aa9aabe15625682e6aecd46429f"
+        }
+      },
+      "scope": "Successor changes are limited to S4 validation Markdown/identity JSON, evidence index and necessary existing guide/API status text. All other tracked content, generated files, configuration and recursive dependency pins match the producer. Verify the documentation-only diff before reuse; do not relabel a successor head as the executable producer.",
+      "product_tests_run": 0,
+      "benchmarks_run": 0,
+      "product_review_reused": true
+    },
+    "remaining": {
+      "successor_head_ci": "Separate exact-head snapshot in PR/issue handoff; no inherited CI success from 20401a29.",
+      "final_acceptance": "Coordinator owns final gates and merge; PR remains Draft.",
+      "s5_performance_and_formal_examples": "NOT_EXECUTED"
+    }
+  },
+  "receipt_scopes": {
+    "root": "Original Linux implementation receipt at 7b3e5e0b; its results are preserved as initial_results. Current accepted evidence is current_evidence.",
+    "review_repair": "Repair publication at 20401a29 with source c8fae8bd; publication_results preserve the then-pending Windows/Codacy checkpoint. Subsequent review and B10 results are in current_evidence."
+  },
   "review_repair": {
     "reviewed_head": "a795e679b1e19bbaac9898f8ef64ec16ef654c0a",
     "source_commit": "c8fae8bd63b6a38af9c0edba6d5a16e9ae596837",
@@ -195,7 +549,7 @@
       },
       "scope": "Production generated bodies and input helpers with isolated OPER/registry/return adapters; not Windows ABI."
     },
-    "results": {
+    "publication_results": {
       "red_probe": {
         "failed": 13,
         "passed": 4
@@ -545,7 +899,7 @@
     "build/s4/dal-python/_dal_pde_risk_test.cpython-313-x86_64-linux-gnu.so": "linux-vdso.so.1 (0x00007fff425df000)\n\tlibdal_cpp.so.1.0.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp/libdal_cpp.so.1.0.0 (0x00007f369f371000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f369f0c7000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f369f099000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007f369ee78000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f36a0614000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007f369ed50000)",
     "build/s4-consumer/dal_installed_public_pde_risk": "linux-vdso.so.1 (0x00007ffdcdbf4000)\n\tlibdal_cpp.so.1.0.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/s4-stage/lib/libdal_cpp.so.1.0.0 (0x00007fb752081000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007fb751dd7000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007fb751da9000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007fb751b88000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007fb751a60000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007fb7532eb000)"
   },
-  "results": {
+  "initial_results": {
     "python_selected": {
       "passed": 130,
       "failed": 0,

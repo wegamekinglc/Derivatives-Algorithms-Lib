@@ -239,7 +239,6 @@ and `EarlyExercisePdeRiskSettings_` in `risk_`. Include
 `<dal/math/pde/earlyexercisepderisk.hpp>` and link `DAL::cpp`.
 The public facade aliases the same risk types; Python and Excel project these
 owning records through the [binding interfaces](#public-python-and-excel-risk-projections).
-Windows XLL registration and worksheet acceptance still require separate evidence.
 
 The evaluator uses passive full repricing and preserves caller AAD state,
 including a nonempty tape or active recording. `Method()` returns

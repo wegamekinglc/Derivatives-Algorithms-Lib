@@ -7,9 +7,94 @@ updates the bindings; the initial receipt and producer identities remain intact.
 [identity manifest](dal-503-pde-risk-bindings-identity.json) binds source files,
 dependencies, configurations, linked libraries and executables.
 
-Local projection checks pass. **Windows/MSVC/XLL remains NOT EXECUTED**;
-this is an implementation handoff for focused review, not full feature
-acceptance. S5 examples/performance/release work remains separate.
+Current S4 evidence: projection checks pass; focused repair review is
+**Approve**, F1–F4 closed; **B10 native Windows execution PASS**. The reviewed
+and Windows executable-producing head is
+`20401a29539606384723ae1b1cce9dd6708bdf1d`, with repair source
+`c8fae8bd63b6a38af9c0edba6d5a16e9ae596837`. Subsequent documentation commits
+reuse identical product content and dependency pins; they are not new executable
+producers. The manifest's `current_evidence` is the current entry; its root
+receipt and `review_repair` retain their original checkpoint results/identities.
+Required CI on a successor head and coordinator acceptance remain separate;
+S5 performance, formal examples and release delivery are not delivered here.
+
+## Accepted review and Windows evidence
+
+dal-reviewer comment `01a1bb70-9c0f-73e6-a679-397217234a8a` approves only
+the repair increment `a795e679..20401a29` and retains the other original
+review conclusions. F1–F4 are closed. Its archived actual Codacy check
+`128748318897` completed **SUCCESS, 0 annotations** for `20401a29`;
+this does not report CI for any later documentation head. Review evidence:
+[repair re-review archive](https://multica.ai/api/attachments/01a1bb70-9ac8-7f2e-a41c-dce6534c6f97/download),
+SHA256 `21039f506ba6e0d057527f6d70d5419cd6aad74e3b93871936c28730b7439106`.
+
+dal-tester comment `01a1bb86-a0be-7e8f-b824-b8b7a6397d25` supplies actual
+Windows execution, separate from the Linux/isolated probes below:
+
+- Windows kernel `10.0.26300` x64, MSVC `19.44.35228.0`, CMake `3.27.6`,
+  Excel `16.0.20527.20150` x64; Release/Ninja, static MSVC runtime, AADET,
+  Eigen and native architecture tuning OFF. Python bindings, benchmarks and
+  examples were OFF for this build.
+- `dal_excel` and `dal_excel_tests` build PASS; existing native risk tests
+  **10 PASS / 0 FAIL**, including both
+  `TestGeneratedNativeEntriesRejectNonAsciiCanonicalText` and
+  `TestGeneratedNativeEntriesPreserveConversionErrorContext` calling real
+  XLL exports. Product tests/code were not changed by this validation.
+- Live Excel registers **22/22** entries. Runtime function/argument help
+  agrees with the fixed source and all **22** generated HTM files; exports
+  resolve. All 22 entries run as actual worksheet formulas.
+- COMPLETE: Bermudan put, spot/strike 100, volatility 0.2, rate 0.05,
+  yield 0.03, evaluation/maturity serials 46313/46678, maturity exercise;
+  grid 401, upper 400, ordinary steps 500, Rannacher 0, default risk settings.
+  Price **6.726424327368208**, **17/17** successful scenarios, five available
+  risks; Delta **-0.4085650931712126**.
+- PARTIAL: American put on the same dates/grid, zero volatility/rate/yield,
+  no exercise-date list, scenario cap 1 and valuation/risk work caps 0.
+  Base price **0** remains available; one successful scenario, zero solves/work.
+  All five risks are `UNAVAILABLE_DEGENERATE_DIFFUSION`, with blank numeric
+  values. `=EARLYEXERCISEPDERISKRESULT.GET.RISKVALUE(N7,"Delta")` returns
+  `EarlyExercisePdeRiskValueUnavailable` error text on the Partial sheet.
+- Five strict worksheet inputs reject non-ASCII key/risk_id, non-string
+  name/risk_id and a wrong typed result handle. Errors retain
+  `InvalidEarlyExercisePdeRiskRequest`, argument/cell context and the original
+  handle-type cause. Both full recalculations agree.
+- Source/dependency identity covers **6712 files**, unchanged before/after
+  execution. The dedicated Excel PID 55588 exited through Quit; existing
+  user instances were not terminated.
+
+Actual loaded XLL:
+`C:\Users\wegam\AppData\Local\Multica\DAL-503\S4-20401a29\build\dal-excel\dal_excel.xll`.
+SHA256 `d1cfc3dff6ecefbac8c77578d2fd399c06f8bcc9daab4711b3673d0a528ec945`;
+native test executable SHA256
+`cd67c280b6d55a0e67eb430cc445715441781c76a113065e449cd5d624ae93fa`.
+These are producer identities, not repository artifacts.
+
+The [Windows evidence package](https://multica.ai/api/attachments/01a1bb86-985f-71d8-b413-2adffd78d383/download)
+has SHA256 `7d2864704d215d4e8dd38261edb599108ceba1edacb6e14a49294992b1677822`;
+the separate [28-sheet workbook](https://multica.ai/api/attachments/01a1bb86-9f71-70c5-8712-f26b054dd46b/download)
+has SHA256 `679ede891f42a5117fe066b3cf22564e932bc1f4c934280e3dd08bfef46979e0`.
+Both attachment digests were checked during this documentation sync. Package
+paths are relative to `s4-windows-20401a29/`: `artifacts/final-summary.json`,
+`artifacts/native-identity.json`, `snapshot-identity.json` and
+`artifacts/workbook-evidence.json` bind results, inputs/formulas/recalculated
+values, dependencies, CMakeCache, loaded XLL and executable hashes.
+
+The archived `native-build.ps1` runs configure/build/test/registration in a
+VS x64 shell; `verify_workbook.py` uses native Python `-B` for live Excel.
+Core executed commands, from that dedicated Windows root:
+
+```powershell
+cmake --build build --config Release --target dal_excel dal_excel_tests --parallel 6
+ctest --test-dir build -C Release -R '^ExcelEarlyExercisePdeRiskTest\.' --verbose --output-on-failure --no-tests=error
+python -B verify_workbook.py
+```
+
+Final successful command metadata are `configure.meta.json`, `build.meta.json`,
+`native-tests.meta.json`, `registration-native-flags.meta.json` and
+`worksheet-readback.meta.json`, each exit 0. Intermediate snapshot extraction,
+registration-helper flags, COM range/readback and identity-version collector
+failures remain in the package as harness history, including failed workbook
+captures. They are not product failures or substitutes for the final PASS.
 
 ## Review repair
 
@@ -38,10 +123,11 @@ original annotations/probes are attachment `01a1bb47-1910-778a-b0e5-8040ce6d7a19
    the long `Parity` becomes per-table comparisons;
    its repeated failure branches use `SameMember`. Original cell/field
    assertions and all admission thresholds remain. No ignore rule is added.
-   These are source repairs; Codacy acceptance still requires the new head's
-   actual check result.
-4. The guide's introduction and owning-risk section now agree with its
-   implemented public/Python/Excel section, while retaining the Windows gap.
+   The actual repaired-head Codacy success is recorded above; intermediate
+   failed checks below retain their historical verdicts.
+4. The guide's introduction and owning-risk section agree with its
+   implemented public/Python/Excel section. Its initial Windows gap is closed
+   by the separate native evidence above.
 
 New isolated regression compiles the **actual 22 generated entry bodies**,
 production raw guards, production string conversion and typed-handle cast.
@@ -70,7 +156,8 @@ Python now only generates source, CMake builds the trusted configured target,
 and GTest executes all 17 cases in-process. No subprocess import/launch or
 ignore rule remains in the Python generator. The final CMake/GTest regression
 passes **17/17**; this replaces the retired pytest launcher, retaining its
-RED/GREEN receipts. New-head remote acceptance remains a separate snapshot.
+RED/GREEN receipts. The accepted repair review and actual repaired-head Codacy
+result are recorded above; successor-head CI remains a separate snapshot.
 
 ```bash
 cmake --build build/s4 --target dal_generate -j 4
@@ -108,10 +195,10 @@ The core SHA256 remains `6e4279ffd6b7ef31835951471eeba9bd68381e66e58c3f452ec7e7a
 Two Windows-only tests now call actual generated XLL exports through
 `GetProcAddress` with raw Unicode, numeric/Boolean/error cells and wrong
 typed repository handles. They replace the old direct-validator-only test.
-**Neither new native test has executed on this Linux host.** Actual
-Windows/MSVC/XLL build, registration/help and workbook COMPLETE/PARTIAL
-remain separate pending evidence. The new-head CI/Codacy snapshot is delivered
-with the issue handoff; pending evidence is not relabeled PASS.
+Neither native test ran in the Linux repair batch. Both subsequently passed
+in the separate Windows B10 run above, alongside the native build,
+registration/help and workbook COMPLETE/PARTIAL checks. The original Linux
+repair receipt retains its NOT_EXECUTED/PENDING checkpoint values.
 
 ## Implementation and scope
 
@@ -241,9 +328,10 @@ above is the final build check, not a substitution of stale executables.
   LCP_RESIDUAL_LIMIT followed by its successful control, global interruption
   and projection of the accepted private Rate[0]:F+ failure seam. Completed
   independent risks and diagnostics survive.
-- B10: all new registration/help files are generated and drift-checked.
-  Windows raw-cell test is authored; actual Windows/MSVC/XLL build,
-  registration/help and worksheet COMPLETE/PARTIAL remain unexecuted.
+- B10: **PASS** at producer `20401a29`: actual Windows/MSVC/XLL build,
+  10 native risk tests including both generated-export regressions, 22/22 live
+  registrations/help and worksheet COMPLETE/PARTIAL/error projections. The
+  earlier generated drift check is reused with identical product/pin content.
 
 ## Independent core and installed consumers
 
@@ -274,9 +362,12 @@ The component-owned S5 public example/full B9 delivery remains separate.
 
 ## Remaining gates and exclusions
 
-The Linux host has no MSVC/Excel runtime; CMake explicitly skips XLL.
-Portable success does not replace B10. Independent focused review and actual
-head CI remain pending at publication; no merge or auto-merge is enabled.
+The initial Linux build skipped XLL; the separate native B10 evidence above
+closes that execution gap. Focused repair review is Approve with F1–F4 closed.
+Documentation successors reuse those product conclusions under unchanged
+product/dependency identity; their required CI must be assessed at their own
+head. The PR remains Draft for coordinator acceptance and final gates; no merge
+or auto-merge is enabled.
 
 P1/P4 numerical callers are unchanged; applicable accepted S3 evidence is
 reused. P2/P3 risk/projection performance, full formal examples and remaining
