@@ -1,0 +1,11 @@
+{
+  "head": "55071227410ac2f242ab2f5158c1a2c9843ff11d",
+  "full_proof_exact_equality": true,
+  "product_audit_exact_equality": true,
+  "binding_count": 12,
+  "product_cases": 42,
+  "directions": 14,
+  "new_bs_calls": 0,
+  "new_tree_nodes": 0,
+  "read_only_seconds": 2.1178919629892334
+}
