@@ -1,3 +1,5 @@
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -135,10 +137,8 @@ namespace {
     }
 } // namespace
 
-int main(int argc, char** argv) {
-    REQUIRE(argc == 2, "expected one probe case");
+std::string ProbeCase(const std::string& name) {
     Fixtures();
-    const std::string name(argv[1]);
     Text_ id(name == "unicode_id" ? L"\u0144elta" : L"Delta");
     OPER_ numeric, boolean, error;
     numeric.xltype = xltypeNum;
@@ -164,5 +164,28 @@ int main(int argc, char** argv) {
         }},
     };
     const auto found = cases.find(name);
-    std::cout << (found == cases.end() ? WrongHandle(name) : found->second()) << '\n';
+    return found == cases.end() ? WrongHandle(name) : found->second();
 }
+
+void Reject(const char* name, const char* field) {
+    const auto output = ProbeCase(name);
+    ASSERT_NE(output.find("InvalidEarlyExercisePdeRiskRequest"), std::string::npos) << output;
+    ASSERT_NE(output.find(field), std::string::npos) << output;
+}
+TEST(ExcelPdeRiskGeneratedInputTest, TestNonAsciiKey) { ASSERT_NO_FATAL_FAILURE(Reject("unicode_key", "row=1")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestNonAsciiId) { ASSERT_NO_FATAL_FAILURE(Reject("unicode_id", "risk_id")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestNulKey) { ASSERT_NO_FATAL_FAILURE(Reject("nul_key", "row=1")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestNumericId) { ASSERT_NO_FATAL_FAILURE(Reject("numeric_id", "risk_id")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestBooleanId) { ASSERT_NO_FATAL_FAILURE(Reject("boolean_id", "risk_id")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestErrorId) { ASSERT_NO_FATAL_FAILURE(Reject("error_id", "risk_id")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestNumericName) { ASSERT_NO_FATAL_FAILURE(Reject("numeric_name", "name")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestBooleanName) { ASSERT_NO_FATAL_FAILURE(Reject("boolean_name", "name")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestErrorName) { ASSERT_NO_FATAL_FAILURE(Reject("error_name", "name")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestWrongResult) { ASSERT_NO_FATAL_FAILURE(Reject("wrong_result", "result")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestWrongRequest) { ASSERT_NO_FATAL_FAILURE(Reject("wrong_request", "request")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestWrongValuation) { ASSERT_NO_FATAL_FAILURE(Reject("wrong_valuation", "valuation")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestWrongRisk) { ASSERT_NO_FATAL_FAILURE(Reject("wrong_risk", "risk")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestWrongSettings) { ASSERT_NO_FATAL_FAILURE(Reject("wrong_settings", "settings")); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestCanonicalKey) { ASSERT_EQ(ProbeCase("valid_key").substr(0, 2), "OK"); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestCanonicalId) { ASSERT_EQ(ProbeCase("valid_id").substr(0, 2), "OK"); }
+TEST(ExcelPdeRiskGeneratedInputTest, TestFactory) { ASSERT_EQ(ProbeCase("valid_factory").substr(0, 2), "OK"); }
