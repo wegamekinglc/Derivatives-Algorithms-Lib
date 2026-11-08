@@ -1,5 +1,11 @@
 # DAL-506：全量文档与 agent 契约一致性
 
+## 交付
+
+[PR #686](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/686)，base master。
+主文档提交 `d1c53e369f10194abb77c8eac49f775276e8519c`；
+后续提交仅登记本发布记录及增加的链接计数。独立验收由协调器安排。
+
 ## 基线、范围与结果
 
 复用协调器提供的干净检出与分支
@@ -106,7 +112,7 @@ core 风险示例按源头声明检查，未编译，数值资格化仍明确待
 
 - 仓库默认检查：125 个 Markdown，通过。
 - 现有检查器测试：34/34，通过。
-- 扩展检查：166 个交付 Markdown、8260 个解析链接、711 个当前 DAL 名称；零错误。
+- 扩展检查：166 个交付 Markdown、8261 个解析链接、711 个当前 DAL 名称；零错误。
 - 十个 TOML、十个 Claude frontmatter/body、五个 SKILL、一个 YAML、三对规则镜像通过。
 - 九个 public examples 的目录、target、DAL::public 依赖、CTest/label 和安装项一致。
 - 全部现存 Markdown artifact 均在活动索引登记；当前路径没有未处置的缺失引用。
