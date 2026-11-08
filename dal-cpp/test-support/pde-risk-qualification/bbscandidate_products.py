@@ -184,10 +184,12 @@ def direction_case(old, cases):
         raise RuntimeError("direction arithmetic differs")
     passed = all(finite_vector(v) for v in values) and within(diff, 0.5)
     finest = cases[old["finest_fixture"]]
+    required = direction_checks(names, cases)
     statuses = [
         old["isolation_status"],
         finest["candidate_error"]["status"],
         "PASS" if passed else "FAIL",
+        required["status"],
     ]
     return dict(
         direction_status="PASS" if passed else "FAIL",
@@ -198,8 +200,26 @@ def direction_case(old, cases):
         values=values,
         last_difference=diff,
         required_fixtures=names,
+        required_checks=required,
         previous_direction_status=old["direction_status"],
         previous_qualification_status=old["qualification_status"],
+    )
+
+
+def case_checks(case):
+    hard = combined_status([row["status"] for row in case["hard_checks"].values()])
+    return dict(
+        mandatory_smooth=case["mandatory_smooth"],
+        hard_status=hard,
+        status=combined_status([case["mandatory_smooth"], hard]),
+    )
+
+
+def direction_checks(names, cases):
+    required = {name: case_checks(cases[name]) for name in names}
+    return dict(
+        status=combined_status([row["status"] for row in required.values()]),
+        cases=required,
     )
 
 
@@ -265,17 +285,17 @@ def group_status(cases, premiums, directions):
     n3 += [p["status"] for p in premiums.values()]
     return dict(
         N3=combined_status(n3),
-        **{
-            group: combined_status(
-                [
-                    row["candidate_status"]
-                    for name, row in directions.items()
-                    if name.startswith(group + "-")
-                ]
-            )
-            for group in ["N6", "N7"]
-        }
+        **{group: direction_group(group, directions, cases) for group in ["N6", "N7"]}
     )
+
+
+def direction_group(group, directions, cases):
+    selected = [row for name, row in directions.items() if name.startswith(group + "-")]
+    statuses = [row["candidate_status"] for row in selected]
+    statuses += [
+        direction_checks(row["required_fixtures"], cases)["status"] for row in selected
+    ]
+    return combined_status(statuses)
 
 
 if __name__ == "__main__":
