@@ -122,3 +122,82 @@ At the baseline snapshot, the only failed checks were the two documented wheel
 download jobs. New-head CI is reported separately after push. The PR stays ready
 without auto merge; the coordinator owns focused CI review and final gates.
 DAL-502 and DAL-497 remain in progress, and S4 waits for S3's actual merge.
+
+## Follow-up: Python 3.9 response-body socket timeout
+
+Review baseline: `e6a07eafba78b1d49f907e90b6125a4d006a51bf`.
+Fix: `29f030e070e52863207fedf49db80e871c89cf0c`.
+The original 11 contracts used built-in `TimeoutError` at connection setup;
+they did not establish Python 3.9 response-body `socket.timeout` recovery.
+The reviewer's offline script reproduces this gap with the actual runtime
+exception raised from `read()` after partial bytes have been copied.
+
+On CPython 3.9.25, `socket.timeout` is a separate `OSError` subclass and is
+neither `TimeoutError` nor `ConnectionError`. It escaped after one attempt.
+On the same baseline, CPython 3.13.9 aliases it to `TimeoutError` and retries
+successfully. This is a version-specific exception-class gap, not a checksum,
+cache-path, upstream asset or wheel-build failure.
+
+The only helper changes import `socket` and explicitly include `socket.timeout`
+in the existing exception tuple. No broad `OSError` handler is introduced.
+The existing classification, attempt limit, delay sequence, official URL/asset,
+SHA, cache verification/atomic replacement and environment export stay intact.
+Both workflows are byte-identical to the reviewed baseline. Ordinary file
+errors, certificates, permanent HTTP and checksum failures retain fail-fast
+semantics.
+
+The reviewer's unchanged script first produced **1 FAIL** on 3.9 (one request)
+and **1 PASS** on 3.13 (two requests). New contracts then produced **1 ERROR**
+for recovery and **1 FAIL** for exhaustion on unmodified 3.9 helper code;
+the other 12 contracts passed. After the fix, the reviewer script passes on
+both interpreters and the complete affected suite is **14/14** on each.
+Python 3.9 also passes 14/14 with the existing aliased temporary directory.
+
+New coverage uses each interpreter's `socket.timeout` from a partial response
+body, not a built-in timeout substitute. Recovery checks cleanup before
+backoff, response closure, fallback route, verified final bytes and successful
+cache export. Exhaustion checks all six requests, 3/6/12/24/48 delays, cleanup
+after each attempt, propagation of the exact last exception and unchanged
+`GITHUB_ENV`. Plain `OSError` and `PermissionError` during final file replacement
+also propagate after one acquisition without retry/export and remove the
+temporary file. Existing certificate/permanent-HTTP/checksum contracts pass.
+
+Commands (all network operations mocked; sleeps patched):
+
+```bash
+# Run before and after the helper change; retain both outputs.
+uv run --offline --isolated --no-project --python 3.9 python \
+  ../attachments/dal502-wheel-review/wheel_socket_timeout_regression.py \
+  .github/scripts/prepare_wheel_virtualenv.py
+python3 ../attachments/dal502-wheel-review/wheel_socket_timeout_regression.py \
+  .github/scripts/prepare_wheel_virtualenv.py
+uv run --offline --isolated --no-project --python 3.9 python \
+  -m unittest discover -s .github/scripts/tests \
+  -p test_prepare_wheel_virtualenv.py -v
+python3 -m unittest discover -s .github/scripts/tests \
+  -p test_prepare_wheel_virtualenv.py -v
+TMPDIR="$PWD/build/dal502-wheel-prepare/tmp-alias" \
+  uv run --offline --isolated --no-project --python 3.9 python \
+  -m unittest discover -s .github/scripts/tests \
+  -p test_prepare_wheel_virtualenv.py -v
+lizard -C 8 -w .github/scripts/prepare_wheel_virtualenv.py \
+  .github/scripts/tests/test_prepare_wheel_virtualenv.py
+git diff --check
+```
+
+CCN<=8 and whitespace checks pass. Interpreter executables, `socket.py`,
+the `_socket` binary/built-in origin, source/workflow hashes and reviewer inputs
+are bound in [socket-timeout-identity.json](dal502-wheel-preparation/socket-timeout-identity.json).
+The helper SHA changes from `4e2340c2…00481d9` to `28ac5ac7…7f18fe6`.
+The [follow-up archive manifest](dal502-wheel-preparation/socket-timeout-raw-archive.json)
+binds original reviewer inputs, RED/GREEN logs, before/after sources and the
+identity collection script. New-head CI is captured separately at handoff.
+The baseline snapshot has 19 success, 14 pending and no failed check among 33.
+
+The previous verified official download and upstream selector evidence remain
+applicable to their unchanged paths; no new download or selector run is claimed.
+Production/numerical/product/performance evidence and N1–N12's 12 PASS remain
+applicable because their source/configuration diff is empty. No such matrices,
+package-syntax suite, full wheel build or Windows-only helper checks are rerun.
+This follow-up is ready for the coordinator's targeted P2 review; it does not
+declare PR gates complete or authorize merge.
