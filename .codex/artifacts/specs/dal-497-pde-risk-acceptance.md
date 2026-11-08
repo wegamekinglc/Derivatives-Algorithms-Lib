@@ -165,6 +165,65 @@ comparison can pass. Missing/nonfinite rows, any exhausted resource budget or
 failure at the maximum level remain INCOMPLETE with the raw data retained.
 No further layer or budget increase is implicit in this decision.
 
+### Approved BBS diagnostic pilot (DAL-502)
+
+Decision `01a1b8ef-6fc2-7ebd-bda6-d984fc11b161`, after the direction/P2
+delivery `d96a89e8d438eb06c69ac3a4b1884ce64b286099`, permits one opt-in
+`BBS-last-step-v1` diagnostic. Preserve CRR u/d/p and discount. At layer n-1,
+initialize each node with independent scalar European BS for remaining dt,
+then max with intrinsic for American; apply the usual American obstacle in
+all remaining rollback layers. European controls omit the obstacle. No
+Richardson, new pure-CRR run, production change or old-price identity bridge.
+The original CRR implementation, values, maximum and INCOMPLETE stand.
+
+The method follows the penultimate-node construction in
+[Chung--Shackleton (2002), pp.145,149](https://scholars.lib.ntu.edu.tw/bitstreams/7e27fcda-7bd5-4c3d-baff-5e2dcfff545e/download).
+That study evaluates European Greeks; it does not qualify these American
+fixtures. This is not authorization to replace mandatory S3 TREE evidence.
+
+Freeze before any new numerical execution: K=100, sigma=.2, T=365/365,
+r=.05 throughout. Pilot markets are N3 S=100 American PUT q=0 and CALL q=.08.
+Use spots 100, 100±1, 100±.5, 100±.25 independently at n=4096/4097,
+8192/8193,16384/16385 (84 jobs). European price controls use the same two
+markets with American disabled at those six n (12 jobs), checked against
+independent Python scalar BS with normalized price error strictly <2.5e-5.
+
+Freeze formula witnesses: n=1 American PUT S=100 and S=50, American CALL
+S=150 q=.08, European PUT S=50 and CALL S=150 q=.08; n=2 American PUT/CALL
+at S=50/150 respectively and both at S=100 (nine jobs). One-layer values
+must match max(intrinsic, scalar BS(T)) for American and scalar BS(T) for
+European. Two-layer values must match the explicit discounted u/d weighted
+penultimate formula followed by the root obstacle. Normalized formula
+difference <=1e-12. Preserve terminal/root exercise witnesses, and positive
+premium/strict continuation for each unbumped pilot price at every n.
+
+Freeze eight expected-failure witnesses: n=0, n=16386; n=1 spot=0, vol=0,
+two carry segments, invalid probability (vol=.01,r=1), expired deadline=1;
+n=2 CALL spot=1.75e308 for a nonfinite penultimate spot. Other parameters
+are the PUT pilot defaults except that CALL uses q=.08. Expected failures
+publish no price and retain partial operation counts; they cannot supply
+reference values. Unexpected errors/nonfinite/missing results stop admission.
+
+New limits: 6e9 conservatively charged nodes, 2e6 BS evaluations (including
+scalar verification), four workers, RSS128 MiB each/512 MiB total, raw64 MiB,
+numerical wall600 s. Charge (n+1)(n+2)/2 for each valid-range tree invocation
+and reserve n terminal BS calls, including early-failure witnesses; invalid-n
+preflight witnesses cost zero. Also record actual visited nodes/BS calls.
+Reserve 100 scalar verification calls and count each actual call. The fixed
+native plan reserves 5,638,979,836 nodes and 917,572 BS calls; no native
+pricing occurs outside it. Compile-only tests cost zero. Old consumed work
+2,997,881,833,992 remains separate and immutable: total upper bound
+3,003,881,833,992. No old residual allocation may restart pure CRR.
+
+At the final 16384 pair, all three scales' normalized price/Delta/K*Gamma
+raw parity and last adjacent pair-mean mesh differences, plus fine to
+extra-half differences, must be strictly below [2.5e-5,5e-4,5e-3]. Preserve
+both raw members, fixed arithmetic means and every level. Any resource
+exhaustion or final lack of self-qualification is INCOMPLETE and stops this
+pilot without another level or favorable intermediate selection. Witness
+failure is FAIL and prevents admission. PASS establishes pilot feasibility
+only; full risk vectors/all bindings and S3 substitution need another decision.
+
 ## N1 — European degeneration
 
 Cross product: PUT/CALL; S=80,100,120; q=0,0.03; r=0.05; D0/D1;

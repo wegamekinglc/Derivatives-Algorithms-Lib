@@ -14,6 +14,8 @@ set_target_properties(qualification_core PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${DAL_ROOT}/dal-cpp;${DAL_ROOT}/dal-cpp/externals/rapidjson/include")
 add_executable(dal502_driver driver.cpp)
 target_link_libraries(dal502_driver PRIVATE qualification_core Threads::Threads)
+add_executable(dal502_bbs bbs_driver.cpp)
+target_include_directories(dal502_bbs PRIVATE "${DAL_ROOT}/dal-cpp/externals/rapidjson/include")
 if(EXISTS "${CMAKE_BINARY_DIR}/observed.cpp")
     add_executable(dal502_observed driver.cpp "${CMAKE_BINARY_DIR}/observed.cpp")
     target_link_libraries(dal502_observed PRIVATE qualification_core Threads::Threads)

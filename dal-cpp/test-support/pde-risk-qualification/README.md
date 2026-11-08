@@ -132,11 +132,40 @@ product results as current. After supplements, run `supplement.py`, then
 replays every audit in a separate view, records its input dependencies, and
 marks any dependency on an old product capture INCOMPLETE. N9 failure/work
 controls cite the accepted repair's direct tests and matching library, rather
-than relabeling historical captures. American direction sequences remain
-deferred while their mandatory final TREE binding is unqualified.
+than relabeling historical captures. American directions have a separately
+recorded capture phase; numerical admission still needs the qualified finest
+reference.
 
 Native batches refuse to overwrite existing result files. The reference TREE
 exception path emits a valid error object before any price key is published.
 These wrapper checks do not change successful reference arithmetic. When a
 wrapper changes after a run, retain that run's actual source and executable
 identity; a later build is not its producer.
+
+The separately approved BBS diagnostic uses the opt-in `dal502_bbs` target,
+which has no core/public library link. `bbs.hpp` leaves `reference.hpp` and
+pure CRR untouched. Pilot inputs, witnesses, caps and stop rules are frozen
+in the active acceptance contract. `bbsplan.py` uses a new method/source/
+configuration/executable identity and never imports a CRR price or bridge.
+
+```bash
+cmake --build build/dal502-bbs-tools --target dal502_bbs -j4
+python dal-cpp/test-support/pde-risk-qualification/bbsplan.py \
+  --output build/dal502-bbs/data --driver build/dal502-bbs-tools/dal502_bbs
+xargs -n1 -P4 prlimit --as=134217728 -- \
+  ./build/dal502-bbs-tools/dal502_bbs --batchfile \
+  < build/dal502-bbs/data/witness.workers.txt
+python dal-cpp/test-support/pde-risk-qualification/bbsverify.py witness \
+  --output build/dal502-bbs/data
+# Only after all witnesses pass, execute pilot.workers.txt in the same way.
+python dal-cpp/test-support/pde-risk-qualification/bbsverify.py finish \
+  --output build/dal502-bbs/data
+```
+
+Unexpected numerical errors stop the worker and retain its partial counters.
+After a stopped batch, `bbs_stopped.py --output ...` derives a partial report
+from saved results without new BS/tree evaluations. No rerun or expansion is
+implicit. The first bounded pilot stopped on three negative European-value
+guards; its missing rows and all six final scale qualifications remain
+INCOMPLETE. European/formula controls passing does not establish American
+pilot feasibility or replace S3 mandatory TREE evidence.
