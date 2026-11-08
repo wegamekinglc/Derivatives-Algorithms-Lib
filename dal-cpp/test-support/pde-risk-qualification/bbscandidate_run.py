@@ -10,6 +10,7 @@ from bbscandidate import (
     PRIOR_BS,
     PRIOR_NODES,
     budget,
+    binding_request,
     full_proof,
     import_restart,
     make_plan,
@@ -18,6 +19,7 @@ from bbscandidate import (
 from bbsplan import METHOD
 from bbsverify import price
 from qualify import digest, write_json
+from referenceplan import binding
 
 
 def validate_plan(plan, executable):
@@ -170,7 +172,12 @@ def collect(directory, plan, execution):
         output = pathlib.Path(str(path) + ".results.jsonl")
         if output.exists():
             collect_file(output, plan, execution, rows, errors)
-    write_json(directory / "all-raw.json", rows)
+    target = directory / "all-raw.json"
+    if target.exists():
+        if json.loads(target.read_text()) != rows:
+            raise RuntimeError("saved native raw inventory changed")
+    else:
+        write_json(target, rows)
     return rows, errors
 
 
@@ -212,7 +219,7 @@ def resource_account(directory, plan, execution, rows):
         combined_nodes=CRR_NODES + PRIOR_NODES + charged,
         completed_new=len(new),
         reused=84,
-        numerical_seconds=time.time() - execution["started_epoch"],
+        numerical_seconds=last_native_epoch(new) - execution["started_epoch"],
         max_rss_kib=peak_rss(new),
         raw_bytes=raw_size(directory),
     )
@@ -236,11 +243,17 @@ def peak_rss(rows):
     return max([r["max_rss_kib"] for r in rows.values()] or [0])
 
 
+def last_native_epoch(rows):
+    return max([r["finished_epoch"] for r in rows.values()] or [0])
+
+
 def raw_size(directory):
     return sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
 
 
-def finish(directory, plan, executable, execution):
+def finish(directory, plan, executable, execution, destination="result.json"):
+    if (directory / destination).exists():
+        raise RuntimeError("preserve previous analysis receipt")
     rows, errors = collect(directory, plan, execution)
     usage = resource_account(directory, plan, execution, rows)
     if len(rows) != 792 or execution["stopped"]:
@@ -258,7 +271,7 @@ def finish(directory, plan, executable, execution):
         qualification_promoted=False,
         input_hashes={s["path"]: s["input_sha256"] for s in execution["shards"]},
     )
-    write_json(directory / "result.json", result)
+    write_json(directory / destination, result)
     print(status, "bindings", {k[:10]: p["status"] for k, p in proofs.items()}, usage)
 
 
@@ -267,7 +280,8 @@ def candidate_proofs(plan, rows, errors):
         {}
         if errors
         else {
-            k: full_proof(plan, b["request"], rows) for k, b in plan["bindings"].items()
+            k: full_proof(plan, checked_binding(k, b), rows)
+            for k, b in plan["bindings"].items()
         }
     )
     status = (
@@ -278,11 +292,19 @@ def candidate_proofs(plan, rows, errors):
     return proofs, status
 
 
+def checked_binding(key, record):
+    request = binding_request(record)
+    if binding(request) != key:
+        raise RuntimeError("actual binding identity differs")
+    return request
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--plan", required=True, type=pathlib.Path)
     parser.add_argument("--output", required=True, type=pathlib.Path)
     parser.add_argument("--driver", required=True, type=pathlib.Path)
+    parser.add_argument("--audit-only", action="store_true")
     args = parser.parse_args()
     committed(args.plan)
     committed(pathlib.Path(".codex/artifacts/specs/dal-497-pde-risk-acceptance.md"))
@@ -294,6 +316,10 @@ def main():
         raise RuntimeError("frozen numerical control changed")
     validate_plan(plan, args.driver)
     args.output.mkdir(parents=True, exist_ok=True)
+    if args.audit_only:
+        execution = json.loads((args.output / "execution.json").read_text())
+        finish(args.output, plan, args.driver, execution, "result-qualified.json")
+        return
     execution = materialize(args.output, plan, args.driver)
     execute(args.output, args.driver, execution)
     finish(args.output, plan, args.driver, execution)

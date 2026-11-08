@@ -11,6 +11,8 @@ from bbscandidate import (
 )
 from bbsplan import METHOD, cache_key
 from referenceplan import fingerprint
+from bbscandidate_run import candidate_proofs
+from bbscandidate_products import candidate_error
 
 
 class BbsCandidateTest(unittest.TestCase):
@@ -85,6 +87,26 @@ class BbsCandidateTest(unittest.TestCase):
         for shard in shards:
             self.assertLessEqual(sum(j["charged_nodes"] for j in shard), 6000000000)
             self.assertLessEqual(sum(j["reserved_bs"] for j in shard), 2000000)
+
+    def test_all_actual_binding_scales_survive_physical_input_normalization(self):
+        plan = make_plan(dict(executable="synthetic"))
+        rows = {k: dict(result=dict(price=1.0)) for k in plan["jobs"]}
+        proofs, _ = candidate_proofs(plan, rows, [])
+        for key, proof in proofs.items():
+            self.assertEqual(
+                proof["actual_scales"], plan["bindings"][key]["actual_scales"]
+            )
+
+    def test_unqualified_reference_never_publishes_error_pass(self):
+        vector = [0.0] * 6
+        reference = dict(status="INCOMPLETE", normalized=vector)
+        self.assertEqual(
+            candidate_error(vector, reference, True)["status"], "INCOMPLETE"
+        )
+        reference["status"] = "PASS"
+        self.assertEqual(candidate_error(vector, reference, True)["status"], "PASS")
+        self.assertEqual(candidate_error(vector[:3], reference, True)["status"], "FAIL")
+        self.assertEqual(candidate_error(vector, reference, False)["status"], "FAIL")
 
 
 if __name__ == "__main__":

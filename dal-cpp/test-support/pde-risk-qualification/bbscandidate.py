@@ -257,6 +257,19 @@ def full_proof(plan, request, results):
     return result
 
 
+def binding_request(record):
+    actual = record["actual_scales"]
+    request = dict(
+        record["request"],
+        h=actual[1][0],
+        vol_bump=actual[0][1],
+        carry_bump=actual[0][2],
+    )
+    if scales(request) != actual:
+        raise RuntimeError("candidate binding scales cannot be restored")
+    return request
+
+
 def qualify_levels(levels):
     result = self_qualification(levels, "tree")
     gates = (
