@@ -252,16 +252,65 @@ namespace Dal::PDE {
             if (value)
                 *target = std::max(target->value_or(0.0), *value);
         }
+        // Binary64 significands with separate exponents retain diffusion tails beyond hardware underflow.
+        struct RangeValue_ {
+            double fraction_;
+            int exponent_ = 0;
+
+            explicit RangeValue_(double fraction, int exponent = 0) : fraction_(fraction), exponent_(exponent) {}
+            static RangeValue_ Pack(double fraction, int exponent) {
+                if (fraction == 0.0)
+                    return RangeValue_(0.0);
+                if (exponent > -500 && exponent < 1000)
+                    return RangeValue_(std::scalbn(fraction, exponent));
+                return RangeValue_(fraction, exponent);
+            }
+            [[nodiscard]] RangeValue_ Times(double coefficient) const {
+                const double product = fraction_ * coefficient;
+                if (fraction_ == 0.0 || coefficient == 0.0 || (exponent_ == 0 && std::isfinite(product) && std::abs(product) >= 0x1p-500))
+                    return RangeValue_(product);
+                int leftExponent = 0, rightExponent = 0;
+                const double left = std::frexp(fraction_, &leftExponent), right = std::frexp(coefficient, &rightExponent);
+                return Pack(left * right, exponent_ + leftExponent + rightExponent);
+            }
+            [[nodiscard]] RangeValue_ DividedBy(double divisor) const {
+                const double quotient = fraction_ / divisor;
+                if (fraction_ == 0.0 || (exponent_ == 0 && std::isfinite(quotient) && std::abs(quotient) >= 0x1p-500))
+                    return RangeValue_(quotient);
+                int leftExponent = 0, rightExponent = 0;
+                const double left = std::frexp(fraction_, &leftExponent), right = std::frexp(divisor, &rightExponent);
+                return Pack(left / right, exponent_ + leftExponent - rightExponent);
+            }
+            [[nodiscard]] RangeValue_ Minus(const RangeValue_& other) const {
+                if (exponent_ == 0 && other.exponent_ == 0)
+                    return RangeValue_(fraction_ - other.fraction_);
+                if (other.fraction_ == 0.0)
+                    return *this;
+                if (fraction_ == 0.0)
+                    return RangeValue_(-other.fraction_, other.exponent_);
+                int leftExponent = 0, rightExponent = 0;
+                const double left = std::frexp(fraction_, &leftExponent), right = std::frexp(other.fraction_, &rightExponent);
+                leftExponent += exponent_;
+                rightExponent += other.exponent_;
+                const int common = std::max(leftExponent, rightExponent);
+                return Pack(std::scalbn(left, leftExponent - common) - std::scalbn(right, rightExponent - common), common);
+            }
+            [[nodiscard]] double Value() const { return exponent_ == 0 ? fraction_ : std::scalbn(fraction_, exponent_); }
+        };
         struct Scratch_ {
             Vector_<> minus_, plus_, rhs_, payoff_, correction_;
             Vector_<> current_, iterate_, previous_, pivots_, solveRhs_;
+            Vector_<int> iterateExponents_, previousExponents_, rhsExponents_;
             double scale_ = 1.0;
+            bool extendedRange_ = false;
             explicit Scratch_(size_t n)
-                : minus_(n), plus_(n), rhs_(n), payoff_(n), correction_(n), current_(n), iterate_(n), previous_(n), pivots_(n), solveRhs_(n) {}
+                : minus_(n), plus_(n), rhs_(n), payoff_(n), correction_(n), current_(n), iterate_(n), previous_(n), pivots_(n), solveRhs_(n),
+                  iterateExponents_(n, 0), previousExponents_(n, 0), rhsExponents_(n, 0) {}
             [[nodiscard]] size_t Bytes() const {
                 return sizeof(double) * (minus_.capacity() + plus_.capacity() + rhs_.capacity() + payoff_.capacity() + correction_.capacity()) +
                        sizeof(double) *
-                           (current_.capacity() + iterate_.capacity() + previous_.capacity() + pivots_.capacity() + solveRhs_.capacity());
+                           (current_.capacity() + iterate_.capacity() + previous_.capacity() + pivots_.capacity() + solveRhs_.capacity()) +
+                       sizeof(int) * (iterateExponents_.capacity() + previousExponents_.capacity() + rhsExponents_.capacity());
             }
         };
         double Dual(const Scratch_& a, int i) {
@@ -295,29 +344,58 @@ namespace Dal::PDE {
                    *d.complementarityResidual_ <= epsilon;
         }
 
-        FORCE_INLINE void BackSubstitute(Scratch_* a, bool shifted) {
+        template <bool EXTENDED> FORCE_INLINE void BackSubstitute(Scratch_* a, bool shifted) {
             const int n = static_cast<int>(a->current_.size());
             for (int i = n - 2; i > 0; --i) {
-                a->iterate_[i] = (a->solveRhs_[i] - (i < n - 2 ? a->plus_[i] * a->iterate_[i + 1] : 0.0)) / a->pivots_[i];
-                a->current_[i] = (shifted ? a->payoff_[i] : 0.0) + a->iterate_[i] / a->scale_;
+                if constexpr (EXTENDED) {
+                    const auto right = i < n - 2 ? RangeValue_(a->iterate_[i + 1], a->iterateExponents_[i + 1]).Times(a->plus_[i]) : RangeValue_(0.0);
+                    const auto value = RangeValue_(a->solveRhs_[i], a->rhsExponents_[i]).Minus(right).DividedBy(a->pivots_[i]);
+                    a->iterate_[i] = value.fraction_;
+                    a->iterateExponents_[i] = value.exponent_;
+                    a->current_[i] = (shifted ? a->payoff_[i] : 0.0) + value.DividedBy(a->scale_).Value();
+                } else {
+                    a->iterate_[i] = (a->solveRhs_[i] - (i < n - 2 ? a->plus_[i] * a->iterate_[i + 1] : 0.0)) / a->pivots_[i];
+                    a->current_[i] = (shifted ? a->payoff_[i] : 0.0) + a->iterate_[i] / a->scale_;
+                }
             }
         }
+        void ExtendedForwardRow(Scratch_* a, int i, double factor) {
+            const auto rhs = RangeValue_(a->solveRhs_[i]).Minus(RangeValue_(a->solveRhs_[i - 1], a->rhsExponents_[i - 1]).Times(factor));
+            a->solveRhs_[i] = rhs.fraction_;
+            a->rhsExponents_[i] = rhs.exponent_;
+        }
+        void ExtendSolveRange(Scratch_* a, bool shifted) {
+            // Reuse the same factors; only the two triangular sweeps need a wider exponent range.
+            for (int i = 1; i + 1 < static_cast<int>(a->current_.size()); ++i) {
+                a->solveRhs_[i] = a->correction_[i] * a->scale_;
+                a->rhsExponents_[i] = 0;
+                if (i > 1)
+                    ExtendedForwardRow(a, i, a->minus_[i] / a->pivots_[i - 1]);
+            }
+            a->extendedRange_ = true;
+            BackSubstitute<true>(a, shifted);
+        }
         // The exercise style fixes penalty/shift constants across both triangular sweeps.
-        FORCE_INLINE std::optional<int> Solve(Scratch_* a, double penalty, bool shifted) {
+        template <bool EXTENDED> FORCE_INLINE std::optional<int> Solve(Scratch_* a, double penalty, bool shifted) {
             const int n = static_cast<int>(a->current_.size());
             for (int i = 1; i < n - 1; ++i) {
                 const double diagonal = 1.0 + (a->previous_[i] < 0.0 ? penalty : 0.0);
                 a->pivots_[i] = diagonal;
                 a->solveRhs_[i] = a->correction_[i] * a->scale_;
+                if constexpr (EXTENDED)
+                    a->rhsExponents_[i] = 0;
                 if (i > 1) {
                     const double factor = a->minus_[i] / a->pivots_[i - 1];
                     a->pivots_[i] -= factor * a->plus_[i - 1];
-                    a->solveRhs_[i] -= factor * a->solveRhs_[i - 1];
+                    if constexpr (EXTENDED)
+                        ExtendedForwardRow(a, i, factor);
+                    else
+                        a->solveRhs_[i] -= factor * a->solveRhs_[i - 1];
                 }
                 if (!std::isfinite(a->pivots_[i]) || a->pivots_[i] <= 0.0)
                     return i;
             }
-            BackSubstitute(a, shifted);
+            BackSubstitute<EXTENDED>(a, shifted);
             return std::nullopt;
         }
         double RelativeBackwardError(double numerator, double denominator) {
@@ -325,10 +403,37 @@ namespace Dal::PDE {
                 return std::numeric_limits<double>::infinity();
             return denominator == 0.0 ? (numerator == 0.0 ? 0.0 : std::numeric_limits<double>::infinity()) : numerator / denominator;
         }
-        FORCE_INLINE double BackwardError(const Scratch_& a, double penalty, bool shifted) {
+        double TailBackwardError(const Scratch_& a, int i, double lambda, bool shifted) {
+            const auto value = [&](int j) {
+                return RangeValue_((shifted ? a.payoff_[j] : 0.0) * a.scale_).Minus(RangeValue_(-a.iterate_[j], a.iterateExponents_[j]));
+            };
+            const RangeValue_ terms[] = {value(i).Times(1.0 + lambda), i > 1 ? value(i - 1).Times(a.minus_[i]) : RangeValue_(0.0),
+                                         i + 2 < static_cast<int>(a.current_.size()) ? value(i + 1).Times(a.plus_[i]) : RangeValue_(0.0),
+                                         RangeValue_(-(a.rhs_[i] * a.scale_ + lambda * (a.payoff_[i] * a.scale_)))};
+            int common = std::numeric_limits<int>::lowest();
+            for (const auto& term : terms)
+                if (term.fraction_ != 0.0)
+                    common = std::max(common, term.exponent_);
+            if (common == std::numeric_limits<int>::lowest())
+                return 0.0;
+            double residual = 0.0, denominator = 0.0;
+            for (const auto& term : terms) {
+                const double scaled = term.fraction_ == 0.0 ? 0.0 : std::scalbn(term.fraction_, term.exponent_ - common);
+                residual += scaled;
+                denominator += std::abs(scaled);
+            }
+            return RelativeBackwardError(std::abs(residual), denominator);
+        }
+        template <bool EXTENDED> FORCE_INLINE std::pair<double, bool> BackwardError(const Scratch_& a, double penalty, bool shifted) {
             double maximum = 0.0;
+            bool needsExtendedRange = false;
             for (int i = 1; i + 1 < static_cast<int>(a.current_.size()); ++i) {
                 const double lambda = a.previous_[i] < 0.0 ? penalty : 0.0;
+                if (EXTENDED && (a.iterateExponents_[i] != 0 || (i > 1 && a.iterateExponents_[i - 1] != 0) ||
+                                 (i + 2 < static_cast<int>(a.current_.size()) && a.iterateExponents_[i + 1] != 0))) {
+                    maximum = std::max(maximum, TailBackwardError(a, i, lambda, shifted));
+                    continue;
+                }
                 const auto value = [&](int j) { return (shifted ? a.payoff_[j] * a.scale_ : 0.0) + a.iterate_[j]; };
                 const double rhs = a.rhs_[i] * a.scale_ + lambda * (a.payoff_[i] * a.scale_);
                 const double center = (1.0 + lambda) * value(i);
@@ -336,10 +441,13 @@ namespace Dal::PDE {
                 const double right = i + 2 < static_cast<int>(a.current_.size()) ? a.plus_[i] * value(i + 1) : 0.0;
                 const double numerator = std::abs(((center + left) + right) - rhs);
                 const double denominator = std::abs(rhs) + std::abs(center) + std::abs(left) + std::abs(right);
+                // Tiny rows can round both residual and denominator to zero before their ratio fails.
+                if constexpr (!EXTENDED)
+                    needsExtendedRange = needsExtendedRange || (denominator > 0.0 && denominator < 0x1p-500);
                 const double error = RelativeBackwardError(numerator, denominator);
                 maximum = std::max(maximum, error);
             }
-            return maximum;
+            return {maximum, needsExtendedRange};
         }
         template <class T_> size_t CapacityBytes(const Vector_<T_>& x) { return Multiply(x.capacity(), sizeof(T_)); }
 
@@ -611,10 +719,15 @@ namespace Dal::PDE {
                 std::frexp(magnitude, &exponent);
                 // Uniform powers of two cancel in physical backward errors and protect tiny diffusion tails.
                 a_.scale_ = std::ldexp(1.0, std::clamp(800 - exponent, -1000, 900));
+                if (a_.extendedRange_) {
+                    std::fill(a_.iterateExponents_.begin(), a_.iterateExponents_.end(), 0);
+                    std::fill(a_.previousExponents_.begin(), a_.previousExponents_.end(), 0);
+                    a_.extendedRange_ = false;
+                }
                 for (int i = 1; i < static_cast<int>(n) - 1; ++i)
                     a_.iterate_[i] *= a_.scale_;
             }
-            void UpdateIterationChange(EarlyExercisePdeStepDiagnostic_* step) {
+            template <bool EXTENDED> void UpdateIterationChange(EarlyExercisePdeStepDiagnostic_* step) {
                 const int n = r_.settings_.gridPoints_;
                 step->iterationChange_ = 0.0;
                 for (int i = 1; i < static_cast<int>(n) - 1; ++i) {
@@ -622,11 +735,27 @@ namespace Dal::PDE {
                         Fail(Status_::NONFINITE, step, "nonfinite linear solution", i);
                         break;
                     }
-                    step->iterationChange_ = std::max(step->iterationChange_, std::abs(a_.iterate_[i] - a_.previous_[i]) / a_.scale_);
+                    double change;
+                    if constexpr (EXTENDED)
+                        change = RangeValue_(a_.iterate_[i], a_.iterateExponents_[i])
+                                     .Minus(RangeValue_(a_.previous_[i], a_.previousExponents_[i]))
+                                     .DividedBy(a_.scale_)
+                                     .Value();
+                    else
+                        change = (a_.iterate_[i] - a_.previous_[i]) / a_.scale_;
+                    step->iterationChange_ = std::max(step->iterationChange_, std::abs(change));
                 }
             }
             void CheckSolveResiduals(double penalty, EarlyExercisePdeStepDiagnostic_* step) {
-                const double error = BackwardError(a_, penalty, AMERICAN);
+                auto measured = a_.extendedRange_ ? BackwardError<true>(a_, penalty, AMERICAN) : BackwardError<false>(a_, penalty, AMERICAN);
+                if (!a_.extendedRange_ && measured.second) {
+                    ExtendSolveRange(&a_, AMERICAN);
+                    UpdateIterationChange<true>(step);
+                    if (!IsSuccess())
+                        return;
+                    measured = BackwardError<true>(a_, penalty, AMERICAN);
+                }
+                const double error = measured.first;
                 MaxOptional(&step->linearBackwardError_, error);
                 if (AMERICAN && !Residuals(a_, scale_, step))
                     Fail(Status_::NONFINITE, step, "nonfinite original LCP residual");
@@ -645,13 +774,18 @@ namespace Dal::PDE {
                 ++e.totalSolves_;
                 ++step->solveCount_;
                 std::copy(a_.iterate_.begin(), a_.iterate_.end(), a_.previous_.begin());
+                if (a_.extendedRange_)
+                    std::copy(a_.iterateExponents_.begin(), a_.iterateExponents_.end(), a_.previousExponents_.begin());
                 const double penalty = AMERICAN ? r_.settings_.penaltyFactor_ : 0.0;
-                const auto pivot = Solve(&a_, penalty, AMERICAN);
+                const auto pivot = a_.extendedRange_ ? Solve<true>(&a_, penalty, AMERICAN) : Solve<false>(&a_, penalty, AMERICAN);
                 if (pivot) {
                     Fail(Status_::LINEAR_SOLVE_FAILURE, step, "nonpositive or nonfinite pivot", pivot);
                     return false;
                 }
-                UpdateIterationChange(step);
+                if (a_.extendedRange_)
+                    UpdateIterationChange<true>(step);
+                else
+                    UpdateIterationChange<false>(step);
                 if (!IsSuccess())
                     return false;
                 CheckSolveResiduals(penalty, step);

@@ -19,7 +19,61 @@ namespace {
         r.settings_.gridPoints_ = 41;
         return r;
     }
+    EarlyExercisePdeRequest_ DiffusionTailRequest(int nodes, const char* option, const char* style = "BERMUDAN") {
+        auto r = Request(style);
+        r.contract_.evaluationDate_ = Date_(2028, 2, 28);
+        r.contract_.maturityDate_ = r.contract_.evaluationDate_.AddDays(nodes == 16001 ? 2 : 365);
+        r.contract_.optionType_ = OptionType_(option);
+        if (r.contract_.exerciseStyle_ == EarlyExerciseStyle_::Value_::BERMUDAN)
+            r.contract_.exerciseDates_ = {r.contract_.maturityDate_};
+        r.market_ = {100.0, .2, {{r.contract_.maturityDate_, .05, .03}}};
+        r.settings_.upper_ = nodes == 16001 ? 400.0 : 800.0;
+        r.settings_.gridPoints_ = nodes;
+        r.settings_.ordinarySteps_ = 8000;
+        r.settings_.maxWorkUnits_ = nodes - 2;
+        r.settings_.numericPayloadBudgetBytes_ = r.settings_.workspaceBudgetBytes_ = 1073741824;
+        return r;
+    }
 } // namespace
+
+TEST(EarlyExercisePdeTest, TestDiffusionTailSolveRetainsRelativeAccuracyBeforeWorkLimit) {
+    for (int nodes : {3201, 16001}) {
+        for (const char* option : {"PUT", "CALL"}) {
+            const auto result = EvaluateEarlyExercisePde(DiffusionTailRequest(nodes, option));
+            ASSERT_EQ(result.Status(), EarlyExercisePdeStatus_("WORK_LIMIT"));
+            ASSERT_EQ(result.Execution().totalSolves_, 1);
+            ASSERT_EQ(result.Execution().workUnits_, nodes - 2);
+            ASSERT_TRUE(result.Execution().maxLinearBackwardError_);
+            ASSERT_LE(*result.Execution().maxLinearBackwardError_, 1e-12);
+            ASSERT_LE(result.Execution().peakWorkspaceBytes_, result.Execution().plannedWorkspaceBytes_);
+            ASSERT_THROW(result.Price(), Exception_);
+        }
+    }
+}
+
+TEST(EarlyExercisePdeTest, TestAmericanDiffusionTailPreservesOriginalResidualsAndWorkLimit) {
+    const auto result = EvaluateEarlyExercisePde(DiffusionTailRequest(3201, "PUT", "AMERICAN"));
+    ASSERT_EQ(result.Status(), EarlyExercisePdeStatus_("WORK_LIMIT"));
+    ASSERT_EQ(result.Execution().totalSolves_, 1);
+    ASSERT_EQ(result.Execution().workUnits_, 3199);
+    ASSERT_TRUE(result.Execution().maxLinearBackwardError_);
+    ASSERT_LE(*result.Execution().maxLinearBackwardError_, 1e-12);
+    ASSERT_TRUE(result.Execution().maxComplementarityResidual_);
+    ASSERT_TRUE(std::isfinite(*result.Execution().maxComplementarityResidual_));
+    ASSERT_THROW(result.Price(), Exception_);
+}
+
+TEST(EarlyExercisePdeTest, TestDiffusionTailRepairStillEnforcesDeclaredLinearErrorLimit) {
+    auto r = DiffusionTailRequest(3201, "PUT");
+    r.settings_.linearBackwardErrorLimit_ = 1e-30;
+    const auto result = EvaluateEarlyExercisePde(r);
+    ASSERT_EQ(result.Status(), EarlyExercisePdeStatus_("LINEAR_SOLVE_FAILURE"));
+    ASSERT_EQ(result.Execution().totalSolves_, 1);
+    ASSERT_GT(*result.Execution().maxLinearBackwardError_, r.settings_.linearBackwardErrorLimit_);
+    ASSERT_EQ(result.Failure()->residual_, result.Execution().maxLinearBackwardError_);
+    ASSERT_EQ(*result.Failure()->threshold_, 1e-30);
+    ASSERT_THROW(result.Price(), Exception_);
+}
 
 TEST(EarlyExercisePdeTest, TestIrregularDateProjectionHasIndependentDeterministicPrice) {
     const auto result = EvaluateEarlyExercisePde(Request());
