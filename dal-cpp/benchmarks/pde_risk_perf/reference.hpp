@@ -227,9 +227,11 @@ namespace Dal::PdeRiskBench {
         }
         REQUIRE(reference.plan_->Steps().size() == risk.Plan().steps_.size(), "reference step count mismatch");
         for (size_t i = 0; i < risk.Plan().steps_.size(); ++i) {
-            const auto& a = reference.plan_->Steps()[i];
+            const auto& a = reference.plan_->Steps()[risk.Plan().steps_.size() - 1 - i];
             const auto& b = risk.Plan().steps_[i];
-            REQUIRE(a.source_ - a.target_ == b.dt_ && a.theta_ == b.theta_ && a.carry_ == b.carryIndex_ && a.damped_ == b.damped_,
+            REQUIRE(a.source_ - a.target_ == b.dt_ && a.theta_ == b.theta_ && a.carry_ == b.carryIndex_ && a.damped_ == b.damped_ &&
+                        b.timeIndex_ == static_cast<int>(i) && b.sourceTimeIndex_ == static_cast<int>(i + 1) &&
+                        a.target_ == risk.Plan().timeGrid_[i].timeYears_ && a.source_ == risk.Plan().timeGrid_[i + 1].timeYears_,
                     "reference step mismatch");
         }
         REQUIRE(reference.work_ == risk.Execution().workUnits_ && reference.solves_ == risk.Execution().totalSolves_,

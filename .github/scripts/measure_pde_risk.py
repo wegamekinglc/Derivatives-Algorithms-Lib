@@ -18,6 +18,10 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def timing_row(output):
+    return json.loads(output.splitlines()[-1])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-build", type=Path, required=True)
@@ -92,10 +96,10 @@ def main():
 
     if args.group in ("all", "P2"):
         for case in args.cases:
-            report["preflight"][case] = json.loads(run(f"P2-{case}-identity", [binaries["head_risk"], "--risk", case, "verify", 1]))
+            report["preflight"][case] = timing_row(run(f"P2-{case}-identity", [binaries["head_risk"], "--risk", case, "verify", 1]))
         save()
         for case in args.cases:
-            calibration = {side: json.loads(run(f"P2-{case}-calibrate-{side}", [binaries["head_risk"], "--risk", case, side, 1]))
+            calibration = {side: timing_row(run(f"P2-{case}-calibrate-{side}", [binaries["head_risk"], "--risk", case, side, 1]))
                            for side in ("reference", "risk")}
             repeats = max(1, math.ceil(200_000_000 / min(row["elapsed_ns"] for row in calibration.values())))
             if repeats > 10000:
@@ -106,7 +110,7 @@ def main():
                 sides = {"reference": [], "risk": []}
                 for sample in range(10):
                     for side in (("reference", "risk") if (round_id + sample) % 2 == 0 else ("risk", "reference")):
-                        row = json.loads(run(f"P2-{case}-r{round_id}-{sample}-{side}", [binaries["head_risk"], "--risk", case, side, repeats]))
+                        row = timing_row(run(f"P2-{case}-r{round_id}-{sample}-{side}", [binaries["head_risk"], "--risk", case, side, repeats]))
                         if row["repeats"] != repeats or row["ns_per_call"] <= 0:
                             raise RuntimeError("invalid P2 timing sample")
                         sides[side].append(row["ns_per_call"])
