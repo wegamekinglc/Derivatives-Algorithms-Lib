@@ -115,12 +115,14 @@ namespace {
             value.minReciprocalCondition_ = fields.Required<double>("min_reciprocal_condition");
             value.responseBackwardErrorLimit_ = fields.Required<double>("response_backward_error_limit");
             value.relativePivotTolerance_ = fields.Default<double>("relative_pivot_tolerance", value.relativePivotTolerance_);
+            value.pvOnly_ = fields.Default<bool>("pv_only", value.pvOnly_);
             return value;
         });
         Property(accuracy, "residual_absolute_limits", &ScriptCurveQuoteRiskAccuracy_::residualAbsoluteLimits_);
         Property(accuracy, "min_reciprocal_condition", &ScriptCurveQuoteRiskAccuracy_::minReciprocalCondition_);
         Property(accuracy, "response_backward_error_limit", &ScriptCurveQuoteRiskAccuracy_::responseBackwardErrorLimit_);
         Property(accuracy, "relative_pivot_tolerance", &ScriptCurveQuoteRiskAccuracy_::relativePivotTolerance_);
+        Property(accuracy, "pv_only", &ScriptCurveQuoteRiskAccuracy_::pvOnly_);
         auto request = Struct<ScriptCurveQuoteRiskRequest_>(m, "ScriptCurveQuoteRiskRequest_", [](Fields_& fields) {
             return ScriptCurveQuoteRiskRequest_{fields.Default<Vector_<String_>>("quote_ids", {}), fields.Default<String_>("measure_id", "Price"),
                                                 fields.Default<bool>("live_quote_payoff", false)};

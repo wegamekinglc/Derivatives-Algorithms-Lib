@@ -573,7 +573,7 @@ namespace Dal::PDE {
                 bytes = Add(bytes, Bytes(market.carry_));
             return bytes;
         }
-        size_t Payload(const EarlyExercisePdeRiskResult_& result) {
+        size_t FixedPayload(const EarlyExercisePdeRiskResult_& result) {
             const auto& p = result.Plan();
             size_t bytes = Add(sizeof(result), RequestDynamic(result.Request()));
             const auto& request = result.Request();
@@ -584,8 +584,6 @@ namespace Dal::PDE {
             bytes = Add(bytes, Mul(request.risk_.rateBumps_.capacity() - request.risk_.rateBumps_.size() +
                                        request.risk_.dividendYieldBumps_.capacity() - request.risk_.dividendYieldBumps_.size(),
                                    sizeof(double)));
-            bytes = Add(bytes, result.BaseResult().Execution().numericPayloadBytes_ - sizeof(EarlyExercisePdeResult_));
-            bytes = Add(bytes, FailureBytes(result.BaseResult().Failure()));
             bytes = Add(bytes, Add(Bytes(p.grid_), Add(Bytes(p.timeGrid_), Bytes(p.steps_))));
             bytes = Add(bytes, Add(TextBytes(p.planId_), TextBytes(p.interpolationPolicy_)));
             bytes = Add(bytes, Add(Bytes(p.resolvedRisk_.rateBumps_), Bytes(p.resolvedRisk_.dividendYieldBumps_)));
@@ -597,12 +595,22 @@ namespace Dal::PDE {
                     bytes = Add(bytes, TextBytes(*text));
                 bytes = Add(bytes, Add(Bytes(record.fineStencil_), Bytes(record.coarseStencil_)));
             }
-            for (const auto& row : result.Scenarios()) {
-                bytes = Add(bytes, Add(TextBytes(row.scenarioId_), TextBytes(row.planId_)));
-                if (row.parameterId_)
-                    bytes = Add(bytes, TextBytes(*row.parameterId_));
-                bytes = Add(bytes, FailureBytes(row.failure_));
-            }
+            return bytes;
+        }
+        size_t ScenarioPayload(const EarlyExercisePdeRiskScenario_& row) {
+            size_t bytes = Add(TextBytes(row.scenarioId_), TextBytes(row.planId_));
+            if (row.parameterId_)
+                bytes = Add(bytes, TextBytes(*row.parameterId_));
+            return Add(bytes, FailureBytes(row.failure_));
+        }
+        size_t BasePayload(const EarlyExercisePdeRiskResult_& result) {
+            return Add(result.BaseResult().Execution().numericPayloadBytes_ - sizeof(EarlyExercisePdeResult_),
+                       FailureBytes(result.BaseResult().Failure()));
+        }
+        size_t Payload(const EarlyExercisePdeRiskResult_& result) {
+            size_t bytes = Add(FixedPayload(result), BasePayload(result));
+            for (const auto& row : result.Scenarios())
+                bytes = Add(bytes, ScenarioPayload(row));
             return bytes;
         }
 
@@ -729,19 +737,19 @@ namespace Dal::PDE {
                 ++*control->rollbacksStarted_;
             return PriceCall([&]() { return Internal::RollbackForRisk(scenario, plan, controlled ? &solverControl : nullptr); });
         }
-        void ObserveMemory(const EarlyExercisePdeRiskResult_& result,
-                           EarlyExercisePdeRiskExecution_* execution,
+        void ObserveMemory(EarlyExercisePdeRiskExecution_* execution,
                            const EarlyExercisePdeRequest_& scenario,
                            const EarlyExercisePdeResult_& observed,
                            bool base,
                            const Internal::Plan_& plan,
-                           size_t setupBytes) {
+                           size_t setupBytes,
+                           size_t payloadBytes) {
             size_t temporary = Add(Add(setupBytes, plan.StorageBytes()),
                                    Add(sizeof(scenario), Add(Bytes(scenario.market_.carry_), Bytes(scenario.contract_.exerciseDates_))));
             temporary = Add(temporary, observed.Execution().peakWorkspaceBytes_);
             temporary = Add(temporary, base ? sizeof(observed) : Add(observed.Execution().numericPayloadBytes_, FailureBytes(observed.Failure())));
             execution->peakWorkspaceBytes_ = std::max(execution->peakWorkspaceBytes_, temporary);
-            execution->peakNativeBytes_ = std::max(execution->peakNativeBytes_, Add(Payload(result), temporary));
+            execution->peakNativeBytes_ = std::max(execution->peakNativeBytes_, Add(payloadBytes, temporary));
         }
         Status_ AggregateStatus(bool baseFailed, bool globalStop, bool complete) {
             if (baseFailed)
@@ -781,6 +789,7 @@ namespace Dal::PDE {
         const Vector_<EarlyExercisePdeMarket_>& markets_;
         const Envelope_& envelope_;
         const TestControl_* control_;
+        size_t setupBytes_;
         bool globalStop_ = false, baseFailed_ = false;
     };
     void EarlyExercisePdeRiskInternal::Evaluator_::Initialize(EarlyExercisePdeRiskResult_* result, const State_& state) {
@@ -794,7 +803,10 @@ namespace Dal::PDE {
         e.plannedNumericPayloadBytes_ = state.envelope_.payload_;
         e.plannedWorkspaceBytes_ = state.envelope_.workspace_;
         e.plannedPeakNativeBytes_ = state.envelope_.peak_;
-        e.peakWorkspaceBytes_ = Add(SetupBytes(state.axes_, state.markets_), state.plan_.PeakTemporaryBytes());
+        e.numericPayloadBytes_ = FixedPayload(*result);
+        for (const auto& row : result->scenarios_)
+            e.numericPayloadBytes_ = Add(e.numericPayloadBytes_, ScenarioPayload(row));
+        e.peakWorkspaceBytes_ = Add(state.setupBytes_, state.plan_.PeakTemporaryBytes());
         e.peakNativeBytes_ = e.peakWorkspaceBytes_;
     }
     void EarlyExercisePdeRiskInternal::Evaluator_::RunScenario(EarlyExercisePdeRiskResult_* result, State_* state, size_t index) {
@@ -803,15 +815,18 @@ namespace Dal::PDE {
         const size_t remaining = state->input_.risk_.maxWorkUnits_ - e.workUnits_;
         const auto scenario = ScenarioRequest(state->input_, index == 0 ? nullptr : &state->markets_[index - 1], remaining);
         auto evaluated = ExecuteScenario(scenario, state->plan_, index, state->control_);
+        e.numericPayloadBytes_ -= ScenarioPayload(row);
         Summarize(&row, evaluated, state->input_, index == 0 ? nullptr : &*result->base_);
         state->globalStop_ = AccountWorkLimit(&row, remaining, index, scenario.settings_.gridPoints_, &e);
         AccountScenario(row, &e);
         if (index == 0) {
             state->baseFailed_ = !row.priceAvailable_;
             result->base_ = std::move(evaluated);
+            e.numericPayloadBytes_ = Add(e.numericPayloadBytes_, BasePayload(*result));
         }
+        e.numericPayloadBytes_ = Add(e.numericPayloadBytes_, ScenarioPayload(row));
         const auto& observed = index == 0 ? result->BaseResult() : evaluated;
-        ObserveMemory(*result, &e, scenario, observed, index == 0, state->plan_, SetupBytes(state->axes_, state->markets_));
+        ObserveMemory(&e, scenario, observed, index == 0, state->plan_, state->setupBytes_, e.numericPayloadBytes_);
     }
     void EarlyExercisePdeRiskInternal::Evaluator_::RunAll(EarlyExercisePdeRiskResult_* result, State_* state) {
         for (size_t i = 0; i < result->scenarios_.size(); ++i) {
@@ -830,8 +845,7 @@ namespace Dal::PDE {
         auto& e = result->execution_;
         e.numericPayloadBytes_ = Payload(*result);
         Budget(e.numericPayloadBytes_, state.envelope_.payload_, "retained_storage_layout");
-        e.peakNativeBytes_ =
-            std::max(e.peakNativeBytes_, Add(e.numericPayloadBytes_, Add(SetupBytes(state.axes_, state.markets_), state.plan_.StorageBytes())));
+        e.peakNativeBytes_ = std::max(e.peakNativeBytes_, Add(e.numericPayloadBytes_, Add(state.setupBytes_, state.plan_.StorageBytes())));
         Budget(e.peakWorkspaceBytes_, state.envelope_.workspace_, "temporary_storage_layout");
         Budget(e.peakNativeBytes_, state.envelope_.peak_, "peak_storage_layout");
     }
@@ -845,8 +859,8 @@ namespace Dal::PDE {
         const auto markets = ScenarioMarkets(input, &axes, count);
         const auto layout = PriceCall([&]() { return Internal::PreviewPlan(input.valuation_, markets); });
         const auto envelope = Admit(input, count, layout);
-        const auto plan = PriceCall([&]() { return Internal::BuildPlan(input.valuation_, markets); });
-        State_ state{input, plan, axes, markets, envelope, control};
+        const auto plan = PriceCall([&]() { return Internal::BuildPlan(input.valuation_, markets, &layout); });
+        State_ state{input, plan, axes, markets, envelope, control, SetupBytes(axes, markets)};
         EarlyExercisePdeRiskResult_ result;
         Initialize(&result, state);
         RunAll(&result, &state);

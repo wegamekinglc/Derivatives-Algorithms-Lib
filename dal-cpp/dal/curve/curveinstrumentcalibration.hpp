@@ -6,7 +6,13 @@
 
 namespace Dal {
     class CurveInstrumentCalibrationEvidence_;
+    class PreparedCurveInstruments_;
     struct CurveInstrumentCalibrationSpec_;
+    namespace CurveInstrumentInternal {
+        struct PreparedCurvePriceContext_;
+        PreparedCurvePriceContext_ PrepareCurvePriceContext(const PreparedCurveInstruments_&);
+        std::unique_ptr<Underdetermined::Jacobian_> NativeAadJacobian(const PreparedCurveInstruments_&, const Vector_<>&);
+    } // namespace CurveInstrumentInternal
     struct CurveScriptRoute_ {
         String_ id_;
         bool projection_ = false;
@@ -140,7 +146,13 @@ namespace Dal {
         std::shared_ptr<const CurveInstrumentCalibrationOptions_> frozenOptions_;
         std::shared_ptr<const CandidateCurveGeometry_> geometry_;
         std::shared_ptr<const CurveInstrumentCalibrationEvidence_> evidence_;
+        std::shared_ptr<const std::map<std::string, String_>> contextIdentities_;
         String_ planIdentity_;
+        [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AadJacobian(const Vector_<>&) const;
+        friend CurveInstrumentInternal::PreparedCurvePriceContext_
+        CurveInstrumentInternal::PrepareCurvePriceContext(const PreparedCurveInstruments_&);
+        friend std::unique_ptr<Underdetermined::Jacobian_> CurveInstrumentInternal::NativeAadJacobian(const PreparedCurveInstruments_&,
+                                                                                                      const Vector_<>&);
 
     public:
         explicit PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec, const CurveInstrumentCalibrationOptions_& options = {});

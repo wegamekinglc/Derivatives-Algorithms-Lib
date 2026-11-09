@@ -23,6 +23,7 @@ namespace Dal {
         double minReciprocalCondition_ = 0.;
         double responseBackwardErrorLimit_ = 0.;
         double relativePivotTolerance_ = 64. * std::numeric_limits<double>::epsilon();
+        bool pvOnly_ = false;
     };
     struct ScriptCurveQuoteRiskQuote_ {
         int ordinal_ = 0;
@@ -133,7 +134,7 @@ namespace Dal {
     public:
         [[nodiscard]] bool StructureValid() const;
         [[nodiscard]] bool MappingAvailable() const;
-        [[nodiscard]] bool RiskAvailable() const { return MappingAvailable(); }
+        [[nodiscard]] bool RiskAvailable() const;
         [[nodiscard]] const ScriptCurveQuoteRiskNumerics_& Numerics() const;
         [[nodiscard]] const Vector_<CalibrationDiagnostic_>& Diagnostics() const;
         [[nodiscard]] const ScriptCurveQuoteRiskAccuracy_& Accuracy() const;

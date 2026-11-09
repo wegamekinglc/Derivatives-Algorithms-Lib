@@ -176,6 +176,26 @@ def test_factories_release_gil_after_input_conversion(hold_gil):
     assert result.available
 
 
+def test_pv_only_snapshot_skips_mapping_without_changing_pv_risk():
+    spec = _spec()
+    fit = dal.Calibrate_CurveInstruments(spec)
+    accuracy = dal.ScriptCurveQuoteRiskAccuracy_(residual_absolute_limits=[1e-12, 1e-12],
+        min_reciprocal_condition=1e-10, response_backward_error_limit=1e-12, pv_only=True)
+    snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(fit, accuracy)
+    full = dal.ScriptCurveQuoteRiskSnapshot_New(fit, _accuracy())
+    assert snapshot.risk_available and not snapshot.mapping_available
+    assert snapshot.accuracy.pv_only
+    assert snapshot.numerics.transpose_backward_errors == []
+    assert snapshot.numerics.response_backward_errors == []
+    risk = dal.CalibrationInstrument_ValueWithQuoteRisk(spec.observations[0].instrument, snapshot, spec)
+    expected = dal.CalibrationInstrument_ValueWithQuoteRisk(spec.observations[0].instrument, full, spec)
+    assert risk.available
+    assert risk.pv == expected.pv
+    assert risk.native_gradient == expected.native_gradient
+    assert risk.raw_sensitivity == expected.raw_sensitivity
+    assert risk.dv01 == expected.dv01
+
+
 def test_function_getters_match_typed_properties():
     spec = _spec()
     snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(dal.Calibrate_CurveInstruments(spec), _accuracy())

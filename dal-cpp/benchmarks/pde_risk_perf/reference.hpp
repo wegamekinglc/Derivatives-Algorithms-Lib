@@ -283,7 +283,7 @@ namespace Dal::PdeRiskBench {
         out.request_ = input;
         const auto markets = ScenarioMarkets(input, coarseSpot, &out.scenarios_);
         const auto preview = I::PreviewPlan(input.valuation_, markets);
-        const auto plan = I::BuildPlan(input.valuation_, markets);
+        const auto plan = I::BuildPlan(input.valuation_, markets, &preview);
         REQUIRE(preview.counts_.steps_ == plan.Counts().steps_, "reference preview mismatch");
         out.plan_ = plan;
         RunScenarios(input, markets, plan, coarseSpot, &out);

@@ -130,6 +130,24 @@ TEST(ScriptCurveQuoteRiskExcelTest, TestStrictTypedFieldTablesAndLocations) {
     ASSERT_THROW(ScriptCurveQuoteIds_New({Cell_(true)}, &ids), Exception_);
 }
 
+TEST(ScriptCurveQuoteRiskExcelTest, TestPvOnlyAccuracyField) {
+    Handle_<StorableCalibrationNumbers_> limits;
+    CalibrationNumbers_New({Cell_(1e-12), Cell_(1e-12)}, &limits);
+    const auto limitsTag = Excel::ScriptTestStoreRepository(Handle_<Storable_>(limits));
+    const auto required = Fields({{"residual_absolute_limits", Cell_(limitsTag)},
+                                  {"min_reciprocal_condition", Cell_(1e-10)},
+                                  {"response_backward_error_limit", Cell_(1e-12)}});
+    Handle_<StorableScriptCurveQuoteRiskAccuracy_> accuracy;
+    ScriptCurveQuoteRiskAccuracy_New(required, &accuracy);
+    ASSERT_FALSE(accuracy->val_.pvOnly_);
+    auto pvOnly = required;
+    pvOnly.Resize(4, 2);
+    pvOnly(3, 0) = "pv_only";
+    pvOnly(3, 1) = Cell_(true);
+    ScriptCurveQuoteRiskAccuracy_New(pvOnly, &accuracy);
+    ASSERT_TRUE(accuracy->val_.pvOnly_);
+}
+
 TEST(ScriptCurveQuoteRiskExcelTest, TestReportOnlyOutcomeCannotInventFitContext) {
     const auto fit = CalibrateCurveInstruments(Dal::Test::ScriptQuoteRiskSpec());
     const Handle_<StorableCalibrationOutcome_> legacy(new StorableCalibrationOutcome_("Succeeded", fit.report_, fit.curve_));

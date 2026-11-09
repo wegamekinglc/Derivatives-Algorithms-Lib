@@ -130,7 +130,10 @@ From an existing `CalibrateCurveInstruments(spec)` result, call
 `ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec, request)`
 on the same fixed bound contract. Check `result.Available()` before `PV()`,
 `RawSensitivity()` or `DV01()`. The snapshot caches one checked factorization;
-multiple deterministic PV calls reuse it without recalibration.
+multiple deterministic PV calls reuse it without recalibration. Set
+`accuracy.pvOnly_ = true` when only PV quote risk is needed: the snapshot skips
+the full parameter-response matrix, `RiskAvailable()` remains the PV admission
+check, and `ParameterQuoteMapping()` is unavailable.
 
 The request defaults to all quotes and `Price`; `quoteIds_` selects exact,
 case-sensitive IDs in output order while retaining original ordinals. Signed

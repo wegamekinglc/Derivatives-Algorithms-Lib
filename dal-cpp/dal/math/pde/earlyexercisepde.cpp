@@ -163,6 +163,10 @@ namespace Dal::PDE {
         }
         template <class F_> PlanCounts_ Plan(const EarlyExercisePdeRequest_& r, F_ emit, const Vector_<EarlyExercisePdeMarket_>& extraMarkets = {}) {
             PlanCounts_ counts;
+            Vector_<StabilityBounds_> segmentBounds;
+            segmentBounds.reserve(r.market_.carry_.size());
+            for (size_t carry = 0; carry < r.market_.carry_.size(); ++carry)
+                segmentBounds.push_back(SegmentBounds(r, static_cast<int>(carry), extraMarkets, &counts));
             const auto& c = r.contract_;
             const auto& s = r.settings_;
             Date_ right = c.maturityDate_;
@@ -173,7 +177,7 @@ namespace Dal::PDE {
                 PreviousExercise(c, right, &exercise);
                 PreviousCarry(r.market_, right, &carry);
                 const Date_ left = LeftAnchor(r, carry, exercise);
-                const auto bounds = SegmentBounds(r, carry, extraMarkets, &counts);
+                const auto& bounds = segmentBounds[carry];
                 const int base = IntervalSteps(r, left, right, &counts);
                 const double lo = Years(left, c.evaluationDate_), hi = Years(right, c.evaluationDate_);
                 for (int b = 0; b < base; ++b) {
@@ -1138,16 +1142,17 @@ namespace Dal::PDE {
         } // namespace
 
         PlanLayout_ PreviewPlan(const EarlyExercisePdeRequest_& r, const Vector_<EarlyExercisePdeMarket_>& extraMarkets) {
+            const int basePlannedSteps = Plan(r, [](const PlanStep_&) {}).steps_;
             const auto counts = Plan(r, [](const PlanStep_&) {}, extraMarkets);
             const auto storage = AdmitStorage(r, counts);
             const size_t n = r.settings_.gridPoints_, m = counts.steps_;
             const size_t plan = Add(Add(Add(Add(4096, Multiply(8, n)), Multiply(128, m + 1)), Multiply(32, r.market_.carry_.size())),
                                     Multiply(8, r.contract_.exerciseDates_.size()));
             const size_t canonical = Add(Add(256, Multiply(8, n)), Multiply(128, m + 1));
-            return {counts, storage.payload_, storage.workspace_, plan, Add(4096, Multiply(4, Add(canonical, 72)))};
+            return {counts, basePlannedSteps, storage.payload_, storage.workspace_, plan, Add(4096, Multiply(4, Add(canonical, 72)))};
         }
 
-        Plan_ BuildPlan(const EarlyExercisePdeRequest_& input, const Vector_<EarlyExercisePdeMarket_>& extraMarkets) {
+        Plan_ BuildPlan(const EarlyExercisePdeRequest_& input, const Vector_<EarlyExercisePdeMarket_>& extraMarkets, const PlanLayout_* preview) {
             ValidateEarlyExercisePdeRequest(input);
             Plan_ result;
             result.request_ = ResolvedScenario(input, Upper(input));
@@ -1161,8 +1166,8 @@ namespace Dal::PDE {
                 result.epsilon_ = std::min(result.epsilon_, r.settings_.absoluteTolerance_ +
                                                                 r.settings_.relativeTolerance_ * std::max(market.spot_, r.contract_.strike_));
             }
-            result.basePlannedSteps_ = Plan(r, [](const PlanStep_&) {}).steps_;
-            result.counts_ = Plan(r, [](const PlanStep_&) {}, extraMarkets);
+            result.basePlannedSteps_ = preview ? preview->basePlannedSteps_ : Plan(r, [](const PlanStep_&) {}).steps_;
+            result.counts_ = preview ? preview->counts_ : Plan(r, [](const PlanStep_&) {}, extraMarkets);
             AdmitStorage(r, result.counts_);
             const size_t n = r.settings_.gridPoints_, m = result.counts_.steps_;
             const size_t envelope = Add(Add(Add(Add(4096, Multiply(8, n)), Multiply(128, m + 1)), Multiply(32, r.market_.carry_.size())),

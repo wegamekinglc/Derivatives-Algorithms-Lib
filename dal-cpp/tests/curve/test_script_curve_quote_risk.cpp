@@ -361,6 +361,35 @@ TEST(ScriptCurveQuoteRiskTest, TestPvRiskAgainstIndependentFullRecalibration) {
         }
 }
 
+TEST(ScriptCurveQuoteRiskTest, TestPvOnlySnapshotSkipsMatrixWithoutChangingPvRisk) {
+    const auto spec = TwoDepositSpec();
+    const auto fit = CalibrateCurveInstruments(spec, AadOptions());
+    auto accuracy = MappingAccuracy(2);
+    accuracy.pvOnly_ = true;
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+    const auto full = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(2));
+    ASSERT_TRUE(snapshot.RiskAvailable());
+    ASSERT_FALSE(snapshot.MappingAvailable());
+    ASSERT_TRUE(snapshot.Numerics().transposeBackwardErrors_.empty());
+    ASSERT_TRUE(snapshot.Numerics().responseBackwardErrors_.empty());
+    ASSERT_NE(snapshot.Identity(), full.Identity());
+    const auto mapping = snapshot.ParameterQuoteMapping(spec);
+    ASSERT_FALSE(mapping.Available());
+    ASSERT_TRUE(mapping.Diagnostics().empty());
+    ASSERT_THROW(static_cast<void>(mapping.ParameterResponse()), Exception_);
+    const auto& instrument = spec.observations_.front()->Instrument();
+    const auto risk = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    const auto expected = ValueCalibrationInstrumentWithQuoteRisk(instrument, full, spec);
+    ASSERT_TRUE(risk.Available());
+    ASSERT_DOUBLE_EQ(risk.PV(), expected.PV());
+    ASSERT_EQ(risk.NativeGradient(), expected.NativeGradient());
+    ASSERT_EQ(risk.RawSensitivity(), expected.RawSensitivity());
+    ASSERT_EQ(risk.DV01(), expected.DV01());
+    ASSERT_EQ(risk.Numerics().factorizationCount_, 1);
+    ASSERT_EQ(risk.Numerics().transposeBackwardErrors_.size(), 1u);
+    ASSERT_TRUE(risk.Numerics().responseBackwardErrors_.empty());
+}
+
 TEST(ScriptCurveQuoteRiskTest, TestPvRiskRejectsInvalidRequestsAndOwnsDiagnostics) {
     const auto spec = MappingSample("IRS", 5);
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), MappingAccuracy(5));

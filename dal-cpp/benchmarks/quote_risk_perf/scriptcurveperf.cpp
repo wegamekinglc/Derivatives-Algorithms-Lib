@@ -92,15 +92,28 @@ namespace {
             for (int j = 0; j < actual.Cols(); ++j)
                 REQUIRE(std::abs(actual(i, j) - expected(i, j)) <= 1e-7 + 1e-5 * std::abs(expected(i, j)), "Script benchmark FD mismatch");
     }
-    void Run(int count, int pvs) {
+    void Run(int count, int pvs, bool pvOnlyMode) {
         const auto spec = Sample(count);
         const auto fit = CalibrateCurveInstruments(spec, Options());
         const auto start = Clock_::now();
         const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {Vector_<>(count, 1e-12), 1e-10, 1e-12});
         const double preparation = std::chrono::duration<double, std::nano>(Clock_::now() - start).count();
         REQUIRE(snapshot.RiskAvailable(), "Script benchmark snapshot unavailable");
+        std::optional<ScriptCurveQuoteRiskSnapshot_> pvOnly;
+        double pvOnlyPreparation = 0.;
+        if (pvOnlyMode) {
+            auto accuracy = ScriptCurveQuoteRiskAccuracy_{Vector_<>(count, 1e-12), 1e-10, 1e-12};
+            accuracy.pvOnly_ = true;
+            const auto pvOnlyStart = Clock_::now();
+            pvOnly = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+            pvOnlyPreparation = std::chrono::duration<double, std::nano>(Clock_::now() - pvOnlyStart).count();
+            REQUIRE(pvOnly->RiskAvailable() && !pvOnly->MappingAvailable(), "Script PV-only benchmark snapshot unavailable");
+        }
         int calibrations = 0;
-        Verify(Shared(spec, snapshot, pvs), Recalibrated(spec, pvs, &calibrations));
+        const auto expected = Recalibrated(spec, pvs, &calibrations);
+        Verify(Shared(spec, snapshot, pvs), expected);
+        if (pvOnly)
+            Verify(Shared(spec, *pvOnly, pvs), expected);
         for (int sample = -WARMUPS; sample < SAMPLES; ++sample) {
             const auto shared = [&] { return Shared(spec, snapshot, pvs); };
             const auto reference = [&] { return Recalibrated(spec, pvs, &calibrations); };
@@ -112,22 +125,25 @@ namespace {
                 referenceNs = Timed(reference);
                 sharedNs = Timed(shared);
             }
-            if (sample >= 0)
+            if (sample >= 0) {
                 std::cout << "{\"quotes\":" << count << ",\"pvs\":" << pvs << ",\"sample\":" << sample << ",\"shared_ns\":" << sharedNs
-                          << ",\"recalibrated_ns\":" << referenceNs << ",\"prepare_ns\":" << preparation
-                          << ",\"factorizations\":" << snapshot.Numerics().factorizationCount_
+                          << ",\"recalibrated_ns\":" << referenceNs << ",\"prepare_ns\":" << preparation;
+                if (pvOnly)
+                    std::cout << ",\"pv_only_prepare_ns\":" << pvOnlyPreparation;
+                std::cout << ",\"factorizations\":" << snapshot.Numerics().factorizationCount_
                           << ",\"reference_calibrations_per_sample\":" << 2 * count << "}\n";
+            }
         }
         REQUIRE(calibrations == (1 + WARMUPS + SAMPLES) * 2 * count, "Reference calibration counter mismatch");
     }
 } // namespace
 
-int RunScriptCurveQuoteRiskBenchmarks() {
+int RunScriptCurveQuoteRiskBenchmarks(bool pvOnlyMode) {
     try {
         std::cout << std::setprecision(17);
         for (const int count : {5, 15})
             for (const int pvs : {1, 100})
-                Run(count, pvs);
+                Run(count, pvs, pvOnlyMode);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

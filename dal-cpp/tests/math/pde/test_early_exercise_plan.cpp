@@ -119,6 +119,24 @@ TEST(EarlyExercisePlanTest, TestCommonPlanAdmitsFullScenarioStorageBeforeRollbac
     ASSERT_THROW(static_cast<void>(EarlyExercisePdeInternal::BuildPlan(r)), Exception_);
 }
 
+TEST(EarlyExercisePlanTest, TestBuildPlanReusesPreviewWithoutChangingNumericContent) {
+    const auto r = Request();
+    auto bumped = r.market_;
+    bumped.volatility_ = 0.8;
+    bumped.carry_[0].rate_ = -8.0;
+    const Vector_<EarlyExercisePdeMarket_> markets{bumped};
+    const auto preview = EarlyExercisePdeInternal::PreviewPlan(r, markets);
+    const auto reused = EarlyExercisePdeInternal::BuildPlan(r, markets, &preview);
+    const auto rebuilt = EarlyExercisePdeInternal::BuildPlan(r, markets);
+    ASSERT_EQ(preview.basePlannedSteps_, rebuilt.BasePlannedSteps());
+    ASSERT_EQ(reused.Id(), rebuilt.Id());
+    ASSERT_EQ(reused.Grid(), rebuilt.Grid());
+    ASSERT_EQ(reused.TimeGrid().size(), rebuilt.TimeGrid().size());
+    ASSERT_EQ(reused.Steps().size(), rebuilt.Steps().size());
+    ASSERT_EQ(reused.StorageBytes(), rebuilt.StorageBytes());
+    ASSERT_DOUBLE_EQ(EarlyExercisePdeInternal::Rollback(r, reused).Price(), EarlyExercisePdeInternal::Rollback(r, rebuilt).Price());
+}
+
 TEST(EarlyExercisePlanTest, TestRollbackRejectsScenarioWithLooserThanItsOwnTolerance) {
     auto r = Request();
     r.settings_.theta_ = 1.0;
