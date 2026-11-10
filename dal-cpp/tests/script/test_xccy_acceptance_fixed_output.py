@@ -27,11 +27,11 @@ class XccyAcceptanceFixedOutputTest(unittest.TestCase):
         identity = model_decision_identity(raw)
         self.assertEqual(
             identity["admitted_sha256"],
-            "6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4",
+            "1d1326f0e443ce7ae12455ce17cc4031532ce26314648c89019952f30e2f2764",
         )
         self.assertEqual(
             identity["frozen_sha256"],
-            "c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5",
+            "1d1326f0e443ce7ae12455ce17cc4031532ce26314648c89019952f30e2f2764",
         )
 
     def test_unregistered_model_body_and_header_changes_are_rejected(self):

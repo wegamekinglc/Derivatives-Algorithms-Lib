@@ -111,7 +111,10 @@ else:
 ```
 
 These are sample limits in raw observation units, not a universal accuracy
-default. An accepted ordinary fit can still fail risk admission. The entry
+default. Set `pv_only=True` to skip the full parameter-response matrix when only
+PV quote risk is needed; `risk_available` remains the PV admission check and
+`mapping_available` is false. An accepted ordinary fit can still fail risk
+admission. The entry
 supports single-target, square full-rank EXACT deterministic fits with fixed
 background curves; GSR, XCCY and MC propagation are outside this entry.
 

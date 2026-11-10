@@ -4,11 +4,9 @@ Status: active acceptance contract, version 1, with explicit bounded-reference
 decisions below. S0 froze requirements without executing product checks.
 S3 now qualifies N1–N12 as **12 PASS / 0 FAIL / 0 INCOMPLETE** under the
 [final reference adoption](#adopted-bounded-bbs-tree-reference-dal-502).
-The [final qualification entry](../validation/dal-502-pde-risk-final.md)
-owns applicable numerical evidence. [S4](../validation/dal-503-pde-risk-bindings.md)
-has delivered projections and native Windows B10, merged as PR #687;
-[S5](../validation/dal-504-pde-risk-delivery.md) supplies performance/build/examples
-for focused review. Requirements below
+The DAL-502 final qualification record owns applicable numerical evidence in Git
+history. S4 delivered projections and native Windows B10 in PR #687; the DAL-504
+record contains S5 performance/build/example evidence. Requirements below
 do not by themselves establish binding, performance or release acceptance.
 Core deterministic coverage in
 `dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp` is distinct from
@@ -384,8 +382,8 @@ DAL-502 and paused S4 remain unchanged until then.
 Coordinator decision `01a1ba61-8784-74fe-89bf-29c603550a07` explicitly adopts
 the reviewed `BBS-last-step-v1`, including stable tail arithmetic from
 `8607092c8ccd6c9c1c2df1a08387577112e9570b`, as a qualified independent TREE
-reference for the twelve frozen constant-carry actual bump bindings in
-[binding-summary.json](../validation/dal502-bbs-candidate/binding-summary.json).
+reference for the twelve frozen constant-carry actual bump bindings recorded by
+the DAL-502 binding summary in Git history.
 Native executable SHA256 is
 `f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518`.
 

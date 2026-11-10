@@ -242,7 +242,8 @@ namespace Dal {
                    {{"residual_absolute_limits", [&](const Cell_& c) { accuracy.residualAbsoluteLimits_ = Input_<Vector_<>>::Read(c); }},
                     {"min_reciprocal_condition", [&](const Cell_& c) { accuracy.minReciprocalCondition_ = Input_<double>::Read(c); }},
                     {"response_backward_error_limit", [&](const Cell_& c) { accuracy.responseBackwardErrorLimit_ = Input_<double>::Read(c); }},
-                    {"relative_pivot_tolerance", [&](const Cell_& c) { accuracy.relativePivotTolerance_ = Input_<double>::Read(c); }}},
+                    {"relative_pivot_tolerance", [&](const Cell_& c) { accuracy.relativePivotTolerance_ = Input_<double>::Read(c); }},
+                    {"pv_only", [&](const Cell_& c) { accuracy.pvOnly_ = Input_<bool>::Read(c); }}},
                    {"residual_absolute_limits", "min_reciprocal_condition", "response_backward_error_limit"});
         value->reset(new StorableScriptCurveQuoteRiskAccuracy_(accuracy));
     }

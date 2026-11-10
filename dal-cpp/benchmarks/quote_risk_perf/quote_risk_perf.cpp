@@ -55,6 +55,8 @@ namespace {
 int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--script-curve-quote-risk")
         return RunScriptCurveQuoteRiskBenchmarks();
+    if (argc == 2 && std::string(argv[1]) == "--script-curve-quote-risk-pv-only")
+        return RunScriptCurveQuoteRiskBenchmarks(true);
     if (argc > 1 && std::string(argv[1]) == "--market-iv")
         return RunMarketIvBenchmarks();
     if (argc > 1)
@@ -69,24 +71,18 @@ int main(int argc, char** argv) {
 
     Bench::PrintHeader();
 
-    RunBuildCase("Quote risk provenance single build (8 quotes)", single8, [](const auto& m) {
-        return BuildSingleCurveQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
-    });
-    RunBuildCase("Quote risk provenance single build (16 quotes)", single16, [](const auto& m) {
-        return BuildSingleCurveQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
-    });
-    RunBuildCase("Quote risk provenance joint build (3x8 quotes)", joint8, [](const auto& m) {
-        return BuildJointXccyQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
-    });
-    RunBuildCase("Quote risk provenance joint build (3x16 quotes)", joint16, [](const auto& m) {
-        return BuildJointXccyQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
-    });
-    RunBuildCase("Quote risk provenance staged build (8 quotes)", staged8, [](const auto& m) {
-        return BuildStagedXccyBasisQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
-    });
-    RunBuildCase("Quote risk provenance staged build (16 quotes)", staged16, [](const auto& m) {
-        return BuildStagedXccyBasisQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
-    });
+    RunBuildCase("Quote risk provenance single build (8 quotes)", single8,
+                 [](const auto& m) { return BuildSingleCurveQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_); });
+    RunBuildCase("Quote risk provenance single build (16 quotes)", single16,
+                 [](const auto& m) { return BuildSingleCurveQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_); });
+    RunBuildCase("Quote risk provenance joint build (3x8 quotes)", joint8,
+                 [](const auto& m) { return BuildJointXccyQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_); });
+    RunBuildCase("Quote risk provenance joint build (3x16 quotes)", joint16,
+                 [](const auto& m) { return BuildJointXccyQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_); });
+    RunBuildCase("Quote risk provenance staged build (8 quotes)", staged8,
+                 [](const auto& m) { return BuildStagedXccyBasisQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_); });
+    RunBuildCase("Quote risk provenance staged build (16 quotes)", staged16,
+                 [](const auto& m) { return BuildStagedXccyBasisQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_); });
 
     RunProbeCase("Quote risk state probe single (16 quotes)", single16, Vector_<String_>{"discount"});
     Vector_<String_> jointComponents;

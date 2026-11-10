@@ -58,9 +58,8 @@ Active work uses the shared [Codex artifact surface](../../.codex/artifacts/READ
 `specs/`, `designs/`, `api-notes/`, `critiques/`, `reviews/`, `plans/`, and performance
 reports under `.codex/artifacts/`. Create a durable document only when it controls
 active work, then retire it when the current-state outcome is documented.
-Existing `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, and
-`.claude/critiques/` documents marked as implemented history are historical
-context, not pending instructions or assertions about current paths.
+Completed Claude design and validation records are retained in Git history rather
+than the working tree.
 
 Shared build/test commands and architecture remain in [CLAUDE.md](../../CLAUDE.md).
 Coding, unit-test, and Git conventions are mirrored byte-for-byte between

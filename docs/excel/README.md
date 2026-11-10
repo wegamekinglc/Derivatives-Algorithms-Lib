@@ -81,7 +81,9 @@ header, then put `=SCRIPTCURVEQUOTERISKACCURACY.NEW(E1:F3)` in H1:
 
 Supply one residual limit per observation, in its raw measure unit. These are
 sample thresholds; `relative_pivot_tolerance` is optional and defaults to
-`64*epsilon`. Both accuracy and request factories parse the entire selected
+`64*epsilon`. Optional Boolean `pv_only=true` skips the full parameter-response
+matrix when only PV quote risk is needed; snapshot status still reports PV risk
+availability. Both accuracy and request factories parse the entire selected
 two-column range, skipping blank rows. Fields after a blank row are still
 validated. Unknown/duplicate fields and invalid types are worksheet errors
 with the original function, field, row and column. Flags require Boolean cells.
@@ -95,7 +97,7 @@ H4: =CALIBRATIONINSTRUMENT.VALUEWITHQUOTERISK(instrument,H2,context)
 H5: =SCRIPTCURVEQUOTERISKRESULT.GET.STATUS(H4)
 ```
 
-Inspect H3 for snapshot mapping availability and H5 for this PV's `Available`
+Inspect H3 for snapshot PV-risk availability and H5 for this PV's `Available`
 status before using numeric getters:
 
 ```text

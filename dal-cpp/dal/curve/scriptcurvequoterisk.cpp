@@ -21,12 +21,14 @@ namespace Dal {
         ScriptCurveQuoteRiskAccuracy_ accuracy_;
         std::shared_ptr<const ScriptCurveQuoteRiskAxes_> axes_;
         std::shared_ptr<const CurveInstrumentCalibrationSpec_> spec_;
+        CurveInstrumentInternal::PreparedCurvePriceContext_ priceContext_;
         Vector_<> parameters_;
         Vector_<CalibrationDiagnostic_> diagnostics_;
         Json_ context_;
         String_ contextIdentity_, identity_;
         ScriptCurveQuoteRiskNumerics_ numerics_;
-        Matrix_<> quoteMap_, response_;
+        Matrix_<> quoteMap_;
+        std::optional<Matrix_<>> response_;
         std::shared_ptr<const ImplicitRootLinearization_> linearization_;
     };
 
@@ -379,14 +381,11 @@ namespace Dal {
                 Fail("ScriptCurveQuoteRiskJacobianRejected", "/mapping/jacobian", "finite full-rank Jacobian with accepted pivots", error.what());
             }
         }
-        void CaptureNumerics(ScriptCurveQuoteRiskSnapshot_::Data_* data, CurveInstrumentCalibrationOptions_ options) {
-            options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
-            options.preparationCache_.reset();
-            const PreparedCurveInstruments_ prepared(*data->spec_, options);
+        void CaptureNumerics(ScriptCurveQuoteRiskSnapshot_::Data_* data, const PreparedCurveInstruments_& prepared) {
             const auto evaluation = prepared.Evaluate(data->parameters_, false);
             data->numerics_.modelMeasures_ = evaluation.modelMeasures_;
             data->numerics_.rawResiduals_ = evaluation.rawResiduals_;
-            const auto jacobian = prepared.Jacobian(data->parameters_);
+            const auto jacobian = CurveInstrumentInternal::NativeAadJacobian(prepared, data->parameters_);
             Check(bool(jacobian), "ScriptCurveQuoteRiskDerivativeUnavailable", "/mapping/jacobian", "native AAD Jacobian");
             data->numerics_.nativeJacobian_ = static_cast<const XCurveJacobian_&>(*jacobian).j_;
             data->quoteMap_ = prepared.Axes().quoteMap_;
@@ -397,7 +396,8 @@ namespace Dal {
             data->numerics_.reciprocalCondition_ = rcond;
             Check(std::isfinite(rcond) && rcond >= data->accuracy_.minReciprocalCondition_, "ScriptCurveQuoteRiskConditionRejected",
                   "/mapping/reciprocal_condition", NumberText(data->accuracy_.minReciprocalCondition_), NumberText(rcond));
-            data->response_ = ParameterResponse(*data, &data->numerics_);
+            if (!data->accuracy_.pvOnly_)
+                data->response_ = ParameterResponse(*data, &data->numerics_);
         }
     } // namespace
 
@@ -507,7 +507,7 @@ namespace Dal {
             return result;
         }
         try {
-            if (!snapshot.MappingAvailable()) {
+            if (!snapshot.RiskAvailable()) {
                 result.diagnostics_ = data.diagnostics_;
                 return result;
             }
@@ -517,7 +517,7 @@ namespace Dal {
             const auto selected = SelectedQuotes(request, *data.axes_);
             Check(!CompoundedOisInternal::ContainsOvernight(*instrument), "ScriptCurveQuoteRiskUnsupportedCapability", "/instrument",
                   "separately admitted quote-risk capability; compounded OIS is unsupported");
-            const auto prepared = PrepareCurvePrice(*data.spec_, instrument, request.measureId_);
+            const auto prepared = PrepareCurvePrice(data.priceContext_, instrument, request.measureId_);
             Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price, "ScriptCurveQuoteRiskUnsupportedMeasure",
                   "/request/measure_id", "Price kind", request.measureId_);
             const auto price = NativePrice(prepared, data.parameters_, data.spec_->geometry_.today_);
@@ -548,7 +548,8 @@ namespace Dal {
         return result;
     }
     bool ScriptCurveQuoteRiskSnapshot_::StructureValid() const { return data_->structureValid_; }
-    bool ScriptCurveQuoteRiskSnapshot_::MappingAvailable() const { return data_->structureValid_ && data_->diagnostics_.empty(); }
+    bool ScriptCurveQuoteRiskSnapshot_::RiskAvailable() const { return data_->structureValid_ && data_->diagnostics_.empty(); }
+    bool ScriptCurveQuoteRiskSnapshot_::MappingAvailable() const { return RiskAvailable() && data_->response_.has_value(); }
     const ScriptCurveQuoteRiskNumerics_& ScriptCurveQuoteRiskSnapshot_::Numerics() const { return data_->numerics_; }
     const Vector_<CalibrationDiagnostic_>& ScriptCurveQuoteRiskSnapshot_::Diagnostics() const { return data_->diagnostics_; }
     const ScriptCurveQuoteRiskAccuracy_& ScriptCurveQuoteRiskSnapshot_::Accuracy() const { return data_->accuracy_; }
@@ -591,16 +592,20 @@ namespace Dal {
                       "/fit/observations", "separately admitted quote-risk capability; compounded OIS is unsupported");
             const PreparedCurveInstruments_ prepared(*data->spec_, *fit.resolvedOptions_);
             ValidateFit(fit, prepared);
+            data->priceContext_ = PrepareCurvePriceContext(prepared);
             data->parameters_ = fit.parameters_;
-            data->identity_ = Fingerprint(Obj({{"context", Str(data->contextIdentity_)},
-                                               {"configuration", Str(fit.evidence_->ConfigurationIdentity())},
-                                               {"parameters", Numbers(data->parameters_)},
-                                               {"accuracy", Obj({{"residual_limits", Numbers(accuracy.residualAbsoluteLimits_)},
-                                                                 {"min_rcond", Num(accuracy.minReciprocalCondition_)},
-                                                                 {"response_error", Num(accuracy.responseBackwardErrorLimit_)},
-                                                                 {"pivot", Num(accuracy.relativePivotTolerance_)}})}}));
+            auto identity = Obj({{"context", Str(data->contextIdentity_)},
+                                 {"configuration", Str(fit.evidence_->ConfigurationIdentity())},
+                                 {"parameters", Numbers(data->parameters_)},
+                                 {"accuracy", Obj({{"residual_limits", Numbers(accuracy.residualAbsoluteLimits_)},
+                                                   {"min_rcond", Num(accuracy.minReciprocalCondition_)},
+                                                   {"response_error", Num(accuracy.responseBackwardErrorLimit_)},
+                                                   {"pivot", Num(accuracy.relativePivotTolerance_)}})}});
+            if (accuracy.pvOnly_)
+                identity.object_.at("accuracy").object_["pv_only"] = Bool(true);
+            data->identity_ = Fingerprint(identity);
             data->structureValid_ = true;
-            CaptureNumerics(data.get(), *fit.resolvedOptions_);
+            CaptureNumerics(data.get(), prepared);
         } catch (const CalibrationError_& error) {
             data->diagnostics_.push_back(error.Failure().diagnostic_);
         } catch (const std::exception& error) {

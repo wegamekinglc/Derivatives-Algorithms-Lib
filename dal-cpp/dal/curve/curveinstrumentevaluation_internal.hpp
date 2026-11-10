@@ -14,10 +14,17 @@ namespace Dal::CurveInstrumentInternal {
         PreparedCalibrationInstrument_ plan_;
         std::shared_ptr<const CandidateCurveGeometry_> geometry_;
     };
+    struct PreparedCurvePriceContext_ {
+        struct Data_;
+        std::shared_ptr<const Data_> data_;
+    };
+    PreparedCurvePriceContext_ PrepareCurvePriceContext(const PreparedCurveInstruments_&);
     PreparedCurvePrice_ PrepareCurvePrice(const CurveInstrumentCalibrationSpec_& spec,
                                           const Handle_<CalibrationInstrument_>& instrument,
                                           const String_& measureId,
                                           const CurveInstrumentCalibrationOptions_& options = {});
+    PreparedCurvePrice_
+    PrepareCurvePrice(const PreparedCurvePriceContext_&, const Handle_<CalibrationInstrument_>& instrument, const String_& measureId);
 
     template <class T_>
     T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan,

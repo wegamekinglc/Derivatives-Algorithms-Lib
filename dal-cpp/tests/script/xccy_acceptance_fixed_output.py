@@ -11,11 +11,11 @@ from pathlib import Path
 
 MODEL_DECISION = ".codex/artifacts/api-notes/dal-410-xccy-mc-model-decision.md"
 ACCEPTED_MODEL_STATUS = (
-    "6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4"
+    "1d1326f0e443ce7ae12455ce17cc4031532ce26314648c89019952f30e2f2764"
 )
 MODEL_STATUS_COMMIT = "1a295ead5b53810cdb89e665e5fdf1f2be0d7b76"
 INPUTS = {
-    MODEL_DECISION: "c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5",
+    MODEL_DECISION: "1d1326f0e443ce7ae12455ce17cc4031532ce26314648c89019952f30e2f2764",
     "dal-cpp/tests/script/fixtures/xccy_bias_frozen_inputs.json": "5c2f3d48861e173185219bd32fad7cbf49a6c9e92918586b9a7bc0bd8108837a",
     "acceptance-basket/APPROXIMATE-x1.command.json": "0671ffaf92d4236bd18480fbc2e369aad0086806c99154f0c68a7c2f19649736",
     "acceptance-basket/APPROXIMATE-x1.json": "a5c25f86fcb8e182ec8577f154b19b325c8a54475003a5edd95ccddc9f9e5adf",

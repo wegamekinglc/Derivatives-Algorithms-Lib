@@ -278,12 +278,14 @@ namespace Dal {
         }
         RowContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec,
                                       const CalibrationInstrument_& instrument,
-                                      const CalibrationDiagnostic_& diagnostic) {
+                                      const CalibrationDiagnostic_& diagnostic,
+                                      std::shared_ptr<const CandidateCurveGeometry_> candidateGeometry = {}) {
             const auto& g = spec.geometry_;
             const auto& route = DiscountRoute(spec, instrument, diagnostic);
             const auto geometry = NativeGeometry(spec);
             const auto initial = ResolveCurveCalibrationInitialGuess(geometry);
-            const auto candidateGeometry = std::make_shared<const CandidateCurveGeometry_>(spec);
+            if (!candidateGeometry)
+                candidateGeometry = std::make_shared<const CandidateCurveGeometry_>(spec);
             CandidateCurveProvider_<double> provider(candidateGeometry, initial);
             CalibrationPreparationContext_ context;
             context.valuation_ = spec.valuation_;
@@ -294,6 +296,17 @@ namespace Dal {
                 context.curve_ = StructuralCurve(spec, provider, route);
             return {std::move(context), std::move(provider)};
         }
+    } // namespace
+    namespace CurveInstrumentInternal {
+        struct PreparedCurvePriceContext_::Data_ {
+            std::shared_ptr<const CurveInstrumentCalibrationSpec_> spec_;
+            std::shared_ptr<const CurveInstrumentCalibrationOptions_> options_;
+            std::shared_ptr<const CandidateCurveGeometry_> geometry_;
+            RowContext_ structural_;
+            std::shared_ptr<const std::map<std::string, String_>> identities_;
+        };
+    } // namespace CurveInstrumentInternal
+    namespace {
         void AdmittedObservation(const CalibrationCurveObservation_& observation,
                                  const CurveInstrumentCalibrationSpec_& spec,
                                  const std::optional<Date_>& pillar,
@@ -345,7 +358,8 @@ namespace Dal {
                                                          const RowContext_& structural,
                                                          const CurveInstrumentCalibrationOptions_& options,
                                                          std::map<std::string, String_>* contextIdentities,
-                                                         const CalibrationDiagnostic_& diagnostic) {
+                                                         const CalibrationDiagnostic_& diagnostic,
+                                                         const std::map<std::string, String_>* frozenIdentities = nullptr) {
             CalibrationEvaluationOptions_ preparation;
             preparation.evaluation_ = options.evaluation_;
             preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
@@ -362,10 +376,22 @@ namespace Dal {
                 }
             }
             const auto key = Bytes(context.discountRoute_) + (context.compoundedOis_ ? Bytes(context.compoundedOis_->PreparationIdentity()) : "");
-            auto [identity, inserted] = contextIdentities->try_emplace(key);
-            if (inserted)
-                identity->second = CalibrationInternal::PreparationContextIdentity(context, diagnostic);
-            auto plan = CalibrationInternal::PrepareCalibrationInstrumentAtContext(instrument, measureId, context, identity->second, preparation,
+            String_ computed;
+            const String_* identity = nullptr;
+            if (frozenIdentities) {
+                const auto cached = frozenIdentities->find(key);
+                if (cached == frozenIdentities->end()) {
+                    computed = CalibrationInternal::PreparationContextIdentity(context, diagnostic);
+                    identity = &computed;
+                } else
+                    identity = &cached->second;
+            } else {
+                auto [cached, inserted] = contextIdentities->try_emplace(key);
+                if (inserted)
+                    cached->second = CalibrationInternal::PreparationContextIdentity(context, diagnostic);
+                identity = &cached->second;
+            }
+            auto plan = CalibrationInternal::PrepareCalibrationInstrumentAtContext(instrument, measureId, context, *identity, preparation,
                                                                                    options.preparationCache_);
             AdmittedCashflows(plan, spec, structural.curves_);
             return plan;
@@ -519,6 +545,25 @@ namespace Dal {
         std::map<std::string, String_> identities;
         return {PrepareInstrument(instrument, measureId, spec, structural, options, &identities, diagnostic), structural.script_.candidateCurves_};
     }
+    CurveInstrumentInternal::PreparedCurvePriceContext_ CurveInstrumentInternal::PrepareCurvePriceContext(const PreparedCurveInstruments_& prepared) {
+        const auto& spec = *prepared.frozenSpec_;
+        const auto& observation = *spec.observations_.front();
+        const auto diagnostic = RowDiagnostic(observation, CalibrationStage_::Value_::Prepare);
+        auto data = std::make_shared<PreparedCurvePriceContext_::Data_>(PreparedCurvePriceContext_::Data_{
+            prepared.frozenSpec_, std::make_shared<const CurveInstrumentCalibrationOptions_>(), prepared.geometry_,
+            StructuralContext(spec, *observation.Instrument(), diagnostic, prepared.geometry_), prepared.contextIdentities_});
+        return {std::move(data)};
+    }
+    CurveInstrumentInternal::PreparedCurvePrice_ CurveInstrumentInternal::PrepareCurvePrice(const PreparedCurvePriceContext_& context,
+                                                                                            const Handle_<CalibrationInstrument_>& instrument,
+                                                                                            const String_& measureId) {
+        Check(bool(instrument), "InvalidCalibrationPlan", "/instrument", "nonnull instrument");
+        const auto& data = *context.data_;
+        PreparationSettings(*data.spec_, *data.options_);
+        const auto diagnostic = Diagnostic(*instrument, measureId);
+        return {PrepareInstrument(instrument, measureId, *data.spec_, data.structural_, *data.options_, nullptr, diagnostic, data.identities_.get()),
+                data.geometry_};
+    }
 
     PreparedCurveInstruments_::PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec,
                                                          const CurveInstrumentCalibrationOptions_& options)
@@ -532,7 +577,7 @@ namespace Dal {
             definition_ = Dal::Definition(spec_);
             geometry_ = std::make_shared<const CandidateCurveGeometry_>(spec_);
             const auto structural = StructuralContext(spec_, *spec_.observations_.front()->Instrument(),
-                                                      RowDiagnostic(*spec_.observations_.front(), CalibrationStage_::Value_::Prepare));
+                                                      RowDiagnostic(*spec_.observations_.front(), CalibrationStage_::Value_::Prepare), geometry_);
             std::map<std::string, String_> contextIdentities;
             for (const auto& observation : spec_.observations_) {
                 auto plan = PrepareObservation(*observation, spec_, structural, options, &contextIdentities);
@@ -546,6 +591,7 @@ namespace Dal {
             planIdentity_ = CurvePlanIdentity(spec_, plans_, options_, structural.curves_);
             evidence_.reset(new CurveInstrumentCalibrationEvidence_(CurveInstrumentInternal::ConfigurationIdentity(spec_, options_), planIdentity_));
             frozenSpec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(spec_);
+            contextIdentities_ = std::make_shared<const std::map<std::string, String_>>(std::move(contextIdentities));
             auto frozenOptions = options_;
             frozenOptions.preparationCache_.reset();
             frozenOptions_ = std::make_shared<const CurveInstrumentCalibrationOptions_>(std::move(frozenOptions));
@@ -566,9 +612,7 @@ namespace Dal {
             CurveFailure(std::move(result), d);
         }
     }
-    std::unique_ptr<Underdetermined::Jacobian_> PreparedCurveInstruments_::Jacobian(const Vector_<>& parameters) const try {
-        if (options_.jacobianMode_ != CalibrationDerivative_::Value_::AAD)
-            return nullptr;
+    std::unique_ptr<Underdetermined::Jacobian_> PreparedCurveInstruments_::AadJacobian(const Vector_<>& parameters) const try {
         auto result =
             TapeResidualJacobian(parameters, [&](const Vector_<AAD::Number_>& active) { return Measures(spec_, plans_, active, geometry_); });
         ValidateNativeJacobian(static_cast<const XCurveJacobian_&>(*result).j_, spec_, DescribeCurveFreeParameters(definition_));
@@ -583,6 +627,13 @@ namespace Dal {
         d.field_ = "/quote_jacobian";
         d.message_ = String_(error.what());
         CurveFailure(Describe(), d);
+    }
+    std::unique_ptr<Underdetermined::Jacobian_> PreparedCurveInstruments_::Jacobian(const Vector_<>& parameters) const {
+        return options_.jacobianMode_ == CalibrationDerivative_::Value_::AAD ? AadJacobian(parameters) : nullptr;
+    }
+    std::unique_ptr<Underdetermined::Jacobian_> CurveInstrumentInternal::NativeAadJacobian(const PreparedCurveInstruments_& prepared,
+                                                                                           const Vector_<>& parameters) {
+        return prepared.AadJacobian(parameters);
     }
     CurveInstrumentCalibrationResult_ PreparedCurveInstruments_::Describe() const {
         auto result = LayoutResult(definition_, axes_);

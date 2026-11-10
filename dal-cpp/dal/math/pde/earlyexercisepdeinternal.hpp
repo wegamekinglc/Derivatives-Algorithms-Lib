@@ -14,6 +14,7 @@ namespace Dal::PDE::EarlyExercisePdeInternal {
     };
     struct PlanLayout_ {
         PlanCounts_ counts_;
+        int basePlannedSteps_ = 0;
         size_t payloadBytes_, workspaceBytes_, planBytes_, canonicalWorkspaceBytes_;
     };
     struct RollbackControl_ {
@@ -34,7 +35,7 @@ namespace Dal::PDE::EarlyExercisePdeInternal {
         String_ id_;
         size_t canonicalBytes_ = 0, storageBytes_ = 0, canonicalWorkspaceBytes_ = 0, peakTemporaryBytes_ = 0;
         Plan_() = default;
-        friend Plan_ BuildPlan(const EarlyExercisePdeRequest_&, const Vector_<EarlyExercisePdeMarket_>&);
+        friend Plan_ BuildPlan(const EarlyExercisePdeRequest_&, const Vector_<EarlyExercisePdeMarket_>&, const PlanLayout_*);
         friend struct ResultAccess_;
 
     public:
@@ -54,7 +55,8 @@ namespace Dal::PDE::EarlyExercisePdeInternal {
     };
 
     // Base is always included. Extra markets must have the same dated carry layout.
-    [[nodiscard]] Plan_ BuildPlan(const EarlyExercisePdeRequest_& base, const Vector_<EarlyExercisePdeMarket_>& extraMarkets = {});
+    [[nodiscard]] Plan_
+    BuildPlan(const EarlyExercisePdeRequest_& base, const Vector_<EarlyExercisePdeMarket_>& extraMarkets = {}, const PlanLayout_* preview = nullptr);
     [[nodiscard]] EarlyExercisePdeResult_ Rollback(const EarlyExercisePdeRequest_& scenario, const Plan_& plan);
     [[nodiscard]] EarlyExercisePdeResult_ RollbackForRisk(const EarlyExercisePdeRequest_&, const Plan_&, const RollbackControl_* = nullptr);
 } // namespace Dal::PDE::EarlyExercisePdeInternal

@@ -449,7 +449,10 @@ numbers, tape positions or evaluator scratch.
 `ScriptCurveQuoteRiskAccuracy_` requires an absolute residual limit per
 observation, a minimum reciprocal condition in `(0,1]` and an explicit positive
 response backward-error limit. Its relative pivot tolerance defaults to
-`64*epsilon`; the response limit must be in `(0,1]`. At the supplied fitted native
+`64*epsilon`; the response limit must be in `(0,1]`. Optional `pvOnly_` defaults
+to false; when true, snapshot construction skips the full parameter-response
+matrix and its response-error gate while retaining the root, rank, condition and
+PV-specific transpose checks. At the supplied fitted native
 parameters the factory reevaluates the raw measures and native AAD Jacobian
 through `PreparedCurveInstruments_`. It does not depend on the optional
 `fit.quoteJacobian_`, differentiate the optimizer, or refit a loose candidate.
@@ -465,16 +468,19 @@ backward error must pass its own gate. The capture retains measured errors befor
 applying the supplied response limit. Repeated const mapping requests reuse the
 same factorization with fresh passive results and scratch.
 
-`snapshot.MappingAvailable()` reports numerical map admission separately from
-`StructureValid()`. `snapshot.ParameterQuoteMapping(context)` checks the explicit
-context and returns an owning `ScriptCurveQuoteMapping_`. Read `Available()`,
-`Axes()`, `Diagnostics()` and `Numerics()` before `ParameterResponse()`. The matrix
-has native parameter rows and decimal quote columns and represents
-$d\theta/dq$. An unavailable matrix getter throws; it never returns a zero
-substitute. Numerical evidence retains available raw measures/residuals, native
-Jacobian, reciprocal condition, transpose/response errors and successful
-factorization count, including on rejection. Results survive the snapshot and
-original input lifetimes. No active AAD objects enter the cache.
+`snapshot.MappingAvailable()` reports full-matrix availability separately from
+`StructureValid()` and PV-oriented `RiskAvailable()`. In PV-only mode the matrix
+is intentionally absent, so `MappingAvailable()` is false without an error
+diagnostic while admitted PV risk remains available.
+`snapshot.ParameterQuoteMapping(context)` checks the explicit context and returns
+an owning `ScriptCurveQuoteMapping_`. Read `Available()`, `Axes()`, `Diagnostics()`
+and `Numerics()` before `ParameterResponse()`. The matrix has native parameter
+rows and decimal quote columns and represents $d\theta/dq$. An unavailable matrix
+getter throws; it never returns a zero substitute. Numerical evidence retains
+available raw measures/residuals, native Jacobian, reciprocal condition,
+transpose/response errors and successful factorization count, including on
+rejection. Results survive the snapshot and original input lifetimes. No active
+AAD objects enter the cache.
 
 For the unit-notional 1/5/15-quote Deposit, IRS and Basis samples, recommended
 explicit limits are `1e-12` for each raw residual, `1e-10` for the minimum
@@ -582,7 +588,8 @@ Python registers independent read-only risk types in `calibrationrisk.cpp`.
 Create explicit `ScriptCurveQuoteRiskAccuracy_` settings with
 `residual_absolute_limits`, `min_reciprocal_condition` and
 `response_backward_error_limit`. `relative_pivot_tolerance` retains the core
-default. Call `ScriptCurveQuoteRiskSnapshot_New(fit, accuracy)`, then
+default; optional Boolean `pv_only` defaults to false. Call
+`ScriptCurveQuoteRiskSnapshot_New(fit, accuracy)`, then
 `CalibrationInstrument_ValueWithQuoteRisk(instrument, snapshot, context,
 request=...)`. Optional `ScriptCurveQuoteRiskRequest_` fields are `quote_ids`,
 `measure_id` and `live_quote_payoff`. Input conversion completes before releasing

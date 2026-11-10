@@ -1,3 +1,3 @@
 #pragma once
 
-int RunScriptCurveQuoteRiskBenchmarks();
+int RunScriptCurveQuoteRiskBenchmarks(bool pvOnlyMode = false);

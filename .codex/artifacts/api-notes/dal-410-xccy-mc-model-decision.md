@@ -27,7 +27,7 @@ by this design task. Historical research baseline
 
 Inputs are DAL-396 attachment `01a15c20-3723-7ddd-8ef1-c0ac706cdc16`, sections
 5, 7.2, 8.3 and 11; the frozen [DAL-398 contract](dal-398-script-contract.md);
-the [DAL-408 record](../implementation/dal-408-xccy-script-cashflows.md); and
+the DAL-408 record in Git history; and
 the current [methodology](../../../docs/methodology/script_calibration_contract.md).
 DAL-396's current dispatch authorizes this one document and a base-master PR;
 it does not authorize implementation, product tests, other experts or downstream
@@ -72,7 +72,7 @@ All code paths below are relative to the repository root at the source SHA above
 
 The accepted DAL-408 deterministic oracle and refusal cases live in
 `dal-cpp/tests/curve/test_xccy_script.cpp`; accepted GSR numerical methodology is
-recorded in [DAL-413](../validation/dal-413-gsr-script-numerical-validation.md).
+recorded by DAL-413 in Git history.
 Neither is evidence of stochastic XCCY correctness. Core reset example
 `dal-cpp/examples/curves/xccy_reset_pricing/xccy_reset_pricing.cpp` deliberately
 uses custom/intraday fixings; Python `examples/006.xccy_calibration.py` uses 12M
