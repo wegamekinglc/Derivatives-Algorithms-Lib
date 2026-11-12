@@ -3,6 +3,9 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <string>
+
 #include <dal/platform/platform.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/node.hpp>
@@ -15,6 +18,63 @@ using namespace Dal::Script;
 using namespace Dal::Script::TestSupport;
 
 namespace {
+    void AssertParserError(const String_& event, const String_& expected) {
+        Parser_ parser;
+        try {
+            static_cast<void>(parser.Parse(event));
+            FAIL() << "expected ScriptError_";
+        } catch (const ScriptError_& error) {
+            const std::string message(error.what());
+            ASSERT_GE(message.size(), expected.size());
+            ASSERT_EQ(message.substr(message.size() - expected.size()), std::string(expected.data(), expected.size()));
+        }
+    }
+
+    template <class NodeType_> void AssertUnaryFunction(const String_& name) {
+        SCOPED_TRACE(name);
+        Parser_ parser;
+        const auto event = parser.Parse("result = " + name + "(sPoT())");
+        ASSERT_EQ(event.size(), 1);
+        const auto* function = dynamic_cast<const NodeType_*>(event[0]->arguments_[1].get());
+        ASSERT_NE(function, nullptr);
+        ASSERT_EQ(function->arguments_.size(), 1);
+        ASSERT_NE(dynamic_cast<const NodeSpot_*>(function->arguments_[0].get()), nullptr);
+        for (const String_& arguments : {String_(""), String_("1, 2")})
+            ASSERT_NO_FATAL_FAILURE(
+                AssertParserError("result = " + name + "(" + arguments + ")", "Function " + name + ": wrong number of arguments_"));
+        ASSERT_NO_FATAL_FAILURE(AssertParserError("result = " + name, "No opening ( following function name"));
+    }
+
+    template <class NodeType_> void AssertExtremumFunction(const String_& name) {
+        SCOPED_TRACE(name);
+        for (int count : {0, 2, 3, 1000, 1001}) {
+            SCOPED_TRACE(count);
+            String_ expression = "result = " + name + "(";
+            for (int i = 1; i <= count; ++i)
+                expression += (i == 1 ? "" : ",") + String_(std::to_string(i));
+            expression += ")";
+            if (count == 0 || count == 1001) {
+                ASSERT_NO_FATAL_FAILURE(AssertParserError(expression, "Function " + name + ": wrong number of arguments_"));
+                continue;
+            }
+            Parser_ parser;
+            const auto event = parser.Parse(expression);
+            const Node_* node = event[0]->arguments_[1].get();
+            for (int i = count; i >= 2; --i) {
+                const auto* extremum = dynamic_cast<const NodeType_*>(node);
+                ASSERT_NE(extremum, nullptr);
+                ASSERT_EQ(extremum->arguments_.size(), 2);
+                const auto* right = dynamic_cast<const NodeConst_*>(extremum->arguments_[1].get());
+                ASSERT_NE(right, nullptr);
+                ASSERT_DOUBLE_EQ(right->constVal_, i);
+                node = extremum->arguments_[0].get();
+            }
+            const auto* first = dynamic_cast<const NodeConst_*>(node);
+            ASSERT_NE(first, nullptr);
+            ASSERT_DOUBLE_EQ(first->constVal_, 1.0);
+        }
+    }
+
     // Validate the operand order of the NodeSub_ inside a comparison node.
     // The parser encodes both `<` and `>` as NodeSup_ (and both `<=`/`>=` as
     // NodeSupEqual_), distinguishing them only by swapping the subtraction
@@ -80,6 +140,78 @@ TEST(ScriptTest, TestParseSqrt) {
     ASSERT_EQ(res.size(), 2);
     auto toTest1 = dynamic_cast<NodeSqrt_*>(res[1]->arguments_[1].get());
     ASSERT_NE(toTest1, nullptr);
+}
+
+TEST(ScriptTest, TestParseUnaryFunctionCaseArityAndErrorText) {
+    for (const String_& name : {String_("LOG"), String_("log"), String_("lOg")})
+        ASSERT_NO_FATAL_FAILURE(AssertUnaryFunction<NodeLog_>(name));
+    for (const String_& name : {String_("SQRT"), String_("sqrt"), String_("sQrT")})
+        ASSERT_NO_FATAL_FAILURE(AssertUnaryFunction<NodeSqrt_>(name));
+    for (const String_& name : {String_("EXP"), String_("exp"), String_("eXp")})
+        ASSERT_NO_FATAL_FAILURE(AssertUnaryFunction<NodeExp_>(name));
+
+    Parser_ parser;
+    const auto event = parser.Parse("result = lOg(sQrT(eXp(2)))");
+    const auto* log = dynamic_cast<const NodeLog_*>(event[0]->arguments_[1].get());
+    ASSERT_NE(log, nullptr);
+    const auto* sqrt = dynamic_cast<const NodeSqrt_*>(log->arguments_[0].get());
+    ASSERT_NE(sqrt, nullptr);
+    ASSERT_NE(dynamic_cast<const NodeExp_*>(sqrt->arguments_[0].get()), nullptr);
+}
+
+TEST(ScriptTest, TestParseExtremumFunctionCaseArityAndLeftFold) {
+    for (const String_& name : {String_("MIN"), String_("min"), String_("mIn")})
+        ASSERT_NO_FATAL_FAILURE(AssertExtremumFunction<NodeMin_>(name));
+    for (const String_& name : {String_("MAX"), String_("max"), String_("mAx")})
+        ASSERT_NO_FATAL_FAILURE(AssertExtremumFunction<NodeMax_>(name));
+}
+
+TEST(ScriptTest, TestParseSingleExtremumArgumentKeepsVectorRouting) {
+    for (const String_& name : {String_("mIn"), String_("mAx")}) {
+        SCOPED_TRACE(name);
+        Parser_ parser({}, {{"WEIGHTS", {3.0, 1.0, 2.0}}});
+        const auto event = parser.Parse("a = " + name + "(weights) b = " + name + "(values)");
+        const auto* constant = dynamic_cast<const NodeConst_*>(event[0]->arguments_[1].get());
+        ASSERT_NE(constant, nullptr);
+        ASSERT_DOUBLE_EQ(constant->constVal_, name == "MIN" ? 1.0 : 3.0);
+        const auto* reduction = dynamic_cast<const NodeVectorReduce_*>(event[1]->arguments_[1].get());
+        ASSERT_NE(reduction, nullptr);
+        ASSERT_EQ(reduction->name_, "values");
+        ASSERT_EQ(reduction->kind_, name == "MIN" ? NodeVectorReduce_::Kind_::Minimum : NodeVectorReduce_::Kind_::Maximum);
+        const String_ numeric = "result = " + name + "(1)";
+        ASSERT_NO_FATAL_FAILURE(AssertParserError(numeric, "InvalidVectorReduction: expected a vector name; " + Lex(numeric)[2].source_.Describe()));
+        ASSERT_NO_FATAL_FAILURE(AssertParserError("result = " + name + "(values[0])", "Function " + name + ": wrong number of arguments_"));
+    }
+}
+
+TEST(ScriptTest, TestParseBuiltinLookupKeepsSpecialFormsAndVariableFallback) {
+    Parser_ parser({{"STRIKE", 100.0}});
+    const Date_ date(2027, 1, 11);
+    const Vector_<SourceOrigin_> origins{{0, 37, date}};
+    const auto event = parser.Parse("result = sPoT()", origins);
+    const auto* spot = dynamic_cast<const NodeSpot_*>(event[0]->arguments_[1].get());
+    ASSERT_NE(spot, nullptr);
+    ASSERT_EQ(spot->source_.row_, 37);
+    ASSERT_EQ(spot->source_.eventDate_, date);
+    ASSERT_EQ(spot->source_.offset_, 9);
+    ASSERT_NO_FATAL_FAILURE(AssertParserError("result = sPoT(1)", "Function sPoT: wrong number of arguments_"));
+    const auto variables = parser.Parse("result = logger + sqrtValue + expValue + minimum + maximum + STRIKE");
+    VarIndexer_ indexer;
+    variables[0]->Accept(indexer);
+    ASSERT_EQ(indexer.VarNames(), (Vector_<String_>{"result", "logger", "sqrtValue", "expValue", "minimum", "maximum"}));
+    const auto* constant = dynamic_cast<const NodeConstVar_*>(variables[0]->arguments_[1]->arguments_[1].get());
+    ASSERT_NE(constant, nullptr);
+    ASSERT_DOUBLE_EQ(constant->constVal_, 100.0);
+    ASSERT_NO_FATAL_FAILURE(AssertParserError("result = dCf()", "missing `basis` for `DCF`"));
+    ASSERT_NO_FATAL_FAILURE(AssertParserError("result = dCf(ACT365F, 2023-04-23, 2024-04-23, 2025-04-23)", "too many arguments for `DCF`"));
+    const auto fixing = parser.Parse("result = fIx(EQ[DAL523], 2026-09-11)", origins);
+    const auto* fix = dynamic_cast<const NodeFix_*>(fixing[0]->arguments_[1].get());
+    ASSERT_NE(fix, nullptr);
+    ASSERT_EQ(fix->literal_.raw_, "EQ[DAL523]");
+    ASSERT_EQ(fix->fixingDate_, Date_(2026, 9, 11));
+    ASSERT_EQ(fix->source_.row_, 37);
+    ASSERT_EQ(fix->source_.eventDate_, date);
+    ASSERT_EQ(parser.PreparationError(), fix->PreparationError());
 }
 
 TEST(ScriptTest, TestParserDCF) {
