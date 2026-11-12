@@ -25,6 +25,25 @@ namespace {
 
 namespace Dal::Script {
     namespace {
+        struct BuiltinFunction_ {
+            const char* name_;
+            Expression_ (*factory_)();
+            unsigned minArgs_, maxArgs_;
+        };
+
+        const BuiltinFunction_ BUILTIN_FUNCTIONS[] = {{"LOG", &MakeBaseNode<NodeLog_>, 1, 1},
+                                                      {"SQRT", &MakeBaseNode<NodeSqrt_>, 1, 1},
+                                                      {"EXP", &MakeBaseNode<NodeExp_>, 1, 1},
+                                                      {"MIN", &MakeBaseNode<NodeMin_>, 2, 1000},
+                                                      {"MAX", &MakeBaseNode<NodeMax_>, 2, 1000}};
+
+        const BuiltinFunction_* FindBuiltinFunction(const String_& name) {
+            for (const auto& function : BUILTIN_FUNCTIONS)
+                if (name == function.name_)
+                    return &function;
+            return nullptr;
+        }
+
         // Downstream evaluators only read the first two operands of a flat extremum
         // node. Fold extra arguments left into nested binary nodes so every operand
         // participates while the existing source-left selection rule still applies.
@@ -118,23 +137,10 @@ namespace Dal::Script {
             spot->source_ = cur->source_;
             top = std::move(spot);
             minArg = maxArg = 0;
-        } else if (cur->Text() == "LOG") {
-            top = MakeBaseNode<NodeLog_>();
-            minArg = maxArg = 1;
-        } else if (cur->Text() == "SQRT") {
-            top = MakeBaseNode<NodeSqrt_>();
-            minArg = maxArg = 1;
-        } else if (cur->Text() == "EXP") {
-            top = MakeBaseNode<NodeExp_>();
-            minArg = maxArg = 1;
-        } else if (cur->Text() == "MIN") {
-            top = MakeBaseNode<NodeMin_>();
-            minArg = 2;
-            maxArg = 1000;
-        } else if (cur->Text() == "MAX") {
-            top = MakeBaseNode<NodeMax_>();
-            minArg = 2;
-            maxArg = 1000;
+        } else if (const auto* function = FindBuiltinFunction(cur->Text())) {
+            top = function->factory_();
+            minArg = function->minArgs_;
+            maxArg = function->maxArgs_;
         } else if (cur->Text() == "DCF") {
             top = MakeBaseNode<NodeConst_>(0.0);
             minArg = 3;
