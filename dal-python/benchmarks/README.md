@@ -458,6 +458,9 @@ python dal-python/benchmarks/run_native_queries.py \
 Before sampling, the controller clean-first rebuilds the QuantLib install and
 native DAL worker, verifies their source and install identities, and records the
 QuantLib library hash. Build time is outside the native timers.
+Both clean-first builds use `CMAKE_BUILD_PARALLEL_LEVEL` when set to a positive
+integer, defaulting to two concurrent compiler jobs. The scheduled Linux job
+uses the same two-job limit for its initial native builds and controller rebuilds.
 
 Backend order rotates and reverses in the second round. Each process performs
 three checked warmups, then one native sample. `DAL_NUM_THREADS`, OMP, OpenBLAS,

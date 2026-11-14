@@ -270,14 +270,14 @@ jobs:
             -DBoost_NO_BOOST_CMAKE=ON -DBoost_NO_SYSTEM_PATHS=ON \
             -DBoost_ROOT="$PWD/benchmark-results/tools/boost/usr" \
             -DCMAKE_INSTALL_PREFIX="$PWD/benchmark-results/quantlib-install"
-          cmake --build benchmark-results/quantlib-build --target install --parallel 4
+          cmake --build benchmark-results/quantlib-build --target install --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
           cmake --preset=Release-linux -S . -B build/Release-native-queries \
             -DDAL_CPP_BUILD_BENCHMARKS=ON -DDAL_CPP_BUILD_NATIVE_COMPARISONS=ON \
             -DQuantLib_DIR="$PWD/benchmark-results/quantlib-install/lib/cmake/QuantLib" \
             -DDAL_BUILD_PUBLIC=OFF -DDAL_BUILD_PYTHON=OFF -DDAL_BUILD_EXCEL=OFF \
             -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF
           cmake --build build/Release-native-queries \
-            --target native_query_comparison --parallel 4
+            --target native_query_comparison --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Compare Python APIs and native curve suite
         if: ${{ !cancelled() && steps.native-workers.outcome == 'success' }}

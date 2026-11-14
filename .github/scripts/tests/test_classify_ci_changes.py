@@ -227,6 +227,15 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertNotIn("  report:\n", workflow)
         self.assertNotIn("BENCHMARK_SMTP", workflow)
 
+    def test_native_comparison_builds_respect_linux_parallel_limit(self):
+        linux = self.job(self.workflow("benchmarks.yml"), "linux")
+        native_builds = linux.split("- name: Build native QuantLib and DAL comparison workers", 1)[1].split("- name:", 1)[0]
+        commands = re.findall(r"cmake --build .*?(?=\n          [^ ]|\Z)", native_builds, re.S)
+        self.assertEqual(len(commands), 2)
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn('--parallel "$CMAKE_BUILD_PARALLEL_LEVEL"', command)
+
     def test_workflows_classify_with_full_history(self):
         for name in ("cmake-linux.yml", "cmake-windows.yml"):
             with self.subTest(name=name):
