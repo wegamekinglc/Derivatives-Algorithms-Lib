@@ -94,8 +94,13 @@ namespace Dal::MarketIvLocalVolDetail {
         const double dt = times_[hi] - times_[lo], weight = (time - times_[lo]) / dt;
         const double drift = flat_ ? rate_ - yield_ : (logForward_[hi] - logForward_[lo]) / dt;
         const double rate = flat_ ? rate_ : -(logDiscount_[hi] - logDiscount_[lo]) / dt;
-        const double l = flat_ ? drift * time : (1. - weight) * logForward_[lo] + weight * logForward_[hi];
-        const double h = flat_ ? -rate_ * time : (1. - weight) * logDiscount_[lo] + weight * logDiscount_[hi];
+        const bool tail = time >= times_.back();
+        const double l = flat_  ? drift * time
+                         : tail ? logForward_[hi] + drift * (time - times_[hi])
+                                : (1. - weight) * logForward_[lo] + weight * logForward_[hi];
+        const double h = flat_  ? -rate_ * time
+                         : tail ? logDiscount_[hi] - rate * (time - times_[hi])
+                                : (1. - weight) * logDiscount_[lo] + weight * logDiscount_[hi];
         const double forward = CheckedExp(logSpot_ + l, "/carry/forward"), discount = CheckedExp(h, "/carry/discount");
         static_cast<void>(CheckedExp(-h, "/carry/numeraire"));
         if (!std::isfinite(drift) || !std::isfinite(rate) || !std::isfinite(rate - drift))

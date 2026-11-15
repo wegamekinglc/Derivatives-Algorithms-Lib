@@ -65,6 +65,41 @@ namespace {
         return CalibrateMarketIvDupire(fit.Snapshot(), {{80., 100., 120.}, {.1, 1., 2.}, {}});
     }
 
+    void AssertFlatCarryTail(double horizon) {
+        SCOPED_TRACE(horizon);
+        const Date_ today(2026, 11, 16);
+        const MarketIvMarket_ market(today, 100., {{today.AddDays(1), 1000., .1}, {today.AddDays(2), 1000., .1}});
+        MarketIvFitRequest_ request{market, {}, {}};
+        for (const auto& term : market.Terms())
+            for (const double moneyness : {.85, 1., 1.15}) {
+                MarketIvQuote_ quote;
+                quote.id_ = String_(std::to_string(request.quotes_.size()));
+                quote.expiry_ = term.expiry_;
+                quote.strike_ = moneyness * term.forward_;
+                quote.optionType_ = OptionType_("CALL");
+                quote.quoteType_ = MarketIvQuoteType_("DECIMAL_IV");
+                quote.mid_ = .2;
+                request.quotes_.push_back(quote);
+            }
+        const auto fit = FitMarketIvSurface(request);
+        ASSERT_TRUE(fit.IsSuccess()) << fit.Failure().c_str();
+        const auto grid = CalibrateMarketIvDupire(fit.Snapshot(), {{800., 1000., 1200.}, {1. / 365., 2. / 365.}, {}});
+        ASSERT_TRUE(grid.IsSuccess()) << grid.Failure().c_str();
+        auto settings = Settings();
+        settings.horizon_ = horizon;
+        const auto source = MarketIvLocalVolDetail::BuildSource(grid, settings);
+        const auto integrated = source->Carry().Integrated(2. / 365., horizon);
+        ASSERT_NEAR(integrated.rate_, 0., 2e-12) << "Q=" << integrated.yield_;
+        ASSERT_NEAR(integrated.yield_, 0., 2e-12);
+        ASSERT_DOUBLE_EQ(integrated.rate_, 0.);
+        ASSERT_DOUBLE_EQ(integrated.yield_, 0.);
+        const auto tail = source->Carry().At(horizon);
+        ASSERT_NEAR(tail.logForwardOverSpot_, std::log(10.), 2e-12);
+        ASSERT_NEAR(tail.logDiscount_, std::log(.1), 2e-12);
+        ASSERT_DOUBLE_EQ(tail.rate_, 0.);
+        ASSERT_DOUBLE_EQ(tail.yield_, 0.);
+    }
+
     template <class F_> void AssertError(F_ action, const String_& code, const String_& field) {
         try {
             action();
@@ -103,6 +138,11 @@ TEST(MarketIvLocalVolTest, TestCarryEndpointIntegralsAndRightSlopes) {
             ASSERT_NEAR(integrated.yield_, q, 2e-12);
         }
     }
+}
+
+TEST(MarketIvLocalVolTest, TestCarryFlatTailHasZeroIntegralsAtLongHorizons) {
+    for (const double horizon : {30., 1000.})
+        AssertFlatCarryTail(horizon);
 }
 
 TEST(MarketIvLocalVolTest, TestSourceOwnsGridAndHasContentIdentity) {
