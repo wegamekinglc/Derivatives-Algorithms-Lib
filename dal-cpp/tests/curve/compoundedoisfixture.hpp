@@ -61,6 +61,22 @@ namespace Dal::CompoundedOisTest {
         return {100. * (floating - .02 * annuity), floating / annuity};
     }
 
+    inline Handle_<CalibrationObservation_>
+    Observation(const CurveInstrumentCalibrationSpec_& spec, const Handle_<PreparedCompoundedOis_>& tables, bool shortMaturity) {
+        const bool discountTarget = spec.geometry_.calibrateDiscountCurve_;
+        const auto background = BackgroundParameters();
+        const auto projection = discountTarget ? background : Parameters();
+        const auto discount = spec.market_.routes_[0].useTargetCurve_ ? Parameters() : background;
+        const auto id = shortMaturity ? "short" : "long";
+        const bool deposit = discountTarget && shortMaturity;
+        const auto instrument = deposit ? NewDepositScriptInstrument(Deposit_(spec.geometry_.today_, Date_(2024, 3, 5), .02, DayBasis_("ACT_360")),
+                                                                     {"discount-anchor", Ccy_("USD"), "USD.OIS", 100.})
+                                        : NewCompoundedOisScriptInstrument(tables);
+        const double quote = deposit ? std::expm1(-Parameters()[0]) / (4. / 360.) : Oracle(projection, discount, shortMaturity)[1];
+        return NewCalibrationObservation(id, instrument, "ParRate", NewCalibrationMarketQuote(id, quote, CalibrationValueUnit_::Parse("Rate")),
+                                         1e-13);
+    }
+
     inline CurveInstrumentCalibrationSpec_ Calibration(const String_& role) {
         CurveInstrumentCalibrationSpec_ spec;
         const bool discountTarget = role == "Discount", shared = role == "Shared";
@@ -80,20 +96,10 @@ namespace Dal::CompoundedOisTest {
             spec.market_.overnightCurves_["USD.SOFR"] = curve;
         else if (!shared)
             spec.market_.discountCurves_[CollateralType_("OIS")] = curve;
-        const auto projection = discountTarget ? background : Parameters();
-        const auto discount = discountTarget || shared ? Parameters() : background;
         for (const bool shortMaturity : {true, false}) {
             const auto tables = PrepareCompoundedOis(Contract(shortMaturity), spec.valuation_);
             spec.compoundedOis_.push_back(tables);
-            const auto id = shortMaturity ? "short" : "long";
-            const bool deposit = discountTarget && shortMaturity;
-            const auto instrument = deposit
-                                        ? NewDepositScriptInstrument(Deposit_(spec.geometry_.today_, Date_(2024, 3, 5), .02, DayBasis_("ACT_360")),
-                                                                     {"discount-anchor", Ccy_("USD"), "USD.OIS", 100.})
-                                        : NewCompoundedOisScriptInstrument(tables);
-            const double quote = deposit ? std::expm1(-Parameters()[0]) / (4. / 360.) : Oracle(projection, discount, shortMaturity)[1];
-            spec.observations_.push_back(NewCalibrationObservation(
-                id, instrument, "ParRate", NewCalibrationMarketQuote(id, quote, CalibrationValueUnit_::Parse("Rate")), 1e-13));
+            spec.observations_.push_back(Observation(spec, tables, shortMaturity));
         }
         auto pv = Contract();
         pv.instrumentId_ = "off-market-pv";
