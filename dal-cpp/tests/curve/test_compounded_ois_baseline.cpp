@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
@@ -15,12 +16,18 @@ using namespace Dal::CompoundedOisTest;
 
 namespace {
     std::filesystem::path GoldenPath(const char* name) { return std::filesystem::path(__FILE__).parent_path() / "data" / name; }
+    std::string ReadGolden(std::istream* input) {
+        std::string contents{std::istreambuf_iterator<char>(*input), std::istreambuf_iterator<char>()};
+        if (!contents.empty() && contents.back() == '\n') {
+            contents.pop_back();
+            if (!contents.empty() && contents.back() == '\r')
+                contents.pop_back();
+        }
+        return contents;
+    }
     std::string ReadGolden(const char* name) {
         std::ifstream input(GoldenPath(name), std::ios::binary);
-        std::string contents{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-        if (!contents.empty() && contents.back() == '\n')
-            contents.pop_back();
-        return contents;
+        return ReadGolden(&input);
     }
     String_ Identities(const Handle_<PreparedCompoundedOis_>& tables, const Handle_<CalibrationInstrument_>& instrument) {
         using namespace CalibrationInternal;
@@ -32,6 +39,32 @@ namespace {
                                 {"binding", Str(instrument->BindingIdentity())}})));
     }
 } // namespace
+
+TEST(CompoundedOisBaselineTest, TestGoldenReaderAcceptsLfAndCrlf) {
+    const std::string canonical = R"({"source":"PAY PAYS N","identity":"sha256:abc"})";
+    for (const auto* ending : {"", "\n", "\r\n"}) {
+        std::istringstream input(canonical + ending);
+        ASSERT_EQ(ReadGolden(&input), canonical);
+    }
+    std::istringstream empty;
+    ASSERT_TRUE(ReadGolden(&empty).empty());
+}
+
+TEST(CompoundedOisBaselineTest, TestGoldenReaderPreservesContentDifferences) {
+    const std::string canonical = R"({"source":"PAY PAYS N","identity":"sha256:abc"})";
+    for (const auto& different :
+         {R"({"source":"PAY PAYS N+1","identity":"sha256:abc"})", R"({"source":"PAY PAYS N","identity":"sha256:abd"})",
+          R"({"source": "PAY PAYS N","identity":"sha256:abc"})", "{\"source\":\"PAY PAYS N\",\r\n\"identity\":\"sha256:abc\"}"}) {
+        std::istringstream input(std::string(different) + "\r\n");
+        const auto actual = ReadGolden(&input);
+        ASSERT_EQ(actual, different);
+        ASSERT_NE(actual, canonical);
+    }
+    for (const auto* suffix : {"\r", " ", "\n\n", "\n\r\n"}) {
+        std::istringstream input(canonical + suffix);
+        ASSERT_NE(ReadGolden(&input), canonical);
+    }
+}
 
 TEST(CompoundedOisBaselineTest, TestLegacyArchiveSourceAndIdentityBaseline) {
     for (const auto* name : {"compounded_ois_v1_prepared.json", "compounded_ois_v1_instrument.json", "compounded_ois_v1_identities.json"}) {
