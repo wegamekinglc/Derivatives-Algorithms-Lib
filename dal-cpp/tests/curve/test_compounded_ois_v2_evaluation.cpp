@@ -121,7 +121,7 @@ TEST(CompoundedOisV2EvaluationTest, TestFourModesAgainstIndependentAmountsAndTwo
     }
 }
 
-TEST(CompoundedOisV2EvaluationTest, TestUnfinishedCalibrationIsRejectedAfterDirectPricingAdmission) {
+TEST(CompoundedOisV2EvaluationTest, TestVersionTwoCalibrationPreparationUsesItsNativeCapability) {
     const auto s = Contract("Lookback");
     const auto r = Request(s);
     auto fit = CompoundedOisTest::Calibration("Shared");
@@ -129,7 +129,8 @@ TEST(CompoundedOisV2EvaluationTest, TestUnfinishedCalibrationIsRejectedAfterDire
     const auto instrument = NewCompoundedOisScriptInstrument(r.compoundedOis_);
     fit.observations_ = {NewCalibrationObservation("rate", instrument, "ParRate",
                                                    NewCalibrationMarketQuote("rate", .02, CalibrationValueUnit_::Parse("Rate")), 1e-12)};
-    ASSERT_EQ(Failure([&] { PreparedCurveInstruments_ prepared(fit); }).code_, "UnsupportedCompoundedOisCalibration");
+    const PreparedCurveInstruments_ prepared(fit);
+    ASSERT_EQ(prepared.Plans()[0].Capability().ruleId_, "dal.compounded-ois-cashflows/2");
 }
 
 TEST(CompoundedOisV2EvaluationTest, TestNotionalDirectionAndNativeFiniteDifference) {

@@ -5,6 +5,7 @@
 #include <exception>
 #include <iomanip>
 #include <iostream>
+#include <map>
 
 #include <dal/benchmarks/bench.hpp>
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
@@ -87,12 +88,19 @@ namespace {
         Bench::DoNotOptimize(&result);
         return std::chrono::duration<double, std::nano>(Clock_::now() - start).count();
     }
+    template <class F_> std::optional<double> FullTiming(bool enabled, const F_& run) {
+        return enabled ? std::optional<double>(Timed(run)) : std::nullopt;
+    }
+    void PrintFullTiming(const std::optional<double>& value) {
+        if (value)
+            std::cout << ",\"full_shared_ns\":" << *value;
+    }
     void Verify(const Matrix_<>& actual, const Matrix_<>& expected) {
         for (int i = 0; i < actual.Rows(); ++i)
             for (int j = 0; j < actual.Cols(); ++j)
                 REQUIRE(std::abs(actual(i, j) - expected(i, j)) <= 1e-7 + 1e-5 * std::abs(expected(i, j)), "Script benchmark FD mismatch");
     }
-    void Run(int count, int pvs, bool pvOnlyMode) {
+    void Run(int count, int pvs, bool pvOnlyMode, bool dualMode) {
         const auto spec = Sample(count);
         const auto fit = CalibrateCurveInstruments(spec, Options());
         const auto start = Clock_::now();
@@ -114,8 +122,9 @@ namespace {
         Verify(Shared(spec, snapshot, pvs), expected);
         if (pvOnly)
             Verify(Shared(spec, *pvOnly, pvs), expected);
+        const auto measured = pvOnly.value_or(snapshot);
         for (int sample = -WARMUPS; sample < SAMPLES; ++sample) {
-            const auto shared = [&] { return Shared(spec, snapshot, pvs); };
+            const auto shared = [&] { return Shared(spec, measured, pvs); };
             const auto reference = [&] { return Recalibrated(spec, pvs, &calibrations); };
             double sharedNs, referenceNs;
             if (sample % 2 == 0) {
@@ -125,11 +134,14 @@ namespace {
                 referenceNs = Timed(reference);
                 sharedNs = Timed(shared);
             }
+            const auto full = FullTiming(dualMode, [&] { return Shared(spec, snapshot, pvs); });
             if (sample >= 0) {
                 std::cout << "{\"quotes\":" << count << ",\"pvs\":" << pvs << ",\"sample\":" << sample << ",\"shared_ns\":" << sharedNs
-                          << ",\"recalibrated_ns\":" << referenceNs << ",\"prepare_ns\":" << preparation;
+                          << ",\"recalibrated_ns\":" << referenceNs << ",\"prepare_ns\":" << preparation << ",\"pv_only\":" << std::boolalpha
+                          << pvOnlyMode;
                 if (pvOnly)
                     std::cout << ",\"pv_only_prepare_ns\":" << pvOnlyPreparation;
+                PrintFullTiming(full);
                 std::cout << ",\"factorizations\":" << snapshot.Numerics().factorizationCount_
                           << ",\"reference_calibrations_per_sample\":" << 2 * count << "}\n";
             }
@@ -138,15 +150,27 @@ namespace {
     }
 } // namespace
 
-int RunScriptCurveQuoteRiskBenchmarks(bool pvOnlyMode) {
+int RunScriptCurveQuoteRiskBenchmarks(bool pvOnlyMode, bool scoped) {
     try {
         std::cout << std::setprecision(17);
         for (const int count : {5, 15})
-            for (const int pvs : {1, 100})
-                Run(count, pvs, pvOnlyMode);
+            for (const int pvs : {1, 100}) {
+                if (scoped && count == 5 && pvs == 100)
+                    continue;
+                Run(count, pvs, pvOnlyMode, scoped && pvOnlyMode);
+            }
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 2;
     }
+}
+
+int RunScriptCurveQuoteRiskMode(const char* option) {
+    const std::map<std::string, std::pair<bool, bool>> modes{{"--script-curve-quote-risk", {false, false}},
+                                                             {"--script-curve-quote-risk-pv-only", {true, false}},
+                                                             {"--script-curve-quote-risk-scoped", {false, true}},
+                                                             {"--script-curve-quote-risk-pv-only-scoped", {true, true}}};
+    const auto found = modes.find(option);
+    return found == modes.end() ? -1 : RunScriptCurveQuoteRiskBenchmarks(found->second.first, found->second.second);
 }

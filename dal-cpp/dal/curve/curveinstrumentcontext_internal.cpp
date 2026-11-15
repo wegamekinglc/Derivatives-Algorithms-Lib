@@ -1,5 +1,7 @@
 #include <dal/platform/platform.hpp>
 
+#include <set>
+
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
@@ -17,6 +19,19 @@ namespace Dal::CurveInstrumentInternal {
             return copy;
         }
     } // namespace
+    void ValidateCompoundedRegistration(const CurveInstrumentCalibrationSpec_& spec) {
+        if (spec.compoundedOis_.empty())
+            return;
+        const auto valuation = Fingerprint(CompoundedOisInternal::ValuationJson(spec.valuation_));
+        std::set<std::string> ids;
+        for (const auto& tables : spec.compoundedOis_) {
+            Check(bool(tables), "InvalidCompoundedOis", "/compounded_ois", "nonnull frozen OIS tables");
+            const auto& id = tables->Spec().instrumentId_;
+            Check(ids.insert(Bytes(id)).second, "InvalidCompoundedOis", "/compounded_ois", "unique instrument ID across all registered tables", id);
+            Check(valuation == Fingerprint(CompoundedOisInternal::ValuationJson(tables->Valuation())), "CalibrationContextMismatch",
+                  "/compounded_ois/valuation", "same valuation date, today policy and complete fixing snapshot for every registered table", id);
+        }
+    }
 
     bool HasOvernightContext(const CurveInstrumentCalibrationSpec_& spec) {
         return !spec.compoundedOis_.empty() || !spec.geometry_.targetOvernightRoute_.empty() || !spec.market_.overnightCurves_.empty() ||

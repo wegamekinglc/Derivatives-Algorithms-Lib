@@ -69,12 +69,58 @@ namespace {
             Examples::Compare(("node " + std::to_string(j)).c_str(), result.nativePartials_(0, j), fd, .001);
         }
     }
+    void Calibrate(const CompoundedOisObservationMode_& mode) {
+        const auto pvContract = Contract(mode);
+        auto request = Request(pvContract);
+        request.valuation_.fixings_.reset(new MarketFixingSnapshot_({{"USD-SOFR", {{DateTime_(Date_(2024, 2, 29)), -.012}}}}));
+        CurveInstrumentCalibrationSpec_ spec;
+        spec.geometry_ = request.geometry_;
+        spec.market_ = request.market_;
+        spec.valuation_ = request.valuation_;
+        for (const bool shortMaturity : {true, false}) {
+            auto contract = pvContract;
+            contract.instrumentId_ = shortMaturity ? "ois-short" : "ois-long";
+            const Date_ start(2024, 3, 1), end(2024, 3, shortMaturity ? 6 : 8);
+            contract.fixedLeg_[0] = {start, end, end, (end - start) / 365.};
+            contract.coupons_[0] = {"coupon", start, end, end};
+            request.compoundedOis_ = PrepareCompoundedOis(contract, spec.valuation_);
+            const auto instrument = NewCompoundedOisScriptInstrument(request.compoundedOis_);
+            const double quote = EvaluateCurveScriptInstrument(instrument, request).values_[1];
+            spec.compoundedOis_.push_back(request.compoundedOis_);
+            spec.observations_.push_back(
+                NewCalibrationObservation(contract.instrumentId_, instrument, "ParRate",
+                                          NewCalibrationMarketQuote(contract.instrumentId_, quote, CalibrationValueUnit_::Parse("Rate")), 1e-12));
+        }
+        request.compoundedOis_ = PrepareCompoundedOis(pvContract, spec.valuation_);
+        spec.compoundedOis_.push_back(request.compoundedOis_);
+        spec.solver_.initialGuessPerNode_ = request.parameters_ * .95;
+        CurveInstrumentCalibrationOptions_ options;
+        options.jacobianMode_ = CalibrationDerivative_("AAD");
+        const auto fit = CalibrateCurveInstruments(spec, options);
+        REQUIRE(fit.fitWithinTolerance_, "same-source OIS calibration must fit");
+        Examples::PrintReferenceHeader("Calibration recovers the native parameters used to generate these illustrative quotes");
+        for (int j = 0; j < 2; ++j)
+            Examples::Compare(("calibrated node " + std::to_string(j)).c_str(), fit.parameters_[j], request.parameters_[j], 1e-8);
+        auto frozen = request;
+        frozen.geometry_ = fit.resolvedSpec_->geometry_;
+        frozen.market_ = fit.resolvedSpec_->market_;
+        frozen.valuation_ = fit.resolvedSpec_->valuation_;
+        frozen.compoundedOis_ = fit.resolvedSpec_->compoundedOis_.back();
+        frozen.parameters_ = fit.parameters_;
+        const auto instrument = NewCompoundedOisScriptInstrument(frozen.compoundedOis_);
+        const double value = EvaluateCurveScriptInstrument(instrument, frozen).values_[0];
+        request.parameters_ = fit.parameters_;
+        Examples::Compare("registered PV (USD)", value, EvaluateCurveScriptInstrument(instrument, request).values_[0], 1e-6);
+    }
 } // namespace
 
 int main() {
     RegisterAll_::Init();
     std::cout << std::setprecision(12);
-    for (const auto& mode : CompoundedOisObservationModeListAll())
+    for (const auto& mode : CompoundedOisObservationModeListAll()) {
         Run(mode);
+        Calibrate(mode);
+    }
     std::cout << "Compounded OIS direct evaluation verified; native partials are not quote DV01.\n";
+    std::cout << "Same-source OIS calibration verified; OIS quote risk remains unavailable.\n";
 }

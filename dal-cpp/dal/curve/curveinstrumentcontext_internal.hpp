@@ -25,6 +25,7 @@ namespace Dal {
         CurveCalibrationSpec_ NativeGeometry(const CurveInstrumentCalibrationSpec_& spec);
         bool HasOvernightContext(const CurveInstrumentCalibrationSpec_& spec);
         CurveInstrumentCalibrationSpec_ FreezeOvernightContext(CurveInstrumentCalibrationSpec_ spec);
+        void ValidateCompoundedRegistration(const CurveInstrumentCalibrationSpec_& spec);
         CanonicalJson::Json_ MarketJson(const CurveInstrumentMarket_& market);
         CanonicalJson::Json_ CurveJson(const Handle_<DiscountCurve_>& curve);
         CanonicalJson::Json_ Dates(const Vector_<Date_>& dates);
