@@ -7,7 +7,23 @@
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidaydata.hpp>
 
+/*IF--------------------------------------------------------------------------
+enumeration CompoundedOisObservationMode
+    Overnight observation date and weight mapping
+switchable
+alternative None
+alternative Lookback
+alternative ObservationShift
+alternative Lockout
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
+#include <dal/auto/MG_CompoundedOisObservationMode_enum.hpp>
+
+    struct CompoundedOisObservationConvention_ {
+        CompoundedOisObservationMode_ mode_;
+        int lookbackBusinessDays_ = 0, lockoutBusinessDays_ = 0;
+    };
     struct CompoundedOisFixedRow_ {
         Date_ start_, end_, payment_;
         double accrual_ = 0.;
@@ -36,6 +52,7 @@ namespace Dal {
         Vector_<CompoundedOisFixedRow_> fixedLeg_;
         Vector_<CompoundedOisCouponRow_> coupons_;
         Vector_<CompoundedOisObservationRow_> observations_;
+        std::optional<CompoundedOisObservationConvention_> observationConvention_;
     };
     struct CompoundedOisPaymentStatus_ {
         bool included_ = false, settled_ = false;
@@ -46,12 +63,23 @@ namespace Dal {
         double rateAccrual_ = 0.;
         bool historicalRequired_ = false;
     };
+    struct CompoundedOisResolvedObservation_ {
+        Date_ accrualStart_, accrualEnd_, rateStart_, rateEnd_, weightStart_, weightEnd_;
+        DateTime_ fixingTime_;
+        double accrual_ = 0., rateAccrual_ = 0., compoundingAccrual_ = 0.;
+        String_ fixingIndex_, couponId_, sourceKey_;
+        size_t row_ = 0, couponRow_ = 0;
+        std::optional<size_t> reusedFromRow_;
+        bool historicalRequired_ = false, included_ = false, settled_ = false;
+    };
     class PreparedCompoundedOis_ final {
         const CompoundedOisScriptSpec_ spec_;
         const Script::ScriptValuationSettings_ valuation_;
         Vector_<CompoundedOisPaymentStatus_> fixedPayments_, couponPayments_;
         Vector_<CompoundedOisObservationInfo_> observations_;
         String_ contractIdentity_, preparationIdentity_, calendarIdentity_;
+        Vector_<CompoundedOisResolvedObservation_> observationSchedule_;
+        String_ observationScheduleIdentity_;
         PreparedCompoundedOis_(const CompoundedOisScriptSpec_&, const Script::ScriptValuationSettings_&);
         friend Handle_<PreparedCompoundedOis_> PrepareCompoundedOis(const CompoundedOisScriptSpec_&, const Script::ScriptValuationSettings_&);
 
@@ -65,6 +93,8 @@ namespace Dal {
         [[nodiscard]] const Vector_<CompoundedOisPaymentStatus_>& FixedPayments() const { return fixedPayments_; }
         [[nodiscard]] const Vector_<CompoundedOisPaymentStatus_>& CouponPayments() const { return couponPayments_; }
         [[nodiscard]] const Vector_<CompoundedOisObservationInfo_>& Observations() const { return observations_; }
+        [[nodiscard]] const Vector_<CompoundedOisResolvedObservation_>& ObservationSchedule() const { return observationSchedule_; }
+        [[nodiscard]] const String_& ObservationScheduleIdentity() const { return observationScheduleIdentity_; }
     };
     Handle_<PreparedCompoundedOis_> PrepareCompoundedOis(const CompoundedOisScriptSpec_& spec, const Script::ScriptValuationSettings_& valuation);
     String_ DumpPreparedCompoundedOisJson(const Handle_<PreparedCompoundedOis_>& prepared);

@@ -23,3 +23,8 @@ add_test(NAME compounded_ois_perf_contract COMMAND curve_calibration_perf --comp
 set_tests_properties(compounded_ois_perf_contract PROPERTIES
     LABELS "benchmark"
     PASS_REGULAR_EXPRESSION "Compounded OIS contract verified: D=30,365,1825")
+
+add_test(NAME compounded_ois_schedule_perf_contract COMMAND curve_calibration_perf --ois-observation-schedule)
+set_tests_properties(compounded_ois_schedule_perf_contract PROPERTIES
+    LABELS "benchmark"
+    PASS_REGULAR_EXPRESSION "OIS observation schedule preparation verified: D=30,365,1825")

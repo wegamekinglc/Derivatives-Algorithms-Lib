@@ -148,7 +148,7 @@ TEST(CompoundedOisBaselineTest, TestPerPvRejectsOisAgainstAvailableDepositSnapsh
     ASSERT_EQ(result.Diagnostics()[0].field_, "/instrument");
 }
 
-TEST(CompoundedOisBaselineTest, TestV2RuleStillRejectedBeforeImplementation) {
+TEST(CompoundedOisBaselineTest, TestV2RuleRequiresAnExplicitConvention) {
     auto spec = Contract();
     spec.ruleId_ = "dal.compounded-ois-cashflows/2";
     try {
@@ -156,6 +156,6 @@ TEST(CompoundedOisBaselineTest, TestV2RuleStillRejectedBeforeImplementation) {
         FAIL() << "Unimplemented rule accepted";
     } catch (const CalibrationError_& error) {
         ASSERT_EQ(error.Failure().diagnostic_.code_, "UnsupportedCompoundedOisRule");
-        ASSERT_EQ(error.Failure().diagnostic_.field_, "/rule");
+        ASSERT_EQ(error.Failure().diagnostic_.field_, "/observation_convention");
     }
 }

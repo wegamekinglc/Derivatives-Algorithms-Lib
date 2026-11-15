@@ -13,45 +13,79 @@ namespace Dal::CompoundedOisInternal {
         return Obj({{"id", Str(c.center_)}, {"holidays", Array(c.holidays_, DateJson)}, {"work_weekends", Array(c.workWeekends_, DateJson)}});
     }
     Json_ ContractJson(const CompoundedOisScriptSpec_& s) {
-        return Obj({{"instrument_id", Str(s.instrumentId_)},
-                    {"rule", Str(s.ruleId_)},
-                    {"notional", Num(s.notional_)},
-                    {"coupon", Num(s.coupon_)},
-                    {"direction", Str(s.direction_)},
-                    {"currency", Str(s.currency_.String())},
-                    {"collateral_currency", Str(s.collateralCurrency_.String())},
-                    {"collateral_type", Str(s.collateralType_.String())},
-                    {"discount_route", Str(s.discountRoute_)},
-                    {"projection_route", Str(s.projectionRoute_)},
-                    {"fixing_index", Str(s.fixingIndex_)},
-                    {"observation_basis", Str(s.observationBasis_.String())},
-                    {"fixed_basis", Str(s.fixedBasis_.String())},
-                    {"min_abs_annuity", Num(s.minAbsAnnuity_)},
-                    {"calendar", CalendarJson(*s.calendar_)},
-                    {"settlement", Str("IncludeUnsettledAtValuation")},
-                    {"fixed_leg", Array(s.fixedLeg_,
-                                        [](const auto& r) {
-                                            return Obj({{"start", DateJson(r.start_)},
-                                                        {"end", DateJson(r.end_)},
-                                                        {"payment", DateJson(r.payment_)},
-                                                        {"accrual", Num(r.accrual_)}});
-                                        })},
-                    {"coupons", Array(s.coupons_,
-                                      [](const auto& r) {
-                                          return Obj({{"coupon_id", Str(r.couponId_)},
-                                                      {"start", DateJson(r.start_)},
-                                                      {"end", DateJson(r.end_)},
-                                                      {"payment", DateJson(r.payment_)}});
-                                      })},
-                    {"observations", Array(s.observations_, [](const auto& r) {
-                         return Obj({{"start", DateJson(r.start_)},
-                                     {"end", DateJson(r.end_)},
-                                     {"fixing_time", TimeJson(r.fixingTime_)},
-                                     {"accrual", Num(r.accrual_)},
-                                     {"coupon_id", Str(r.couponId_)},
-                                     {"rate_start", DateJson(r.rateStart_)},
-                                     {"rate_end", DateJson(r.rateEnd_)}});
-                     })}});
+        auto result = Obj({{"instrument_id", Str(s.instrumentId_)},
+                           {"rule", Str(s.ruleId_)},
+                           {"notional", Num(s.notional_)},
+                           {"coupon", Num(s.coupon_)},
+                           {"direction", Str(s.direction_)},
+                           {"currency", Str(s.currency_.String())},
+                           {"collateral_currency", Str(s.collateralCurrency_.String())},
+                           {"collateral_type", Str(s.collateralType_.String())},
+                           {"discount_route", Str(s.discountRoute_)},
+                           {"projection_route", Str(s.projectionRoute_)},
+                           {"fixing_index", Str(s.fixingIndex_)},
+                           {"observation_basis", Str(s.observationBasis_.String())},
+                           {"fixed_basis", Str(s.fixedBasis_.String())},
+                           {"min_abs_annuity", Num(s.minAbsAnnuity_)},
+                           {"calendar", CalendarJson(*s.calendar_)},
+                           {"settlement", Str("IncludeUnsettledAtValuation")},
+                           {"fixed_leg", Array(s.fixedLeg_,
+                                               [](const auto& r) {
+                                                   return Obj({{"start", DateJson(r.start_)},
+                                                               {"end", DateJson(r.end_)},
+                                                               {"payment", DateJson(r.payment_)},
+                                                               {"accrual", Num(r.accrual_)}});
+                                               })},
+                           {"coupons", Array(s.coupons_,
+                                             [](const auto& r) {
+                                                 return Obj({{"coupon_id", Str(r.couponId_)},
+                                                             {"start", DateJson(r.start_)},
+                                                             {"end", DateJson(r.end_)},
+                                                             {"payment", DateJson(r.payment_)}});
+                                             })},
+                           {"observations", Array(s.observations_, [](const auto& r) {
+                                return Obj({{"start", DateJson(r.start_)},
+                                            {"end", DateJson(r.end_)},
+                                            {"fixing_time", TimeJson(r.fixingTime_)},
+                                            {"accrual", Num(r.accrual_)},
+                                            {"coupon_id", Str(r.couponId_)},
+                                            {"rate_start", DateJson(r.rateStart_)},
+                                            {"rate_end", DateJson(r.rateEnd_)}});
+                            })}});
+        if (IsVersionTwo(s))
+            result.object_.emplace("observation_convention", ConventionJson(*s.observationConvention_));
+        return result;
+    }
+    Json_ ConventionJson(const CompoundedOisObservationConvention_& c) {
+        return Obj({{"mode", Str(c.mode_.String())},
+                    {"lookback_business_days", Num(c.lookbackBusinessDays_)},
+                    {"lockout_business_days", Num(c.lockoutBusinessDays_)}});
+    }
+    Json_ ScheduleJson(const Vector_<CompoundedOisResolvedObservation_>& rows, bool includeValuation) {
+        return Array(rows, [includeValuation](const auto& r) {
+            auto result = Obj({{"accrual_start", DateJson(r.accrualStart_)},
+                               {"accrual_end", DateJson(r.accrualEnd_)},
+                               {"accrual", Num(r.accrual_)},
+                               {"rate_start", DateJson(r.rateStart_)},
+                               {"rate_end", DateJson(r.rateEnd_)},
+                               {"rate_accrual", Num(r.rateAccrual_)},
+                               {"weight_start", DateJson(r.weightStart_)},
+                               {"weight_end", DateJson(r.weightEnd_)},
+                               {"compounding_accrual", Num(r.compoundingAccrual_)},
+                               {"fixing_index", Str(r.fixingIndex_)},
+                               {"fixing_time", TimeJson(r.fixingTime_)},
+                               {"coupon_id", Str(r.couponId_)},
+                               {"row", Num(static_cast<double>(r.row_))},
+                               {"coupon_row", Num(static_cast<double>(r.couponRow_))},
+                               {"source_key", Str(r.sourceKey_)},
+                               {"reused_from_row", r.reusedFromRow_ ? Num(static_cast<double>(*r.reusedFromRow_)) : Json_()}});
+            if (includeValuation) {
+                result.object_.emplace("historical_required", Bool(r.historicalRequired_));
+                result.object_.emplace("included", Bool(r.included_));
+                result.object_.emplace("settled", Bool(r.settled_));
+            }
+            return result;
+        });
     }
     Json_ ValuationJson(const Script::ScriptValuationSettings_& v) {
         Json_ fixings = Json_::Array();
@@ -70,8 +104,13 @@ namespace Dal {
     String_ DumpPreparedCompoundedOisJson(const Handle_<PreparedCompoundedOis_>& prepared) {
         using namespace CalibrationInternal;
         Check(bool(prepared), "InvalidCompoundedOisTable", "/prepared", "nonnull compounded OIS preparation");
-        return String_(Jcs(Obj({{"schema", Str("dal.compounded-ois-preparation/1")},
-                                {"spec", CompoundedOisInternal::ContractJson(prepared->Spec())},
-                                {"valuation", CompoundedOisInternal::ValuationJson(prepared->Valuation())}})));
+        auto result = Obj({{"schema", Str("dal.compounded-ois-preparation/1")},
+                           {"spec", CompoundedOisInternal::ContractJson(prepared->Spec())},
+                           {"valuation", CompoundedOisInternal::ValuationJson(prepared->Valuation())}});
+        if (CompoundedOisInternal::IsVersionTwo(prepared->Spec())) {
+            result.object_["schema"] = Str("dal.compounded-ois-preparation/2");
+            result.object_.emplace("observation_schedule", CompoundedOisInternal::ScheduleJson(prepared->ObservationSchedule(), true));
+        }
+        return String_(Jcs(result));
     }
 } // namespace Dal

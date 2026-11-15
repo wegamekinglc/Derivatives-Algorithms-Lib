@@ -132,6 +132,42 @@ errors. Complete `cell[][]+` selections are validated, including unknown or
 duplicate content after blank rows, with original row/column positions.
 Unavailable values stay blank and numeric getters reject them.
 
+## Core observation schedule preparation
+
+Core C++ also accepts the explicit `dal.compounded-ois-cashflows/2` rule with a
+`CompoundedOisObservationConvention_`. Clear the manual `observations_` input
+and choose one mode: None with zero counts, Lookback or ObservationShift with
+positive `lookbackBusinessDays_`, or Lockout with positive `lockoutBusinessDays_`.
+Unrelated counts must be zero. Every coupon boundary must be a business day in
+the supplied calendar; explicit working weekends participate in the mapping.
+The default remains `/1`; a convention on `/1` is rejected.
+
+`PrepareCompoundedOis` freezes `ObservationSchedule()` and its
+`ObservationScheduleIdentity()`. Each row separates actual accrual, complete ON
+sample and compounding-weight intervals, with their year fractions, fixing key
+and date, coupon/row/source provenance and optional Lockout reuse. Row and
+`reusedFromRow_` ordinals are zero-based across the contract, including multiple
+coupons. The original `/2` spec retains an empty manual observation table.
+
+Lookback keeps actual accrual weights; ObservationShift uses the shifted sample
+weights. The Shift floating-return contract is `N*(product(1+w*L)-1)` without an
+actual/shifted-period length ratio. Lockout reuses the last unlocked rate for k
+tail business intervals, retaining a separate factor and actual weight per row;
+it requires `0<k<coupon_interval_count`. Fixed-leg dates and weights stay fixed.
+
+Preparation classifies history from the mapped fixing date and payment status
+without fetching rate/fixing values. Missing required history is detected when
+execution requests it. Contract and schedule identities exclude valuation
+classification; preparation identity includes the complete explicit snapshot,
+valuation date and today policy. `/2` archives store the declaration and complete
+resolved rows; loading re-expands and verifies every stored row before publishing
+the preparation. Legacy `/1` JSON, source and identities retain their format.
+
+This `/2` capability is preparation and archive only. Source construction and
+valuation with `/2` tables reject `UnsupportedCompoundedOisExecution`; quote risk
+continues to reject compounded OIS. Python/Excel convention factories and new
+audit projections are not exposed. Existing `/1` pricing remains available.
+
 ## Resource measurement
 
 Configure `core-dev` with `-DDAL_CPP_BUILD_BENCHMARKS=ON`, build
@@ -140,6 +176,7 @@ Configure `core-dev` with `-DDAL_CPP_BUILD_BENCHMARKS=ON`, build
 ```bash
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --compounded-ois
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-neighbor
+DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-observation-schedule
 ```
 
 The first mode uses D=30/365/1825 intervals, one live coupon, N=1, K=0.025,
@@ -163,6 +200,17 @@ source/AST/descriptor strings, curves, allocator overhead and returned axes.
 Linux RSS/high-water RSS include other process data; zero means unavailable
 on other platforms. Reserved capacity after cleanup remains real resource use.
 
+The observation-schedule mode prepares four `/2` modes at D=30/365/1825, including
+a holiday and working weekend, with an authoritative empty fixing snapshot.
+It records cold and repeated total preparation time, owning row-object payload,
+tracked DAL vector capacities and archive bytes. Vector capacities exclude
+string/map allocations and allocator overhead; process RSS includes other data.
+Inputs are built outside timing. Preparation includes date-axis construction,
+calendar searches, copies and identity serialization; the axis is reused across
+rows rather than repeating a lookback walk. Two warmups and ten measured repeats
+match the existing local harness. These new-capability measurements are coverage
+and resource evidence, without a historical `/2` regression baseline.
+
 For the adjacent LOG_LINEAR analytic/bumped calibration cases, retain two
 rounds of ten alternating process pairs, best-of-ten minima, the existing 4%
 threshold and all raw samples. This executable is outside the nine-target
@@ -172,5 +220,6 @@ old O(1) period-forward product as a regression. Performance statements are
 limited to the measured build, machine and workload.
 
 P1 quote-risk snapshots/per-PV, general script/MC and legacy tenor staging
-continue to reject ON. Automatic RFR schedules, lookback, lockout, observation
-shift, intraday publication rules and scenario revaluation remain outside scope.
+continue to reject ON. Full tenor/payment schedule generation, combined
+observation modes, intraday publication rules and scenario revaluation remain
+outside scope.

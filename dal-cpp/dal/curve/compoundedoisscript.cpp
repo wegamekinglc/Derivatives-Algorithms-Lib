@@ -54,6 +54,8 @@ namespace Dal::CompoundedOisInternal {
     Source_ BuildSource(const Handle_<PreparedCompoundedOis_>& tables) {
         Check(bool(tables), "InvalidCompoundedOis", "/tables", "frozen compounded OIS tables");
         const auto& s = tables->Spec();
+        Check(Bytes(s.ruleId_) == "dal.compounded-ois-cashflows/1", "UnsupportedCompoundedOisExecution", "/tables/rule",
+              "completed /1 source capability; /2 schedule preparation only");
         auto d = Definition(s);
         Source_ result;
         Date_ pillar = s.fixedLeg_.back().payment_;
