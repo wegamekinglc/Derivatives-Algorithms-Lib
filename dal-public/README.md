@@ -39,6 +39,7 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 | `dal-public/src/xccycalibration.hpp`                                                 | Cross-currency calibration                                   |
 | `dal-public/src/xccymontecarlo.hpp`                                                  | Typed stochastic XCCY model, staged candidate and phased MC  |
 | `dal-public/src/xccymontecarlobasket.hpp`                                            | Prepared XCCY baskets, covariance and owning partials       |
+| `dal-public/src/earlyexercisepde.hpp`, `dal-public/src/earlyexercisepderisk.hpp`       | Owning Bermudan/American prices and fixed-plan repricing risk |
 | `dal-public/src/interp.hpp`                                                          | Linear interpolation helper                                  |
 | `dal-public/src/repository.hpp`                                                      | Host-environment repository operations                       |
 
@@ -121,7 +122,7 @@ For example, run the interpolation program directly at
 `build/core-dev/dal-public/examples/interpolate_curve_script/interpolate_curve_script`;
 installation places it in `bin/`. Multi-configuration generators add the
 configuration directory, such as `Release`, to the build-tree run path.
-All nine programs are CTest `examples` smoke tests. Their small stochastic
+All ten programs are CTest `examples` smoke tests. Their small stochastic
 budgets demonstrate interfaces; they do not establish full numerical acceptance
 or calibrated quote risk. See the [script calibration guide](../docs/methodology/script_calibration_contract.md)
 for supported execution modes and statistical limits, and the
