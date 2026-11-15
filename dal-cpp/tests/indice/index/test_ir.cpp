@@ -2,11 +2,37 @@
 // Created by wegam on 2022/2/3.
 //
 
-#include <gtest/gtest.h>
-#include <dal/platform/platform.hpp>
 #include <dal/indice/index/ir.hpp>
+#include <dal/indice/indexparse.hpp>
+#include <dal/platform/platform.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
+
+TEST(IndexTest, TestOvernightObservationTokenPreservesIndependentIntervalsAndClone) {
+    const String_ name = "IR[USD,ON2,SOFR%20%E4%B8%AD,USD%2CON,2024-03-05,2024-03-06,2024-03-01,2024-03-05,ACT_360]";
+    const auto index = Index::Parse(name);
+    ASSERT_EQ(index->Name(), name);
+    ASSERT_EQ(Index::Clone(*index)->Name(), name);
+    const auto* typed = dynamic_cast<const Index::OvernightObservation_*>(index.get());
+    ASSERT_NE(typed, nullptr);
+    ASSERT_EQ(typed->Spec().fixingKey_, "SOFR \xe4\xb8\xad");
+    const Index::OvernightObservation_ copied(typed->Spec());
+    ASSERT_EQ(copied.Name(), name);
+    ASSERT_THROW(Index::Parse("IR[USD,ON,SOFR,USD.ON,2024-03-05,2024-03-06,2024-03-01,2024-03-05,ACT_360]"), Exception_);
+}
+
+TEST(IndexTest, TestOvernightObservationRejectsMalformedIntervalsEscapesAndArity) {
+    for (const String_ name : {"IR[USD,ON2,SOFR,ON,2024-03-06,2024-03-05,2024-03-01,2024-03-05,ACT_360]",
+                               "IR[USD,ON2,SOFR,ON,2024-03-05,2024-03-06,2024-03-05,2024-03-01,ACT_360]",
+                               "IR[USD,ON2,SOFR%,ON,2024-03-05,2024-03-06,2024-03-01,2024-03-05,ACT_360]",
+                               "IR[USD,ON2,SOFR%FF,ON,2024-03-05,2024-03-06,2024-03-01,2024-03-05,ACT_360]",
+                               "IR[USD,ON2,SOFR,ON,2024-03-05,2024-03-06,2024-03-01,2024-03-05,30_360]",
+                               "IR[USD,ON2,SOFR,ON,2024-03-05,2024-03-06,2024-03-01,2024-03-05]"}) {
+        SCOPED_TRACE(name.c_str());
+        ASSERT_THROW(Index::Parse(name), Exception_);
+    }
+}
 
 TEST(IndexTest, TestLiborName) {
     Ccy_ ccy("USD");

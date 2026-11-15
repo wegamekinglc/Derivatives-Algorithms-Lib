@@ -1,4 +1,5 @@
 add_subdirectory(curve_calibration)
+add_subdirectory(compounded_ois)
 add_subdirectory(euribor3m_curve)
 add_subdirectory(interpolate_curve)
 add_subdirectory(joint_multi_curve_calibration)

@@ -32,6 +32,7 @@ namespace {
         CurveInstrumentCalibrationSpec_ context_;
         Vector_<> theta_;
         size_t historical_ = 0;
+        Vector_<CompoundedOisObservationRow_> oracleRows_;
     };
 
     Fixture_ Fixture(size_t count) {
@@ -105,8 +106,9 @@ namespace {
     Vector_<> Scalar(const Fixture_& f, const Vector_<>& theta) {
         const auto today = f.context_.geometry_.today_;
         double product = 1.;
-        for (size_t i = 0; i < f.contract_.observations_.size(); ++i) {
-            const auto& row = f.contract_.observations_[i];
+        const auto& rows = f.oracleRows_.empty() ? f.contract_.observations_ : f.oracleRows_;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const auto& row = rows[i];
             const double rate = i < f.historical_ ? .02
                                                   : std::expm1(LogDiscount(row.rateStart_, today, theta) - LogDiscount(row.rateEnd_, today, theta)) /
                                                         ((row.rateEnd_ - row.rateStart_) / 360.);
@@ -308,11 +310,17 @@ namespace {
     }
 } // namespace
 
+namespace {
+    void RegisterCountingParser() {
+        Index::RegisterParser("ONPERF", [](const String_& text) {
+            ++indexParses;
+            return Index::Parse("IR" + text.substr(6));
+        });
+    }
+} // namespace
+
 void RunCompoundedOis() {
-    Index::RegisterParser("ONPERF", [](const String_& text) {
-        ++indexParses;
-        return Index::Parse("IR" + text.substr(6));
-    });
+    RegisterCountingParser();
     Bench::PrintHeader();
     for (const size_t count : {30u, 365u, 1825u})
         RunCase(count);
@@ -374,8 +382,105 @@ void RunCompoundedOisSchedule() {
     std::cout << "OIS observation schedule preparation verified: D=30,365,1825; four modes\n";
 }
 
+namespace {
+    bool ManualBusiness(Date_ date) {
+        if (date == Date_(2024, 1, 13))
+            return true;
+        return !Date::IsWeekEnd(date) && date != Date_(2024, 1, 15);
+    }
+    Date_ ManualStep(Date_ date, int direction) {
+        do {
+            date = date.AddDays(direction);
+        } while (!ManualBusiness(date));
+        return date;
+    }
+    Date_ ManualLookback(Date_ date, int count) {
+        for (int i = 0; i < count; ++i)
+            date = ManualStep(date, -1);
+        return date;
+    }
+    Fixture_ EvaluationFixture(size_t count, const CompoundedOisObservationMode_& mode) {
+        auto f = ScheduleFixture(count, mode);
+        const auto& s = f.contract_;
+        const auto& convention = *s.observationConvention_;
+        for (auto day = s.coupons_[0].start_; day < s.coupons_[0].end_;) {
+            const auto end = ManualStep(day, 1);
+            const auto rateStart = ManualLookback(day, convention.lookbackBusinessDays_);
+            const auto rateEnd = ManualLookback(end, convention.lookbackBusinessDays_);
+            const double weight = mode == CompoundedOisObservationMode_::Value_::ObservationShift ? rateEnd - rateStart : end - day;
+            f.oracleRows_.push_back({day, end, DateTime_(rateStart), weight / 360., "coupon", rateStart, rateEnd});
+            day = end;
+        }
+        REQUIRE(f.oracleRows_.size() == count, "independent calendar row count");
+        if (convention.lockoutBusinessDays_) {
+            const auto first = count - convention.lockoutBusinessDays_;
+            const auto anchor = f.oracleRows_[first - 1];
+            for (size_t i = first; i < count; ++i) {
+                f.oracleRows_[i].rateStart_ = anchor.rateStart_;
+                f.oracleRows_[i].rateEnd_ = anchor.rateEnd_;
+                f.oracleRows_[i].fixingTime_ = anchor.fixingTime_;
+            }
+        }
+        f.historical_ = 0;
+        std::map<DateTime_, double> history;
+        for (const auto& row : f.oracleRows_)
+            if (row.fixingTime_.Date() < f.context_.geometry_.today_) {
+                history.emplace(row.fixingTime_, .02);
+                ++f.historical_;
+            }
+        f.context_.valuation_.fixings_.reset(new MarketFixingSnapshot_({{s.fixingIndex_, history}}));
+        return f;
+    }
+    void EvaluationCase(size_t count, const CompoundedOisObservationMode_& mode) {
+        const auto fixture = EvaluationFixture(count, mode);
+        const auto start = Clock_::now();
+        const auto plan = Prepare(fixture);
+        const auto coldNs = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock_::now() - start).count();
+        Check(plan, fixture);
+        indexParses = 0;
+        const auto counted = Prepare(fixture, true);
+        REQUIRE(indexParses == count, "one ON2 parse per source factor");
+        Check(counted, fixture);
+        REQUIRE(indexParses == count, "prepared ON2 evaluation must not reparse source");
+        CurveScriptInternal::EvaluationScratch_<double> scratch;
+        const auto passive = Values(plan, fixture.theta_, fixture.context_.geometry_.today_, &scratch);
+        Resource_ resource;
+        const auto partials = Partials(plan, fixture, &resource);
+        double sink = passive[0] + partials(0, 0);
+        const auto prefix = std::string("OIS2 ") + mode.String() + " D=" + std::to_string(count) + " ";
+        Timed(prefix + "prepare tables/source/two plans", [&] { sink += Prepare(fixture).measures_.size(); });
+        Timed(
+            prefix + "prepared passive warm scratch", [&] { sink += Values(plan, fixture.theta_, fixture.context_.geometry_.today_, &scratch)[0]; },
+            10);
+        Timed(prefix + "prepared AAD two reverse seeds", [&] { sink += Partials(plan, fixture)(0, 0); }, 10);
+        const auto& flow = std::get<CalibrationCurveFamily_>(plan.measures_[0].Descriptor())->payments_.back();
+        REQUIRE(flow.program_.size() == 2 * count + 4, "linear ON2 factor program");
+        const auto after = AAD::MeasureTape(*AAD::Tape());
+        REQUIRE(after.nodes_ == 0 && after.liveBytes_ == 0, "ON2 AAD cleanup");
+        Bench::DoNotOptimize(&sink);
+        std::cout << "OIS2_RESOURCE mode=" << mode.String() << " D=" << count << " history=" << fixture.historical_ << " cold_prepare_ns=" << coldNs
+                  << " counted_index_parses=" << indexParses << " prepared_reparses=" << indexParses - count
+                  << " instructions=" << flow.program_.size() << " program_payload=" << flow.program_.size() * sizeof(CalibrationCurveInstruction_)
+                  << " passive_scratch_bytes=" << ScratchBytes(scratch) << " aad_scratch_bytes=" << resource.scratchBytes_
+                  << " tape_nodes=" << resource.tape_.nodes_ << " tape_live_bytes=" << resource.tape_.liveBytes_
+                  << " tape_reserved_bytes=" << resource.tape_.capacityBytes_ << " after_nodes=" << after.nodes_
+                  << " after_live_bytes=" << after.liveBytes_ << " process_peak_rss_kb=" << RssKb("VmHWM:") << '\n';
+    }
+} // namespace
+
+void RunCompoundedOisEvaluation() {
+    RegisterCountingParser();
+    Bench::PrintHeader();
+    for (const size_t count : {30u, 365u, 1825u})
+        for (const auto& mode : CompoundedOisObservationModeListAll())
+            EvaluationCase(count, mode);
+    std::cout << "Compounded OIS2 evaluation verified: D=30,365,1825; four modes\n";
+}
+
 bool RunCompoundedOisMode(const char* option) {
-    const std::map<std::string, void (*)()> modes{{"--compounded-ois", RunCompoundedOis}, {"--ois-observation-schedule", RunCompoundedOisSchedule}};
+    const std::map<std::string, void (*)()> modes{{"--compounded-ois", RunCompoundedOis},
+                                                  {"--ois-observation-schedule", RunCompoundedOisSchedule},
+                                                  {"--ois-observation-evaluation", RunCompoundedOisEvaluation}};
     const auto found = modes.find(option);
     if (found == modes.end())
         return false;

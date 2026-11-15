@@ -31,6 +31,11 @@ namespace Dal {
         double accrual_ = 0., rateAccrual_ = 0.;
         std::optional<double> rate_;
     };
+    struct CurveScriptResolvedObservationResult_ : CompoundedOisResolvedObservation_ {
+        String_ source_;
+        std::optional<double> rate_;
+        size_t sourceRow_ = 0, statement_ = 0;
+    };
     struct CurveScriptEvaluationResult_ {
         Handle_<CalibrationInstrument_> instrument_;
         Handle_<DiscountCurve_> curve_;
@@ -43,6 +48,7 @@ namespace Dal {
         Vector_<CurveScriptObservationResult_> observations_;
         CalibrationDerivative_ derivativeMethod_ = CalibrationDerivative_::Value_::None;
         String_ contextIdentity_, candidateIdentity_;
+        Vector_<CurveScriptResolvedObservationResult_> observationSchedule_;
     };
     CurveScriptEvaluationResult_ EvaluateCurveScriptInstrument(const Handle_<CalibrationInstrument_>& instrument,
                                                                const CurveScriptEvaluationRequest_& request);

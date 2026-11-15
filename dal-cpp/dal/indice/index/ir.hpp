@@ -15,6 +15,21 @@
 #include <dal/utilities/functionals.hpp>
 
 namespace Dal::Index {
+    struct OvernightObservationSpec_ {
+        Ccy_ currency_;
+        String_ fixingKey_, route_;
+        Date_ accrualStart_, accrualEnd_, rateStart_, rateEnd_;
+        DayBasis_ basis_;
+    };
+    class OvernightObservation_ final : public Index_ {
+        const OvernightObservationSpec_ spec_;
+
+    public:
+        explicit OvernightObservation_(OvernightObservationSpec_ spec);
+        [[nodiscard]] const OvernightObservationSpec_& Spec() const { return spec_; }
+        [[nodiscard]] String_ Name() const override;
+    };
+
     class Overnight_ final : public Index_ {
     public:
         const Ccy_ ccy_;
@@ -45,8 +60,7 @@ namespace Dal::Index {
     class Libor_ : public IRForward_ {
     public:
         const TradedRate_ tenor_;
-        Libor_(const Ccy_& ccy, const TradedRate_& tenor, const Cell_& start = Cell_())
-            : IRForward_(ccy, start), tenor_(tenor) {}
+        Libor_(const Ccy_& ccy, const TradedRate_& tenor, const Cell_& start = Cell_()) : IRForward_(ccy, start), tenor_(tenor) {}
 
         [[nodiscard]] String_ Name() const override;
     };
@@ -54,8 +68,7 @@ namespace Dal::Index {
     class Swap_ : public IRForward_ {
     public:
         const String_ tenor_;
-        Swap_(const Ccy_& ccy, String_ tenor, const Cell_& start = Cell_())
-            : IRForward_(ccy, start), tenor_(std::move(tenor)) {}
+        Swap_(const Ccy_& ccy, String_ tenor, const Cell_& start = Cell_()) : IRForward_(ccy, start), tenor_(std::move(tenor)) {}
 
         [[nodiscard]] String_ Name() const override;
     };
@@ -68,10 +81,7 @@ namespace Dal::Index {
         const CollateralType_ collateral_;
         Cell_ start_;
 
-        DF_(const Ccy_& ccy,
-            const Cell_& maturity,
-            const Cell_* start = nullptr,
-            const CollateralType_& coll = CollateralType_())
+        DF_(const Ccy_& ccy, const Cell_& maturity, const Cell_* start = nullptr, const CollateralType_& coll = CollateralType_())
             : ccy_(ccy), maturity_(maturity), start_(Dereference(start, Cell_())) {}
 
         [[nodiscard]] String_ Name() const override;
