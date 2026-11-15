@@ -262,6 +262,7 @@ TEST(CompoundedOisCalibrationTest, TestObservationBindingsRecheckExactRouteAndRo
     ASSERT_FALSE(bindings[2].route_);
     ASSERT_EQ(bindings[0].curve_.target_, provider.Target().get());
     ASSERT_TRUE(bindings[4].curve_.background_);
+    descriptor.observations_ = {projection, projection};
     descriptor.observations_.back().route_ = "usd.sofr";
     EXPECT_THROW(CurveScriptInternal::BindObservations(descriptor, provider, &bindings), CalibrationError_);
     descriptor.observations_.back() = projection;
