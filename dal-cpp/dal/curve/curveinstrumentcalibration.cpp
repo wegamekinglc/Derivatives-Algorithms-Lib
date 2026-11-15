@@ -5,7 +5,7 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/calibration_internal.hpp>
-#include <dal/curve/compoundedois.hpp>
+#include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
@@ -569,6 +569,9 @@ namespace Dal {
                                                          const CurveInstrumentCalibrationOptions_& options)
         : spec_(spec), options_(options), axes_(BuildCalibrationObservationAxes(spec.observations_)) {
         try {
+            for (const auto& tables : spec.compoundedOis_)
+                Check(!tables || !CompoundedOisInternal::IsVersionTwo(tables->Spec()), "UnsupportedCompoundedOisCalibration", "/compounded_ois",
+                      "verified /1 calibration; /2 direct evaluation only");
             Check(!spec.observations_.empty(), "InvalidCalibrationObservation", "/observations", "nonempty ordered observations");
             PreparationSettings(spec, options);
             spec_ = CurveInstrumentInternal::FreezeOvernightContext(spec_);

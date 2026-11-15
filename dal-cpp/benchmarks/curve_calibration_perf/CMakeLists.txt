@@ -28,3 +28,8 @@ add_test(NAME compounded_ois_schedule_perf_contract COMMAND curve_calibration_pe
 set_tests_properties(compounded_ois_schedule_perf_contract PROPERTIES
     LABELS "benchmark"
     PASS_REGULAR_EXPRESSION "OIS observation schedule preparation verified: D=30,365,1825")
+
+add_test(NAME compounded_ois_evaluation_perf_contract COMMAND curve_calibration_perf --ois-observation-evaluation)
+set_tests_properties(compounded_ois_evaluation_perf_contract PROPERTIES
+    LABELS "benchmark"
+    PASS_REGULAR_EXPRESSION "Compounded OIS2 evaluation verified: D=30,365,1825; four modes")

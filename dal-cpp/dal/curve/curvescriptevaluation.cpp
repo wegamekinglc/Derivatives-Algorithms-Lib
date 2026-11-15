@@ -113,10 +113,9 @@ namespace Dal {
             Vector_<CurveScriptObservationResult_> result;
             const auto& s = tables.Spec();
             const auto payments = TableCashflows(tables);
-            for (size_t i = 0; i < s.observations_.size(); ++i) {
-                const auto& row = s.observations_[i];
-                const auto& info = tables.Observations()[i];
-                const auto& payment = payments[s.fixedLeg_.size() + info.couponRow_];
+            for (size_t i = 0; i < tables.ObservationSchedule().size(); ++i) {
+                const auto& row = tables.ObservationSchedule()[i];
+                const auto& payment = payments[s.fixedLeg_.size() + row.couponRow_];
                 result.push_back({i,
                                   payment.sourceRow_,
                                   payment.statement_,
@@ -125,12 +124,12 @@ namespace Dal {
                                   s.projectionRoute_,
                                   "Settled",
                                   row.fixingTime_,
-                                  row.start_,
-                                  row.end_,
+                                  row.accrualStart_,
+                                  row.accrualEnd_,
                                   row.rateStart_,
                                   row.rateEnd_,
                                   row.accrual_,
-                                  info.rateAccrual_,
+                                  row.rateAccrual_,
                                   {}});
             }
             return result;
@@ -163,6 +162,12 @@ namespace Dal {
             const auto binding = provider.Bind(route);
             CurveScriptInternal::EvaluationScratch_<double> scratch;
             const auto rates = family ? ObservationDetails(**family, provider, result) : Vector_<>();
+            if (!tables.empty())
+                for (size_t i = 0; i < result->observations_.size(); ++i) {
+                    const auto& row = result->observations_[i];
+                    result->observationSchedule_.push_back(
+                        {tables.front()->ObservationSchedule()[i], row.source_, row.rate_, row.sourceRow_, row.statement_});
+                }
             for (size_t i = 0; i < first.Cashflows().size(); ++i) {
                 const auto& flow = first.Cashflows()[i];
                 double amount = flow.amount_.value_or(0.);

@@ -44,6 +44,18 @@ namespace Dal::CurveScriptInternal {
             result.route_ = ProjectionRoute(context.currency_, result.tenor_);
             return result;
         }
+        CalibrationCurveObservation_ OvernightGeometry(const Index::OvernightObservationSpec_& on,
+                                                       const CalibrationPreparationContext_& context,
+                                                       CalibrationCurveObservation_ result) {
+            Require(bool(context.compoundedOis_), "UnsupportedCompoundedOisContext", result.source_, "explicit frozen compounded OIS tables");
+            result.projection_ = result.overnight_ = true;
+            result.fixingKey_ = on.fixingKey_;
+            result.route_ = on.route_;
+            result.start_ = on.rateStart_;
+            result.end_ = on.rateEnd_;
+            result.basis_ = on.basis_;
+            return result;
+        }
         CalibrationCurveObservation_
         IndexGeometry(const Script::NodeFix_& node, const CalibrationPreparationContext_& context, const CalibrationDiagnostic_& source) {
             CalibrationCurveObservation_ result;
@@ -52,15 +64,11 @@ namespace Dal::CurveScriptInternal {
             result.fixing_ = node.fixingDate_.value_or(*source.eventDate_);
             result.source_ = source;
             if (const auto* on = dynamic_cast<const Index::Overnight_*>(node.index_.get())) {
-                Require(bool(context.compoundedOis_), "UnsupportedCompoundedOisContext", source, "explicit frozen compounded OIS tables");
-                result.projection_ = result.overnight_ = true;
-                result.fixingKey_ = on->fixingKey_;
-                result.route_ = on->route_;
-                result.start_ = on->rateStart_;
-                result.end_ = on->rateEnd_;
-                result.basis_ = on->basis_;
-                return result;
+                return OvernightGeometry({on->ccy_, on->fixingKey_, on->route_, on->start_, on->end_, on->rateStart_, on->rateEnd_, on->basis_},
+                                         context, std::move(result));
             }
+            if (const auto* on = dynamic_cast<const Index::OvernightObservation_*>(node.index_.get()))
+                return OvernightGeometry(on->Spec(), context, std::move(result));
             const auto* df = dynamic_cast<const Index::DF_*>(node.index_.get());
             if (df)
                 return DiscountGeometry(*df, context, std::move(result));

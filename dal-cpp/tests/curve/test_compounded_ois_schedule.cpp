@@ -50,12 +50,12 @@ namespace {
             ASSERT_TRUE(error.Failure().report_);
         }
     }
-    void AssertUnsupported(const std::function<void()>& action) {
+    void AssertSourceMismatch(const std::function<void()>& action) {
         try {
             action();
-            FAIL() << "Unimplemented /2 execution accepted";
+            FAIL() << "Mismatched legacy source accepted";
         } catch (const CalibrationError_& error) {
-            ASSERT_EQ(error.Failure().diagnostic_.code_, "UnsupportedCompoundedOisExecution");
+            ASSERT_EQ(error.Failure().diagnostic_.code_, "CompoundedOisSourceMismatch");
         }
     }
 } // namespace
@@ -268,14 +268,14 @@ TEST(CompoundedOisScheduleTest, TestArchiveRejectsEveryChangedDerivedFieldAndSch
     ASSERT_THROW(LoadPreparedCompoundedOisJson(String_(Jcs(invalid))), CalibrationError_);
 }
 
-TEST(CompoundedOisScheduleTest, TestVersionTwoSourceAndLegacyInstrumentContextRemainUnsupported) {
+TEST(CompoundedOisScheduleTest, TestVersionTwoSourceRequiresItsOwnFrozenTables) {
     const auto tables = PrepareCompoundedOis(ScheduleSpec(), CompoundedOisTest::Valuation());
-    ASSERT_NO_FATAL_FAILURE(AssertUnsupported([&] { NewCompoundedOisScriptInstrument(tables); }));
+    ASSERT_TRUE(NewCompoundedOisScriptInstrument(tables));
     const auto calibration = CompoundedOisTest::Calibration("Shared");
     auto request = CompoundedOisTest::Request(calibration);
     request.compoundedOis_ = tables;
     const auto legacy = NewCompoundedOisScriptInstrument(calibration.compoundedOis_[1]);
-    ASSERT_NO_FATAL_FAILURE(AssertUnsupported([&] { EvaluateCurveScriptInstrument(legacy, request); }));
+    ASSERT_NO_FATAL_FAILURE(AssertSourceMismatch([&] { EvaluateCurveScriptInstrument(legacy, request); }));
 }
 
 TEST(CompoundedOisScheduleTest, TestDateUnderflowFailsBeforeCalendarAllocation) {

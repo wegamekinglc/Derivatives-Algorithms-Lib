@@ -27,6 +27,7 @@ Yield-curve construction, interpolation, calibration and risk, including cross-c
 | Program                                                                | Build target                    | Shows                                                             |
 |------------------------------------------------------------------------|---------------------------------|-------------------------------------------------------------------|
 | [curve_calibration](curves/curve_calibration/)                         | `curve_calibration`             | Single- and multi-curve construction and instrument repricing     |
+| [compounded_ois](curves/compounded_ois/)                               | `compounded_ois`                | Four observation modes, direct Price/ParRate and native AAD/FD     |
 | [euribor3m_curve](curves/euribor3m_curve/)                             | `euribor3m_curve`               | Euribor 3M curve construction                                     |
 | [interpolate_curve](curves/interpolate_curve/)                         | `interpolate_curve`             | Compare log-discount interpolation schemes                        |
 | [joint_multi_curve_calibration](curves/joint_multi_curve_calibration/) | `joint_multi_curve_calibration` | Joint multi-curve calibration                                     |

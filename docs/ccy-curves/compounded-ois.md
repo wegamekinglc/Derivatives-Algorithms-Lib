@@ -163,10 +163,29 @@ valuation date and today policy. `/2` archives store the declaration and complet
 resolved rows; loading re-expands and verifies every stored row before publishing
 the preparation. Legacy `/1` JSON, source and identities retain their format.
 
-This `/2` capability is preparation and archive only. Source construction and
-valuation with `/2` tables reject `UnsupportedCompoundedOisExecution`; quote risk
-continues to reject compounded OIS. Python/Excel convention factories and new
-audit projections are not exposed. Existing `/1` pricing remains available.
+Core `/2` source construction and direct Price/ParRate evaluation use the frozen
+schedule. Each ON2 literal carries the actual and complete rate intervals, with
+the compounding weight explicit in its factor. Whole-source matching checks the
+literal, fixing date, weight, N/K, direction and payment against the tables,
+including settled rows. The native provider samples the complete rate interval;
+passive and AAD evaluation share the checked log1p/expm1 program. Lockout retains
+each factor and accumulates all derivatives of its reused rate.
+
+`CurveScriptEvaluationResult_::observationSchedule_` retains the resolved row
+fields plus source coordinates, Historical/Projection/Settled and an optional
+evaluated rate. Settled rows have no rate or fabricated cashflow amount/discount.
+The legacy `observations_` fields continue to mean actual accrual dates and weights.
+
+`/2` calibration remains explicitly rejected with
+`UnsupportedCompoundedOisCalibration`; quote risk continues to reject compounded
+OIS. General script/MC paths reject both ON and ON2. Python/Excel convention
+factories and new audit projections are not exposed. Existing `/1` pricing and
+calibration remain available.
+
+Build and run the core `compounded_ois` example under
+`dal-cpp/examples/curves/compounded_ois/`. It uses all four modes and checks
+Price's native log-discount partials against FD. These partials are currency
+amounts per unit native parameter and are not quote DV01.
 
 ## Resource measurement
 
@@ -177,7 +196,16 @@ Configure `core-dev` with `-DDAL_CPP_BUILD_BENCHMARKS=ON`, build
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --compounded-ois
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-neighbor
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-observation-schedule
+DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-observation-evaluation
 ```
+
+The observation-evaluation mode measures `/2` at D=30/365/1825 for all four modes,
+with a fixed nine-node layout, mixed historical/projected observations, an
+explicit holiday and a working Saturday. It checks an independent scalar
+product, two-step FD, AAD, parse counts and tape cleanup before timing cold
+preparation, prepared passive evaluation and AAD. Scratch/program/tape payload
+and process RSS are separate measurements. New-mode times are absolute coverage;
+the unchanged `/1` mode remains available for paired baseline comparisons.
 
 The first mode uses D=30/365/1825 intervals, one live coupon, N=1, K=0.025,
 eight free log-DF coordinates on fixed 400-day knot spacing, and `floor(D/2)`
