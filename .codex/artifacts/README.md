@@ -8,6 +8,7 @@ references.
 
 ## Current Controls
 
+- [DAL-526 compounded OIS observation and quote-risk contract](specs/dal-526-compounded-ois-observation-quote-risk.md)
 - [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
 - [DAL-497 PDE risk contract](specs/dal-497-early-exercise-pde-risk.md)
 - [DAL-497 acceptance fixtures and gates](specs/dal-497-pde-risk-acceptance.md)
