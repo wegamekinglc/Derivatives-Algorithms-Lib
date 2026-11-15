@@ -1,5 +1,7 @@
 #include <dal/platform/platform.hpp>
 
+#include <set>
+
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
@@ -16,6 +18,20 @@ namespace Dal::CurveInstrumentInternal {
             Check(bool(copy), "InvalidCalibrationPlan", "/market", "owned native curve snapshot");
             return copy;
         }
+        void ValidateCompounded(const CurveInstrumentCalibrationSpec_& spec) {
+            if (spec.compoundedOis_.empty())
+                return;
+            const auto valuation = Fingerprint(CompoundedOisInternal::ValuationJson(spec.valuation_));
+            std::set<std::string> ids;
+            for (const auto& tables : spec.compoundedOis_) {
+                Check(bool(tables), "InvalidCompoundedOis", "/compounded_ois", "nonnull frozen OIS tables");
+                const auto& id = tables->Spec().instrumentId_;
+                Check(ids.insert(Bytes(id)).second, "InvalidCompoundedOis", "/compounded_ois", "unique instrument ID across all registered tables",
+                      id);
+                Check(valuation == Fingerprint(CompoundedOisInternal::ValuationJson(tables->Valuation())), "CalibrationContextMismatch",
+                      "/compounded_ois/valuation", "same valuation date, today policy and complete fixing snapshot for every registered table", id);
+            }
+        }
     } // namespace
 
     bool HasOvernightContext(const CurveInstrumentCalibrationSpec_& spec) {
@@ -26,6 +42,7 @@ namespace Dal::CurveInstrumentInternal {
     CurveInstrumentCalibrationSpec_ FreezeOvernightContext(CurveInstrumentCalibrationSpec_ spec) {
         if (!HasOvernightContext(spec))
             return spec;
+        ValidateCompounded(spec);
         spec.geometry_.baseCurve_ = CopyCurve(spec.geometry_.baseCurve_);
         for (auto& [key, curve] : spec.market_.discountCurves_)
             curve = CopyCurve(curve);

@@ -6,6 +6,7 @@
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/compoundedois_internal.hpp>
+#include <dal/curve/compoundedoisscript_internal.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
@@ -304,6 +305,7 @@ namespace Dal {
             std::shared_ptr<const CandidateCurveGeometry_> geometry_;
             RowContext_ structural_;
             std::shared_ptr<const std::map<std::string, String_>> identities_;
+            std::shared_ptr<const std::map<std::string, PreparedCalibrationInstrument_>> compoundedPrices_;
         };
     } // namespace CurveInstrumentInternal
     namespace {
@@ -406,6 +408,36 @@ namespace Dal {
         } catch (const CalibrationError_& error) {
             CurveFailure({}, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare, error.Failure().diagnostic_));
         }
+        Handle_<CalibrationInstrument_> RegisteredInstrument(const Handle_<PreparedCompoundedOis_>& tables,
+                                                             const Vector_<PreparedCalibrationInstrument_>& plans) {
+            Handle_<CalibrationInstrument_> result;
+            for (const auto& plan : plans)
+                if (Bytes(plan.Instrument()->Id()) == Bytes(tables->Spec().instrumentId_)) {
+                    Check(!result || Bytes(result->InstrumentIdentity()) == Bytes(plan.Instrument()->InstrumentIdentity()),
+                          "CompoundedOisSourceMismatch", "/compounded_ois/instrument", "one complete source/binding identity per registered ID");
+                    result = plan.Instrument();
+                }
+            return result ? result : CompoundedOisInternal::BuildSource(tables).instrument_;
+        }
+        std::map<std::string, PreparedCalibrationInstrument_> PrepareCompoundedPrices(const CurveInstrumentCalibrationSpec_& spec,
+                                                                                      const RowContext_& structural,
+                                                                                      const CurveInstrumentCalibrationOptions_& options,
+                                                                                      const Vector_<PreparedCalibrationInstrument_>& plans,
+                                                                                      std::map<std::string, String_>* identities) {
+            std::map<std::string, PreparedCalibrationInstrument_> result;
+            for (const auto& tables : spec.compoundedOis_) {
+                const auto instrument = RegisteredInstrument(tables, plans);
+                const auto existing = std::find_if(plans.begin(), plans.end(), [&](const auto& plan) {
+                    return Bytes(plan.Instrument()->InstrumentIdentity()) == Bytes(instrument->InstrumentIdentity()) &&
+                           Bytes(plan.Measure().id_) == "Price";
+                });
+                auto price = existing != plans.end() ? *existing
+                                                     : PrepareInstrument(instrument, "Price", spec, structural, options, identities,
+                                                                         CurveInstrumentInternal::Diagnostic(*instrument, "Price"));
+                result.emplace(Bytes(instrument->Id()), std::move(price));
+            }
+            return result;
+        }
         template <class T_>
         Vector_<T_> Measures(const CurveInstrumentCalibrationSpec_& spec,
                              const Vector_<PreparedCalibrationInstrument_>& plans,
@@ -476,7 +508,8 @@ namespace Dal {
         String_ CurvePlanIdentity(const CurveInstrumentCalibrationSpec_& spec,
                                   const Vector_<PreparedCalibrationInstrument_>& plans,
                                   const CurveInstrumentCalibrationOptions_& options,
-                                  const CandidateCurveProvider_<double>& provider) {
+                                  const CandidateCurveProvider_<double>& provider,
+                                  const std::map<std::string, PreparedCalibrationInstrument_>& compoundedPrices) {
             auto result = Obj(
                 {{"adapter", Str("dal.native-curve-instruments/1")},
                  {"curve", Parse(JSON::WriteString(*provider.Target()))},
@@ -495,6 +528,13 @@ namespace Dal {
                  {"difference_step", Num(options.differenceStep_)}});
             if (!spec.geometry_.targetOvernightRoute_.empty())
                 result.object_["overnight_target"] = Str(spec.geometry_.targetOvernightRoute_);
+            if (!compoundedPrices.empty()) {
+                auto registered = Json_::Array();
+                for (const auto& entry : compoundedPrices)
+                    registered.array_.push_back(
+                        Obj({{"instrument", Str(entry.second.Instrument()->InstrumentIdentity())}, {"plan", Str(entry.second.PlanIdentity())}}));
+                result.object_["compounded_prices"] = std::move(registered);
+            }
             return Fingerprint(result);
         }
         String_ CandidateIdentity(const String_& plan, const Vector_<>& parameters) {
@@ -549,16 +589,32 @@ namespace Dal {
         const auto& spec = *prepared.frozenSpec_;
         const auto& observation = *spec.observations_.front();
         const auto diagnostic = RowDiagnostic(observation, CalibrationStage_::Value_::Prepare);
-        auto data = std::make_shared<PreparedCurvePriceContext_::Data_>(PreparedCurvePriceContext_::Data_{
-            prepared.frozenSpec_, std::make_shared<const CurveInstrumentCalibrationOptions_>(), prepared.geometry_,
-            StructuralContext(spec, *observation.Instrument(), diagnostic, prepared.geometry_), prepared.contextIdentities_});
+        auto data = std::make_shared<PreparedCurvePriceContext_::Data_>(
+            PreparedCurvePriceContext_::Data_{prepared.frozenSpec_, std::make_shared<const CurveInstrumentCalibrationOptions_>(), prepared.geometry_,
+                                              StructuralContext(spec, *observation.Instrument(), diagnostic, prepared.geometry_),
+                                              prepared.contextIdentities_, prepared.compoundedPrices_});
         return {std::move(data)};
+    }
+    void CurveInstrumentInternal::RequireCurvePriceContext(const PreparedCurvePriceContext_& context, const CurveInstrumentCalibrationSpec_& spec) {
+        Check(bool(context.data_), "CalibrationContextMismatch", "/context", "owning frozen price context");
+        Check(Fingerprint(ContextJson(spec)) == Fingerprint(ContextJson(*context.data_->spec_)), "CalibrationContextMismatch", "/context",
+              "complete frozen market, calendar, valuation, source, quote and solver identity");
     }
     CurveInstrumentInternal::PreparedCurvePrice_ CurveInstrumentInternal::PrepareCurvePrice(const PreparedCurvePriceContext_& context,
                                                                                             const Handle_<CalibrationInstrument_>& instrument,
                                                                                             const String_& measureId) {
         Check(bool(instrument), "InvalidCalibrationPlan", "/instrument", "nonnull instrument");
+        Check(bool(context.data_), "CalibrationContextMismatch", "/context", "owning frozen price context");
         const auto& data = *context.data_;
+        const auto registered = data.compoundedPrices_->find(Bytes(instrument->Id()));
+        if (registered != data.compoundedPrices_->end()) {
+            Check(Bytes(registered->second.Instrument()->InstrumentIdentity()) == Bytes(instrument->InstrumentIdentity()),
+                  "CompoundedOisSourceMismatch", "/instrument", "registered instrument/source/binding/table identity");
+            if (Bytes(measureId) == "Price")
+                return {registered->second, data.geometry_};
+        } else if (!data.compoundedPrices_->empty())
+            Check(!CompoundedOisInternal::ContainsOvernight(*instrument), "CompoundedOisUnregisteredInstrument", "/instrument",
+                  "OIS PV registered before calibration");
         PreparationSettings(*data.spec_, *data.options_);
         const auto diagnostic = Diagnostic(*instrument, measureId);
         return {PrepareInstrument(instrument, measureId, *data.spec_, data.structural_, *data.options_, nullptr, diagnostic, data.identities_.get()),
@@ -569,9 +625,6 @@ namespace Dal {
                                                          const CurveInstrumentCalibrationOptions_& options)
         : spec_(spec), options_(options), axes_(BuildCalibrationObservationAxes(spec.observations_)) {
         try {
-            for (const auto& tables : spec.compoundedOis_)
-                Check(!tables || !CompoundedOisInternal::IsVersionTwo(tables->Spec()), "UnsupportedCompoundedOisCalibration", "/compounded_ois",
-                      "verified /1 calibration; /2 direct evaluation only");
             Check(!spec.observations_.empty(), "InvalidCalibrationObservation", "/observations", "nonempty ordered observations");
             PreparationSettings(spec, options);
             spec_ = CurveInstrumentInternal::FreezeOvernightContext(spec_);
@@ -591,7 +644,9 @@ namespace Dal {
                 capabilities_.push_back(capability);
                 plans_.push_back(std::move(plan));
             }
-            planIdentity_ = CurvePlanIdentity(spec_, plans_, options_, structural.curves_);
+            compoundedPrices_ = std::make_shared<const std::map<std::string, PreparedCalibrationInstrument_>>(
+                PrepareCompoundedPrices(spec_, structural, options_, plans_, &contextIdentities));
+            planIdentity_ = CurvePlanIdentity(spec_, plans_, options_, structural.curves_, *compoundedPrices_);
             evidence_.reset(new CurveInstrumentCalibrationEvidence_(CurveInstrumentInternal::ConfigurationIdentity(spec_, options_), planIdentity_));
             frozenSpec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(spec_);
             contextIdentities_ = std::make_shared<const std::map<std::string, String_>>(std::move(contextIdentities));

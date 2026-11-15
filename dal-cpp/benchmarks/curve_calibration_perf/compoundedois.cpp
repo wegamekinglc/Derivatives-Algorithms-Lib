@@ -480,7 +480,8 @@ void RunCompoundedOisEvaluation() {
 bool RunCompoundedOisMode(const char* option) {
     const std::map<std::string, void (*)()> modes{{"--compounded-ois", RunCompoundedOis},
                                                   {"--ois-observation-schedule", RunCompoundedOisSchedule},
-                                                  {"--ois-observation-evaluation", RunCompoundedOisEvaluation}};
+                                                  {"--ois-observation-evaluation", RunCompoundedOisEvaluation},
+                                                  {"--ois-calibration", RunCompoundedOisCalibration}};
     const auto found = modes.find(option);
     if (found == modes.end())
         return false;
