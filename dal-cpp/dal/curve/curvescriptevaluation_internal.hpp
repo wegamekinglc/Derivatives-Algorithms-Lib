@@ -80,12 +80,17 @@ namespace Dal::CurveScriptInternal {
                           Vector_<ObservationBinding_<T_>>* bindings) {
         bindings->clear();
         bindings->reserve(descriptor.observations_.size());
+        ObservationBinding_<T_> previous;
         for (const auto& observation : descriptor.observations_) {
             if (observation.known_)
                 bindings->push_back({});
             else {
-                const auto& route = provider.Route(observation.route_, observation.projection_);
-                bindings->push_back({&route, provider.Bind(route)});
+                if (!previous.route_ || previous.route_->projection_ != observation.projection_ ||
+                    !std::equal(previous.route_->id_.begin(), previous.route_->id_.end(), observation.route_.begin(), observation.route_.end())) {
+                    const auto& route = provider.Route(observation.route_, observation.projection_);
+                    previous = {&route, provider.Bind(route)};
+                }
+                bindings->push_back(previous);
             }
         }
     }

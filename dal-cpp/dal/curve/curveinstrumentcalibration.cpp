@@ -425,6 +425,9 @@ namespace Dal {
                                                                                       const Vector_<PreparedCalibrationInstrument_>& plans,
                                                                                       std::map<std::string, String_>* identities) {
             std::map<std::string, PreparedCalibrationInstrument_> result;
+            if (spec.compoundedOis_.empty())
+                return result;
+            CurveInstrumentInternal::ValidateCompoundedRegistration(spec);
             for (const auto& tables : spec.compoundedOis_) {
                 const auto instrument = RegisteredInstrument(tables, plans);
                 const auto existing = std::find_if(plans.begin(), plans.end(), [&](const auto& plan) {

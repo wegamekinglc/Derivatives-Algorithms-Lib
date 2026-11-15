@@ -242,3 +242,29 @@ TEST(CompoundedOisCalibrationTest, TestEveryRegisteredPvChangesPlanAndConfigurat
     ASSERT_EQ(first.resolvedSpec_->observations_[0]->Instrument()->InstrumentIdentity(),
               second.resolvedSpec_->observations_[0]->Instrument()->InstrumentIdentity());
 }
+
+TEST(CompoundedOisCalibrationTest, TestObservationBindingsRecheckExactRouteAndRole) {
+    const auto spec = Spec("None", "Overnight");
+    const CandidateCurveProvider_<double> provider(std::make_shared<const CandidateCurveGeometry_>(spec), Parameters());
+    CalibrationCurveFamilyDescriptor_ descriptor;
+    CalibrationCurveObservation_ projection, known, discount;
+    projection.route_ = "USD.SOFR";
+    projection.projection_ = true;
+    known.known_ = .02;
+    discount.route_ = "USD.OIS";
+    descriptor.observations_ = {projection, projection, known, projection, discount, projection};
+    Vector_<CurveScriptInternal::ObservationBinding_<double>> bindings;
+    CurveScriptInternal::BindObservations(descriptor, provider, &bindings);
+    ASSERT_EQ(bindings.size(), 6u);
+    ASSERT_EQ(bindings[0].route_, bindings[1].route_);
+    ASSERT_EQ(bindings[0].route_, bindings[3].route_);
+    ASSERT_EQ(bindings[0].route_, bindings[5].route_);
+    ASSERT_FALSE(bindings[2].route_);
+    ASSERT_EQ(bindings[0].curve_.target_, provider.Target().get());
+    ASSERT_TRUE(bindings[4].curve_.background_);
+    descriptor.observations_.back().route_ = "usd.sofr";
+    EXPECT_THROW(CurveScriptInternal::BindObservations(descriptor, provider, &bindings), CalibrationError_);
+    descriptor.observations_.back() = projection;
+    descriptor.observations_.back().projection_ = false;
+    EXPECT_THROW(CurveScriptInternal::BindObservations(descriptor, provider, &bindings), CalibrationError_);
+}
