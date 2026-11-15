@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-15
+
+- Add core C++ versioned OIS observation preparation for None, Lookback,
+  ObservationShift and Lockout, with frozen audited date/weight mappings and
+  verified `/2` archives. New-mode execution remains explicitly unavailable;
+  existing `/1` defaults, archives, source and identities remain compatible.
+  See [observation preparation](docs/ccy-curves/compounded-ois.md#core-observation-schedule-preparation).
+
 ## 2026-11-08
 
 - **Early-exercise PDE diffusion tails** — retain binary64 significands with

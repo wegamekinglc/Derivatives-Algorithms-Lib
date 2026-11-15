@@ -155,6 +155,8 @@ namespace Dal::CompoundedOisInternal {
         void Context(const CalibrationInstrument_& instrument, const CalibrationPreparationContext_& c) {
             const auto& tables = *c.compoundedOis_;
             const auto& s = tables.Spec();
+            Check(Bytes(s.ruleId_) == "dal.compounded-ois-cashflows/1", "UnsupportedCompoundedOisExecution", "/context/compounded_ois/rule",
+                  "completed /1 lowering capability; /2 schedule preparation only");
             Check(c.currency_ == s.currency_ && Bytes(c.discountRoute_) == Bytes(s.discountRoute_), "CalibrationContextMismatch", "/context",
                   "frozen OIS currency and discount route");
             Check(Bytes(instrument.Id()) == Bytes(s.instrumentId_) && CurveScriptInternal::Candidate(instrument), "CompoundedOisSourceMismatch",

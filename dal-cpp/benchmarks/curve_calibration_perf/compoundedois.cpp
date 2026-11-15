@@ -3,6 +3,8 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <limits>
+#include <map>
 #include <string>
 
 #include <dal/benchmarks/bench.hpp>
@@ -13,6 +15,7 @@
 #include <dal/indice/indexparse.hpp>
 #include <dal/math/aad/recording.hpp>
 #include <dal/math/aad/statistics.hpp>
+#include <dal/math/buffercapacity.hpp>
 #include <dal/time/dateutils.hpp>
 
 #include "compoundedois.hpp"
@@ -314,4 +317,68 @@ void RunCompoundedOis() {
     for (const size_t count : {30u, 365u, 1825u})
         RunCase(count);
     std::cout << "Compounded OIS contract verified: D=30,365,1825\n";
+}
+
+namespace {
+    Fixture_ ScheduleFixture(size_t count, const CompoundedOisObservationMode_& mode) {
+        auto fixture = Fixture(count);
+        auto& s = fixture.contract_;
+        s.ruleId_ = "dal.compounded-ois-cashflows/2";
+        s.observations_.clear();
+        s.calendar_ = HolidayCenterData_("holiday-and-working-weekend", {Date_(2024, 1, 15)}, {Date_(2024, 1, 13)});
+        const bool lookback =
+            mode == CompoundedOisObservationMode_::Value_::Lookback || mode == CompoundedOisObservationMode_::Value_::ObservationShift;
+        s.observationConvention_ =
+            CompoundedOisObservationConvention_{mode, lookback ? 5 : 0, mode == CompoundedOisObservationMode_::Value_::Lockout ? 5 : 0};
+        fixture.context_.valuation_.fixings_.reset(new MarketFixingSnapshot_());
+        return fixture;
+    }
+    void ScheduleCase(size_t count, const CompoundedOisObservationMode_& mode) {
+        const auto fixture = ScheduleFixture(count, mode);
+        const auto coldStart = Clock_::now();
+        const auto prepared = PrepareCompoundedOis(fixture.contract_, fixture.context_.valuation_);
+        const auto coldNs = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock_::now() - coldStart).count();
+        REQUIRE(prepared->ObservationSchedule().size() == count, "schedule row count");
+        REQUIRE(prepared->Spec().observations_.empty(), "declaration keeps manual observations empty");
+        REQUIRE(!prepared->ObservationScheduleIdentity().empty(), "frozen schedule identity");
+        const auto archiveBytes = DumpPreparedCompoundedOisJson(prepared).size();
+        BufferCapacityBudget_ budget(std::numeric_limits<size_t>::max());
+        size_t live = 0;
+        {
+            BufferCapacityScope_ scope(&budget);
+            const auto measured = PrepareCompoundedOis(fixture.contract_, fixture.context_.valuation_);
+            live = budget.CapacityBytes();
+        }
+        REQUIRE(budget.CapacityBytes() == 0, "prepared vector capacities released");
+        const auto result = Bench::Run(
+            std::string("OIS schedule ") + mode.String() + " D=" + std::to_string(count),
+            [&] {
+                const auto value = PrepareCompoundedOis(fixture.contract_, fixture.context_.valuation_);
+                Bench::DoNotOptimize(value.get());
+            },
+            2, 10);
+        Bench::Print(result);
+        std::cout << "OIS_SCHEDULE mode=" << mode.String() << " D=" << count << " cold_ns=" << coldNs << " median_ns=" << result.medianNs
+                  << " min_ns=" << result.minNs << " max_ns=" << result.maxNs << " repeats=" << result.repeats
+                  << " row_object_bytes=" << count * sizeof(CompoundedOisResolvedObservation_) << " tracked_vector_live_bytes=" << live
+                  << " tracked_vector_peak_bytes=" << budget.PeakCapacityBytes() << " after_vector_bytes=" << budget.CapacityBytes()
+                  << " archive_bytes=" << archiveBytes << " process_peak_rss_kb=" << RssKb("VmHWM:") << '\n';
+    }
+} // namespace
+
+void RunCompoundedOisSchedule() {
+    Bench::PrintHeader();
+    for (const size_t count : {30u, 365u, 1825u})
+        for (const auto& mode : CompoundedOisObservationModeListAll())
+            ScheduleCase(count, mode);
+    std::cout << "OIS observation schedule preparation verified: D=30,365,1825; four modes\n";
+}
+
+bool RunCompoundedOisMode(const char* option) {
+    const std::map<std::string, void (*)()> modes{{"--compounded-ois", RunCompoundedOis}, {"--ois-observation-schedule", RunCompoundedOisSchedule}};
+    const auto found = modes.find(option);
+    if (found == modes.end())
+        return false;
+    found->second();
+    return true;
 }
