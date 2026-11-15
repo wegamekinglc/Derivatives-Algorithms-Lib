@@ -5,14 +5,19 @@
 #include <exception>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <map>
 
 #include <dal/benchmarks/bench.hpp>
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/curve/depositscript.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
+#include <dal/math/aad/statistics.hpp>
+#include <dal/math/buffercapacity.hpp>
+#include <dal/platform/initall.hpp>
 #include <dal/time/dateutils.hpp>
 
+#include "compoundedoisfixture.hpp"
 #include "scriptcurveperf.hpp"
 
 namespace {
@@ -69,15 +74,22 @@ namespace {
         }
         return result;
     }
-    Matrix_<> Recalibrated(const CurveInstrumentCalibrationSpec_& spec, int pvs, int* calibrations) {
+    CurveInstrumentCalibrationResult_ CalibratedRoot(const CurveInstrumentCalibrationSpec_& spec) {
+        auto fit = CalibrateCurveInstruments(spec, Options());
+        REQUIRE(fit.fitWithinTolerance_, "Benchmark bumped root must be accepted");
+        for (const double residual : fit.rawResiduals_)
+            REQUIRE(std::abs(residual) <= 1e-12, "Benchmark bumped raw residual exceeds 1e-12");
+        return fit;
+    }
+    Matrix_<> Recalibrated(const CurveInstrumentCalibrationSpec_& spec, int pvs, int* calibrations, double step = 5e-5) {
         Matrix_<> result(pvs, static_cast<int>(spec.observations_.size()));
         for (int j = 0; j < result.Cols(); ++j) {
-            const auto up = Bumped(spec, j, 5e-5), down = Bumped(spec, j, -5e-5);
-            const auto plus = CalibrateCurveInstruments(up, Options()), minus = CalibrateCurveInstruments(down, Options());
+            const auto up = Bumped(spec, j, step), down = Bumped(spec, j, -step);
+            const auto plus = CalibratedRoot(up), minus = CalibratedRoot(down);
             *calibrations += 2;
             for (int i = 0; i < pvs; ++i) {
                 const auto& instrument = spec.observations_[i % result.Cols()]->Instrument();
-                result(i, j) = (Price(instrument, up, plus.parameters_) - Price(instrument, down, minus.parameters_)) / 1e-4;
+                result(i, j) = (Price(instrument, up, plus.parameters_) - Price(instrument, down, minus.parameters_)) / (2. * step);
             }
         }
         return result;
@@ -100,8 +112,8 @@ namespace {
             for (int j = 0; j < actual.Cols(); ++j)
                 REQUIRE(std::abs(actual(i, j) - expected(i, j)) <= 1e-7 + 1e-5 * std::abs(expected(i, j)), "Script benchmark FD mismatch");
     }
-    void Run(int count, int pvs, bool pvOnlyMode, bool dualMode) {
-        const auto spec = Sample(count);
+    void Run(const CurveInstrumentCalibrationSpec_& spec, int pvs, bool pvOnlyMode, bool dualMode, const std::string& metadata = "") {
+        const int count = static_cast<int>(spec.observations_.size());
         const auto fit = CalibrateCurveInstruments(spec, Options());
         const auto start = Clock_::now();
         const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {Vector_<>(count, 1e-12), 1e-10, 1e-12});
@@ -143,10 +155,41 @@ namespace {
                     std::cout << ",\"pv_only_prepare_ns\":" << pvOnlyPreparation;
                 PrintFullTiming(full);
                 std::cout << ",\"factorizations\":" << snapshot.Numerics().factorizationCount_
-                          << ",\"reference_calibrations_per_sample\":" << 2 * count << "}\n";
+                          << ",\"reference_calibrations_per_sample\":" << 2 * count << metadata << "}\n";
             }
         }
         REQUIRE(calibrations == (1 + WARMUPS + SAMPLES) * 2 * count, "Reference calibration counter mismatch");
+    }
+    void ProbeOis(const CompoundedOisRiskCase_& fixture) {
+        const auto fit = CalibratedRoot(fixture.spec_);
+        BufferCapacityBudget_ budget(std::numeric_limits<size_t>::max());
+        {
+            BufferCapacityScope_ scope(&budget);
+            const auto count = fixture.spec_.observations_.size();
+            auto accuracy = ScriptCurveQuoteRiskAccuracy_{Vector_<>(count, 1e-12), 1e-10, 1e-12};
+            const auto full = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+            accuracy.pvOnly_ = true;
+            const auto lean = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+            for (const auto& diagnostic : full.Diagnostics())
+                std::cerr << diagnostic.code_ << ": " << diagnostic.field_.value_or("") << "; " << diagnostic.message_ << '\n';
+            REQUIRE(full.MappingAvailable() && lean.RiskAvailable() && !lean.MappingAvailable(), "OIS snapshot resource probe unavailable");
+            Verify(Shared(fixture.spec_, full, fixture.pvs_), Shared(fixture.spec_, lean, fixture.pvs_));
+        }
+        const auto tape = AAD::MeasureTape(*AAD::Tape());
+        REQUIRE(budget.CapacityBytes() == 0 && tape.nodes_ == 0 && tape.liveBytes_ == 0, "OIS snapshot vector and AAD ownership released");
+        std::cout << "OIS_RISK_RESOURCE quotes=" << fixture.spec_.observations_.size() << " pvs=" << fixture.pvs_ << " factors=" << fixture.factors_
+                  << " vector_peak_bytes=" << budget.PeakCapacityBytes() << " after_vector_bytes=" << budget.CapacityBytes()
+                  << " after_tape_nodes=" << tape.nodes_ << " after_tape_live_bytes=" << tape.liveBytes_
+                  << " retained_tape_capacity=" << tape.capacityBytes_ << '\n';
+    }
+    void ProbeOisReference(const CompoundedOisRiskCase_& fixture) {
+        int calibrations = 0;
+        const auto coarse = Recalibrated(fixture.spec_, fixture.pvs_, &calibrations, 1e-4);
+        const auto fine = Recalibrated(fixture.spec_, fixture.pvs_, &calibrations, 5e-5);
+        Verify(coarse, fine);
+        REQUIRE(calibrations == 4 * static_cast<int>(fixture.spec_.observations_.size()), "Two-step OIS reference root count");
+        std::cout << "OIS_RISK_FD quotes=" << fixture.spec_.observations_.size() << " pvs=" << fixture.pvs_ << " factors=" << fixture.factors_
+                  << " independent_calibrations=" << calibrations << " coarse_step=0.0001 fine_step=0.00005\n";
     }
 } // namespace
 
@@ -157,7 +200,7 @@ int RunScriptCurveQuoteRiskBenchmarks(bool pvOnlyMode, bool scoped) {
             for (const int pvs : {1, 100}) {
                 if (scoped && count == 5 && pvs == 100)
                     continue;
-                Run(count, pvs, pvOnlyMode, scoped && pvOnlyMode);
+                Run(Sample(count), pvs, pvOnlyMode, scoped && pvOnlyMode);
             }
         return 0;
     } catch (const std::exception& error) {
@@ -167,6 +210,25 @@ int RunScriptCurveQuoteRiskBenchmarks(bool pvOnlyMode, bool scoped) {
 }
 
 int RunScriptCurveQuoteRiskMode(const char* option) {
+    if (std::string(option) == "--compounded-ois-quote-risk") {
+        try {
+            RegisterAll_::Init();
+            std::cout << std::setprecision(17);
+            for (const auto& fixture : CompoundedOisRiskCases()) {
+                ProbeOis(fixture);
+                ProbeOisReference(fixture);
+                const auto metadata = ",\"family\":\"OIS\",\"mode\":\"" + std::string(fixture.mode_.begin(), fixture.mode_.end()) +
+                                      "\",\"factors\":" + std::to_string(fixture.factors_) +
+                                      ",\"role\":\"Overnight\",\"notional\":1,\"parameterization\":\"" +
+                                      fixture.spec_.geometry_.parameterization_.String() + "\"";
+                Run(fixture.spec_, fixture.pvs_, true, true, metadata);
+            }
+            return 0;
+        } catch (const std::exception& error) {
+            std::cerr << error.what() << '\n';
+            return 2;
+        }
+    }
     const std::map<std::string, std::pair<bool, bool>> modes{{"--script-curve-quote-risk", {false, false}},
                                                              {"--script-curve-quote-risk-pv-only", {true, false}},
                                                              {"--script-curve-quote-risk-scoped", {false, true}},

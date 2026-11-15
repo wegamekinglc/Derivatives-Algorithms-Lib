@@ -138,6 +138,23 @@ namespace Dal {
                       "ScriptCurveQuoteRiskUnsupportedUnit", field + "/unit", "decimal Rate or BasisSpread", row.Quote()->Unit().Token(), d);
             }
         }
+        void AdmitQuoteRiskPlan(const PreparedCalibrationInstrument_& plan, const CurveInstrumentCalibrationSpec_& spec, const String_& field) {
+            const auto* family = std::get_if<CalibrationCurveFamily_>(&plan.Descriptor());
+            if (!family || !(*family)->compounded_) {
+                Check(!CompoundedOisInternal::ContainsOvernight(*plan.Instrument()), "ScriptCurveQuoteRiskUnsupportedCapability", field,
+                      "verified native compounded OIS plan for ON/ON2");
+                return;
+            }
+            const auto tables = std::find_if(spec.compoundedOis_.begin(), spec.compoundedOis_.end(),
+                                             [&](const auto& table) { return Bytes(table->Spec().instrumentId_) == Bytes(plan.Instrument()->Id()); });
+            Check(tables != spec.compoundedOis_.end(), "ScriptCurveQuoteRiskUnsupportedCapability", field, "own registered frozen OIS tables");
+            const auto& capability = plan.Capability();
+            const auto rule = Bytes(capability.ruleId_);
+            Check((rule == "dal.compounded-ois-cashflows/1" || rule == "dal.compounded-ois-cashflows/2") && rule == Bytes((*tables)->RuleId()),
+                  "ScriptCurveQuoteRiskUnsupportedCapability", field, "matching verified /1 or /2 capability and tables");
+            Check(capability.backend_ == CalibrationBackend_::Value_::FastDeterministic && capability.affine_ && capability.sharedPrice_,
+                  "ScriptCurveQuoteRiskUnsupportedCapability", field, "shared affine deterministic native Price");
+        }
         void ValidateFitAxes(const CalibrationObservationAxes_& actual, const CalibrationObservationAxes_& expected) {
             const auto rows = expected.observations_.size(), quotes = expected.quotes_.size();
             Check(actual.observations_.size() == rows && actual.quotes_.size() == quotes && actual.quoteIndex_.size() == rows, MISMATCH, "/fit/axes",
@@ -515,9 +532,8 @@ namespace Dal {
                   "true");
             Check(Bytes(request.measureId_) == "Price", "ScriptCurveQuoteRiskUnsupportedMeasure", "/request/measure_id", "Price", request.measureId_);
             const auto selected = SelectedQuotes(request, *data.axes_);
-            Check(!CompoundedOisInternal::ContainsOvernight(*instrument), "ScriptCurveQuoteRiskUnsupportedCapability", "/instrument",
-                  "separately admitted quote-risk capability; compounded OIS is unsupported");
             const auto prepared = PrepareCurvePrice(data.priceContext_, instrument, request.measureId_);
+            AdmitQuoteRiskPlan(prepared.plan_, *data.spec_, "/instrument");
             Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price, "ScriptCurveQuoteRiskUnsupportedMeasure",
                   "/request/measure_id", "Price kind", request.measureId_);
             const auto price = NativePrice(prepared, data.parameters_, data.spec_->geometry_.today_);
@@ -587,10 +603,9 @@ namespace Dal {
         try {
             data->spec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(CopySpec(*fit.resolvedSpec_));
             ValidateQuotes(*data->spec_);
-            for (const auto& observation : data->spec_->observations_)
-                Check(!CompoundedOisInternal::ContainsOvernight(*observation->Instrument()), "ScriptCurveQuoteRiskUnsupportedCapability",
-                      "/fit/observations", "separately admitted quote-risk capability; compounded OIS is unsupported");
             const PreparedCurveInstruments_ prepared(*data->spec_, *fit.resolvedOptions_);
+            for (const auto& plan : prepared.Plans())
+                AdmitQuoteRiskPlan(plan, *data->spec_, "/fit/observations");
             ValidateFit(fit, prepared);
             data->priceContext_ = PrepareCurvePriceContext(prepared);
             data->parameters_ = fit.parameters_;

@@ -79,8 +79,8 @@ namespace {
         const double value = CurveScriptInternal::Measure(price.plan_, provider, spec.geometry_.today_);
         ASSERT_NEAR(value, Oracle(spec.compoundedOis_.back()->Spec(), role, fit.parameters_, zeroRate, spec.valuation_)[0], 1e-10);
         const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {{1e-12, 1e-12}, 1e-10, 1e-12});
-        ASSERT_FALSE(snapshot.RiskAvailable());
-        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+        ASSERT_TRUE(snapshot.RiskAvailable());
+        ASSERT_TRUE(snapshot.MappingAvailable());
     }
 } // namespace
 

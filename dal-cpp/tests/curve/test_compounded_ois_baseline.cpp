@@ -84,7 +84,7 @@ TEST(CompoundedOisBaselineTest, TestLegacyArchiveSourceAndIdentityBaseline) {
     ASSERT_EQ(DumpCalibrationInstrumentJson(LoadCalibrationInstrumentJson(String_(instrumentJson))), DumpCalibrationInstrumentJson(instrument));
 }
 
-TEST(CompoundedOisBaselineTest, TestThreeSquareTargetRolesFitIndependentQuotesAndRetainSnapshotRejection) {
+TEST(CompoundedOisBaselineTest, TestThreeSquareTargetRolesFitIndependentQuotesAndAdmitNativeSnapshot) {
     for (const auto* role : {"Overnight", "Discount", "Shared"}) {
         SCOPED_TRACE(role);
         const auto spec = Calibration(role);
@@ -122,15 +122,13 @@ TEST(CompoundedOisBaselineTest, TestThreeSquareTargetRolesFitIndependentQuotesAn
             ASSERT_NEAR(result.values_[1], expected[1], 1e-10);
         }
         const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {{1e-12, 1e-12}, 1e-10, 1e-12});
-        ASSERT_FALSE(snapshot.RiskAvailable());
-        ASSERT_FALSE(snapshot.MappingAvailable());
-        ASSERT_EQ(snapshot.Diagnostics().size(), 1u);
-        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
-        ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/observations");
+        ASSERT_TRUE(snapshot.RiskAvailable());
+        ASSERT_TRUE(snapshot.MappingAvailable());
+        ASSERT_TRUE(snapshot.Diagnostics().empty());
     }
 }
 
-TEST(CompoundedOisBaselineTest, TestPerPvRejectsOisAgainstAvailableDepositSnapshot) {
+TEST(CompoundedOisBaselineTest, TestPerPvAdmitsRegisteredOisAgainstAvailableDepositSnapshot) {
     auto spec = Calibration("Discount");
     spec.observations_ = {spec.observations_[0]};
     spec.geometry_.knotDates_ = {Date_(2024, 3, 1), Date_(2024, 3, 20)};
@@ -142,10 +140,9 @@ TEST(CompoundedOisBaselineTest, TestPerPvRejectsOisAgainstAvailableDepositSnapsh
     ASSERT_TRUE(snapshot.MappingAvailable());
     const auto instrument = NewCompoundedOisScriptInstrument(spec.compoundedOis_[2]);
     const auto result = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
-    ASSERT_FALSE(result.Available());
-    ASSERT_EQ(result.Diagnostics().size(), 1u);
-    ASSERT_EQ(result.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
-    ASSERT_EQ(result.Diagnostics()[0].field_, "/instrument");
+    ASSERT_TRUE(result.Available());
+    ASSERT_TRUE(result.Diagnostics().empty());
+    ASSERT_EQ(result.RawSensitivity().size(), 1u);
 }
 
 TEST(CompoundedOisBaselineTest, TestV2RuleRequiresAnExplicitConvention) {

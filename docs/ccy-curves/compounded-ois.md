@@ -192,17 +192,31 @@ registration and context. Calibration plan/evidence identity now includes the
 registered PV plans. Legacy contract, preparation, source and compiler identities
 retain their existing values.
 
-Quote risk continues to reject compounded OIS. General script/MC paths reject
-both ON and ON2. Python/Excel convention
-factories and new audit projections are not exposed. Existing `/1` pricing and
-calibration remain available.
+Core quote risk admits verified native `/1` and `/2` plans at both snapshot and
+per-PV entry points. It requires original successful square, full-rank EXACT
+solve evidence, a checked native Jacobian/root and matching frozen tables.
+The same admission applies to full mapping and `pvOnly_=true`; PV-only can have
+`RiskAvailable()==true` while `MappingAvailable()==false`. Every PV must check
+its own availability and transpose accuracy. Unavailable outcomes own diagnostics;
+their numeric getters reject access.
+
+Price risk holds K, N and the bound source fixed. `RawSensitivity()` is currency
+amount per 1.0 decimal quote rate; `DV01()` is raw times 0.0001, the signed PV
+response to a quote rising 1bp. There is no per-million normalization or extra
+minus sign. Doubling N doubles PV/raw/DV01, and ReceiveFixed reverses them.
+ParRate risk, live-quote payoffs, stale contexts and unregistered PVs remain
+unavailable. Calibration report availability keeps its existing meaning.
+General script/MC and legacy tenor staging still reject ON/ON2. Python/Excel
+convention factories and new audit projections are not exposed.
 
 Build and run the core `compounded_ois` example under
 `dal-cpp/examples/curves/compounded_ois/`. It uses all four modes and checks
 Price's native log-discount partials against FD, then fits two same-source
 contracts and prices a preregistered PV from the frozen context. Its illustrative
 quotes are generated at the displayed native parameters. These partials are currency
-amounts per unit native parameter and are not quote DV01.
+amounts per unit native parameter and are not quote DV01. The example then checks
+full/PV-only quote risk against complete quote bump/recalibration with fixed K/N,
+labels raw and signed DV01 units separately, and prints an unregistered-PV diagnostic.
 
 ## Resource measurement
 
@@ -237,7 +251,16 @@ The shared frozen-context regression neighbors can be run with
 `--script-curve-quote-risk-pv-only-scoped`. These select 5 quotes/1 PV, 15/1 and
 15/100, retaining the existing warmups and repetitions. The PV-only mode times
 the PV-only snapshot. The original flags retain their full case inventory.
-These Deposit-based neighbors do not imply OIS quote-risk admission.
+`quote_risk_perf --compounded-ois-quote-risk` separately measures admitted OIS
+full/PV-only snapshots and per-PV transpose risk. It uses 5 quotes/1 PV, 15/1
+and 15/100 at 30 business factors, plus 2/1 at 365/1825 factors for long Lockout.
+The explicit calendar includes a holiday and a working Saturday. Independent
+scalar products generate calibration quotes; fixed-contract risk is checked
+against complete quote recalibration before timing. Snapshot vector capacity,
+released live tape memory and retained tape capacity are reported separately.
+These are ON-target fixtures with passive discount, actual N=1 and multiple
+coupon payments. The 15-quote cases use ZERO_RATE; the others use LOG_DISCOUNT.
+Both 1bp and 0.5bp central recalibration references are checked before timing.
 
 The first mode uses D=30/365/1825 intervals, one live coupon, N=1, K=0.025,
 eight free log-DF coordinates on fixed 400-day knot spacing, and `floor(D/2)`
@@ -279,7 +302,7 @@ Compare the new O(D) product with the same-size scalar reference, never the
 old O(1) period-forward product as a regression. Performance statements are
 limited to the measured build, machine and workload.
 
-P1 quote-risk snapshots/per-PV, general script/MC and legacy tenor staging
-continue to reject ON. Full tenor/payment schedule generation, combined
+General script/MC and legacy tenor staging continue to reject ON/ON2.
+Full tenor/payment schedule generation, combined
 observation modes, intraday publication rules and scenario revaluation remain
 outside scope.

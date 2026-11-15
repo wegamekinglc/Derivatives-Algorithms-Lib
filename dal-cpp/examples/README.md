@@ -24,19 +24,19 @@ Structured payoffs and their script representation, pricing and sensitivities.
 
 Yield-curve construction, interpolation, calibration and risk, including cross-currency workflows.
 
-| Program                                                                | Build target                    | Shows                                                             |
-|------------------------------------------------------------------------|---------------------------------|-------------------------------------------------------------------|
-| [curve_calibration](curves/curve_calibration/)                         | `curve_calibration`             | Single- and multi-curve construction and instrument repricing     |
-| [compounded_ois](curves/compounded_ois/)                               | `compounded_ois`                | Four modes, same-source calibration, Price/ParRate and AAD/FD       |
-| [euribor3m_curve](curves/euribor3m_curve/)                             | `euribor3m_curve`               | Euribor 3M curve construction                                     |
-| [interpolate_curve](curves/interpolate_curve/)                         | `interpolate_curve`             | Compare log-discount interpolation schemes                        |
-| [joint_multi_curve_calibration](curves/joint_multi_curve_calibration/) | `joint_multi_curve_calibration` | Joint multi-curve calibration                                     |
-| [quote_risk](curves/quote_risk/)                                       | `quote_risk`                    | Single-curve quote risk and coordinate reporting                  |
-| [underdetermined](curves/underdetermined/)                             | `underdetermined`               | Yield-curve calibration with underdetermined search               |
-| [xccy_curve_calibration](curves/xccy_curve_calibration/)               | `xccy_curve_calibration`        | Staged cross-currency basis calibration                           |
-| [xccy_mtm_calibration](curves/xccy_mtm_calibration/)                   | `xccy_mtm_calibration`          | Joint domestic, foreign and resettable cross-currency calibration |
-| [xccy_reset_pricing](curves/xccy_reset_pricing/)                       | `xccy_reset_pricing`            | Reset-aware cross-currency swap pricing                           |
-| [yield_curve_jacobian](curves/yield_curve_jacobian/)                   | `yield_curve_jacobian`          | Compare analytic and finite-difference curve Jacobians            |
+| Program                                                                | Build target                    | Shows                                                                     |
+|------------------------------------------------------------------------|---------------------------------|---------------------------------------------------------------------------|
+| [curve_calibration](curves/curve_calibration/)                         | `curve_calibration`             | Single- and multi-curve construction and instrument repricing             |
+| [compounded_ois](curves/compounded_ois/)                               | `compounded_ois`                | Four modes, same-source calibration, Price/ParRate, AAD/FD and quote DV01 |
+| [euribor3m_curve](curves/euribor3m_curve/)                             | `euribor3m_curve`               | Euribor 3M curve construction                                             |
+| [interpolate_curve](curves/interpolate_curve/)                         | `interpolate_curve`             | Compare log-discount interpolation schemes                                |
+| [joint_multi_curve_calibration](curves/joint_multi_curve_calibration/) | `joint_multi_curve_calibration` | Joint multi-curve calibration                                             |
+| [quote_risk](curves/quote_risk/)                                       | `quote_risk`                    | Single-curve quote risk and coordinate reporting                          |
+| [underdetermined](curves/underdetermined/)                             | `underdetermined`               | Yield-curve calibration with underdetermined search                       |
+| [xccy_curve_calibration](curves/xccy_curve_calibration/)               | `xccy_curve_calibration`        | Staged cross-currency basis calibration                                   |
+| [xccy_mtm_calibration](curves/xccy_mtm_calibration/)                   | `xccy_mtm_calibration`          | Joint domestic, foreign and resettable cross-currency calibration         |
+| [xccy_reset_pricing](curves/xccy_reset_pricing/)                       | `xccy_reset_pricing`            | Reset-aware cross-currency swap pricing                                   |
+| [yield_curve_jacobian](curves/yield_curve_jacobian/)                   | `yield_curve_jacobian`          | Compare analytic and finite-difference curve Jacobians                    |
 
 ## Models
 
