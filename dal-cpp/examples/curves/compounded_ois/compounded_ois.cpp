@@ -1,7 +1,6 @@
 #include <iomanip>
 #include <iostream>
 
-#include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/curve/curvescript.hpp>
 #include <dal/curve/curvescriptevaluation.hpp>
 #include <dal/platform/initall.hpp>
@@ -102,13 +101,14 @@ namespace {
         Examples::PrintReferenceHeader("Calibration recovers the native parameters used to generate these illustrative quotes");
         for (int j = 0; j < 2; ++j)
             Examples::Compare(("calibrated node " + std::to_string(j)).c_str(), fit.parameters_[j], request.parameters_[j], 1e-8);
-        const PreparedCurveInstruments_ prepared(*fit.resolvedSpec_, options);
-        const auto context = CurveInstrumentInternal::PrepareCurvePriceContext(prepared);
-        CurveInstrumentInternal::RequireCurvePriceContext(context, *fit.resolvedSpec_);
-        const auto instrument = NewCompoundedOisScriptInstrument(request.compoundedOis_);
-        const auto price = CurveInstrumentInternal::PrepareCurvePrice(context, instrument, "Price");
-        const double value =
-            CurveScriptInternal::Measure(price.plan_, CandidateCurveProvider_<double>(price.geometry_, fit.parameters_), spec.geometry_.today_);
+        auto frozen = request;
+        frozen.geometry_ = fit.resolvedSpec_->geometry_;
+        frozen.market_ = fit.resolvedSpec_->market_;
+        frozen.valuation_ = fit.resolvedSpec_->valuation_;
+        frozen.compoundedOis_ = fit.resolvedSpec_->compoundedOis_.back();
+        frozen.parameters_ = fit.parameters_;
+        const auto instrument = NewCompoundedOisScriptInstrument(frozen.compoundedOis_);
+        const double value = EvaluateCurveScriptInstrument(instrument, frozen).values_[0];
         request.parameters_ = fit.parameters_;
         Examples::Compare("registered PV (USD)", value, EvaluateCurveScriptInstrument(instrument, request).values_[0], 1e-6);
     }
