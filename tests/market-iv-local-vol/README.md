@@ -71,6 +71,19 @@ All 320 estimates/SE are populated. Each of four families used 16*2^20 paths;
 all reached the SE gate. Both F1 fixtures' 160 rows pass N3. The smile failures
 are price/time/grid/reference failures, not insufficient sampling.
 
+All eight unavailable final tau/4 grid references fail the spatial
+self-check. The two quarterly cases also fail domain expansion: normalized
+differences are 2.849168e-5 (F2_linear) and 2.859273e-5 (F2_nonlinear), both
+above 2.5e-5. Their time, mass and forward checks pass. These findings leave
+the 320 row statuses and counts unchanged.
+
+Prices from an uncertified grid reference, and the reported grid/stepping
+amount decomposition using those prices, are diagnostic only; they cannot
+certify the precise allocation of total error. The independently certified
+one-year grid failure below and the MC/paired failures remain valid.
+The reviewer found 4,032 off-node/first-column/boundary interpolation probes
+consistent with production; no new production implementation bug is confirmed.
+
 The attached minimal input reproduces a certified one-year ATM grid failure:
 
 ```bash
