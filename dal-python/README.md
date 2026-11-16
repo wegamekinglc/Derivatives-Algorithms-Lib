@@ -830,6 +830,52 @@ The hand-written Python code in `src/dal/` provides:
 - `__init__.py` — Re-exports all pybind11-generated symbols
 - `api.py` — Convenience wrappers (e.g., `Product_New` with automatic type conversion, `calibrate_curve(...)` for curve calibration)
 
+## Explicit compounded OIS
+
+`CompoundedOisScriptSpec_` defaults to manual-observation `/1`. Explicit
+`rule_id="dal.compounded-ois-cashflows/2"` takes a typed
+`CompoundedOisObservationConvention_` and empty/omitted observations for
+None, Lookback, ObservationShift or Lockout. Business-day counts are strict
+keyword-only integers; bool, floats, unknown fields/tokens and incompatible
+counts are rejected before native work releases the GIL. Dates, calendars,
+fixing snapshot and routes remain explicit.
+
+`CompoundedOis_Prepare`, `CompoundedOisScriptInstrument_New` and
+`CurveScriptInstrument_Evaluate` share one frozen schedule with same-source
+calibration. `CompoundedOis_Get_ObservationSchedule` returns 22 columns;
+evaluation selector `observation_schedule` returns the same prefix plus
+`source,rate,source_row,statement` for 26 columns. The old `observations`
+table remains 15 columns. `source_row` is one-based;
+`row,coupon_row,reused_from_row,statement` are zero-based.
+Read-only records and detached container copies retain missing values as
+`None` after inputs leave scope.
+
+Register every fit and prospective PV table in `compounded_ois` before
+calibration. Verified `/1` and `/2` contracts use the same owning
+`ScriptCurveQuoteRiskSnapshot_New` and
+`CalibrationInstrument_ValueWithQuoteRisk` entries for square full-rank
+EXACT roots. Full/PV-only admission and each PV's availability are separate;
+stale contexts, unregistered/rebound PVs, live-quote payoffs and non-Price
+measures return owning Unavailable diagnostics. Numeric getters reject
+unavailable values. K/N/source stay fixed, raw units are currency per decimal
+quote rate and signed DV01 is raw times `1e-4`. General MC and legacy tenor
+staging still reject ON/ON2.
+
+Run the four-mode example from the repository root with a matching module:
+
+```bash
+python dal-python/examples/020.compounded_ois_quote_risk.py
+python -O dal-python/examples/020.compounded_ois_quote_risk.py
+```
+
+The example checks complete quote recalibration with fixed K/N and retains
+an owning live-quote rejection; its checks remain active under optimization.
+See the [Python contract](../docs/python/README.md#explicit-compounded-ois)
+and [financial/calling guide](../docs/ccy-curves/compounded-ois.md) for strict
+conversion, fixing and ordered-column details. Owning objects are not portable
+calibration-session archives; rebuild the module and matching core/public
+headers/libraries together after layout changes.
+
 ## Curve Calibration
 
 The `curve` bindings (`dal-python/src/bindings/curve.cpp`) expose the supported Python

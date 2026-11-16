@@ -109,12 +109,37 @@ Pass an explicit `CompoundedOisScriptSpec_` and valuation to
 same frozen tables, native geometry, market, valuation and parameters. Defaults
 are `Price,ParRate`, `AutoFast`, `None` derivatives and a `1e-6` FD step.
 
+The default `/1` rule requires manual observations and no convention. Explicit
+`ruleId_="dal.compounded-ois-cashflows/2"` requires a typed
+`CompoundedOisObservationConvention_` and empty manual observations. None,
+Lookback, ObservationShift and Lockout select one frozen mapping per contract;
+the [mode contract](ccy-curves/compounded-ois.md#core-observation-schedule-preparation)
+defines legal counts, business-day boundaries, weights and fixing policy.
+
 The owning result retains measure units, native axes, source locations,
 cashflows and observations. `CurveScriptEvaluationValue` rejects unrequested
 measures; `CurveScriptEvaluationPartials` rejects absent partials.
 `CurveScriptEvaluationTable` accepts `summary`, `measures`, `parameters`,
-`cashflows` or `observations`, preserving missing amounts, discounts and rates
-as empty cells. Partials are raw native derivatives. See the
+`cashflows`, `observations` and `observation_schedule`, preserving missing
+amounts, discounts and rates as empty cells. The original `observations` table
+retains its 15 columns. `CompoundedOisObservationScheduleTable(prepared)` returns
+22 prepared columns; `observation_schedule` adds `source,rate,source_row,statement`
+for 26 evaluated columns with the identical prefix. `row`, `coupon_row`,
+`reused_from_row` and `statement` are zero-based; `source_row` is one-based.
+See the [column contract](ccy-curves/compounded-ois.md#observation-conventions-and-audit-projections).
+
+Partials are raw native derivatives. Verified `/1` and `/2` fixed contracts can
+also use the separate [quote-risk snapshot](#same-source-script-curve-quote-risk)
+after all fit and prospective PV tables are registered in `compoundedOis_`
+before calibration. A new/rebound PV requires new evidenced preparation and
+fit context. Price/raw/DV01 retain actual N and direction; live-quote payoffs,
+ParRate risk, stale contexts and unavailable numerics remain rejected.
+
+Prepared tables and results own passive data; C++ references require their
+owner to remain alive. Verified `/2` preparation archives do not persist fit
+sessions or risk snapshots. Public headers expose core types: rebuild core,
+facade and bindings together against matching versions/configurations rather
+than mix old binaries with new layouts. See the
 [table and route contract](methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation)
 for explicit calendar, fixing, settlement and ON routing requirements.
 

@@ -28,20 +28,21 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 
 ## Surface
 
-| Header family                                                                        | Purpose                                                      |
-|--------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| `dal-public/src/global.hpp`                                                          | Runtime initialization and evaluation date                   |
-| `dal-public/src/script.hpp`, `dal-public/src/models.hpp`, `dal-public/src/value.hpp` | Script product, model, and Monte Carlo workflow              |
-| `dal-public/src/random.hpp`                                                          | Pseudo-random and Sobol matrix fills                         |
-| `dal-public/src/curveprotocol.hpp`, `dal-public/src/curveinstrument.hpp`             | Curve conventions and quoted instruments                     |
-| `dal-public/src/curvedata.hpp`, `dal-public/src/curvespec.hpp`                       | Curve construction and single/staged calibration             |
-| `dal-public/src/curvepricing.hpp`                                                    | Typed rate-cashflow pricing, node risk, and quote-space DV01 |
-| `dal-public/src/xccycalibration.hpp`                                                 | Cross-currency calibration                                   |
-| `dal-public/src/xccymontecarlo.hpp`                                                  | Typed stochastic XCCY model, staged candidate and phased MC  |
-| `dal-public/src/xccymontecarlobasket.hpp`                                            | Prepared XCCY baskets, covariance and owning partials       |
-| `dal-public/src/earlyexercisepde.hpp`, `dal-public/src/earlyexercisepderisk.hpp`       | Owning Bermudan/American prices and fixed-plan repricing risk |
-| `dal-public/src/interp.hpp`                                                          | Linear interpolation helper                                  |
-| `dal-public/src/repository.hpp`                                                      | Host-environment repository operations                       |
+| Header family                                                                         | Purpose                                                        |
+|---------------------------------------------------------------------------------------|----------------------------------------------------------------|
+| `dal-public/src/global.hpp`                                                           | Runtime initialization and evaluation date                     |
+| `dal-public/src/script.hpp`, `dal-public/src/models.hpp`, `dal-public/src/value.hpp`  | Script product, model, and Monte Carlo workflow                |
+| `dal-public/src/random.hpp`                                                           | Pseudo-random and Sobol matrix fills                           |
+| `dal-public/src/curveprotocol.hpp`, `dal-public/src/curveinstrument.hpp`              | Curve conventions and quoted instruments                       |
+| `dal-public/src/curvedata.hpp`, `dal-public/src/curvespec.hpp`                        | Curve construction and single/staged calibration               |
+| `dal-public/src/curvepricing.hpp`                                                     | Typed rate-cashflow pricing, node risk, and quote-space DV01   |
+| `dal-public/src/calibrationinstrument.hpp`, `dal-public/src/scriptcurvequoterisk.hpp` | Same-source curve/OIS calibration, owning audit and quote DV01 |
+| `dal-public/src/xccycalibration.hpp`                                                  | Cross-currency calibration                                     |
+| `dal-public/src/xccymontecarlo.hpp`                                                   | Typed stochastic XCCY model, staged candidate and phased MC    |
+| `dal-public/src/xccymontecarlobasket.hpp`                                             | Prepared XCCY baskets, covariance and owning partials          |
+| `dal-public/src/earlyexercisepde.hpp`, `dal-public/src/earlyexercisepderisk.hpp`      | Owning Bermudan/American prices and fixed-plan repricing risk  |
+| `dal-public/src/interp.hpp`                                                           | Linear interpolation helper                                    |
+| `dal-public/src/repository.hpp`                                                       | Host-environment repository operations                         |
 
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.
@@ -115,15 +116,15 @@ From the repository root, build and run the deterministic curve examples:
 
 ```bash
 cmake --preset core-dev -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_EXAMPLES=ON
-cmake --build build/core-dev --target script_calibration script_curve_quote_risk compounded_ois_script interpolate_curve_script xccy_script_calibration --parallel
-ctest --test-dir build/core-dev -R '^(script_calibration|script_curve_quote_risk|compounded_ois_script|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
+cmake --build build/core-dev --target script_calibration script_curve_quote_risk compounded_ois_script compounded_ois_quote_risk interpolate_curve_script xccy_script_calibration --parallel
+ctest --test-dir build/core-dev -R '^(script_calibration|script_curve_quote_risk|compounded_ois_script|compounded_ois_quote_risk|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
 ```
 
 For example, run the interpolation program directly at
 `build/core-dev/dal-public/examples/interpolate_curve_script/interpolate_curve_script`;
 installation places it in `bin/`. Multi-configuration generators add the
 configuration directory, such as `Release`, to the build-tree run path.
-All ten programs are CTest `examples` smoke tests. Their small stochastic
+These programs are CTest `examples` smoke tests. Their small stochastic
 budgets demonstrate interfaces; they do not establish full numerical acceptance
 or calibrated quote risk. See the [script calibration guide](../docs/methodology/script_calibration_contract.md)
 for supported execution modes and statistical limits, and the
@@ -132,8 +133,10 @@ The [core examples](../dal-cpp/examples/README.md) retain their locations and
 depend only on `DAL::cpp`.
 
 The [compounded OIS guide](../docs/ccy-curves/compounded-ois.md) gives the
-explicit table and route recipe. Its raw native partials are distinct from
-the quote DV01 shown by `script_curve_quote_risk`.
+explicit table and route recipe, four observation modes and full/PV-only
+fixed-contract quote risk. `compounded_ois_script` shows legacy `/1` native
+partials; `compounded_ois_quote_risk` separately shows signed quote DV01,
+complete recalibration and owning rejection. Their axes and units differ.
 
 ## Build and Test
 
@@ -153,6 +156,16 @@ build/core-dev/dal-public/dal_public_tests --gtest_filter=PublicApiTest.*
 
 The repository also carries an installed-package consumer under
 `tests/installed-consumer/`.
+The [OIS SDK recipe](../docs/installation.md#installed-ois-consumers) first
+checks `dal_installed_core_ois` with `DAL_CONSUMER_CORE_ONLY=ON` and no
+facade SDK; after matching public installation it also checks
+`dal_installed_public_ois`. Owning records do not isolate the ABI: rebuild
+core, facade and bindings together against matching layouts/configuration.
+
+Opt-in projection benchmarks use `DAL_PUBLIC_BUILD_BENCHMARKS=ON`.
+`compounded_ois_audit_perf` measures 22/26-column conversion and a separate
+owning evaluation from frozen tables and existing source; initial schedule/source
+construction is outside that timer. See [timing and memory limits](benchmarks/README.md).
 
 The existing `ScriptApiConsumer` and `ScriptSettingsExample` CTests exercise
 legacy/typed calls and the settings example. Standalone public tests against

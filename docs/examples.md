@@ -98,6 +98,18 @@ availability, displays signed USD PV/raw/DV01 in requested quote order and reads
 a live-quote rejection after the inputs leave scope. See the
 [script curve risk contract](methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
 
+The core [compounded_ois](../dal-cpp/examples/curves/compounded_ois/compounded_ois.cpp)
+uses only `DAL::cpp`, including with public disabled. The separate facade
+[compounded_ois_quote_risk](../dal-public/examples/compounded_ois_quote_risk/compounded_ois_quote_risk.cpp)
+links `DAL::public` and is enabled by `DAL_PUBLIC_BUILD_EXAMPLES`. Both show
+four `/2` modes, same-source EXACT calibration, fixed K/N and full/PV-only
+signed quote DV01 against complete quote recalibration. The legacy facade
+[compounded_ois_script](../dal-public/examples/compounded_ois_script/compounded_ois_script.cpp)
+retains its `/1` mixed-history/direct-native example. Target, CTest and installed
+executable names match these program names; installed examples are in `bin/`.
+See the [OIS calling guide](ccy-curves/compounded-ois.md) and
+[installed core/public consumers](installation.md#installed-ois-consumers).
+
 ## Python
 
 After installing or building `dal`, run from the repository root:
@@ -105,6 +117,7 @@ After installing or building `dal`, run from the repository root:
 ```bash
 python dal-python/examples/017.native_aad_risk.py
 python dal-python/examples/018.quote_curvature.py
+python dal-python/examples/020.compounded_ois_quote_risk.py
 ```
 
 [`017.native_aad_risk.py`](../dal-python/examples/017.native_aad_risk.py) mirrors the
@@ -126,22 +139,23 @@ The [rate](methodology/aad.md#native-rate-trade-quote-curvature) and
 [Dupire](methodology/aad.md#common-path-c-monte-carlo-quote-curvature) methodology
 defines the recalibration boundary and estimator limits.
 
-Both numbered programs run under the existing Python example smoke-test harness.
+The two AAD/curvature programs run under the existing Python example smoke-test harness.
 They use no test fixtures or Python objective callbacks. C++ recording scopes,
 generic equation callbacks and the smooth prototype remain C++ interfaces.
 
+[`020.compounded_ois_quote_risk.py`](../dal-python/examples/020.compounded_ois_quote_risk.py)
+shows the four OIS modes, owning audit, EXACT calibration and fixed-contract
+full/PV-only signed DV01. Its checks also execute under `python -O`; it
+distinguishes raw quote derivatives from native curve partials and retains an
+owning unavailable diagnostic. A matching native module is required.
+
 ## Excel
 
-The independent public [compounded OIS program](../dal-public/examples/compounded_ois_script/compounded_ois_script.cpp)
-demonstrates mixed historical/future rates, a weekend/holiday factor and
-delayed payment. Its [calling guide](ccy-curves/compounded-ois.md) includes
-Python/Excel recipes and explains the native partial axis.
-
-The separate [OIS observation and quote-risk facade program](../dal-public/examples/compounded_ois_quote_risk/compounded_ois_quote_risk.cpp)
-and [Python example](../dal-python/examples/020.compounded_ois_quote_risk.py)
-show all four `/2` observation modes, immutable audit rows, an explicit EXACT
-calibration and full/PV-only signed quote DV01 against complete recalibration.
-The existing `/1` facade and core programs remain separate targets.
+The [OIS worksheet contract](excel/README.md#explicit-compounded-ois) and
+[calling recipe](ccy-curves/compounded-ois.md#excel-calling-recipe) give typed
+convention/preparation handles and the prepared/evaluated 22/26-column audits.
+Portable binding checks do not execute native XLL/OPER registration or Office
+COM/spill; those require separate Windows/Excel evidence.
 
 Follow the [segmented MC and LSMC worksheet recipe](../dal-excel/examples/011.native_aad_risk.md).
 It gives exact cell locations, input matrices, handle dependencies and result

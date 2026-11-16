@@ -16,6 +16,21 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-16
+
+- Add native compounded OIS execution and same-source calibration for None,
+  Lookback, ObservationShift and Lockout on one frozen `/2` date/weight mapping.
+  Public C++, strict Python factories and Excel handles expose owning 22/26-column
+  schedule audits, while `/1` defaults, archives, source and identities remain
+  compatible. Rebuild core, facade and bindings together; this is not an
+  old-binary ABI guarantee. See the [OIS contract](docs/ccy-curves/compounded-ois.md).
+- Admit verified `/1` and `/2` OIS to owning full/PV-only fixed-contract Price
+  quote risk for single-target, square full-rank EXACT calibrations. Registered
+  contracts retain fixed K/N, complete context identity and checked implicit
+  response; signed DV01 is raw currency sensitivity times `1e-4`. See the
+  [public API](docs/public-api.md#explicit-compounded-ois) and
+  [snapshot contract](docs/methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
+
 ## 2026-11-15
 
 - Add core C++ versioned OIS observation preparation for None, Lookback,
