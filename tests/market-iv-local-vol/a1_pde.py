@@ -6,7 +6,7 @@ from pde import _boundary, timeline
 from scipy.linalg import solve_banded
 
 
-def mesh(grid_knots, strike_knots, level=0, expanded=False):
+def mandatory_anchors(grid_knots, strike_knots):
     anchors = np.array(sorted({-3.0, 3.0, 0.0, *grid_knots, *strike_knots}))
     if (
         np.any(np.diff(anchors) <= 0)
@@ -15,15 +15,24 @@ def mesh(grid_knots, strike_knots, level=0, expanded=False):
         or len(anchors) > 601
     ):
         raise ValueError("REFERENCE_UNAVAILABLE: invalid mandatory mesh")
+    return anchors
+
+
+def allocated_extras(anchors, exact):
+    shares = [(601 - len(anchors)) * (b - a) / 6 for a, b in zip(exact, exact[1:])]
+    extra = [int(mp.floor(s)) for s in shares]
+    order = sorted(
+        range(len(extra)), key=lambda j: (-(shares[j] - extra[j]), anchors[j])
+    )
+    for j in order[: 601 - len(anchors) - sum(extra)]:
+        extra[j] += 1
+    return extra
+
+
+def initial_mesh(anchors):
     with mp.workdps(90):
         exact = list(map(mp.mpf, anchors))
-        shares = [(601 - len(anchors)) * (b - a) / 6 for a, b in zip(exact, exact[1:])]
-        extra = [int(mp.floor(s)) for s in shares]
-        order = sorted(
-            range(len(extra)), key=lambda j: (-(shares[j] - extra[j]), anchors[j])
-        )
-        for j in order[: 601 - len(anchors) - sum(extra)]:
-            extra[j] += 1
+        extra = allocated_extras(anchors, exact)
         central = [anchors[0]]
         for j, count in enumerate(extra):
             central.extend(
@@ -31,7 +40,11 @@ def mesh(grid_knots, strike_knots, level=0, expanded=False):
                 for k in range(1, count + 1)
             )
             central.append(anchors[j + 1])
-    x = np.array(central)
+    return np.array(central)
+
+
+def mesh(grid_knots, strike_knots, level=0, expanded=False):
+    x = initial_mesh(mandatory_anchors(grid_knots, strike_knots))
     for _ in range(level):
         x = np.sort(np.concatenate((x, (x[:-1] + x[1:]) / 2)))
     if expanded:

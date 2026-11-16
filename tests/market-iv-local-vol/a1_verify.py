@@ -18,23 +18,36 @@ def batch_statistics(row):
     return expected
 
 
-def verify(mc):
+def validate_identity(mc):
     if mc["sampling"] != "FORMAL" or mc["seed"] != 1024 or mc["dmax"] != 8728:
         raise ValueError("Unqualified A/1 sampling identity")
+
+
+def validate_tier(index, tier):
+    if (
+        tier["paths_per_batch"] != 2 ** (16 + index)
+        or index > 4
+        or len(tier["groups"]) != 14
+    ):
+        raise ValueError("Nonregistered tier/group")
+
+
+def tier_sufficient(tier):
+    sufficient = True
+    for group, row in enumerate(tier["groups"]):
+        expected = batch_statistics(row)
+        sufficient = sufficient and bool(
+            np.max(expected[:, 1]) <= (0.01 if group < 8 else 0.005)
+        )
+    return sufficient
+
+
+def verify(mc):
+    validate_identity(mc)
     records = []
     for index, tier in enumerate(mc["tiers"]):
-        if (
-            tier["paths_per_batch"] != 2 ** (16 + index)
-            or index > 4
-            or len(tier["groups"]) != 14
-        ):
-            raise ValueError("Nonregistered tier/group")
-        sufficient = True
-        for group, row in enumerate(tier["groups"]):
-            expected = batch_statistics(row)
-            sufficient = sufficient and bool(
-                np.max(expected[:, 1]) <= (0.01 if group < 8 else 0.005)
-            )
+        validate_tier(index, tier)
+        sufficient = tier_sufficient(tier)
         if sufficient != tier["se_sufficient"] or (
             index < len(mc["tiers"]) - 1 and sufficient
         ):

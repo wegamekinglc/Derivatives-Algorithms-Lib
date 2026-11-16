@@ -29,10 +29,8 @@ def validate_axis(axis):
             raise ValueError("Axis cannot support three strict subdivisions")
 
 
-def one_grid(index, spec):
-    base, center, uniform, early, denominator, low, high, horizon = spec
+def spot_axis(base, center, low, high):
     with mp.workdps(90):
-        tau, end = mp.mpf(1) / denominator, mp.mpf(horizon)
         spots = {
             float(
                 100
@@ -47,6 +45,12 @@ def one_grid(index, spec):
             float(100 * mp.exp(-mp.mpf(".02") + mp.mpf(".04") * j / (center - 1)))
             for j in range(center)
         )
+    return sorted(spots)
+
+
+def time_axis(uniform, early, denominator, horizon):
+    with mp.workdps(90):
+        tau, end = mp.mpf(1) / denominator, mp.mpf(horizon)
         times = {float(tau + (end - tau) * j / (uniform - 1)) for j in range(uniform)}
         times.update(
             float(tau * (1 / (32 * tau)) ** (mp.mpf(j) / early))
@@ -57,7 +61,14 @@ def one_grid(index, spec):
             for day in (91, 182, 273, 365, 730)
             if mp.mpf(day) / 365 <= end
         )
-    row = dict(id=f"P{index}", spots=sorted(spots), times=sorted(times))
+    return sorted(times)
+
+
+def one_grid(index, spec):
+    base, center, uniform, early, denominator, low, high, horizon = spec
+    spots = spot_axis(base, center, low, high)
+    times = time_axis(uniform, early, denominator, horizon)
+    row = dict(id=f"P{index}", spots=spots, times=times)
     for axis in (row["spots"], row["times"]):
         validate_axis(axis)
     if len(spots) * len(times) != POINTS[index]:

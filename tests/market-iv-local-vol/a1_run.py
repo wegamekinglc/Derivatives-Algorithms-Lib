@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import platform
-import subprocess
 import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from functools import partial
@@ -15,6 +14,7 @@ from pathlib import Path
 from a1_axes import MATURITIES
 from a1_budget import LIMITS, Budget, digest
 from a1_n4 import nodes, probes
+from a1_process import launch, native_kind, output, program
 from a1_report import report
 from a1_study import (
     black_model,
@@ -53,14 +53,7 @@ def seal(value):
     ).hexdigest()
 
 
-def freeze(directory, original, binaries):
-    directory.mkdir(parents=True, exist_ok=True)
-    if (directory / "manifest.json").exists() or (directory / "ledger.json").exists():
-        raise RuntimeError("Existing A/1 namespace cannot be reset")
-    if digest(CONTROL) != CONTROL_SHA:
-        raise RuntimeError("Frozen control mismatch")
-    if subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO):
-        raise RuntimeError("Commit the tested execution source before freezing")
+def execution_inventory(binaries, original):
     sources = [
         p for p in HERE.rglob("*") if p.is_file() and "__pycache__" not in p.parts
     ]
@@ -82,24 +75,26 @@ def freeze(directory, original, binaries):
             original / "formal-qualification.json",
         ]
     )
+    return sources, paths
+
+
+def execution_core(paths, original, binaries):
     core = dict(
         schema="dal.market-iv-a1-execution/1",
         control_sha256=CONTROL_SHA,
-        source_head=subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=REPO, text=True
-        ).strip(),
+        source_head=output("git", ["-C", str(REPO), "rev-parse", "HEAD"]).strip(),
         files={str(p.resolve()): digest(p) for p in paths},
-        dependency_pins=subprocess.check_output(
-            ["git", "submodule", "status", "--recursive"], cwd=REPO, text=True
+        dependency_pins=output(
+            "git", ["-C", str(REPO), "submodule", "status", "--recursive"]
         ),
-        compiler=subprocess.check_output(["c++", "--version"], text=True),
+        compiler=output("compiler", ["--version"]),
         python=platform.python_version(),
         packages={name: version(name) for name in ("numpy", "scipy", "mpmath")},
         platform=platform.platform(),
         cpu_count=os.cpu_count(),
         binary_directory=str(binaries.resolve()),
         limits=LIMITS,
-        old_history_counts={"PASS": 184, "FAIL": 76, "REFERENCE_UNAVAILABLE": 60},
+        old_history_counts=read(original / "formal-qualification.json")["counts"],
         protocol=read(HERE / "a1/request.json")["protocol"],
         outputs=["call"] * 5
         + ["put"] * 5
@@ -128,8 +123,10 @@ def freeze(directory, original, binaries):
             "MC",
         ],
     )
-    identity = seal(core)
-    budget = Budget(directory / "ledger.json", identity, create=True)
+    return core
+
+
+def save_namespace(directory, original, sources):
     for source, name in (
         (HERE / "a1/request.json", "request.json"),
         (original / "capture.json", "old-capture.json"),
@@ -140,6 +137,23 @@ def freeze(directory, original, binaries):
         saved = directory / "executed-source" / source.relative_to(HERE)
         saved.parent.mkdir(parents=True, exist_ok=True)
         saved.write_bytes(source.read_bytes())
+
+
+def freeze(directory, original, binaries):
+    directory.mkdir(parents=True, exist_ok=True)
+    if (directory / "manifest.json").exists() or (directory / "ledger.json").exists():
+        raise RuntimeError("Existing A/1 namespace cannot be reset")
+    if digest(CONTROL) != CONTROL_SHA:
+        raise RuntimeError("Frozen control mismatch")
+    if output("git", ["-C", str(REPO), "status", "--porcelain"]):
+        raise RuntimeError("Commit the tested execution source before freezing")
+    if binaries.resolve() != program("capture").parent.resolve():
+        raise ValueError("Build directory is outside the fixed qualification boundary")
+    sources, paths = execution_inventory(binaries, original)
+    core = execution_core(paths, original, binaries)
+    identity = seal(core)
+    budget = Budget(directory / "ledger.json", identity, create=True)
+    save_namespace(directory, original, sources)
     write(
         directory / "manifest.json",
         dict(
@@ -171,12 +185,7 @@ def validate(directory):
 
 
 def stop_children(processes):
-    cli = os.environ["MULTICA_CLI_PATH"]
-    status = json.loads(
-        subprocess.check_output(
-            [cli, "daemon", "status", "--output", "json"], text=True
-        )
-    )
+    status = json.loads(output("multica", ["daemon", "status", "--output", "json"]))
 
     def pids(value):
         if not isinstance(value, dict):
@@ -195,20 +204,24 @@ def stop_children(processes):
         process.terminate()
 
 
+def wait_results(executor, futures, directory, budget):
+    pending = set(futures)
+    while pending:
+        done, pending = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
+        budget.tick("pde")
+        budget.resources(directory, [p.pid for p in executor._processes.values()])
+        for future in done:
+            future.result()
+            budget.completed()
+
+
 def execute(arguments, name, directory, budget):
     for argument in arguments:
         budget.reserve_solve(name + ":" + repr(argument[-1]))
     executor = ProcessPoolExecutor(max_workers=4)
     futures = [executor.submit(task, arg) for arg in arguments]
     try:
-        pending = set(futures)
-        while pending:
-            done, pending = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
-            budget.tick("pde")
-            budget.resources(directory, [p.pid for p in executor._processes.values()])
-            for future in done:
-                future.result()
-                budget.completed()
+        wait_results(executor, futures, directory, budget)
         return [future.result() for future in futures]
     except BaseException:
         stop_children(list(executor._processes.values()))
@@ -219,7 +232,7 @@ def execute(arguments, name, directory, budget):
 
 def command(arguments, directory, budget, phase, logfile):
     with (directory / logfile).open("w") as stream:
-        process = subprocess.Popen(arguments, stdout=stream, stderr=stream)
+        process = launch(native_kind(arguments[0]), arguments[1:], stream)
         try:
             while process.poll() is None:
                 time.sleep(0.5)
@@ -253,9 +266,7 @@ def persist_study(directory, name, result):
         raise RuntimeError("REFERENCE_UNAVAILABLE: " + name)
 
 
-def stage1(directory, request, old, budget):
-    budget.begin("pde")
-    run = partial(execute, directory=directory, budget=budget)
+def black_studies(directory, request, run):
     for flat in (False, True):
         model = black_model(request["grids"][7], flat)
         for i, time_value in enumerate(MATURITIES):
@@ -269,6 +280,9 @@ def stage1(directory, request, old, budget):
                 True,
             )
             persist_study(directory, name, result)
+
+
+def old_studies(directory, old, run):
     for fixture in old["fixtures"]:
         if not fixture["id"].startswith("F2"):
             continue
@@ -280,6 +294,13 @@ def stage1(directory, request, old, budget):
                 name, model, time_value, canonical_logs(grid["spots"]), run
             )
             persist_study(directory, name, result)
+
+
+def stage1(directory, request, old, budget):
+    budget.begin("pde")
+    run = partial(execute, directory=directory, budget=budget)
+    black_studies(directory, request, run)
+    old_studies(directory, old, run)
     budget.end("pde")
     write(directory / "stage1-admission.json", dict(status="PASS", studies=16))
 
@@ -389,6 +410,19 @@ def capture_stage(directory, manifest, budget):
     return captured
 
 
+def require_family_pass(directory, name):
+    studies = read(directory / "grid-studies.json")
+    lookup = {(r["fixture"], r["grid"], r["maturity"]): r for r in studies}
+    current = report(directory, read(directory / "history.json"), lookup, None)
+    failed = next(
+        (r for r in current["rows"] if r["fixture"] == name and r["status"] != "PASS"),
+        None,
+    )
+    if failed:
+        write(directory / "mc-failure.json", failed)
+        raise RuntimeError("FAIL: completed MC family " + name)
+
+
 def mc_stage(directory, manifest, budget):
     if read(directory / "mc-admission.json")["status"] != "PASS":
         raise RuntimeError("Missing reference/grid admission")
@@ -400,20 +434,7 @@ def mc_stage(directory, manifest, budget):
         budget.begin(phase)
         sample_family(directory, binary, budget, family, name, phase)
         budget.end(phase)
-        studies = read(directory / "grid-studies.json")
-        lookup = {(r["fixture"], r["grid"], r["maturity"]): r for r in studies}
-        current = report(directory, read(directory / "history.json"), lookup, None)
-        failed = next(
-            (
-                r
-                for r in current["rows"]
-                if r["fixture"] == name and r["status"] != "PASS"
-            ),
-            None,
-        )
-        if failed:
-            write(directory / "mc-failure.json", failed)
-            raise RuntimeError("FAIL: completed MC family " + name)
+        require_family_pass(directory, name)
 
 
 def sample_family(directory, binary, budget, family, name, phase):

@@ -9,12 +9,48 @@ import numpy as np
 from a1_axes import grids, protocol, validate_axis
 from a1_budget import Budget, checked_address
 from a1_pde import admitted, configurations, derivative_weights, mesh
+from a1_process import REPO, output, program, validate_arguments
 from a1_report import report
+from a1_run import stop_children
 from a1_study import certify
 from a1_verify import verify
 
 
 class A1Test(unittest.TestCase):
+    def test_only_fixed_read_only_programs_and_registered_native_arguments(self):
+        with self.assertRaises(ValueError):
+            program("shell")
+        with self.assertRaises(ValueError):
+            validate_arguments("git", ["push", "--force"])
+        with self.assertRaises(ValueError):
+            validate_arguments("probe", [str(REPO / "outside-build-input")])
+        prefix = REPO / "build/a1-unit"
+        args = [
+            str(prefix / "request.json"),
+            str(prefix / "F2_linear-tier-16.json"),
+            "F2_linear",
+            "16",
+        ]
+        validate_arguments("mc", args)
+        bad = list(args)
+        bad[3] = "21"
+        with self.assertRaises(ValueError):
+            validate_arguments("mc", bad)
+        head = output("git", ["-C", str(REPO), "rev-parse", "HEAD"]).strip()
+        self.assertEqual(len(head), 40)
+
+    def test_stop_never_terminates_reported_daemon_pid(self):
+        from unittest.mock import Mock
+
+        daemon = Mock(pid=123)
+        child = Mock(pid=456)
+        with patch("a1_run.output", return_value='{"pid":123}'):
+            with self.assertRaises(RuntimeError):
+                stop_children([daemon])
+            stop_children([child])
+        daemon.terminate.assert_not_called()
+        child.terminate.assert_called_once()
+
     def test_canonical_axes_counts_anchors_and_binary64_round_trip(self):
         import json
 

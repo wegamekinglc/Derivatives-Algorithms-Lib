@@ -38,6 +38,24 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def evidence_bytes(directory):
+    return sum(p.stat().st_size for p in Path(directory).rglob("*") if p.is_file())
+
+
+def resident_bytes(pid):
+    status = Path(f"/proc/{pid}/status")
+    if not status.exists():
+        return 0
+    return next(
+        (
+            int(s.split()[1]) * 1024
+            for s in status.read_text().splitlines()
+            if s.startswith("VmRSS:")
+        ),
+        0,
+    )
+
+
 class Budget:
     def __init__(self, path, identity, limits=None, create=False):
         self.path = Path(path)
@@ -145,22 +163,11 @@ class Budget:
         self.save("paths")
 
     def resources(self, directory, pids=()):
-        size = sum(p.stat().st_size for p in Path(directory).rglob("*") if p.is_file())
-        if size > self.limits["evidence_bytes"]:
+        if evidence_bytes(directory) > self.limits["evidence_bytes"]:
             raise RuntimeError("INCOMPLETE: evidence limit")
         for pid in (os.getpid(), *pids):
-            status = Path(f"/proc/{pid}/status")
-            if status.exists():
-                rss = next(
-                    (
-                        int(s.split()[1]) * 1024
-                        for s in status.read_text().splitlines()
-                        if s.startswith("VmRSS:")
-                    ),
-                    0,
-                )
-                if rss >= self.limits["rss_bytes"]:
-                    raise RuntimeError("INCOMPLETE: RSS limit")
+            if resident_bytes(pid) >= self.limits["rss_bytes"]:
+                raise RuntimeError("INCOMPLETE: RSS limit")
 
     def completed_paths(self, family, count):
         if not 0 <= count <= self.state["paths"][family]:

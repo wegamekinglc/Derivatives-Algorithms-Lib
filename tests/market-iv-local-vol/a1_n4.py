@@ -1,10 +1,11 @@
 """Actual new-node high precision and production interpolation evidence."""
 
 import json
-import subprocess
+from pathlib import Path
 
 import mpmath as mp
 import numpy as np
+from a1_process import output, program
 from a1_study import make_model
 from qualify import curve
 from reference import carry, local_variance, theta_at
@@ -58,56 +59,65 @@ def nodes(capture, directory, budget):
     return dict(nodes=count, max_scaled_variance_error=worst, status="PASS", digits=90)
 
 
-def probes(capture, directory, binary):
+def query_coordinates(grid):
+    ts = [
+        0.0,
+        grid["times"][0] / 2,
+        grid["times"][0],
+        0.0005,
+        0.001,
+        0.004,
+        (grid["times"][0] + grid["times"][1]) / 2,
+        91 / 365,
+        np.nextafter(91 / 365, 0),
+        np.nextafter(91 / 365, 1),
+        273 / 365,
+        1.0,
+        2.0,
+        2.125,
+        2.25,
+        2.5,
+    ]
+    spots = [1.0, 10.0, 20.0, 99.0, 100.0, 101.0, 400.0, 600.0, 1000.0]
+    spots += [
+        float(np.sqrt(a * b)) for a, b in zip(grid["spots"][::19], grid["spots"][1::19])
+    ]
+    return [(float(t), float(s)) for t in ts for s in spots]
+
+
+def write_probe_grid(stream, fixture, grid):
+    expected, labels = [], []
+    model = make_model(fixture, grid)
+    queries = query_coordinates(grid)
+    stream.write(f"{len(grid['spots'])} {len(grid['times'])} {len(queries)}\n")
+    for name in ("spots", "times", "vols_spot_major"):
+        stream.write(" ".join(map(repr, grid[name])) + "\n")
+    for time, spot in queries:
+        stream.write(f"{time!r} {spot!r}\n")
+        expected.append(
+            float(np.sqrt(model.variance(time, np.array([np.log(spot / 100)])))[0])
+        )
+        labels.append([fixture["id"], grid["id"], time, spot])
+    return expected, labels
+
+
+def probe_inputs(capture, directory):
     expected, labels = [], []
     with (directory / "probe-input.txt").open("w") as stream:
         for fixture in capture["fixtures"]:
             for grid in fixture["grids"]:
-                if grid["id"] not in ("P7", "P8"):
-                    continue
-                model = make_model(fixture, grid)
-                ts = [
-                    0.0,
-                    grid["times"][0] / 2,
-                    grid["times"][0],
-                    0.0005,
-                    0.001,
-                    0.004,
-                    (grid["times"][0] + grid["times"][1]) / 2,
-                    91 / 365,
-                    np.nextafter(91 / 365, 0),
-                    np.nextafter(91 / 365, 1),
-                    273 / 365,
-                    1.0,
-                    2.0,
-                    2.125,
-                    2.25,
-                    2.5,
-                ]
-                spots = [1.0, 10.0, 20.0, 99.0, 100.0, 101.0, 400.0, 600.0, 1000.0]
-                spots += [
-                    float(np.sqrt(a * b))
-                    for a, b in zip(grid["spots"][::19], grid["spots"][1::19])
-                ]
-                queries = [(float(t), float(s)) for t in ts for s in spots]
-                stream.write(
-                    f"{len(grid['spots'])} {len(grid['times'])} {len(queries)}\n"
-                )
-                for name in ("spots", "times", "vols_spot_major"):
-                    stream.write(" ".join(map(repr, grid[name])) + "\n")
-                for time, spot in queries:
-                    stream.write(f"{time!r} {spot!r}\n")
-                    expected.append(
-                        float(
-                            np.sqrt(
-                                model.variance(time, np.array([np.log(spot / 100)]))
-                            )[0]
-                        )
-                    )
-                    labels.append([fixture["id"], grid["id"], time, spot])
-    actual = subprocess.check_output(
-        [str(binary), str(directory / "probe-input.txt")], text=True
-    )
+                if grid["id"] in ("P7", "P8"):
+                    values, names = write_probe_grid(stream, fixture, grid)
+                    expected.extend(values)
+                    labels.extend(names)
+    return expected, labels
+
+
+def probes(capture, directory, binary):
+    if Path(binary).resolve() != program("probe").resolve():
+        raise ValueError("Probe is outside the fixed qualification build")
+    expected, labels = probe_inputs(capture, directory)
+    actual = output("probe", [directory / "probe-input.txt"])
     (directory / "probe-actual.txt").write_text(actual)
     values = np.array(
         [[float(v) for v in line.split()] for line in actual.splitlines()]
