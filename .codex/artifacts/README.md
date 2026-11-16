@@ -10,7 +10,7 @@ references.
 
 - [DAL-538 market-IV to nonflat F/D local-vol MC API decision](api-notes/dal-538-market-iv-local-vol-mc.md)
 - [DAL-538 staged implementation and acceptance plan](plans/dal-538-market-iv-local-vol-mc.md)
-- [DAL-542 N5 resolution A/2: current S3 gates and cumulative continuation](specs/dal-542-n5-resolution-a.md)
+- [DAL-542 N5 resolution A/3: current MC protocol and explicit recovery](specs/dal-542-n5-resolution-a.md)
 - [DAL-526 compounded OIS observation and quote-risk contract](specs/dal-526-compounded-ois-observation-quote-risk.md)
 - [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
 - [DAL-497 PDE risk contract](specs/dal-497-early-exercise-pde-risk.md)
