@@ -35,6 +35,22 @@ target_link_libraries(dal_installed_public_ois PRIVATE DAL::public)
 dal_cpp_apply_msvc_runtime(dal_installed_public_ois)
 add_test(NAME dal_installed_public_ois COMMAND dal_installed_public_ois)
 
+set(benchmark_runtime_command "${CMAKE_COMMAND}"
+    -S "${CMAKE_CURRENT_SOURCE_DIR}/benchmark-runtime"
+    -B "${CMAKE_CURRENT_BINARY_DIR}/benchmark-runtime"
+    -G "${CMAKE_GENERATOR}"
+    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+    "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    "-Ddal-public_DIR=${dal-public_DIR}"
+    "-Ddal-cpp_DIR=${dal-cpp_DIR}")
+if(CMAKE_GENERATOR_PLATFORM)
+    list(APPEND benchmark_runtime_command -A "${CMAKE_GENERATOR_PLATFORM}")
+endif()
+if(CMAKE_GENERATOR_TOOLSET)
+    list(APPEND benchmark_runtime_command -T "${CMAKE_GENERATOR_TOOLSET}")
+endif()
+add_test(NAME dal_installed_public_benchmark_runtime COMMAND ${benchmark_runtime_command})
+
 add_executable(dal_installed_consumer main.cpp)
 add_executable(dal_installed_aad_consumer native.cpp)
 add_executable(dal_installed_buffer_consumer buffers.cpp)
