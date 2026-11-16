@@ -152,6 +152,11 @@ namespace Dal::Excel::Calibration {
             for (const auto& [key, row] : rows_)
                 REQUIRE(used_.count(key) != 0, Location(String_(key), row, 1) + "InvalidCalibrationInput: unknown key " + String_(key));
         }
+        void Check(const char* key, bool condition, const String_& expected, const String_& actual = "") const {
+            const auto found = rows_.find(key);
+            REQUIRE(condition, Location(key, found == rows_.end() ? 0 : found->second, 2) + "InvalidCalibrationInput: expected=" + expected +
+                                   "; actual=" + actual);
+        }
     };
 
 } // namespace Dal::Excel::Calibration

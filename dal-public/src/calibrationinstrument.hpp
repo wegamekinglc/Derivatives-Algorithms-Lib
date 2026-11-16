@@ -12,6 +12,7 @@ namespace Dal {
     double CurveScriptEvaluationValue(const CurveScriptEvaluationResult_& result, const String_& measureId);
     Matrix_<> CurveScriptEvaluationPartials(const CurveScriptEvaluationResult_& result);
     Matrix_<Cell_> CurveScriptEvaluationTable(const CurveScriptEvaluationResult_& result, const String_& table);
+    Matrix_<Cell_> CompoundedOisObservationScheduleTable(const Handle_<PreparedCompoundedOis_>& prepared);
     struct ScriptInstrumentImportSettings_ {
         String_ instrumentId_;
         Ccy_ currency_;

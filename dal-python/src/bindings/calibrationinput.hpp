@@ -138,6 +138,10 @@ namespace Dal::Python::Calibration {
                     throw py::type_error("unknown keyword: " + key);
             }
         }
+        void Check(const char* key, bool condition, const String_& expected, const String_& actual = "") const {
+            if (!condition)
+                CalibrationInputFailure("InvalidCompoundedOisInput", String_("/") + key, expected, actual);
+        }
     };
     template <class T_> py::object Output(const T_& value) {
         if constexpr (HasToken_<T_>::value) {
@@ -160,6 +164,23 @@ namespace Dal::Python::Calibration {
         for (const auto& row : values)
             result[Output(row.first)] = Output(row.second);
         return result;
+    }
+    inline py::list Output(const Matrix_<Cell_>& cells) {
+        py::list rows;
+        for (int i = 0; i < cells.Rows(); ++i) {
+            py::list row;
+            for (int j = 0; j < cells.Cols(); ++j)
+                row.append(std::visit(
+                    [](const auto& value) -> py::object {
+                        if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::monostate>)
+                            return py::none();
+                        else
+                            return Output(value);
+                    },
+                    cells(i, j).val_));
+            rows.append(row);
+        }
+        return rows;
     }
     template <class T_, class F_> py::class_<T_> Struct(py::module_& m, const char* name, F_ construct) {
         return py::class_<T_>(m, name).def(py::init([construct](py::kwargs values) {

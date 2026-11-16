@@ -7,6 +7,200 @@ import pytest
 import dal
 
 
+def test_v2_observation_convention_is_typed_and_readonly():
+    convention = dal.CompoundedOisObservationConvention_("ObservationShift", lookback_business_days=1)
+    assert convention.mode == "ObservationShift"
+    assert convention.lookback_business_days == 1
+    assert convention.lockout_business_days == 0
+    with pytest.raises(AttributeError):
+        convention.lookback_business_days = 2
+
+
+def v2_request(mode="ObservationShift", *, policy="Model", **changes):
+    _, legacy, spec = ois_request(method="AAD", policy=policy)
+    start, end, pay = dal.Date_(2024, 3, 5), dal.Date_(2024, 3, 8), dal.Date_(2024, 3, 12)
+    values = {key: getattr(spec, key) for key in (
+        "instrument_id", "direction", "discount_route", "projection_route", "fixing_index", "notional", "coupon", "currency",
+        "collateral_currency", "collateral_type", "observation_basis", "fixed_basis", "calendar")}
+    counts = dict(lookback_business_days=1) if mode in ("Lookback", "ObservationShift") else dict(lockout_business_days=1) if mode == "Lockout" else {}
+    values.update(rule_id="dal.compounded-ois-cashflows/2", observation_convention=dal.CompoundedOisObservationConvention_(mode, **counts),
+                  fixed_leg=[dal.CompoundedOisFixedRow_(start=start, end=end, payment=pay, accrual=3 / 365)],
+                  coupons=[dal.CompoundedOisCouponRow_(coupon_id="coupon", start=start, end=end, payment=pay)])
+    values.update(changes)
+    trade = dal.CompoundedOisScriptSpec_(**values)
+    prepared = dal.CompoundedOis_Prepare(trade, legacy.valuation)
+    instrument = dal.CompoundedOisScriptInstrument_New(prepared)
+    request = dal.CurveScriptEvaluationRequest_(geometry=legacy.geometry, market=legacy.market, valuation=legacy.valuation,
+        parameters=legacy.parameters, compounded_ois=prepared, derivative_method="AAD")
+    return instrument, request, trade
+
+
+def audit_values(row):
+    return [str(value) if isinstance(value, dal.DateTime_) else value for value in row]
+
+
+def v2_growth(mode):
+    return {"None": math.exp(.0003), "Lockout": math.exp(.0003), "ObservationShift": math.exp(.0006),
+            "Lookback": (1 + math.expm1(.0004) / 4) * math.exp(.0002)}[mode]
+
+
+@pytest.mark.parametrize("mode", ["None", "Lookback", "ObservationShift", "Lockout"])
+def test_v2_schedule_and_price_are_owning_and_legacy_columns_stay_fixed(mode):
+    instrument, request, trade = v2_request(mode)
+    prepared = request.compounded_ois
+    assert trade.observations == []
+    schedule = prepared.observation_schedule
+    assert len(schedule) == 3
+    assert schedule[0].accrual_start == dal.Date_(2024, 3, 5)
+    assert schedule[0].accrual == 1 / 360
+    assert schedule[0].compounding_accrual == (4 / 360 if mode == "ObservationShift" else 1 / 360)
+    assert schedule[0].rate_start == dal.Date_(2024, 3, 1 if mode in ("Lookback", "ObservationShift") else 5)
+    assert schedule[2].reused_from_row == (1 if mode == "Lockout" else None)
+    before = dal.CompoundedOis_Get_ObservationSchedule(prepared)
+    assert len(before) == 4 and len(before[0]) == 22
+    assert before[1][0:2] == ["dal.compounded-ois-cashflows/2", mode]
+    result = dal.CurveScriptInstrument_Evaluate(instrument, request)
+    growth = v2_growth(mode)
+    expected = 100 * (growth - 1 - 0.02 * 3 / 365) * math.exp(-0.0011)
+    assert result.values[0] == pytest.approx(expected, abs=1e-10)
+    assert result.observation_schedule_identity == prepared.observation_schedule_identity
+    assert len(dal.CurveScriptEvaluation_Get_Table(result, "observations")[0]) == 15
+    table = dal.CurveScriptEvaluation_Get_Table(result, "observation_schedule")
+    assert len(table) == 4 and len(table[0]) == 26
+    assert [audit_values(row[:22]) for row in table] == [audit_values(row) for row in before]
+    assert result.observation_schedule[0].source == "Projection"
+    with pytest.raises(AttributeError):
+        schedule[0].compounding_accrual = 99
+    schedule.clear()
+    assert len(prepared.observation_schedule) == 3
+    del prepared, instrument, request, trade
+    gc.collect()
+    assert result.observation_schedule[0].source_key == "observation_schedule/0"
+    assert result.values[0] == pytest.approx(expected, abs=1e-10)
+    assert len(dal.CurveScriptEvaluation_Get_Table(result, "observation_schedule")) == 4
+
+
+@pytest.mark.parametrize("mode,settings,error", [
+    ("Lookback", {"lookback_business_days": True}, TypeError),
+    ("Lookback", {"lookback_business_days": 1.0}, TypeError),
+    ("Lookback", {"lookback_business_days": "1"}, TypeError),
+    ("Lookback", {"lookback_business_days": 2**63}, dal.CalibrationError),
+    ("Lookback", {"lookback_business_days": -1}, dal.CalibrationError),
+    ("Lookback", {}, dal.CalibrationError),
+    ("None", {"lockout_business_days": 1}, dal.CalibrationError),
+    ("Lockout", {"lockout_business_days": 1, "lookback_business_days": 1}, dal.CalibrationError),
+    ("none", {}, dal.CalibrationError),
+    ("Other", {}, dal.CalibrationError),
+])
+def test_v2_convention_conversion_is_strict(mode, settings, error):
+    with pytest.raises(error):
+        dal.CompoundedOisObservationConvention_(mode, **settings)
+
+
+def test_v2_rule_and_manual_observations_have_one_owner():
+    _, _, legacy = ois_request()
+    with pytest.raises(dal.CalibrationError):
+        v2_request(observations=legacy.observations)
+    with pytest.raises(dal.CalibrationError):
+        v2_request(observation_convention=None)
+    with pytest.raises(dal.CalibrationError):
+        v2_request(rule_id="dal.compounded-ois-cashflows/1")
+    with pytest.raises(TypeError):
+        dal.CompoundedOisObservationConvention_("Lookback", 1)
+    with pytest.raises(TypeError):
+        dal.CompoundedOisObservationConvention_("None", misspelled=1)
+    _, omitted, _ = v2_request()
+    _, empty, _ = v2_request(observations=[])
+    assert omitted.compounded_ois.contract_identity == empty.compounded_ois.contract_identity
+
+
+def test_v2_audit_preserves_working_weekend_and_settled_blank_rates():
+    start, end, pay = dal.Date_(2024, 3, 5), dal.Date_(2024, 3, 12), dal.Date_(2024, 3, 15)
+    instrument, request, trade = v2_request("None",
+        calendar=dal.HolidayCenterData_(center="explicit", holidays=[dal.Date_(2024, 3, 4)], work_weekends=[dal.Date_(2024, 3, 9)]),
+        fixed_leg=[dal.CompoundedOisFixedRow_(start=start, end=end, payment=pay, accrual=7 / 365)],
+        coupons=[dal.CompoundedOisCouponRow_(coupon_id="coupon", start=start, end=end, payment=pay)])
+    schedule = request.compounded_ois.observation_schedule
+    assert len(schedule) == 6
+    assert schedule[4].accrual_start == dal.Date_(2024, 3, 9)
+    assert schedule[4].accrual_end == dal.Date_(2024, 3, 11)
+    assert schedule[4].compounding_accrual == 2 / 360
+    valuation = dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2024, 3, 16), fixings=dal.MarketFixingSnapshot_New({}))
+    prepared = dal.CompoundedOis_Prepare(trade, valuation)
+    request = dal.CurveScriptEvaluationRequest_(geometry=dal.CurveInstrumentGeometry_(today=valuation.evaluation_date, currency="USD",
+        knot_dates=[valuation.evaluation_date, dal.Date_(2024, 4, 1)], parameterization="LOG_DISCOUNT", calibrate_discount_curve=False,
+        target_overnight_route="USD.SOFR"),
+        market=request.market, valuation=valuation, compounded_ois=prepared, parameters=[-0.002], measure_ids=["Price"])
+    result = dal.CurveScriptInstrument_Evaluate(instrument, request)
+    assert result.values == [0.0]
+    assert all(row.source == "Settled" and row.rate is None and row.settled for row in result.observation_schedule)
+    assert all(row[23] is None for row in dal.CurveScriptEvaluation_Get_Table(result, "observation_schedule")[1:])
+
+
+def test_v2_today_history_and_missing_fixing_report_are_owning():
+    instrument, request, trade = v2_request(policy="RequireHistorical")
+    result = dal.CurveScriptInstrument_Evaluate(instrument, request)
+    assert result.observation_schedule[0].historical_required
+    assert result.observation_schedule[0].source == "Historical"
+    assert result.observation_schedule[0].rate == 0.021
+    missing = dal.ScriptValuationSettings_(evaluation_date=request.valuation.evaluation_date, today_fixing="RequireHistorical",
+        fixings=dal.MarketFixingSnapshot_New({}))
+    prepared = dal.CompoundedOis_Prepare(trade, missing)
+    failed_request = dal.CurveScriptEvaluationRequest_(geometry=request.geometry, market=request.market, valuation=missing,
+        compounded_ois=prepared, parameters=request.parameters)
+    with pytest.raises(dal.CalibrationError) as raised:
+        dal.CurveScriptInstrument_Evaluate(instrument, failed_request)
+    error = raised.value
+    del raised, request, trade, prepared, failed_request, instrument
+    gc.collect()
+    assert error.code == "MissingFixing" and error.diagnostic.field
+    assert json.loads(dal.CalibrationReport_Get_Json(error.report))["errors"][0]["instrument_id"] == "python-ois"
+
+
+@pytest.mark.parametrize("mode", ["None", "Lookback", "ObservationShift", "Lockout"])
+def test_v2_full_and_pv_only_quote_risk_match_fixed_contract_recalibration(mode):
+    instrument, request, trade = v2_request(mode)
+
+    def calibration(quote):
+        observation = dal.CalibrationObservation_New("par", instrument, "ParRate",
+            dal.CalibrationMarketQuote_New("q", quote, dal.CalibrationValueUnit_(kind="Rate")), 1e-10)
+        spec = dal.CurveInstrumentCalibrationSpec_(geometry=request.geometry, market=request.market, valuation=request.valuation,
+            observations=[observation], compounded_ois=[request.compounded_ois])
+        return spec, dal.Calibrate_CurveInstruments(spec, options=dal.CurveInstrumentCalibrationOptions_(jacobian_mode="AAD"))
+
+    def price(fit):
+        return dal.CurveScriptInstrument_Evaluate(instrument, dal.CurveScriptEvaluationRequest_(geometry=request.geometry,
+            market=request.market, valuation=request.valuation, compounded_ois=request.compounded_ois, parameters=fit.parameters,
+            measure_ids=["Price"])).values[0]
+
+    spec, fit = calibration(0.025)
+    assert fit.model_measures == pytest.approx([0.025], abs=1e-12)
+    results = []
+    for pv_only in [False, True]:
+        snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(fit, dal.ScriptCurveQuoteRiskAccuracy_(residual_absolute_limits=[1e-12],
+            min_reciprocal_condition=1e-10, response_backward_error_limit=1e-12, pv_only=pv_only))
+        assert snapshot.risk_available and snapshot.mapping_available != pv_only
+        result = dal.CalibrationInstrument_ValueWithQuoteRisk(instrument, snapshot, spec)
+        assert result.available and result.currency == "USD"
+        assert result.pv == pytest.approx(price(fit), abs=1e-10)
+        assert result.dv01 == [x * 1e-4 for x in result.raw_sensitivity]
+        results.append(result)
+    assert results[0].raw_sensitivity == results[1].raw_sensitivity
+    previous = None
+    for step in [1e-4, 5e-5]:
+        _, up = calibration(0.025 + step)
+        _, down = calibration(0.025 - step)
+        fd = (price(up) - price(down)) / (2 * step) / trade.notional
+        assert results[0].raw_sensitivity[0] / trade.notional == pytest.approx(fd, abs=1e-7, rel=1e-5)
+        if previous is not None:
+            assert fd == pytest.approx(previous, abs=1e-7, rel=1e-5)
+        previous = fd
+    del spec, fit, snapshot, request, instrument, trade
+    gc.collect()
+    assert results[0].quote_axis[0].id == "q"
+    assert results[0].raw_sensitivity == results[1].raw_sensitivity
+
+
 def ois_request(*, method="None", policy="Model", direction="PayFixed", notional=100.0,
                 missing=False, parameters=None, measure_ids=None):
     today, a, b, c, pay = [dal.Date_(2024, m, d) for m, d in [(3, 1), (2, 29), (3, 5), (3, 6), (3, 8)]]

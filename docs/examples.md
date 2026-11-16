@@ -137,6 +137,12 @@ demonstrates mixed historical/future rates, a weekend/holiday factor and
 delayed payment. Its [calling guide](ccy-curves/compounded-ois.md) includes
 Python/Excel recipes and explains the native partial axis.
 
+The separate [OIS observation and quote-risk facade program](../dal-public/examples/compounded_ois_quote_risk/compounded_ois_quote_risk.cpp)
+and [Python example](../dal-python/examples/020.compounded_ois_quote_risk.py)
+show all four `/2` observation modes, immutable audit rows, an explicit EXACT
+calibration and full/PV-only signed quote DV01 against complete recalibration.
+The existing `/1` facade and core programs remain separate targets.
+
 Follow the [segmented MC and LSMC worksheet recipe](../dal-excel/examples/011.native_aad_risk.md).
 It gives exact cell locations, input matrices, handle dependencies and result
 queries. The [Excel interface](excel/README.md) documents all function signatures,
