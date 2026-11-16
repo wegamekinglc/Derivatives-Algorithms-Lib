@@ -39,7 +39,7 @@ def base_row(source, grid, name):
         paired_gate="NOT_RUN",
         grid_gate="NOT_RUN",
         grid_reference_status="NOT_RUN",
-        dmax=8728,
+        dmax=8736,
         stream_family=0 if name == "F2_linear" else 1,
         final_h=1 / 3072,
         pair_h=[1 / 1536, 1 / 3072],

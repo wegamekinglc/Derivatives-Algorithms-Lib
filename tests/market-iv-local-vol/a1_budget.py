@@ -20,19 +20,25 @@ LIMITS = dict(
 )
 
 
-def checked_address(family, batch, path, coordinate, dimension=8728):
-    if dimension <= 0:
-        raise ValueError("Invalid scalar dimension")
+def check_coordinate(family, batch, path, coordinate):
     if not (
         0 <= family < 2
         and 0 <= batch < 16
         and 0 <= path < 2**20
-        and 0 <= coordinate < 8728
+        and 0 <= coordinate < 8736
     ):
         raise ValueError("Invalid frozen coordinate")
+
+
+def checked_address(family, batch, path, coordinate, dimension=8736):
+    if dimension <= 0:
+        raise ValueError("Invalid scalar dimension")
+    check_coordinate(family, batch, path, coordinate)
     value = ((family * 16 + batch) * 2**20 + path) * dimension + coordinate
     if value >= 2**64 or 2 * 16 * 2**20 * dimension >= 2**64:
         raise OverflowError("Scalar reservation overflow")
+    if dimension != 8736:
+        raise ValueError("A/3 requires the frozen Dmax8736 stride")
     return value
 
 
@@ -77,6 +83,7 @@ class Budget:
         self.path = Path(path)
         self.journal = self.path.with_suffix(".jsonl")
         self.limits = {**LIMITS, **(limits or {})}
+        self.last_state_hash, self.last_entry_hash = None, None
         require_creatable(self.path, self.journal, create)
         if self.path.exists():
             self.state = json.loads(self.path.read_text())
@@ -85,7 +92,10 @@ class Budget:
                 or self.state["limits"] != self.limits
             ):
                 raise RuntimeError("Cumulative budget identity mismatch")
-            validate(self.journal, digest(self.path), self.state)
+            self.last_state_hash = digest(self.path)
+            self.last_entry_hash = validate(
+                self.journal, self.last_state_hash, self.state
+            )
         else:
             if not create or self.journal.exists():
                 raise RuntimeError("Missing cumulative budget; cannot reset")
@@ -107,6 +117,10 @@ class Budget:
 
     def save(self, event):
         prior = digest(self.path) if self.path.exists() else None
+        if prior != self.last_state_hash:
+            raise RuntimeError(
+                "Stale cumulative ledger writer cannot overwrite a newer state"
+            )
         self.state["previous_hash"] = prior
         self.state["sequence"] += 1
         self.state["last_event"] = event
@@ -114,27 +128,28 @@ class Budget:
         temporary = self.path.with_suffix(".next")
         temporary.write_text(json.dumps(self.state, indent=2, allow_nan=False) + "\n")
         os.replace(temporary, self.path)
-        with self.journal.open("a") as stream:
-            stream.write(
-                json.dumps(
-                    entry(
-                        dict(
-                            sequence=self.state["sequence"],
-                            previous_hash=prior,
-                            state_sha256=digest(self.path),
-                            event=event,
-                            utc=self.state["utc"],
-                            solves_reserved=self.state["solves_reserved"],
-                            total_seconds=self.state["total_seconds"],
-                        ),
-                        self.journal,
-                        self.state.get("transition")
-                        if event == "transition:A/2"
-                        else None,
-                    )
-                )
-                + "\n"
+        serialized = json.dumps(
+            entry(
+                dict(
+                    sequence=self.state["sequence"],
+                    previous_hash=prior,
+                    state_sha256=digest(self.path),
+                    event=event,
+                    utc=self.state["utc"],
+                    solves_reserved=self.state["solves_reserved"],
+                    solves_completed=self.state["solves_completed"],
+                    paths_reserved=self.state["paths"],
+                    paths_completed=self.state["paths_completed"],
+                    total_seconds=self.state["total_seconds"],
+                ),
+                self.last_entry_hash,
+                self.state.get("transition") if event == "transition:A/2" else None,
             )
+        )
+        with self.journal.open("a") as stream:
+            stream.write(serialized + "\n")
+        self.last_state_hash = digest(self.path)
+        self.last_entry_hash = hashlib.sha256(serialized.encode()).hexdigest()
 
     def begin(self, phase):
         if self.state["active_phase"]:

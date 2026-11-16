@@ -3,8 +3,9 @@
 This is the DAL-542 / S3 test harness. Production construction now accepts the
 frozen grids after the short-time Dupire repair. Numerical acceptance is
 determined separately: the original smile grids fail N5, while the A/2 P7/P8
-reference/grid studies pass. A/2 now stops at production timeline nesting
-before any formal MC path.
+reference/grid studies pass. A/2 stopped at production timeline nesting
+before any formal MC path; A/3 repairs the approved coordinate protocol and
+continues from that sealed failure with the same cumulative budget.
 A successful executable exit or a small MC price error does not qualify S3.
 
 The controls are API note section 11 and the corresponding DAL-538 plan.
@@ -12,7 +13,47 @@ Production baseline is `53a2b1592993f3a1d354df2d6ec2ae6918e5ef6d`;
 the production repair is `b0591270d904d9f4d1a6cf5ce94f121a8acee8f8`.
 This directory adds no production policy, public interface or dependency pin.
 
-## A/2 continuation and A/1 history
+## A/3 continuation
+
+The active control is `.codex/artifacts/specs/dal-542-n5-resolution-a.md`
+(A/3), SHA-256
+`acf410567786916601584b71a954991b0a2c81f180aab734cd4be0091ed96ec7`.
+All 438 anchors remain unchanged. Only segment 60, with binary64 endpoints
+`0x1.0006f5248e2e8p-4` and `0x1.2006f5248e2e8p-4`, receives four coarse
+steps instead of three. Other segments retain ceil(384*dt); midpoint
+refinement gives dimensions 1092/2184/4368/8736 at the unchanged four h values.
+C++ and Python reject a mismatched index or endpoint. Addresses use Dmax8736:
+`(((family*16+block)*2^20+path)*8736+coordinate)`, with last address
+293131517951. Old Dmax8728 and Dmax1584 raw paths are not reused.
+
+Freeze A/3 only after committing and building the actual implementation.
+The freeze archives the original A/2 manifest, truncated JSON, failure log,
+ledger and 2284-event journal. Event 2285 disposes the proven pre-fine-RNG
+failure; event 2286 binds the new execution identity and all sixteen unique
+old-to-new coordinate mappings. Reserved paths remain [16,0], completed
+paths remain [0,0], solves remain 290/290 and cumulative seconds remain
+317.6542655419762. Neither publication nor a new namespace creates a budget.
+
+The new native executable checks every timeline spacing, all eight actual
+production Allocate/Init dimensions per family, strict Brownian nesting,
+and 64 default-stream coordinates, paths and prices per model. Both complete
+tiny runs must pass, including the unchanged fitted snapshot and deterministic
+DF/payment checks, before formal sampling. Each tiny retains one field in each
+of sixteen blocks. The first formal tier restores these exact sums and adds
+only paths 1..65535; subsequent tiers extend the same fixed prefix solely for
+insufficient registered SE. Failed admission or an interrupted reserved tier
+requires explicit disposition rather than a silent retry.
+
+A/3 evidence is appended under `build/dal-542-a1/a3`; all old evidence keeps
+its actual execution identity. The manifest maps unchanged reference inputs,
+methods, dependencies and binaries to A/2's 10 P3 expanded revalidations,
+48 central layers, Black admission, old unavailable diagnostics, P7/P8
+reference/grid, N4 and off-node evidence. No unrelated PDE solve is repeated.
+Final numerical results are `a3/qualification-<event>.json`; individual raw
+tiers retain all sixteen block means and exact checkpoint sums. The original
+320-row 184/76/60 history remains separate from the 480-row current view.
+
+## A/2 and A/1 history
 
 The A/2 execution at `fa0740a8` / identity `1099c383...` completed all ten
 corrected expanded layers, reused 48 central layers, re-admitted eight Black
@@ -38,8 +79,7 @@ manifest and 180-event prefix remain sealed. Full raw and the minimal
 reproducer are delivered as issue attachments; the published README update
 is separate from the frozen numerical execution source.
 
-The active F2 amendment is
-`.codex/artifacts/specs/dal-542-n5-resolution-a.md` (A/2). The original 320 rows
+A/2 used the previous R10 amendment. The original 320 rows
 and all original fixtures remain historical evidence. The A/1 current view
 contains 160 reused F1 rows plus 320 newly registered F2 rows. Until actual
 admission succeeds, absent estimates remain NOT_RUN.
@@ -60,14 +100,15 @@ now adds the outer 100-interval segments before synchronous midpoint refinement
 as R8 requires. All 48 central meshes and the central portion of each expanded
 mesh remain bit-identical. Ten executed expanded layers have different outer
 rounding and need affected revalidation before use with the repaired source;
-those corrected PDE layers have not been run. The two central prices causing
+those corrected PDE layers had not yet been run at P3 publication; A/2
+subsequently completed all ten revalidations as described above. The two central prices causing
 the stop and the historical results remain unchanged. The original execution
 source/manifest and cumulative budget remain separate from the published
-source. P3 repeated no formal solve or path. A/2 now makes the old eight
+source. P3 repeated no formal solve or path. A/2 made the old eight
 inputs mandatory nonblocking numerical diagnostics; Black, new P7/P8
 reference/N4/grid and MC gates remain mandatory.
 
-A/2 extends `build/dal-542-a1` with append-only evidence in its `a2/`
+A/2 extended `build/dal-542-a1` with append-only evidence in its `a2/`
 subdirectory. Its manifest freezes actual source/binary/configuration,
 the 48-central/10-expanded layer map and the original manifest/ledger/journal
 hashes. It preserves the original manifest and 180-event prefix; transition
@@ -97,6 +138,8 @@ Build the core-only targets using the configuration below, adding
 bash tests/market-iv-local-vol/a1_driver.sh test
 OPENBLAS_NUM_THREADS=1 python3 -m unittest discover \
   -s tests/market-iv-local-vol -p test_a2.py -v
+OPENBLAS_NUM_THREADS=1 python3 -m unittest discover \
+  -s tests/market-iv-local-vol -p test_a3.py -v
 ctest --test-dir build/dal-542-reference \
   -R 'MarketIv(A1|Qualification)Test' --output-on-failure
 ```
@@ -104,10 +147,10 @@ ctest --test-dir build/dal-542-reference \
 After committing the tested implementation, freeze execution identities once:
 
 ```bash
-bash tests/market-iv-local-vol/a1_driver.sh freeze-a2 \
+bash tests/market-iv-local-vol/a1_driver.sh freeze-a3 \
   --directory build/dal-542-a1
-bash tests/market-iv-local-vol/a1_driver.sh run-a2 \
-  --directory build/dal-542-a1 --foreground-seconds 1800
+bash tests/market-iv-local-vol/a1_driver.sh run-a3 \
+  --directory build/dal-542-a1 --foreground-seconds 21600
 ```
 
 The default original input directory is `build/dal-542-formal` from the
@@ -117,7 +160,8 @@ request, outputs, tiers, coordinates and the initial cumulative ledger hash.
 Results use a separate namespace. Existing manifests and ledgers cannot be
 silently reset. Exit 2 reports a numerical non-acceptance/checkpoint.
 Foreground windows are operational checkpoints, not new numerical budgets:
-the default is 1800 seconds, at most 21600 per invocation. Before a formal
+the command explicitly requests 21600 seconds per invocation. The CLI
+default of 1800 is only an operational window, never a total-budget limit. Before a formal
 tier, the controller uses the fixed six-hour/path-cap rate plus 30 seconds
 to avoid launching an extension that cannot fit the remaining window.
 Windows never change seeds, tiers or SE decisions. A closed checkpoint may
@@ -126,7 +170,7 @@ budget; interrupted active phases/tiers require explicit recovery. Genuine
 reference/grid failures cannot be silently replayed. New C++ builds are
 unnecessary when the recorded binary/build/dependency identities are unchanged.
 
-Execution stops at the first failed required study or grid gate. It first
+The A/2 sequence stopped at the first failed required gate. It first
 runs corrected-domain revalidation, eight Black and eight unchanged old-grid
 diagnostic studies under the new method;
 then actual capture/N4/probes, 16 required grid studies and 56 diagnostics.
@@ -246,7 +290,7 @@ cannot support exact two-way subdivision. The request bytes, grid counts,
 domains and mathematical axes are unchanged. Keep the exact capture, its hash
 and parser mode with the PDE/MC evidence.
 
-## Statistical protocol and actual production execution
+## Original historical statistical protocol and actual production execution
 
 Each fixture is a comparison family with seed 1024, MRG32 Precise, 16 fixed
 blocks, Pmax=2^20 and Dmax equal to its largest fine timeline dimension.

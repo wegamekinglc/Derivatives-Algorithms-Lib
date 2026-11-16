@@ -36,14 +36,11 @@ def validate(path, state_hash, state):
         prefix = "\n".join(lines[: transition["origin_sequence"]]) + "\n"
         if hashlib.sha256(prefix.encode()).hexdigest() != transition["journal"]:
             raise RuntimeError("Original journal prefix changed")
+    return prior_entry
 
 
-def entry(row, journal, transition):
-    lines = journal.read_text().splitlines() if journal.exists() else []
-    previous = lines[-1] if lines else None
-    row["previous_entry_sha256"] = (
-        hashlib.sha256(previous.encode()).hexdigest() if previous else None
-    )
+def entry(row, previous_entry_hash, transition):
+    row["previous_entry_sha256"] = previous_entry_hash
     if transition:
         row["transition"] = transition
     row["entry_sha256"] = seal(row)

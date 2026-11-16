@@ -20,6 +20,7 @@ namespace A1 {
         std::array<Vector_<>, 4> times_;
         std::array<Handle_<ModelData_>, MODELS> data_;
         std::vector<std::shared_ptr<const Payoff_>> payoffs_;
+        std::optional<MarketIvCalibrationSnapshot_> snapshot_;
 
         Family_(const Json_& request, const Json_& fixture) : ordinal_(String_(fixture["id"].GetString()) == "F2_linear" ? 0 : 1) {
             const auto anchors = Axis(request["protocol"]["anchors"]);
@@ -29,6 +30,7 @@ namespace A1 {
             }
             const auto fit = FitMarketIvSurface(Request(fixture));
             REQUIRE(fit.IsSuccess(), fit.Failure());
+            snapshot_.emplace(fit.Snapshot());
             for (size_t grid = 0; grid < 2; ++grid) {
                 const auto& row = Find(request["grids"], grid == 0 ? "P7" : "P8");
                 const auto surface = CalibrateMarketIvDupire(fit.Snapshot(), {Axis(row["spots"]), Axis(row["times"]), {}});
@@ -50,11 +52,12 @@ namespace A1 {
         }
     };
 
-    double Align(const Handle_<ModelData_>& data) {
+    double Align(const Handle_<ModelData_>& data, size_t* dimension) {
         const auto prepared = Prepared(data, "call PAYS MAX(spot()-100,0)");
         auto model = CreateModel<double>(data);
         model->Allocate(prepared.TimeLine(), prepared.DefLine());
         model->Init(prepared.TimeLine(), prepared.DefLine());
+        *dimension = model->SimDim();
         auto ordinary = Script::CreateRNG("mrg32", model->SimDim(), false, {}, "Precise");
         auto scalar = New(RNGType_("MRG32"), 1024, 1, true);
         Vector_<> left(model->SimDim()), right(model->SimDim());
@@ -83,6 +86,62 @@ namespace A1 {
         return total / 64;
     }
 
+    void CheckBrownian(const Family_& family) {
+        const auto& fine = family.times_[3];
+        Vector_<> normals(fine.size() - 1);
+        for (size_t j = 0; j < normals.size(); ++j)
+            normals[j] = std::sqrt(fine[j + 1] - fine[j]);
+        for (size_t level = 0; level < 4; ++level) {
+            const auto& times = family.times_[level];
+            const auto coarse = Aggregate(fine, times, normals);
+            for (size_t j = 0; j < coarse.size(); ++j)
+                REQUIRE(std::abs(coarse[j] - std::sqrt(times[j + 1] - times[j])) <= 1e-12, "A/3 Brownian weights mismatch");
+        }
+    }
+
+    void ModelAdmission(Writer_* writer, const Family_& family, size_t index) {
+        const size_t level = index % 4;
+        const auto& times = family.times_[level];
+        for (size_t j = 1; j < times.size(); ++j)
+            REQUIRE(times[j] > times[j - 1] && times[j] - times[j - 1] <= 1. / (384 * (size_t{1} << level)), "A/3 strict h spacing");
+        const Level_ allocated(family.data_[index], times, family.maturities_, family.payoffs_);
+        size_t defaultDimension = 0;
+        const double price = Align(family.data_[index], &defaultDimension);
+        writer->StartObject();
+        Text(writer, "grid", index < 4 ? "P7" : "P8");
+        Number(writer, "level", level);
+        Number(writer, "expected_dimension", times.size() - 1);
+        Number(writer, "actual_dimension", allocated.model_->SimDim());
+        Number(writer, "default_dimension", defaultDimension);
+        Number(writer, "default_paths", 64);
+        Number(writer, "default_price", price);
+        Text(writer, "status", "PASS");
+        writer->EndObject();
+    }
+
+    void ProtocolAdmission(Writer_* writer, const Family_& family) {
+        CheckBrownian(family);
+        writer->Key("snapshot");
+        writer->StartObject();
+        Number(writer, "rho", family.snapshot_->Rho());
+        Number(writer, "eta", family.snapshot_->Eta());
+        DalTest::Vector(writer, "times", family.snapshot_->Times());
+        DalTest::Vector(writer, "theta", family.snapshot_->Theta());
+        DalTest::Vector(writer, "slopes", family.snapshot_->Slopes());
+        writer->EndObject();
+        writer->Key("protocol_admission");
+        writer->StartObject();
+        Text(writer, "brownian_pairing", "PASS");
+        Number(writer, "last_scalar_address", A1Address(1, 15, MAX_PATHS - 1, A1_DIMENSION - 1));
+        writer->Key("models");
+        writer->StartArray();
+        for (size_t index = 0; index < MODELS; ++index)
+            ModelAdmission(writer, family, index);
+        writer->EndArray();
+        Text(writer, "status", "PASS");
+        writer->EndObject();
+    }
+
     void Accumulate(double value, double* sum, double* correction) {
         const double adjusted = value - *correction, next = *sum + adjusted;
         *correction = (next - *sum) - adjusted;
@@ -99,7 +158,7 @@ namespace A1 {
         auto rng = New(RNGType_("MRG32"), 1024, 1, true);
         rng->SkipNormalTo(A1Address(family.ordinal_, batch, from));
         Sums_ sums = Zeros(), correction = Zeros();
-        Vector_<> fine(8728), normal;
+        Vector_<> fine(8736), normal;
         std::array<Vector_<>, MODELS> values;
         for (size_t p = from; p < to; ++p) {
             rng->FillNormal(&fine);
@@ -171,16 +230,17 @@ namespace A1 {
 
     size_t Restore(const std::string& path, const Family_& family, size_t exponent, std::array<Sums_, 16>* sums) {
         if (path.empty()) {
-            REQUIRE(exponent <= 16, "A/1 extension requires exact prior sums");
+            REQUIRE(exponent == 0, "A/3 formal tiers require the exact prior tiny or tier sums");
             return 0;
         }
         std::ifstream input(path);
         rapidjson::IStreamWrapper stream(input);
         rapidjson::Document checkpoint;
         checkpoint.ParseStream<rapidjson::kParseFullPrecisionFlag>(stream);
-        REQUIRE(!checkpoint.HasParseError() && Number(checkpoint["family"]) == family.ordinal_, "A/1 checkpoint identity");
+        REQUIRE(!checkpoint.HasParseError() && Number(checkpoint["family"]) == family.ordinal_, "A/3 checkpoint identity");
+        REQUIRE(Number(checkpoint["dmax"]) == A1_DIMENSION && Number(checkpoint["seed"]) == 1024, "A/3 checkpoint coordinate identity");
         const size_t previous = static_cast<size_t>(Number(checkpoint["paths_per_batch"]));
-        REQUIRE(exponent > 16 && previous == (size_t{1} << (exponent - 1)), "A/1 checkpoint prefix mismatch");
+        REQUIRE(previous == A1PreviousPrefix(exponent), "A/3 checkpoint prefix mismatch");
         REQUIRE(checkpoint["sums"].Size() == 16, "A/1 checkpoint block count");
         for (size_t b = 0; b < 16; ++b) {
             REQUIRE(checkpoint["sums"][b].Size() == GROUPS, "A/1 checkpoint group count");
@@ -189,7 +249,7 @@ namespace A1 {
                 REQUIRE((*sums)[b][group].size() == WIDTH, "A/1 checkpoint output count");
             }
         }
-        REQUIRE(!Sufficient(*sums, previous), "A/1 cannot extend sufficient SE");
+        REQUIRE(previous == 1 || !Sufficient(*sums, previous), "A/3 cannot extend sufficient formal SE");
         return previous;
     }
 
@@ -198,6 +258,8 @@ namespace A1 {
         rapidjson::OStreamWrapper stream(output);
         Writer_ writer(stream);
         writer.StartObject();
+        Number(&writer, "dmax", A1_DIMENSION);
+        Number(&writer, "seed", 1024);
         Number(&writer, "family", family.ordinal_);
         Number(&writer, "paths_per_batch", paths);
         writer.Key("sums");
@@ -221,6 +283,8 @@ namespace A1 {
         for (auto& batch : sums)
             batch = Zeros();
         const size_t previous = Restore(prior, family, exponent, &sums);
+        Number(writer, "previous_paths_per_batch", previous);
+        Number(writer, "new_paths_per_batch", (size_t{1} << exponent) - previous);
         writer->Key("tiers");
         writer->StartArray();
         const size_t paths = size_t{1} << exponent;
@@ -261,10 +325,10 @@ int main(int argc, char** argv) {
         DalTest::Text(&writer, "schema", "dal.market-iv-a1-mc/1");
         DalTest::Text(&writer, "fixture", argv[3]);
         DalTest::Text(&writer, "sampling", maximum >= 16 ? "FORMAL" : "SMOKE_NOT_QUALIFIED");
-        DalTest::Number(&writer, "dmax", 8728);
+        DalTest::Number(&writer, "dmax", 8736);
         DalTest::Number(&writer, "seed", 1024);
-        for (size_t g = 0; g < 2; ++g)
-            DalTest::Number(&writer, g == 0 ? "P7_default_alignment" : "P8_default_alignment", A1::Align(family.data_[g * 4]));
+        if (maximum == 0)
+            A1::ProtocolAdmission(&writer, family);
         A1::Run(&writer, family, maximum, argc == 6 ? argv[5] : "", std::string(argv[2]) + ".checkpoint.json");
         writer.EndObject();
         output << '\n';

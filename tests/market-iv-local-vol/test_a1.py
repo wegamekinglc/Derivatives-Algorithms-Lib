@@ -98,7 +98,7 @@ class A1Test(unittest.TestCase):
                     self.assertIn(day / 365, row["times"])
         p = protocol(rows)
         self.assertEqual(len(p["anchors"]), 438)
-        self.assertEqual(p["dimensions"], [1091, 2182, 4364, 8728])
+        self.assertEqual(p["dimensions"], [1092, 2184, 4368, 8736])
         with self.assertRaises(ValueError):
             validate_axis([1.0, np.nextafter(1.0, 2.0)])
 
@@ -175,11 +175,11 @@ class A1Test(unittest.TestCase):
     def test_checked_reservations_and_persistent_budget(self):
         with self.assertRaises(ValueError):
             checked_address(0, 0, 0, 0, 0)
-        self.assertEqual(checked_address(1, 15, 2**20 - 1, 8727), 292863082495)
+        self.assertEqual(checked_address(1, 15, 2**20 - 1, 8735), 293131517951)
         with self.assertRaises(ValueError):
             checked_address(2, 0, 0, 0)
         with self.assertRaises(OverflowError):
-            checked_address(1, 15, 2**20 - 1, 8727, 2**63)
+            checked_address(1, 15, 2**20 - 1, 8735, 2**63)
         with tempfile.TemporaryDirectory() as name:
             path = Path(name) / "ledger.json"
             budget = Budget(path, "test", limits={"solves": 2}, create=True)
@@ -247,7 +247,7 @@ class A1Test(unittest.TestCase):
         mc = {
             "sampling": "FORMAL",
             "seed": 1024,
-            "dmax": 8728,
+            "dmax": 8736,
             "tiers": [
                 {
                     "paths_per_batch": 2**16,

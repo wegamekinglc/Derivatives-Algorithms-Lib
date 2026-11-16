@@ -101,7 +101,11 @@ def capture_arguments(args):
 
 def checkpoint_argument(value, parent, name, exponent):
     checkpoint = data_path(value)
-    expected = name + "-tier-" + str(exponent - 1) + ".json.checkpoint.json"
+    expected = (
+        name + "-alignment.json.checkpoint.json"
+        if exponent == 16
+        else name + "-tier-" + str(exponent - 1) + ".json.checkpoint.json"
+    )
     if checkpoint.parent != parent or checkpoint.name != expected:
         raise ValueError("Invalid MC checkpoint identity")
 

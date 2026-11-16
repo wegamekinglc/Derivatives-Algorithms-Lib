@@ -29,7 +29,7 @@ from a1_verify import verify
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 CONTROL = REPO / ".codex/artifacts/specs/dal-542-n5-resolution-a.md"
-CONTROL_SHA = "84a6de0aa9c0773e74022a5d21ab865291c15fed37fe913f5b53f496d75e485a"
+CONTROL_SHA = "acf410567786916601584b71a954991b0a2c81f180aab734cd4be0091ed96ec7"
 BINARIES = (
     "dal_market_iv_capture",
     "dal_market_iv_mc",
@@ -480,6 +480,9 @@ def record_sampling(directory, output, evidence, budget, family, name, paths):
         "evidence_sha256": digest(directory / (name + "-mc.json")),
     }
     budget.save("checkpoint:" + name)
+    from a2_reference import checkpoint
+
+    checkpoint(directory, budget, [output.name, prior.name], name + ":tier")
     return current, prior, verification
 
 
@@ -529,7 +532,10 @@ def run(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["freeze", "run", "freeze-a2", "run-a2"])
+    parser.add_argument(
+        "action",
+        choices=["freeze", "run", "freeze-a2", "run-a2", "freeze-a3", "run-a3"],
+    )
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--original", type=Path, default=REPO / "build/dal-542-formal")
     parser.add_argument("--foreground-seconds", type=int, default=1800)
@@ -538,6 +544,13 @@ def main():
     )
     args = parser.parse_args()
     directory = args.directory.resolve()
+    if args.action in ("freeze-a3", "run-a3"):
+        from a3_run import freeze_a3, run_a3
+
+        if args.action == "freeze-a3":
+            freeze_a3(directory, args.original.resolve(), args.binaries.resolve())
+            return 0
+        return run_a3(directory, args.foreground_seconds)
     if args.action in ("freeze-a2", "run-a2"):
         from a2_run import freeze_a2, run_a2
 

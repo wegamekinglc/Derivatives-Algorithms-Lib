@@ -29,7 +29,7 @@ target_include_directories(dal_market_iv_a1_mc PRIVATE ../../dal-cpp/externals/r
 add_executable(dal_market_iv_a1_protocol_tests test_a1_protocol.cpp)
 target_link_libraries(dal_market_iv_a1_protocol_tests PRIVATE DAL::cpp gtest_main)
 target_include_directories(dal_market_iv_a1_protocol_tests PRIVATE ../../dal-cpp/externals/rapidjson/include)
-target_compile_definitions(dal_market_iv_a1_protocol_tests PRIVATE DAL_A1_REQUEST="${CMAKE_CURRENT_SOURCE_DIR}/a1/request.json")
+target_compile_definitions(dal_market_iv_a1_protocol_tests PRIVATE DAL_A1_REQUEST="${CMAKE_CURRENT_SOURCE_DIR}/a3/request.json")
 gtest_discover_tests(dal_market_iv_a1_protocol_tests)
 add_executable(dal_market_iv_a1_probe a1_probe.cpp)
 target_link_libraries(dal_market_iv_a1_probe PRIVATE DAL::cpp)

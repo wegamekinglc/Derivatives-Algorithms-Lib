@@ -19,7 +19,7 @@ def batch_statistics(row):
 
 
 def validate_identity(mc):
-    if mc["sampling"] != "FORMAL" or mc["seed"] != 1024 or mc["dmax"] != 8728:
+    if mc["sampling"] != "FORMAL" or mc["seed"] != 1024 or mc["dmax"] != 8736:
         raise ValueError("Unqualified A/1 sampling identity")
 
 

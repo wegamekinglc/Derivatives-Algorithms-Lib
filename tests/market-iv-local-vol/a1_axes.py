@@ -4,6 +4,7 @@ import copy
 import math
 
 import mpmath as mp
+from a3_protocol import DIMENSIONS, DMAX, coarse_count
 
 SPECS = (
     (161, 41, 49, 12, 36500, ".2", "4", "2.25"),
@@ -85,14 +86,14 @@ def protocol(rows):
     timelines = []
     for level in range(4):
         times = [0.0]
-        for left, right in zip(anchors, anchors[1:]):
-            count = math.ceil(384 * (right - left)) * 2**level
+        for index, (left, right) in enumerate(zip(anchors, anchors[1:])):
+            count = coarse_count(index, left, right) * 2**level
             times.extend(left + (right - left) * j / count for j in range(1, count))
             times.append(right)
         validate_axis(times)
         timelines.append(times)
     dimensions = [len(t) - 1 for t in timelines]
-    if len(anchors) != 438 or dimensions != [1091, 2182, 4364, 8728]:
+    if len(anchors) != 438 or dimensions != DIMENSIONS:
         raise ValueError("Frozen Brownian dimensions mismatch")
     return dict(
         anchors=anchors,
@@ -103,7 +104,7 @@ def protocol(rows):
         bridge=False,
         batches=16,
         pmax=2**20,
-        dmax=8728,
+        dmax=DMAX,
         tiers=[2**k for k in range(16, 21)],
         h=[1 / 384, 1 / 768, 1 / 1536, 1 / 3072],
         checked_dimension=10408,

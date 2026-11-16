@@ -133,17 +133,21 @@ def layer_path(name, setting):
 
 
 def checkpoint(directory, budget, files, event):
-    registry = budget.state.setdefault("a2_files", {})
+    registry = budget.state.setdefault(registry_key(directory), {})
     for name in files:
         registry[name] = digest(directory / name)
     budget.save("checkpoint:" + event)
 
 
 def validate_checkpoint(directory, budget):
-    for name, expected in budget.state.get("a2_files", {}).items():
+    for name, expected in budget.state.get(registry_key(directory), {}).items():
         path = directory / name
         if not path.is_file() or digest(path) != expected:
             raise RuntimeError("Checkpoint evidence hash mismatch: " + name)
+
+
+def registry_key(directory):
+    return "a3_files" if directory.name == "a3" else "a2_files"
 
 
 class LayerRunner:
