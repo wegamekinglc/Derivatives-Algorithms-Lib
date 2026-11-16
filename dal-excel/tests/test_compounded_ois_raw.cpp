@@ -77,7 +77,8 @@ TEST(CompoundedOisNativeExcelTest, TestGeneratedExportsAndRequiredReorderedTable
                                  "CompoundedOisCalendar_New", "CompoundedOisScriptSpec_New", "CompoundedOis_Prepare", "CompoundedOisPreparations_New",
                                  "CompoundedOisScriptInstrument_New", "CurveScriptEvaluationRequest_New", "CurveScriptInstrument_Evaluate",
                                  "CurveScriptEvaluation_Get_Value", "CurveScriptEvaluation_Get_NativePartials", "CurveScriptEvaluation_Get_Table",
-                                 "CalibrationOvernightCurves_New", "CurveScriptOvernightRoutes_New", "CalibrationStrings_New"}) {
+                                 "CalibrationOvernightCurves_New", "CurveScriptOvernightRoutes_New", "CalibrationStrings_New",
+                                 "CompoundedOisObservationConvention_New", "CompoundedOis_Get_ObservationSchedule"}) {
         const auto name = std::string("xl_") + function;
         ASSERT_NE(GetProcAddress(GetModuleHandleA("dal_excel.xll"), name.c_str()), nullptr) << name;
         const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& item) { return item.cName_ == String_(name); });
@@ -151,5 +152,23 @@ TEST(CompoundedOisNativeExcelTest, TestUnknownContextFieldAfterBlankKeepsCoordin
         ASSERT_NE(error.find("row=3 column=1"), std::string::npos) << error;
         ASSERT_NE(error.find("unknown_after_blank"), std::string::npos) << error;
     }
+}
+TEST(CompoundedOisNativeExcelTest, TestConventionCountsRejectBoolAndFractionalNativeCells) {
+    Excel::ScriptTestInitialize(1);
+    OisRawTable_ table(2, 2);
+    table.Text(0, 0, L"mode");
+    table.Text(0, 1, L"Lookback");
+    table.Text(1, 0, L"lookback_business_days");
+    table.Number(1, 1, 1.);
+    ASSERT_NE(OisRawCall("xl_CompoundedOisObservationConvention_New", &table.range_).substr(0, 7), "#Error:");
+    table.cells_[3].xltype = xltypeBool;
+    table.cells_[3].val.xbool = 1;
+    const auto boolean = OisRawCall("xl_CompoundedOisObservationConvention_New", &table.range_);
+    ASSERT_EQ(boolean.substr(0, 7), "#Error:");
+    ASSERT_NE(boolean.find("row=2 column=2"), std::string::npos);
+    table.Number(1, 1, 1.5);
+    const auto fractional = OisRawCall("xl_CompoundedOisObservationConvention_New", &table.range_);
+    ASSERT_EQ(fractional.substr(0, 7), "#Error:");
+    ASSERT_NE(fractional.find("lookback_business_days"), std::string::npos);
 }
 #endif

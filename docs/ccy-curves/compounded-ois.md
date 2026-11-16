@@ -132,6 +132,49 @@ errors. Complete `cell[][]+` selections are validated, including unknown or
 duplicate content after blank rows, with original row/column positions.
 Unavailable values stay blank and numeric getters reject them.
 
+## Observation conventions and audit projections
+
+The typed convention and frozen schedule are available through the C++ public
+header, Python and Excel. Python constructs
+`CompoundedOisObservationConvention_("ObservationShift", lookback_business_days=1)`
+with keyword-only counts and passes it as `observation_convention`, together
+with explicit `rule_id="dal.compounded-ois-cashflows/2"`. Manual `observations`
+may be omitted or empty for `/2`; they remain required for `/1`. Booleans,
+fractional counts, unknown modes, incompatible counts and mixed rule inputs
+are rejected. Existing action signatures and defaults remain unchanged.
+
+`CompoundedOisObservationScheduleTable(prepared)` in C++,
+`CompoundedOis_Get_ObservationSchedule(prepared)` in Python and
+`COMPOUNDEDOIS.GET.OBSERVATIONSCHEDULE` in Excel return the same 22-column
+prepared audit. Excel creates the typed convention using
+`COMPOUNDEDOISOBSERVATIONCONVENTION.NEW` with exact field/value keys `mode`,
+`lookback_business_days` and `lockout_business_days`; its spec factory accepts
+an `observation_convention` handle and explicit `rule_id`.
+
+The new `observation_schedule` evaluation-table selector appends `source`,
+`rate`, `source_row` and `statement`. The prepared columns, in order, are
+`rule`, `mode`, `coupon_id`, `row`, `coupon_row`, `source_key`, `start`, `end`,
+`accrual`, `rate_start`, `rate_end`, `rate_accrual`, `weight_start`, `weight_end`,
+`compounding_accrual`, `fixing_index`, `fixing_time`, `historical_required`,
+`included`, `settled`, `reused_from_row` and `observation_schedule_identity`.
+`row`, `coupon_row`, `reused_from_row` and `statement` are zero-based;
+`source_row` is the one-based row number in the generated source. `/1` uses
+audit mode `Legacy` and its original `observations/<row>` source key; `/2` uses
+`observation_schedule/<row>`. Existing `observations` columns remain unchanged.
+
+Python exposes copied read-only resolved rows through `observation_schedule`
+and the identity through `observation_schedule_identity`. Table getters return
+independent lists of rows, with native `Date_`/`DateTime_` values and `None` for
+absent cells; Excel uses blank cells. Evaluation results own their schedule,
+rule, mode and identity after requests and prepared handles leave scope.
+Settled rows keep an absent rate, never a fabricated zero fixing.
+
+The separate C++ target `compounded_ois_quote_risk` and
+[`020.compounded_ois_quote_risk.py`](../../dal-python/examples/020.compounded_ois_quote_risk.py)
+show all four modes, fixed K/N, explicit accuracy limits, full/PV-only quote
+risk, complete per-quote recalibration and an owning live-quote rejection.
+The existing `compounded_ois_script` program continues to demonstrate `/1`.
+
 ## Core observation schedule preparation
 
 Core C++ also accepts the explicit `dal.compounded-ois-cashflows/2` rule with a

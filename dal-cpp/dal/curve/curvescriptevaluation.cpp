@@ -149,11 +149,17 @@ namespace Dal {
             }
             return rates;
         }
+        void ScheduleProvenance(const PreparedCompoundedOis_& tables, CurveScriptEvaluationResult_* result) {
+            result->observationRule_ = tables.RuleId();
+            result->observationMode_ = tables.Spec().observationConvention_ ? tables.Spec().observationConvention_->mode_.String() : "Legacy";
+            result->observationScheduleIdentity_ = tables.ObservationScheduleIdentity();
+        }
         void Details(const EvaluationPlan_& plan, const CandidateCurveProvider_<double>& provider, CurveScriptEvaluationResult_* result) {
             const auto& first = plan.measures_.front();
             const auto* family = std::get_if<CalibrationCurveFamily_>(&first.Descriptor());
             const auto& tables = plan.spec_.compoundedOis_;
             if (!tables.empty()) {
+                ScheduleProvenance(*tables.front(), result);
                 result->cashflows_ = TableCashflows(*tables.front());
                 result->observations_ = TableObservations(*tables.front());
             }

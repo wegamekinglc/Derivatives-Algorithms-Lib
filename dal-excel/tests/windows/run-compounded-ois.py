@@ -38,7 +38,7 @@ class Sheet:
 
     def result_block(self, address, rows, columns):
         first = int(address[1:])
-        return self.sheet.Range(f"J{first}:{chr(ord('J') + columns - 1)}{first + rows - 1}").Value2
+        return self.sheet.Cells(first, 10).Resize(rows, columns).Value2
 
     def call(self, name, *args, error=False):
         def argument(value):
@@ -63,12 +63,14 @@ def serial(month, day):
     return (datetime.date(2024, month, day) - datetime.date(1899, 12, 30)).days
 
 
-def build(sheet, policy, missing=False):
+def build(sheet, policy, missing=False, *, mode=None):
     call = lambda name, *args: sheet.call(name, *args)[0]
+    start, end, payment, accrual = (("2024-03-05", "2024-03-08", "2024-03-12", 3 / 365) if mode
+                                   else ("2024-02-29", "2024-03-06", "2024-03-08", 6 / 365))
     fixed = call("COMPOUNDEDOISFIXEDLEG.NEW", sheet.table([
-        ["start", "end", "payment", "accrual"], ["2024-02-29", "2024-03-06", "2024-03-08", 6 / 365]]))
+        ["start", "end", "payment", "accrual"], [start, end, payment, accrual]]))
     coupons = call("COMPOUNDEDOISCOUPONS.NEW", sheet.table([
-        ["coupon_id", "start", "end", "payment"], ["coupon", "2024-02-29", "2024-03-06", "2024-03-08"]]))
+        ["coupon_id", "start", "end", "payment"], ["coupon", start, end, payment]]))
     observations = call("COMPOUNDEDOISOBSERVATIONS.NEW", sheet.table([
         ["coupon_id", "rate_end", "fixing_time", "start", "accrual", "end", "rate_start"],
         ["coupon", "2024-03-01", serial(2, 29), "2024-02-29", 1 / 360, "2024-03-01", "2024-02-29"],
@@ -76,12 +78,19 @@ def build(sheet, policy, missing=False):
         ["coupon", "2024-03-06", serial(3, 5), "2024-03-05", 1 / 360, "2024-03-06", "2024-03-05"]]))
     holidays = call("CALIBRATIONDATES.NEW", sheet.table([["2024-03-04"]]))
     calendar = call("COMPOUNDEDOISCALENDAR.NEW", sheet.table([["center", "explicit"], ["holidays", holidays]]))
-    spec = call("COMPOUNDEDOISSCRIPTSPEC.NEW", sheet.table([
+    fields = [
         ["instrument_id", "excel-p2"], ["direction", "PayFixed"], ["discount_route", "USD.OIS"],
         ["projection_route", "USD.SOFR"], ["fixing_index", "USD-SOFR"], ["notional", 100.0], ["coupon", 0.02],
         ["currency", "USD"], ["collateral_currency", "USD"], ["collateral_type", "OIS"],
         ["observation_basis", "ACT_360"], ["fixed_basis", "ACT_365F"], ["calendar", calendar],
-        ["fixed_leg", fixed], ["coupons", coupons], ["observations", observations]]))
+        ["fixed_leg", fixed], ["coupons", coupons]]
+    if mode:
+        counts = [["lookback_business_days", 1]] if mode in ("Lookback", "ObservationShift") else [["lockout_business_days", 1]] if mode == "Lockout" else []
+        convention = call("COMPOUNDEDOISOBSERVATIONCONVENTION.NEW", sheet.table([["mode", mode]] + counts))
+        fields += [["rule_id", "dal.compounded-ois-cashflows/2"], ["observation_convention", convention]]
+    else:
+        fields += [["observations", observations]]
+    spec = call("COMPOUNDEDOISSCRIPTSPEC.NEW", sheet.table(fields))
     if missing:
         snapshot = call("MARKETFIXINGSNAPSHOT.NEW", None, None, None)
     else:
@@ -106,7 +115,8 @@ def build(sheet, policy, missing=False):
     request = call("CURVESCRIPTEVALUATIONREQUEST.NEW", sheet.table([
         ["geometry", geometry], ["market", market], ["valuation", valuation], ["parameters", parameters],
         ["compounded_ois", tables], ["derivative_method", "AAD"]]))
-    return call("CURVESCRIPTINSTRUMENT.EVALUATE", instrument, request)
+    outcome = call("CURVESCRIPTINSTRUMENT.EVALUATE", instrument, request)
+    return (outcome, tables) if mode else outcome
 
 
 def native_oracle(theta, policy):
@@ -152,6 +162,23 @@ def verify(sheet, policy):
             "cashflows": cashflows, "observations": observations}
 
 
+def verify_v2(sheet, mode):
+    outcome, prepared = build(sheet, "Model", mode=mode)
+    require(sheet.call("CALIBRATIONOUTCOME.GET.STATUS", outcome)[0] == "Evaluated", "Version-2 evaluation failed")
+    _, prepared_address = sheet.call("COMPOUNDEDOIS.GET.OBSERVATIONSCHEDULE", prepared)
+    before = sheet.result_block(prepared_address, 4, 22)
+    _, result_address = sheet.call("CURVESCRIPTEVALUATION.GET.TABLE", outcome, "observation_schedule")
+    after = sheet.result_block(result_address, 4, 26)
+    require([row[:22] for row in after] == list(before), "Frozen/evaluated schedules differ")
+    require(before[1][0:2] == ("dal.compounded-ois-cashflows/2", mode), "Rule/mode audit missing")
+    growth = (math.exp(.0006) if mode == "ObservationShift" else
+              (1 + math.expm1(.0004) / 4) * math.exp(.0002) if mode == "Lookback" else math.exp(.0003))
+    price = sheet.call("CURVESCRIPTEVALUATION.GET.VALUE", outcome, "Price")[0]
+    expected = 100 * (growth - 1 - .02 * 3 / 365) * math.exp(-.0011)
+    require(abs(price - expected) <= 1e-10, "Version-2 independent price oracle")
+    return {"mode": mode, "price": price, "prepared": before, "evaluation": after}
+
+
 def loaded_binaries(excel, expected):
     import win32api
     import win32process
@@ -187,6 +214,7 @@ def run(args):
         sheet = Sheet(excel, book.Worksheets(1))
         sheet.call("INIT.GLOBALDATA", 1)
         values = [verify(sheet, policy) for policy in ["Model", "RequireHistorical"]]
+        version_two = [verify_v2(sheet, mode) for mode in ["None", "Lookback", "ObservationShift", "Lockout"]]
         failed = build(sheet, "Model", missing=True)
         require(sheet.call("CALIBRATIONOUTCOME.GET.STATUS", failed)[0] == "Failed", "Missing fixing did not fail")
         report = sheet.call("CALIBRATIONOUTCOME.GET.REPORT", failed)[0]
@@ -208,7 +236,7 @@ def run(args):
         evidence = {"source_head": head, "excel_version": excel.Version, "excel_build": excel.Build,
                     "loaded_binaries": loaded, "xll_requested_sha256": sha256(args.xll), "build_cache_sha256": sha256(args.build_cache),
                     "dependencies": manifest["dependencies"], "build_manifest_sha256": sha256(args.build_manifest),
-                    "python_evidence_sha256": sha256(args.python_evidence), "values": values, "missing_fixing_code": code,
+                    "python_evidence_sha256": sha256(args.python_evidence), "values": values, "version_two": version_two, "missing_fixing_code": code,
                     "tail_error": error, "workbook": workbook.name}
         args.output.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     finally:

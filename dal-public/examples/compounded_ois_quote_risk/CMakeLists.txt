@@ -1,0 +1,3 @@
+add_executable(compounded_ois_quote_risk compounded_ois_quote_risk.cpp)
+target_link_libraries(compounded_ois_quote_risk PRIVATE DAL::public)
+install(TARGETS compounded_ois_quote_risk RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -49,6 +49,7 @@ namespace Dal {
         CalibrationDerivative_ derivativeMethod_ = CalibrationDerivative_::Value_::None;
         String_ contextIdentity_, candidateIdentity_;
         Vector_<CurveScriptResolvedObservationResult_> observationSchedule_;
+        String_ observationRule_, observationMode_, observationScheduleIdentity_;
     };
     CurveScriptEvaluationResult_ EvaluateCurveScriptInstrument(const Handle_<CalibrationInstrument_>& instrument,
                                                                const CurveScriptEvaluationRequest_& request);
