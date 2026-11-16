@@ -121,6 +121,44 @@ class A1Test(unittest.TestCase):
         for point in (-0.31, 0.0, 0.29, -0.2, 0.14):
             self.assertIn(point, central)
 
+    def test_expanded_mesh_has_exact_parent_endpoints_and_midpoints(self):
+        parent = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], 0, True)
+        np.testing.assert_array_equal(parent[:101], np.linspace(-4.0, -3.0, 101))
+        np.testing.assert_array_equal(parent[-101:], np.linspace(3.0, 4.0, 101))
+        for level in (1, 2, 3):
+            with self.subTest(level=level):
+                parent = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], level - 1, True)
+                child = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], level, True)
+                np.testing.assert_array_equal(
+                    child[::2].view(np.uint64), parent.view(np.uint64)
+                )
+                np.testing.assert_array_equal(
+                    child[1::2].view(np.uint64),
+                    ((parent[:-1] + parent[1:]) / 2).view(np.uint64),
+                )
+                self.assertEqual(len(child), 800 * 2**level + 1)
+
+    def test_expanded_mesh_reproduces_left_midpoint_rounding(self):
+        expanded = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], 1, True)
+        self.assertEqual(expanded[3].hex(), (-3.9850000000000003).hex())
+
+    def test_expanded_mesh_preserves_matched_central_knots_at_every_level(self):
+        knots = [-0.31, 0.0, 0.29]
+        strikes = [-0.2, 0.14]
+        for level in (0, 1, 2, 3):
+            with self.subTest(level=level):
+                central = mesh(knots, strikes, level)
+                expanded = mesh(knots, strikes, level, True)
+                count = 100 * 2**level
+                np.testing.assert_array_equal(
+                    expanded[count:-count].view(np.uint64), central.view(np.uint64)
+                )
+                self.assertEqual(len(central), 600 * 2**level + 1)
+                self.assertEqual(len(expanded), 800 * 2**level + 1)
+                self.assertLessEqual(
+                    set(knots + strikes + [-3.0, 0.0, 3.0]), set(central)
+                )
+
     def test_reference_admission_refuses_missing_nonfinite_and_failed_components(self):
         self.assertFalse(admitted({}))
         self.assertFalse(admitted({"space": []}))

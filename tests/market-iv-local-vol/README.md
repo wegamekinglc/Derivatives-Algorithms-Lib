@@ -30,9 +30,15 @@ is in `a1/checkpoint.json`; `a1/qualification.jsonl` has 160 reused PASS rows
 and 320 NOT_RUN rows. Original 184/76/60 historical counts remain unchanged.
 These results do not qualify S3 or authorize a different mesh/refinement.
 Subsequent Codacy repairs extract helpers and restrict child-process execution;
-they preserve the numerical kernel ASTs, canonical request and all 58 solved
-meshes. The original execution source/manifest and cumulative budget remain
-separate from the published source. No formal solve or path was repeated.
+at publication `97e0c1a0`, they preserved all 58 executed meshes. The P3 repair
+now adds the outer 100-interval segments before synchronous midpoint refinement
+as R8 requires. All 48 central meshes and the central portion of each expanded
+mesh remain bit-identical. Ten executed expanded layers have different outer
+rounding and need affected revalidation before use with the repaired source;
+those corrected PDE layers have not been run. The two central prices causing
+the stop and the historical results remain unchanged. The original execution
+source/manifest and cumulative budget remain separate from the published
+source. No formal solve or path was repeated; R10 still blocks later stages.
 
 `a1/request.json` contains the canonical 90-digit-to-binary64 P0–P8 axes,
 the two families, all four nested timelines and fixed coordinate reservations.

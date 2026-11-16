@@ -45,17 +45,16 @@ def initial_mesh(anchors):
 
 def mesh(grid_knots, strike_knots, level=0, expanded=False):
     x = initial_mesh(mandatory_anchors(grid_knots, strike_knots))
-    for _ in range(level):
-        x = np.sort(np.concatenate((x, (x[:-1] + x[1:]) / 2)))
     if expanded:
-        count = 100 * 2**level
         x = np.concatenate(
             (
-                np.linspace(-4.0, -3.0, count + 1)[:-1],
+                np.linspace(-4.0, -3.0, 101)[:-1],
                 x,
-                np.linspace(3.0, 4.0, count + 1)[1:],
+                np.linspace(3.0, 4.0, 101)[1:],
             )
         )
+    for _ in range(level):
+        x = np.sort(np.concatenate((x, (x[:-1] + x[1:]) / 2)))
     if np.any(np.diff(x) <= 0):
         raise ValueError("REFERENCE_UNAVAILABLE: collapsed mesh")
     return x
