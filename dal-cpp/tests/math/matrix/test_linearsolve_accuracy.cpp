@@ -10,6 +10,8 @@
 #include <dal/math/matrix/linearsolveaccuracy.hpp>
 #include <dal/utilities/exceptions.hpp>
 
+#include "linearsolvetransposefixture.hpp"
+
 using Dal::CheckedLinearSolve_;
 using Dal::LinearSolveAccuracyPolicy_;
 using Dal::Matrix_;
@@ -67,6 +69,85 @@ namespace {
         ASSERT_EQ(budget.PeakCapacityBytes(), 0);
     }
 } // namespace
+
+TEST(LinearSolveDiagnosticsTest, TestPivotedTriangularTransposeRetainsZeroComponentsAtStrictAccuracy) {
+    SquareMatrix_<> matrix(2, 0.);
+    matrix(0, 0) = .49977023936292558;
+    matrix(1, 0) = .67076481424944678;
+    matrix(1, 1) = .24986618787781789;
+    Matrix_<> seeds(2, 2, 0.);
+    seeds(0, 0) = seeds(1, 1) = 1.;
+    const CheckedLinearSolve_ checked(matrix, seeds, {1e-12, 1e-12});
+    const auto rhs = checked.ReverseRhs(seeds);
+    ASSERT_DOUBLE_EQ(rhs.adjoints_.rhs_(1, 0), 0.);
+    ASSERT_NEAR(rhs.adjoints_.rhs_(0, 0), 1. / matrix(0, 0), 1e-14);
+    ASSERT_NEAR(rhs.adjoints_.rhs_(1, 1), 1. / matrix(1, 1), 1e-14);
+    ASSERT_NEAR(rhs.adjoints_.rhs_(0, 1), -matrix(1, 0) / matrix(0, 0) / matrix(1, 1), 1e-14);
+    const auto full = checked.Reverse(seeds);
+    for (int i = 0; i < 2; ++i) {
+        ASSERT_LE(rhs.transposeBackwardErrors_[i], 1e-12);
+        ASSERT_LE(full.transposeBackwardErrors_[i], 1e-12);
+        for (int j = 0; j < 2; ++j)
+            ASSERT_DOUBLE_EQ(full.adjoints_.rhs_(i, j), rhs.adjoints_.rhs_(i, j));
+    }
+}
+
+TEST(LinearSolveDiagnosticsTest, TestTransposeCorrectionPreservesTinyNonzeroCouplings) {
+    for (const double coupling : {1e-20, 1e-200}) {
+        SquareMatrix_<> matrix(2, 0.);
+        matrix(0, 0) = .49977023936292558;
+        matrix(1, 0) = .67076481424944678;
+        matrix(1, 1) = .24986618787781789;
+        matrix(0, 1) = coupling;
+        Matrix_<> seeds(2, 1, 0.);
+        seeds(0, 0) = 1.;
+        const CheckedLinearSolve_ checked(matrix, seeds, {1e-12, 1e-12});
+        const auto risk = checked.ReverseRhs(seeds);
+        const double determinant = matrix(0, 0) * matrix(1, 1) - matrix(0, 1) * matrix(1, 0);
+        const double expected = -coupling / determinant;
+        ASSERT_NE(risk.adjoints_.rhs_(1, 0), 0.);
+        ASSERT_NEAR(risk.adjoints_.rhs_(1, 0) / expected, 1., 1e-12);
+        ASSERT_LE(risk.transposeBackwardErrors_[0], 1e-12);
+    }
+}
+
+TEST(LinearSolveDiagnosticsTest, TestRefinedFullReverseUsesFinalRhsForMatrixAdjoints) {
+    for (const double coupling : {0., 1e-20, 1e-200})
+        for (const int columns : {1, 2}) {
+            SCOPED_TRACE(coupling);
+            SCOPED_TRACE(columns);
+            const Dal::Test::TransposeRefinementCase_ sample(coupling, columns);
+            const CheckedLinearSolve_ solve(sample.matrix_, sample.rhs_, {1e-12, 1e-12});
+            const auto full = solve.Reverse(sample.seeds_), lean = solve.ReverseRhs(sample.seeds_);
+            for (int row = 0; row < 3; ++row) {
+                for (int column = 0; column < columns; ++column) {
+                    ASSERT_LE(full.transposeBackwardErrors_[column], 1e-12);
+                    ASSERT_DOUBLE_EQ(full.adjoints_.rhs_(row, column), lean.adjoints_.rhs_(row, column));
+                    ASSERT_NO_FATAL_FAILURE(Dal::Test::AssertTransposeValue(full.adjoints_.rhs_(row, column), sample.RhsAdjoint(row, column)));
+                }
+                for (int column = 0; column < 3; ++column)
+                    ASSERT_NO_FATAL_FAILURE(Dal::Test::AssertTransposeValue(full.adjoints_.matrix_(row, column), sample.MatrixAdjoint(row, column)));
+            }
+        }
+}
+
+TEST(LinearSolveDiagnosticsTest, TestHomogeneousTransposeChainPreservesExactZeros) {
+    SquareMatrix_<> matrix(3, 0.);
+    matrix(0, 0) = .49977023936292558;
+    matrix(1, 0) = .67076481424944678;
+    matrix(1, 1) = .24986618787781789;
+    matrix(2, 0) = .25;
+    matrix(2, 1) = .45;
+    matrix(2, 2) = .3;
+    Matrix_<> seeds(3, 1, 0.);
+    seeds(0, 0) = 1.;
+    const CheckedLinearSolve_ checked(matrix, seeds, {1e-12, 1e-12});
+    const auto risk = checked.ReverseRhs(seeds);
+    ASSERT_DOUBLE_EQ(risk.adjoints_.rhs_(1, 0), 0.);
+    ASSERT_DOUBLE_EQ(risk.adjoints_.rhs_(2, 0), 0.);
+    ASSERT_NEAR(risk.adjoints_.rhs_(0, 0), 1. / matrix(0, 0), 1e-14);
+    ASSERT_LE(risk.transposeBackwardErrors_[0], 1e-12);
+}
 
 TEST(LinearSolveDiagnosticsTest, TestCheckedAnalyticNonsymmetricMultipleRhs) {
     SquareMatrix_<> matrix(2);

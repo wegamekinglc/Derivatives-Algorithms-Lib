@@ -15,6 +15,7 @@ namespace Dal {
     using StorableCompoundedOisCoupons_ = StorableCalibrationValue_<Vector_<CompoundedOisCouponRow_>>;
     using StorableCompoundedOisObservations_ = StorableCalibrationValue_<Vector_<CompoundedOisObservationRow_>>;
     using StorableCompoundedOisCalendar_ = StorableCalibrationValue_<HolidayCenterData_>;
+    using StorableCompoundedOisObservationConvention_ = StorableCalibrationValue_<CompoundedOisObservationConvention_>;
     using StorableCompoundedOisScriptSpec_ = StorableCalibrationValue_<CompoundedOisScriptSpec_>;
     using StorablePreparedCompoundedOis_ = StorableCalibrationValue_<Handle_<PreparedCompoundedOis_>>;
     using StorableCompoundedOisPreparations_ = StorableCalibrationValue_<Vector_<Handle_<PreparedCompoundedOis_>>>;
@@ -28,6 +29,9 @@ namespace Dal {
     DAL_OIS_EXCEL_API void CalibrationOvernightCurves_New(const Matrix_<Cell_>& bindings, Handle_<StorableCalibrationOvernightCurves_>* value);
     DAL_OIS_EXCEL_API void CalibrationStrings_New(const Matrix_<Cell_>& rows, Handle_<StorableCalibrationStrings_>* value);
     DAL_OIS_EXCEL_API void CompoundedOisCalendar_New(const Matrix_<Cell_>& settings, Handle_<StorableCompoundedOisCalendar_>* value);
+    DAL_OIS_EXCEL_API void CompoundedOisObservationConvention_New(const Matrix_<Cell_>& settings,
+                                                                  Handle_<StorableCompoundedOisObservationConvention_>* value);
+    DAL_OIS_EXCEL_API void CompoundedOis_Get_ObservationSchedule(const Handle_<StorablePreparedCompoundedOis_>& prepared, Matrix_<Cell_>* value);
     DAL_OIS_EXCEL_API void CompoundedOisScriptSpec_New(const Matrix_<Cell_>& settings, Handle_<StorableCompoundedOisScriptSpec_>* value);
     DAL_OIS_EXCEL_API void CurveScriptEvaluationRequest_New(const Matrix_<Cell_>& settings, Handle_<StorableCurveScriptEvaluationRequest_>* value);
     DAL_OIS_EXCEL_API void CompoundedOis_Prepare(const Handle_<StorableCompoundedOisScriptSpec_>& spec,

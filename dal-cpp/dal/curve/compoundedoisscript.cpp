@@ -11,20 +11,30 @@ namespace Dal::CompoundedOisInternal {
         const auto& r = s.observations_[observation];
         return {s.currency_, s.fixingIndex_, s.projectionRoute_, r.start_, r.end_, r.rateStart_, r.rateEnd_, s.observationBasis_};
     }
+    String_ IndexName(const PreparedCompoundedOis_& tables, size_t observation) {
+        const auto& s = tables.Spec();
+        if (Bytes(s.ruleId_) == "dal.compounded-ois-cashflows/1")
+            return Index(s, observation).Name();
+        const auto& r = tables.ObservationSchedule()[observation];
+        return Index::OvernightObservation_(
+                   {s.currency_, r.fixingIndex_, s.projectionRoute_, r.accrualStart_, r.accrualEnd_, r.rateStart_, r.rateEnd_, s.observationBasis_})
+            .Name();
+    }
     namespace {
-        void
-        Product(const CompoundedOisScriptSpec_& s, size_t first, size_t last, size_t sourceRow, String_* text, Vector_<SourceLocation_>* locations) {
+        void Product(
+            const PreparedCompoundedOis_& tables, size_t first, size_t last, size_t sourceRow, String_* text, Vector_<SourceLocation_>* locations) {
             if (last - first == 1) {
-                locations->push_back({"observations", first, sourceRow, 0, text->size()});
-                *text += "(1+" + NumberText(s.observations_[first].accrual_) + "*FIX(" + Index(s, first).Name() + "," +
-                         Date::ToString(s.observations_[first].fixingTime_.Date()) + "))";
+                const auto& row = tables.ObservationSchedule()[first];
+                locations->push_back({row.sourceKey_.substr(0, row.sourceKey_.find('/')), first, sourceRow, 0, text->size()});
+                *text += "(1+" + NumberText(row.compoundingAccrual_) + "*FIX(" + IndexName(tables, first) + "," +
+                         Date::ToString(row.fixingTime_.Date()) + "))";
                 return;
             }
             const size_t middle = first + (last - first) / 2;
             *text += "(";
-            Product(s, first, middle, sourceRow, text, locations);
+            Product(tables, first, middle, sourceRow, text, locations);
             *text += "*";
-            Product(s, middle, last, sourceRow, text, locations);
+            Product(tables, middle, last, sourceRow, text, locations);
             *text += ")";
         }
         ScriptInstrumentDefinitionSpec_ Definition(const CompoundedOisScriptSpec_& s) {
@@ -68,15 +78,15 @@ namespace Dal::CompoundedOisInternal {
         size_t first = 0;
         for (size_t i = 0; i < s.coupons_.size(); ++i) {
             size_t last = first;
-            while (last < s.observations_.size() && tables->Observations()[last].couponRow_ == i)
+            while (last < tables->ObservationSchedule().size() && tables->ObservationSchedule()[last].couponRow_ == i)
                 ++last;
             const auto row = d.source_.rows_.size() + 1;
             result.locations_.push_back({"coupons", i, row, 0, 0});
             String_ text = s.direction_ == "PayFixed" ? "PAY PAYS N*((" : "PAY PAYS N*(-(";
-            Product(s, first, last, row, &text, &result.locations_);
+            Product(*tables, first, last, row, &text, &result.locations_);
             text += "-1))";
             d.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, Date::ToString(s.coupons_[i].payment_), std::move(text)});
-            pillar = std::max(pillar, std::max(s.coupons_[i].payment_, s.observations_[last - 1].rateEnd_));
+            pillar = std::max(pillar, std::max(s.coupons_[i].payment_, tables->ObservationSchedule()[last - 1].rateEnd_));
             first = last;
         }
         result.instrument_ = NewScriptCalibrationInstrument({s.instrumentId_, NewScriptInstrumentDefinition(d), {}, pillar});
@@ -88,7 +98,8 @@ namespace Dal::CompoundedOisInternal {
             for (const auto& node : event)
                 if (Script::FindNode(*node, [](const Script::Node_& n) {
                         const auto* fixing = dynamic_cast<const Script::NodeFix_*>(&n);
-                        return fixing && dynamic_cast<const Index::Overnight_*>(fixing->index_.get());
+                        return fixing && (dynamic_cast<const Index::Overnight_*>(fixing->index_.get()) ||
+                                          dynamic_cast<const Index::OvernightObservation_*>(fixing->index_.get()));
                     }))
                     return true;
         return false;

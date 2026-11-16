@@ -53,10 +53,11 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc == 2 && std::string(argv[1]) == "--script-curve-quote-risk")
-        return RunScriptCurveQuoteRiskBenchmarks();
-    if (argc == 2 && std::string(argv[1]) == "--script-curve-quote-risk-pv-only")
-        return RunScriptCurveQuoteRiskBenchmarks(true);
+    if (argc == 2) {
+        const int script = RunScriptCurveQuoteRiskMode(argv[1]);
+        if (script >= 0)
+            return script;
+    }
     if (argc > 1 && std::string(argv[1]) == "--market-iv")
         return RunMarketIvBenchmarks();
     if (argc > 1)

@@ -15,6 +15,7 @@ namespace Dal::CompoundedOisInternal {
     };
     Source_ BuildSource(const Handle_<PreparedCompoundedOis_>& tables);
     Index::Overnight_ Index(const CompoundedOisScriptSpec_& spec, size_t observation);
+    String_ IndexName(const PreparedCompoundedOis_& tables, size_t observation);
     bool ContainsOvernight(const Script::ScriptProduct_& product);
     bool ContainsOvernight(const CalibrationInstrument_& instrument);
     CalibrationCurveFamily_ Lower(const CalibrationInstrument_& instrument,

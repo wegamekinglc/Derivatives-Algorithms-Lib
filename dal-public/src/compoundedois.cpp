@@ -6,15 +6,61 @@ namespace Dal {
     namespace {
         template <class... T_> Vector_<Cell_> Row(const T_&... values) { return {Cell_(values)...}; }
         Cell_ Optional(const std::optional<double>& value) { return value ? Cell_(*value) : Cell_(); }
-        Matrix_<Cell_> Table(std::initializer_list<const char*> columns, const Vector_<Vector_<Cell_>>& rows) {
+        Matrix_<Cell_> Table(const Vector_<String_>& columns, const Vector_<Vector_<Cell_>>& rows) {
             Matrix_<Cell_> result(static_cast<int>(rows.size()) + 1, static_cast<int>(columns.size()));
             int col = 0;
-            for (const auto* column : columns)
-                result(0, col++) = String_(column);
+            for (const auto& column : columns)
+                result(0, col++) = column;
             for (size_t i = 0; i < rows.size(); ++i)
                 for (int j = 0; j < result.Cols(); ++j)
                     result(static_cast<int>(i) + 1, j) = rows[i][j];
             return result;
+        }
+        Vector_<String_> ScheduleColumns(bool evaluated) {
+            Vector_<String_> result{"rule",
+                                    "mode",
+                                    "coupon_id",
+                                    "row",
+                                    "coupon_row",
+                                    "source_key",
+                                    "start",
+                                    "end",
+                                    "accrual",
+                                    "rate_start",
+                                    "rate_end",
+                                    "rate_accrual",
+                                    "weight_start",
+                                    "weight_end",
+                                    "compounding_accrual",
+                                    "fixing_index",
+                                    "fixing_time",
+                                    "historical_required",
+                                    "included",
+                                    "settled",
+                                    "reused_from_row",
+                                    "observation_schedule_identity"};
+            if (evaluated)
+                for (const auto* column : {"source", "rate", "source_row", "statement"})
+                    result.push_back(column);
+            return result;
+        }
+        Vector_<Cell_> ScheduleRow(const CompoundedOisResolvedObservation_& row, const String_& rule, const String_& mode, const String_& identity) {
+            return Row(rule, mode, row.couponId_, double(row.row_), double(row.couponRow_), row.sourceKey_, row.accrualStart_, row.accrualEnd_,
+                       row.accrual_, row.rateStart_, row.rateEnd_, row.rateAccrual_, row.weightStart_, row.weightEnd_, row.compoundingAccrual_,
+                       row.fixingIndex_, row.fixingTime_, row.historicalRequired_, row.included_, row.settled_,
+                       row.reusedFromRow_ ? Cell_(double(*row.reusedFromRow_)) : Cell_(), identity);
+        }
+        Matrix_<Cell_> ObservationScheduleTable(const CurveScriptEvaluationResult_& result) {
+            Vector_<Vector_<Cell_>> rows;
+            for (const auto& r : result.observationSchedule_) {
+                auto row = ScheduleRow(r, result.observationRule_, result.observationMode_, result.observationScheduleIdentity_);
+                row.push_back(Cell_(r.source_));
+                row.push_back(Optional(r.rate_));
+                row.push_back(Cell_(double(r.sourceRow_)));
+                row.push_back(Cell_(double(r.statement_)));
+                rows.push_back(std::move(row));
+            }
+            return Table(ScheduleColumns(true), rows);
         }
         Matrix_<Cell_> CashflowTable(const CurveScriptEvaluationResult_& result) {
             Vector_<Vector_<Cell_>> rows;
@@ -70,10 +116,20 @@ namespace Dal {
             return CashflowTable(result);
         if (table == "observations")
             return ObservationTable(result);
+        if (table == "observation_schedule")
+            return ObservationScheduleTable(result);
         if (table == "measures")
             return MeasureTable(result);
         if (table == "parameters")
             return ParameterTable(result);
         THROW("CurveScriptEvaluation: unknown table");
+    }
+    Matrix_<Cell_> CompoundedOisObservationScheduleTable(const Handle_<PreparedCompoundedOis_>& prepared) {
+        REQUIRE(prepared, "CompoundedOisObservationScheduleTable: expected prepared OIS tables");
+        Vector_<Vector_<Cell_>> rows;
+        const String_ mode = prepared->Spec().observationConvention_ ? prepared->Spec().observationConvention_->mode_.String() : "Legacy";
+        for (const auto& row : prepared->ObservationSchedule())
+            rows.push_back(ScheduleRow(row, prepared->RuleId(), mode, prepared->ObservationScheduleIdentity()));
+        return Table(ScheduleColumns(false), rows);
     }
 } // namespace Dal

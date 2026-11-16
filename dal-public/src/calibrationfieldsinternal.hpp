@@ -20,6 +20,20 @@ namespace Dal::BindingInternal {
         value.liborBasis_ = fields.template Default<DayBasis_>("libor_basis", value.liborBasis_);
         return value;
     }
+    template <class F_> CompoundedOisObservationConvention_ ReadCompoundedOisObservationConvention(F_& f) {
+        CompoundedOisObservationConvention_ c;
+        c.mode_ = f.template Required<CompoundedOisObservationMode_>("mode");
+        c.lookbackBusinessDays_ = f.template Default<int>("lookback_business_days", 0);
+        c.lockoutBusinessDays_ = f.template Default<int>("lockout_business_days", 0);
+        const bool lookback =
+            c.mode_ == CompoundedOisObservationMode_::Value_::Lookback || c.mode_ == CompoundedOisObservationMode_::Value_::ObservationShift;
+        f.Check("lookback_business_days", c.lookbackBusinessDays_ >= 0 && (c.lookbackBusinessDays_ > 0) == lookback,
+                "positive for Lookback/ObservationShift, otherwise zero", String_(std::to_string(c.lookbackBusinessDays_)));
+        f.Check("lockout_business_days",
+                c.lockoutBusinessDays_ >= 0 && (c.lockoutBusinessDays_ > 0) == (c.mode_ == CompoundedOisObservationMode_::Value_::Lockout),
+                "positive for Lockout, otherwise zero", String_(std::to_string(c.lockoutBusinessDays_)));
+        return c;
+    }
     template <class F_> CompoundedOisScriptSpec_ ReadCompoundedOisSpec(F_& f) {
         CompoundedOisScriptSpec_ v;
         v.instrumentId_ = f.template Required<String_>("instrument_id");
@@ -37,9 +51,16 @@ namespace Dal::BindingInternal {
         v.calendar_ = f.template Required<HolidayCenterData_>("calendar");
         v.fixedLeg_ = f.template Required<Vector_<CompoundedOisFixedRow_>>("fixed_leg");
         v.coupons_ = f.template Required<Vector_<CompoundedOisCouponRow_>>("coupons");
-        v.observations_ = f.template Required<Vector_<CompoundedOisObservationRow_>>("observations");
         v.minAbsAnnuity_ = f.template Default<double>("min_abs_annuity", v.minAbsAnnuity_);
         v.ruleId_ = f.template Default<String_>("rule_id", v.ruleId_);
+        const std::string rule(v.ruleId_.data(), v.ruleId_.size());
+        const bool versionTwo = rule == "dal.compounded-ois-cashflows/2";
+        f.Check("rule_id", versionTwo || rule == "dal.compounded-ois-cashflows/1", "supported exact OIS rule id", v.ruleId_);
+        v.observationConvention_ = f.template Maybe<CompoundedOisObservationConvention_>("observation_convention");
+        f.Check("observation_convention", versionTwo == v.observationConvention_.has_value(), "explicit convention only for /2");
+        v.observations_ = versionTwo ? f.template Default<Vector_<CompoundedOisObservationRow_>>("observations", {})
+                                     : f.template Required<Vector_<CompoundedOisObservationRow_>>("observations");
+        f.Check("observations", !versionTwo || v.observations_.empty(), "empty manual observations for /2");
         return v;
     }
     template <class F_> CurveScriptEvaluationRequest_ ReadCurveScriptEvaluationRequest(F_& f) {

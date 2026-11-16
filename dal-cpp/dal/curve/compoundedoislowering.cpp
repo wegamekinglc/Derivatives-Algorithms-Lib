@@ -35,30 +35,30 @@ namespace Dal::CompoundedOisInternal {
             size_t first = 0;
             for (size_t i = 0; i < result.size(); ++i) {
                 size_t last = first;
-                while (last < tables.Observations().size() && tables.Observations()[last].couponRow_ == i)
+                while (last < tables.ObservationSchedule().size() && tables.ObservationSchedule()[last].couponRow_ == i)
                     ++last;
                 result[i] = {first, last};
                 first = last;
             }
             return result;
         }
-        CalibrationDiagnostic_ ObservationSource(const CalibrationDiagnostic_& d, const CompoundedOisScriptSpec_& s, size_t row) {
+        CalibrationDiagnostic_ ObservationSource(const CalibrationDiagnostic_& d, const PreparedCompoundedOis_& tables, size_t row) {
             auto result = d;
-            result.observationId_ = s.observations_[row].couponId_;
-            result.field_ = "/observations/" + OrdinalText(row);
+            result.observationId_ = tables.ObservationSchedule()[row].couponId_;
+            result.field_ = "/" + tables.ObservationSchedule()[row].sourceKey_;
             return result;
         }
-        const Script::NodeFix_& Factor(const Node_& node, const CompoundedOisScriptSpec_& s, size_t row, const CalibrationDiagnostic_& d) {
+        const Script::NodeFix_& Factor(const Node_& node, const PreparedCompoundedOis_& tables, size_t row, const CalibrationDiagnostic_& d) {
+            const auto& observation = tables.ObservationSchedule()[row];
             Match(dynamic_cast<const Script::NodeAdd_*>(&node) && Literal(*node.arguments_[0], 1.), d);
             const auto& term = *node.arguments_[1];
-            Match(dynamic_cast<const Script::NodeMulti_*>(&term) && Literal(*term.arguments_[0], s.observations_[row].accrual_), d);
+            Match(dynamic_cast<const Script::NodeMulti_*>(&term) && Literal(*term.arguments_[0], observation.compoundingAccrual_), d);
             const auto* fix = dynamic_cast<const Script::NodeFix_*>(term.arguments_[1].get());
-            Match(fix && dynamic_cast<const Index::Overnight_*>(fix->index_.get()), d);
-            Match(Bytes(fix->index_->Name()) == Bytes(Index(s, row).Name()) && fix->fixingDate_ == s.observations_[row].fixingTime_.Date(), d);
+            Match(fix && Bytes(fix->index_->Name()) == Bytes(IndexName(tables, row)) && fix->fixingDate_ == observation.fixingTime_.Date(), d);
             return *fix;
         }
         void Factors(const Node_& product,
-                     const CompoundedOisScriptSpec_& s,
+                     const PreparedCompoundedOis_& tables,
                      const std::pair<size_t, size_t>& range,
                      const CalibrationPreparationContext_& context,
                      bool included,
@@ -75,14 +75,14 @@ namespace Dal::CompoundedOisInternal {
                     continue;
                 }
                 Match(row < range.second, flow->source_);
-                const auto d = ObservationSource(flow->source_, s, row);
-                const auto& fix = Factor(*node, s, row, d);
+                const auto d = ObservationSource(flow->source_, tables, row);
+                const auto& fix = Factor(*node, tables, row, d);
                 if (included) {
                     descriptor->observations_.push_back(CurveScriptInternal::Observation(fix, context, d));
                     descriptor->observations_.back().tableRow_ = row;
                     flow->locations_.push_back(d);
-                    const size_t factor =
-                        Append(flow, {'l', descriptor->observations_.size() - 1, 0, s.observations_[row].accrual_, false, flow->locations_.size()});
+                    const size_t factor = Append(flow, {'l', descriptor->observations_.size() - 1, 0,
+                                                        tables.ObservationSchedule()[row].compoundingAccrual_, false, flow->locations_.size()});
                     cumulative = Append(flow, {'s', cumulative, factor, 0., false, flow->locations_.size()});
                 }
                 ++row;
@@ -100,16 +100,16 @@ namespace Dal::CompoundedOisInternal {
             Append(flow, {'*', k, weight, 0., true});
         }
         void Floating(const Node_& node,
-                      const CompoundedOisScriptSpec_& s,
+                      const PreparedCompoundedOis_& tables,
                       const std::pair<size_t, size_t>& range,
                       const CalibrationPreparationContext_& context,
                       bool included,
                       CalibrationCurveFamilyDescriptor_* descriptor,
                       CalibrationCurvePayment_* flow) {
-            const bool receive = s.direction_ == "ReceiveFixed";
+            const bool receive = tables.Spec().direction_ == "ReceiveFixed";
             const auto& term = Signed(node, receive, flow->source_);
             Match(dynamic_cast<const Script::NodeSub_*>(&term) && Literal(*term.arguments_[1], 1.), flow->source_);
-            Factors(*term.arguments_[0], s, range, context, included, descriptor, flow);
+            Factors(*term.arguments_[0], tables, range, context, included, descriptor, flow);
             const size_t product = flow->program_.size() - 1;
             Append(flow, {'e', product, 0});
         }
@@ -145,7 +145,7 @@ namespace Dal::CompoundedOisInternal {
             if (row.fixed_)
                 Fixed(term, s, row.row_, &flow);
             else
-                Floating(term, s, ranges[row.row_], context, row.included_, descriptor, &flow);
+                Floating(term, tables, ranges[row.row_], context, row.included_, descriptor, &flow);
             const size_t coefficient = flow.program_.size() - 1;
             const double notional = !row.fixed_ && s.direction_ == "ReceiveFixed" ? -s.notional_ : s.notional_;
             const size_t n = Append(&flow, {'c', 0, 0, notional});

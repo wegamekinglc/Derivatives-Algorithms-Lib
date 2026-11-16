@@ -55,6 +55,35 @@ joint XCCY as described below. The
 [Excel interface chapter](../docs/excel/README.md) lists the primary worksheet
 families.
 
+## Compounded OIS observations and quote risk
+
+`COMPOUNDEDOISOBSERVATIONCONVENTION.NEW` creates one typed None, Lookback,
+ObservationShift or Lockout convention for explicit `/2` specs; `/1` retains
+manual observations and its defaults. Exact field/value keys and integral
+numeric counts are validated across the whole selected range, including
+unknown/duplicate keys after blanks. Boolean/fractional counts are rejected.
+
+`COMPOUNDEDOIS.GET.OBSERVATIONSCHEDULE` returns the owning 22-column prepared
+audit. `CURVESCRIPTEVALUATION.GET.TABLE(outcome,"observation_schedule")`
+returns 26 columns with the same prefix; the old `observations` table retains
+15 columns. `source_row` is one-based, while
+`row,coupon_row,reused_from_row,statement` are zero-based. Missing cells remain
+blank, and table getters perform no valuation.
+
+Register all fit/PV preparations before calibration, then check snapshot and
+per-PV status in the [same-source quote-risk workflow](../docs/excel/README.md#same-source-script-curve-quote-risk).
+Square full-rank EXACT native fits retain fixed K/N, raw currency per decimal
+quote rate and signed `DV01=raw*1e-4`. Stale/unregistered/live-quote and
+non-Price requests return owning Unavailable diagnostics; numeric getters reject
+them. Session handles do not archive fit/snapshot state. Build the XLL against
+the same core/public version and configuration after shared layouts change.
+
+The [worksheet contract](../docs/excel/README.md#explicit-compounded-ois) and
+[calling recipe](../docs/ccy-curves/compounded-ois.md#excel-calling-recipe)
+define input tables and output columns. Portable tests exercise adapters only.
+Native XLL/OPER registration and Office COM/spill need separate execution
+evidence; a successful Windows build/gate does not establish Office execution.
+
 ## Autocallable Examples
 
 Ten [autocallable workbooks](examples/autocallables/README.md) provide matching

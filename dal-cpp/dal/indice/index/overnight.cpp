@@ -56,7 +56,23 @@ namespace Dal::Index {
             REQUIRE(date.IsValid() && Date::ToString(date) == value, "InvalidIndex: ON requires ISO date-only fields");
             return date;
         }
+        void Validate(const OvernightObservationSpec_& s) {
+            REQUIRE(s.currency_.String() != nullptr, "InvalidIndex: ON requires a supported currency");
+            Identifier(s.fixingKey_);
+            Identifier(s.route_);
+            REQUIRE(s.accrualStart_.IsValid() && s.accrualEnd_.IsValid() && s.rateStart_.IsValid() && s.rateEnd_.IsValid(),
+                    "InvalidIndex: valid ON dates required");
+            REQUIRE(s.accrualStart_ < s.accrualEnd_ && s.rateStart_ < s.rateEnd_, "InvalidIndex: ordered ON intervals required");
+            REQUIRE(s.basis_ == DayBasis_("ACT_360") || s.basis_ == DayBasis_("ACT_365F"), "InvalidIndex: ON requires ACT/360 or ACT/365F");
+        }
+        String_ Name(const OvernightObservationSpec_& s, const String_& token) {
+            return "IR[" + String_(s.currency_.String()) + "," + token + "," + Encode(s.fixingKey_) + "," + Encode(s.route_) + "," +
+                   Date::ToString(s.accrualStart_) + "," + Date::ToString(s.accrualEnd_) + "," + Date::ToString(s.rateStart_) + "," +
+                   Date::ToString(s.rateEnd_) + "," + s.basis_.String() + "]";
+        }
     } // namespace
+    OvernightObservation_::OvernightObservation_(OvernightObservationSpec_ spec) : spec_(std::move(spec)) { Validate(spec_); }
+    String_ OvernightObservation_::Name() const { return Index::Name(spec_, "ON2"); }
     Overnight_::Overnight_(const Ccy_& ccy,
                            String_ fixingKey,
                            String_ route,
@@ -67,21 +83,17 @@ namespace Dal::Index {
                            const DayBasis_& basis)
         : ccy_(ccy), fixingKey_(std::move(fixingKey)), route_(std::move(route)), start_(start), end_(end), rateStart_(rateStart), rateEnd_(rateEnd),
           basis_(basis) {
-        REQUIRE(ccy_.String() != nullptr, "InvalidIndex: ON requires a supported currency");
-        Identifier(fixingKey_);
-        Identifier(route_);
-        REQUIRE(start_.IsValid() && end_.IsValid() && rateStart_.IsValid() && rateEnd_.IsValid(), "InvalidIndex: valid ON dates required");
+        Validate({ccy_, fixingKey_, route_, start_, end_, rateStart_, rateEnd_, basis_});
         REQUIRE(rateStart_ <= start_ && start_ < end_ && end_ <= rateEnd_, "InvalidIndex: ordered ON intersection within full rate interval");
-        REQUIRE(basis_ == DayBasis_("ACT_360") || basis_ == DayBasis_("ACT_365F"), "InvalidIndex: ON requires ACT/360 or ACT/365F");
     }
 
-    String_ Overnight_::Name() const {
-        return "IR[" + String_(ccy_.String()) + ",ON," + Encode(fixingKey_) + "," + Encode(route_) + "," + Date::ToString(start_) + "," +
-               Date::ToString(end_) + "," + Date::ToString(rateStart_) + "," + Date::ToString(rateEnd_) + "," + basis_.String() + "]";
-    }
+    String_ Overnight_::Name() const { return Index::Name({ccy_, fixingKey_, route_, start_, end_, rateStart_, rateEnd_, basis_}, "ON"); }
     std::unique_ptr<Index_> OvernightParser(const Vector_<String_>& fields) {
         REQUIRE(fields.size() == 9, "InvalidIndex: ON requires currency, fixing key, route, four dates and basis");
-        return std::make_unique<Overnight_>(Ccy_(fields[0]), Decode(fields[2]), Decode(fields[3]), ExactDate(fields[4]), ExactDate(fields[5]),
-                                            ExactDate(fields[6]), ExactDate(fields[7]), DayBasis_(fields[8]));
+        const OvernightObservationSpec_ s{Ccy_(fields[0]),      Decode(fields[2]),    Decode(fields[3]),    ExactDate(fields[4]),
+                                          ExactDate(fields[5]), ExactDate(fields[6]), ExactDate(fields[7]), DayBasis_(fields[8])};
+        if (fields[1] == "ON2")
+            return std::make_unique<OvernightObservation_>(s);
+        return std::make_unique<Overnight_>(s.currency_, s.fixingKey_, s.route_, s.accrualStart_, s.accrualEnd_, s.rateStart_, s.rateEnd_, s.basis_);
     }
 } // namespace Dal::Index

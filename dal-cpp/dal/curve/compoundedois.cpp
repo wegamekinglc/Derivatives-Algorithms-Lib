@@ -4,6 +4,7 @@
 #include <dal/curve/compoundedois_internal.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_CompoundedOisObservationMode_enum.inc>
     using namespace CalibrationInternal;
     using namespace CompoundedOisInternal;
     namespace {
@@ -22,21 +23,20 @@ namespace Dal {
     PreparedCompoundedOis_::PreparedCompoundedOis_(const CompoundedOisScriptSpec_& s, const Script::ScriptValuationSettings_& v)
         : spec_(s), valuation_(CopyValuation(v)), fixedPayments_(Payments(s.fixedLeg_, *v.evaluationDate_)),
           couponPayments_(Payments(s.coupons_, *v.evaluationDate_)) {
-        std::map<std::string, size_t> couponRows;
-        for (size_t i = 0; i < s.coupons_.size(); ++i)
-            couponRows.emplace(Bytes(s.coupons_[i].couponId_), i);
-        for (size_t i = 0; i < s.observations_.size(); ++i) {
-            const auto& row = s.observations_[i];
-            const auto couponRow = couponRows.at(Bytes(row.couponId_));
-            const bool historical =
-                row.fixingTime_.Date() < *v.evaluationDate_ ||
-                (row.fixingTime_.Date() == *v.evaluationDate_ && v.todayFixingPolicy_ == TodayFixingPolicy_::Value_::REQUIREHISTORICAL);
-            observations_.push_back({couponRow, "observations/" + OrdinalText(i), s.observationBasis_(row.rateStart_, row.rateEnd_, nullptr),
-                                     couponPayments_[couponRow].included_ && historical});
-        }
-        contractIdentity_ = Fingerprint(ContractJson(s));
+        observationSchedule_ = ResolveSchedule(s, valuation_);
+        for (const auto& row : observationSchedule_)
+            observations_.push_back({row.couponRow_, row.sourceKey_, row.rateAccrual_, row.historicalRequired_});
+        auto contract = ContractJson(s);
         calendarIdentity_ = Fingerprint(CalendarJson(*s.calendar_));
-        preparationIdentity_ = Fingerprint(Obj({{"contract", ContractJson(s)}, {"valuation", ValuationJson(valuation_)}}));
+        const auto schedule = ScheduleJson(observationSchedule_);
+        auto scheduleContext = Obj({{"calendar", CalendarJson(*s.calendar_)}, {"rule", Str(s.ruleId_)}, {"rows", schedule}});
+        if (IsVersionTwo(s)) {
+            scheduleContext.object_.emplace("observation_convention", ConventionJson(*s.observationConvention_));
+            contract.object_.emplace("observation_schedule", schedule);
+        }
+        observationScheduleIdentity_ = Fingerprint(scheduleContext);
+        contractIdentity_ = Fingerprint(contract);
+        preparationIdentity_ = Fingerprint(Obj({{"contract", contract}, {"valuation", ValuationJson(valuation_)}}));
     }
     Handle_<PreparedCompoundedOis_> PrepareCompoundedOis(const CompoundedOisScriptSpec_& spec, const Script::ScriptValuationSettings_& valuation) {
         Validate(spec, valuation);

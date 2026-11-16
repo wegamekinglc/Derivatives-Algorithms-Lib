@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/math/operators.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -20,8 +21,7 @@ method template<class T_> T_ Payout(T_ spot, T_ strike) const;
 
 namespace Dal {
 #include <dal/auto/MG_OptionType_enum.hpp>
-    template <class T_>
-    T_ OptionType_::Payout(T_ spot, T_ strike) const {
+    template <class T_> T_ OptionType_::Payout(T_ spot, T_ strike) const {
         switch (Switch()) {
         case Value_::CALL:
             return max(0.0, spot - strike);
@@ -34,4 +34,3 @@ namespace Dal {
         }
     }
 } // namespace Dal
-

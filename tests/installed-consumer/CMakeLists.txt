@@ -2,7 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 
 project(dal-installed-consumer LANGUAGES CXX)
 
-find_package(dal-public 1.0 CONFIG REQUIRED)
+option(DAL_CONSUMER_CORE_ONLY "Check the core SDK without an installed facade" OFF)
+if(DAL_CONSUMER_CORE_ONLY)
+    find_package(dal-cpp 1.0 CONFIG REQUIRED)
+else()
+    find_package(dal-public 1.0 CONFIG REQUIRED)
+endif()
 
 if(NOT DAL_CPP_AAD_BACKEND STREQUAL "Native")
     message(FATAL_ERROR "dal-cpp package must provide native AAD")
@@ -14,6 +19,37 @@ endif()
 if(NOT COMMAND dal_cpp_apply_msvc_runtime)
     message(FATAL_ERROR "dal-cpp package did not publish dal_cpp_apply_msvc_runtime")
 endif()
+
+enable_testing()
+add_executable(dal_installed_core_ois compoundedois.cpp)
+target_link_libraries(dal_installed_core_ois PRIVATE DAL::cpp)
+dal_cpp_apply_msvc_runtime(dal_installed_core_ois)
+add_test(NAME dal_installed_core_ois COMMAND dal_installed_core_ois)
+if(DAL_CONSUMER_CORE_ONLY)
+    return()
+endif()
+
+add_executable(dal_installed_public_ois compoundedois.cpp)
+target_compile_definitions(dal_installed_public_ois PRIVATE DAL_TEST_PUBLIC_OIS)
+target_link_libraries(dal_installed_public_ois PRIVATE DAL::public)
+dal_cpp_apply_msvc_runtime(dal_installed_public_ois)
+add_test(NAME dal_installed_public_ois COMMAND dal_installed_public_ois)
+
+set(benchmark_runtime_command "${CMAKE_COMMAND}"
+    -S "${CMAKE_CURRENT_SOURCE_DIR}/benchmark-runtime"
+    -B "${CMAKE_CURRENT_BINARY_DIR}/benchmark-runtime"
+    -G "${CMAKE_GENERATOR}"
+    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+    "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    "-Ddal-public_DIR=${dal-public_DIR}"
+    "-Ddal-cpp_DIR=${dal-cpp_DIR}")
+if(CMAKE_GENERATOR_PLATFORM)
+    list(APPEND benchmark_runtime_command -A "${CMAKE_GENERATOR_PLATFORM}")
+endif()
+if(CMAKE_GENERATOR_TOOLSET)
+    list(APPEND benchmark_runtime_command -T "${CMAKE_GENERATOR_TOOLSET}")
+endif()
+add_test(NAME dal_installed_public_benchmark_runtime COMMAND ${benchmark_runtime_command})
 
 add_executable(dal_installed_consumer main.cpp)
 add_executable(dal_installed_aad_consumer native.cpp)

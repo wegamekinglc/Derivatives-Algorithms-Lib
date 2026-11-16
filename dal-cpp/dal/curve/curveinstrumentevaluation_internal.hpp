@@ -19,6 +19,7 @@ namespace Dal::CurveInstrumentInternal {
         std::shared_ptr<const Data_> data_;
     };
     PreparedCurvePriceContext_ PrepareCurvePriceContext(const PreparedCurveInstruments_&);
+    void RequireCurvePriceContext(const PreparedCurvePriceContext_&, const CurveInstrumentCalibrationSpec_&);
     PreparedCurvePrice_ PrepareCurvePrice(const CurveInstrumentCalibrationSpec_& spec,
                                           const Handle_<CalibrationInstrument_>& instrument,
                                           const String_& measureId,

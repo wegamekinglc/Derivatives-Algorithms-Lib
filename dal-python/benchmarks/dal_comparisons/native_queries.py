@@ -261,7 +261,7 @@ def invoke_infine(args, directory, shared, case_name=None):
 
 
 BUILD_TIMEOUT = 1800
-BUILD_JOBS = 4
+BUILD_JOBS = 2
 
 
 def cmake_settings(build_root):
@@ -334,6 +334,8 @@ def quantlib_build_identity(build_root, source, quantlib_dir):
 
 
 def clean_build(cmake, build_root, target):
+    jobs = os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL", str(BUILD_JOBS))
+    require(jobs.isdecimal() and int(jobs) > 0, "CMAKE_BUILD_PARALLEL_LEVEL must be a positive integer")
     subprocess.run(  # nosec B603  # nosemgrep
         [
             cmake,
@@ -343,7 +345,7 @@ def clean_build(cmake, build_root, target):
             target,
             "--clean-first",
             "--parallel",
-            str(BUILD_JOBS),
+            str(int(jobs)),
         ],
         shell=False,
         check=True,

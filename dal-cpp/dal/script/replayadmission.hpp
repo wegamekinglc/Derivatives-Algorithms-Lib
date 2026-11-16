@@ -174,6 +174,7 @@ namespace Dal::Script::Detail {
                                           const Vector_<size_t>& inputs,
                                           size_t modelInputs,
                                           const AADBlockReplaySettings_& limits) {
+        RequireMarketIvLocalVolPassive(*modelData);
         const auto threads = ThreadPool_::GetInstance()->NumThreads();
         const BatchPlan_ batches(paths, threads);
         const auto workers = std::min(threads, batches.BatchCount());

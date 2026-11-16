@@ -1,5 +1,15 @@
 # DAL-426: prepared XCCY basket scalar allocation
 
+Status: active allocation and acceptance contract. The prepared core basket,
+public facade, Python and Excel projections, and owning partial-failure payloads
+are implemented. The [current basket guide](../../../docs/methodology/script_calibration_contract.md#prepared-core-xccy-mc-baskets)
+and [calling recipe](../../../docs/methodology/script_calibration_contract.md#calling-prepared-xccy-mc-baskets)
+describe the supported interfaces and numerical acceptance limits. Proposed
+names, source citations, implementation prerequisites and execution questions
+below describe the named design baseline, not current implementation status.
+Retain this decision for its allocation, ownership and acceptance requirements;
+the design checks recorded here supply no product numerical acceptance evidence.
+
 ## Decision, audience and authority
 
 Select **prepared disjoint scalar-coordinate allocation**, with one immutable
@@ -9,11 +19,11 @@ supports a vector of same-model marginal estimates and their sampling-error
 covariance. It does not simulate a portfolio on common economic Brownian paths.
 There is no caller-supplied offset, range, union-grid switch or stream switch.
 
-This is an active design for the core implementer, facade/binding implementer,
-independent tester and focused reviewer. All new names below are **proposals**;
-this PR implements no allocator, product behavior or numerical acceptance.
-The coordinator must obtain review and actual design merge before dispatching
-implementation. No downstream work is dispatched by this note.
+The design baseline addresses the core implementer, facade/binding implementer,
+independent tester and focused reviewer. Names below were **proposals** at that
+baseline; the design PR supplied no allocator, product behavior or numerical
+acceptance. Its implementation prerequisites and handoff are retained as design
+context, not new assignments or live scheduling instructions.
 
 The product baseline is accepted master
 `4dbdff636bcd92d2a236abe644a3e0c73b9c208a` (M1--M4 merged). Authority remains
@@ -38,7 +48,7 @@ read-only for projection compatibility. Neither unmerged tree is imported into
 this branch. M5 is not a prerequisite for core allocator implementation; actual
 M5 merge/acceptance is required before extending its facade/bindings.
 
-## Current surfaces and source basis
+## Design-baseline surfaces and source basis
 
 Locations in this table refer to the product baseline unless a head is named.
 They are implementation seams, not evidence that the proposed basket exists.

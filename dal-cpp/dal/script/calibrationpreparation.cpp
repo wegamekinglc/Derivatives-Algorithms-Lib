@@ -782,7 +782,7 @@ namespace Dal {
                 return Admit(deposit, measure, context, options, d);
             auto capability = AdmitCurve(context, options, d);
             if ((*family)->compounded_)
-                capability.ruleId_ = "dal.compounded-ois-cashflows/1";
+                capability.ruleId_ = context.compoundedOis_->RuleId();
             return capability;
         }
         Preparation_ NativePreparation(const ScriptProduct_* product,
@@ -867,6 +867,11 @@ namespace Dal {
                                     {{"base", Str(base)}, {"lowering", Str("checked-on-log-product/2")}, {"matcher", Str("frozen-ois-tables/1")}}))
                               : base;
         }
+        String_ VersionedCompilerIdentity(const String_& base, const CalibrationPreparationContext_& context) {
+            if (!context.compoundedOis_ || !CompoundedOisInternal::IsVersionTwo(context.compoundedOis_->Spec()))
+                return base;
+            return Fingerprint(Obj({{"base", Str(base)}, {"lowering", Str("checked-on2-log-product/1")}, {"matcher", Str("frozen-ois-schedule/2")}}));
+        }
         void Discounts(const Vector_<>& discounts, size_t size, const CalibrationDiagnostic_& d) {
             Check(discounts.size() == size, "InvalidCalibrationPlan", "/discounts", "one discount per live cashflow", "", d);
             for (double value : discounts)
@@ -943,6 +948,7 @@ namespace Dal {
         result.compilerIdentity_ = generic ? GenericCompilerIdentity()
                                            : CompilerIdentity(std::holds_alternative<CalibrationCurveFamily_>(result.descriptor_), rate != nullptr,
                                                               static_cast<bool>(context.xccy_), static_cast<bool>(context.compoundedOis_));
+        result.compilerIdentity_ = VersionedCompilerIdentity(result.compilerIdentity_, context);
         result.planIdentity_ = Fingerprint(Obj({{"instrument", Str(instrument->InstrumentIdentity())},
                                                 {"measure", Str(measureId)},
                                                 {"compiler", Str(result.compilerIdentity_)},

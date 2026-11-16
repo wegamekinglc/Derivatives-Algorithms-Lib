@@ -1,12 +1,20 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <climits>
+
 #include <dal/curve/compoundedois_internal.hpp>
 
 namespace Dal {
     using namespace CalibrationInternal;
     namespace {
         const String_ ARCHIVE_ERROR = "InvalidCalibrationArchive";
+        const Json_& RequiredField(const Json_& v, const char* key, const String_& p) {
+            Check(v.kind_ == JsonKind_::OBJECT, ARCHIVE_ERROR, p, "object");
+            const auto found = v.object_.find(key);
+            Check(found != v.object_.end(), ARCHIVE_ERROR, p + "/" + key, "required field");
+            return found->second;
+        }
         String_ TextField(const Json_& v, const char* key, const String_& p) { return ReadString(Field(v, key), p + "/" + key); }
         double NumberField(const Json_& v, const char* key, const String_& p) { return ReadNumber(Field(v, key), p + "/" + key); }
         Date_ ReadDate(const Json_& v, const String_& p) { return ParseDate(ReadString(v, p), ARCHIVE_ERROR, p); }
@@ -65,17 +73,42 @@ namespace Dal {
                     NumberField(v, "accrual", p), TextField(v, "coupon_id", p), DateField(v, "rate_start", p),
                     DateField(v, "rate_end", p)};
         }
-        CompoundedOisScriptSpec_ ReadSpec(const Json_& v) {
+        int CountField(const Json_& v, const char* key, const String_& p) {
+            const double value = NumberField(v, key, p);
+            Check(value >= 0. && value <= INT_MAX && std::floor(value) == value, ARCHIVE_ERROR, p + "/" + key,
+                  "nonnegative exact integer within int range");
+            return static_cast<int>(value);
+        }
+        CompoundedOisObservationConvention_ ReadConvention(const Json_& v) {
+            const String_ p = "/spec/observation_convention";
+            Fields(v, p, {"mode", "lookback_business_days", "lockout_business_days"});
+            return {EnumField<CompoundedOisObservationMode_>(v, "mode", p), CountField(v, "lookback_business_days", p),
+                    CountField(v, "lockout_business_days", p)};
+        }
+        void SpecFields(const Json_& v) {
             const String_ p = "/spec";
             Fields(v, p,
                    {"instrument_id", "rule", "notional", "coupon", "direction", "currency", "collateral_currency", "collateral_type",
                     "discount_route", "projection_route", "fixing_index", "observation_basis", "fixed_basis", "min_abs_annuity", "calendar",
                     "settlement", "fixed_leg", "coupons", "observations"});
+        }
+        CompoundedOisScriptSpec_ ReadSpec(const Json_& v, bool versionTwo) {
+            const String_ p = "/spec";
+            CompoundedOisScriptSpec_ s;
+            if (versionTwo) {
+                s.observationConvention_ = ReadConvention(RequiredField(v, "observation_convention", p));
+                auto common = v;
+                common.object_.erase("observation_convention");
+                SpecFields(common);
+            } else {
+                SpecFields(v);
+            }
             Check(Bytes(TextField(v, "settlement", p)) == "IncludeUnsettledAtValuation", "UnsupportedCompoundedOisRule", p + "/settlement",
                   "IncludeUnsettledAtValuation");
-            CompoundedOisScriptSpec_ s;
             s.instrumentId_ = TextField(v, "instrument_id", p);
             s.ruleId_ = TextField(v, "rule", p);
+            Check(Bytes(s.ruleId_) == (versionTwo ? "dal.compounded-ois-cashflows/2" : "dal.compounded-ois-cashflows/1"),
+                  "UnsupportedCompoundedOisRule", p + "/rule", "cashflow rule matching preparation schema");
             s.notional_ = NumberField(v, "notional", p);
             s.coupon_ = NumberField(v, "coupon", p);
             s.minAbsAnnuity_ = NumberField(v, "min_abs_annuity", p);
@@ -151,16 +184,41 @@ namespace Dal {
                 return {};
             return String_(id->second.string_);
         }
+        void CompareSchedule(const Json_& stored, const PreparedCompoundedOis_& prepared) {
+            const String_ p = "/observation_schedule";
+            CheckArray(stored, p);
+            const auto expected = CompoundedOisInternal::ScheduleJson(prepared.ObservationSchedule(), true);
+            Check(stored.array_.size() == expected.array_.size(), ARCHIVE_ERROR, p, "recomputed observation row count");
+            for (size_t i = 0; i < expected.array_.size(); ++i) {
+                CalibrationDiagnostic_ d;
+                d.stage_ = CalibrationStage_::Value_::Load;
+                d.sourceRow_ = static_cast<int>(i + 1);
+                d.observationId_ = prepared.ObservationSchedule()[i].couponId_;
+                Check(Jcs(stored.array_[i]) == Jcs(expected.array_[i]), ARCHIVE_ERROR, p + "/" + OrdinalText(i),
+                      "every field matching the re-expanded declaration and valuation", "", d);
+            }
+        }
+        Handle_<PreparedCompoundedOis_> ReadPrepared(const Json_& value) {
+            const auto schema = Bytes(ReadString(RequiredField(value, "schema", ""), "/schema"));
+            const bool versionTwo = schema == "dal.compounded-ois-preparation/2";
+            Check(versionTwo || schema == "dal.compounded-ois-preparation/1", "UnsupportedCalibrationSchema", "/schema",
+                  "dal.compounded-ois-preparation/1 or /2");
+            if (versionTwo)
+                Fields(value, "", {"schema", "spec", "valuation", "observation_schedule"});
+            else
+                Fields(value, "", {"schema", "spec", "valuation"});
+            const auto prepared = PrepareCompoundedOis(ReadSpec(Field(value, "spec"), versionTwo), ReadValuation(Field(value, "valuation")));
+            if (versionTwo)
+                CompareSchedule(Field(value, "observation_schedule"), *prepared);
+            return prepared;
+        }
     } // namespace
     Handle_<PreparedCompoundedOis_> LoadPreparedCompoundedOisJson(const String_& json) {
         std::optional<String_> id;
         try {
             const auto value = Parse(json);
             id = ArchiveId(value);
-            Fields(value, "", {"schema", "spec", "valuation"});
-            Check(Bytes(TextField(value, "schema", "")) == "dal.compounded-ois-preparation/1", "UnsupportedCalibrationSchema", "/schema",
-                  "dal.compounded-ois-preparation/1");
-            return PrepareCompoundedOis(ReadSpec(Field(value, "spec")), ReadValuation(Field(value, "valuation")));
+            return ReadPrepared(value);
         } catch (const CalibrationError_& error) {
             auto d = error.Failure().diagnostic_;
             auto path = d.field_.value_or("");

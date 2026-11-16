@@ -4,6 +4,13 @@
 #include "__xccyinput.hpp"
 
 namespace Dal::Excel::Calibration {
+    template <> struct Input_<CompoundedOisObservationConvention_> {
+        static CompoundedOisObservationConvention_ Read(const Cell_& cell) {
+            const auto wrapper = handle_cast<StorableCompoundedOisObservationConvention_>(Fetch(cell));
+            REQUIRE(wrapper, "InvalidCalibrationInput: expected typed OIS observation convention");
+            return wrapper->val_;
+        }
+    };
     template <> struct Input_<Handle_<PreparedCompoundedOis_>> {
         static Handle_<PreparedCompoundedOis_> Read(const Cell_& cell) {
             const auto wrapper = handle_cast<StorablePreparedCompoundedOis_>(Fetch(cell));

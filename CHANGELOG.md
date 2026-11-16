@@ -16,6 +16,37 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-16
+
+- Add owning core C++ market-grid local-volatility Monte Carlo with same-source
+  nonflat forward/discount carry, dated horizon admission, passive script
+  pricing and detached resource diagnostics. AAD, risk and EXERCISE are
+  unavailable. Independent numerical qualification, facade/language factories,
+  dedicated examples, formal performance acceptance and live Windows worksheet
+  validation remain incomplete. See the
+  [core model guide](docs/models/local-volatility.md#owning-market-model-in-core-c).
+
+- Add native compounded OIS execution and same-source calibration for None,
+  Lookback, ObservationShift and Lockout on one frozen `/2` date/weight mapping.
+  Public C++, strict Python factories and Excel handles expose owning 22/26-column
+  schedule audits, while `/1` defaults, archives, source and identities remain
+  compatible. Rebuild core, facade and bindings together; this is not an
+  old-binary ABI guarantee. See the [OIS contract](docs/ccy-curves/compounded-ois.md).
+- Admit verified `/1` and `/2` OIS to owning full/PV-only fixed-contract Price
+  quote risk for single-target, square full-rank EXACT calibrations. Registered
+  contracts retain fixed K/N, complete context identity and checked implicit
+  response; signed DV01 is raw currency sensitivity times `1e-4`. See the
+  [public API](docs/public-api.md#explicit-compounded-ois) and
+  [snapshot contract](docs/methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
+
+## 2026-11-15
+
+- Add core C++ versioned OIS observation preparation for None, Lookback,
+  ObservationShift and Lockout, with frozen audited date/weight mappings and
+  verified `/2` archives. New-mode execution remains explicitly unavailable;
+  existing `/1` defaults, archives, source and identities remain compatible.
+  See [observation preparation](docs/ccy-curves/compounded-ois.md#core-observation-schedule-preparation).
+
 ## 2026-11-08
 
 - **Early-exercise PDE diffusion tails** — retain binary64 significands with

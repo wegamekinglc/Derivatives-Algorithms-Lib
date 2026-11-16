@@ -181,6 +181,7 @@ namespace Dal::Script::Detail {
                                                         const Vector_<RiskOutputCoordinate_>& requestedOutputs,
                                                         const Vector_<size_t>& requestedInputs,
                                                         AADBlockReplaySettings_ limits = {}) {
+        RequireMarketIvLocalVolPassive(*model);
         const String_ method = requestedSettings.rsg_;
         const AADBatchSettings_ settings{method,
                                          requestedSettings.useBb_,

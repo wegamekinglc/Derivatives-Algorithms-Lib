@@ -551,7 +551,7 @@ TEST(CompoundedOisScriptTest, TestExtraParameterIsRejectedBeforeCurvePlanConstru
     ASSERT_EQ(Failure([&] { PrepareCalibrationInstrument(instrument, "Price", Context(tables)); }).diagnostic_.code_, "CompoundedOisSourceMismatch");
 }
 
-TEST(CompoundedOisScriptTest, TestP1SnapshotAndPerPvRejectNewCapabilityAndPreparationHasZeroSolveCalls) {
+TEST(CompoundedOisScriptTest, TestMissingTablesStayRejectedAndPreparationHasZeroSolveCalls) {
     const auto source = CompoundedOisInternal::BuildSource(PrepareCompoundedOis(Spec(), Valuation()));
     const auto legacy = LegacySpec();
     const auto fit = CalibrateCurveInstruments(legacy);
@@ -560,7 +560,7 @@ TEST(CompoundedOisScriptTest, TestP1SnapshotAndPerPvRejectNewCapabilityAndPrepar
     ASSERT_TRUE(snapshot.MappingAvailable());
     const auto risk = ValueCalibrationInstrumentWithQuoteRisk(source.instrument_, snapshot, legacy);
     ASSERT_FALSE(risk.Available());
-    ASSERT_EQ(risk.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+    ASSERT_EQ(risk.Diagnostics()[0].code_, "UnsupportedCompoundedOisContext");
     auto unsupported = legacy;
     unsupported.observations_ = {NewCalibrationObservation("observation", source.instrument_, "ParRate",
                                                            NewCalibrationMarketQuote("quote", .03, CalibrationValueUnit_::Parse("Rate")), 1e-13)};
@@ -568,7 +568,7 @@ TEST(CompoundedOisScriptTest, TestP1SnapshotAndPerPvRejectNewCapabilityAndPrepar
     fabricated.resolvedSpec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(unsupported);
     const auto rejected = NewScriptCurveQuoteRiskSnapshot(fabricated, accuracy);
     ASSERT_FALSE(rejected.MappingAvailable());
-    ASSERT_EQ(rejected.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+    ASSERT_EQ(rejected.Diagnostics()[0].code_, "UnsupportedCompoundedOisContext");
     const auto failure = Failure([&] { CalibrateCurveInstruments(unsupported); });
     ASSERT_EQ(failure.diagnostic_.stage_, CalibrationStage_::Value_::Prepare);
     ASSERT_EQ(failure.report_->Data().summary_.evaluations_, 0);

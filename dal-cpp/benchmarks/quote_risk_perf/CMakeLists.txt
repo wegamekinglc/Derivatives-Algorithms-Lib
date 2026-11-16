@@ -1,4 +1,4 @@
-add_executable(quote_risk_perf quote_risk_perf.cpp dupirecurvatureperf.cpp marketivperf.cpp scriptcurveperf.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
+add_executable(quote_risk_perf quote_risk_perf.cpp dupirecurvatureperf.cpp marketivperf.cpp scriptcurveperf.cpp compoundedoisfixture.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
 
 target_link_libraries(quote_risk_perf dal_library)
 target_include_directories(quote_risk_perf PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../externals/rapidjson/include")
@@ -20,3 +20,5 @@ add_test(NAME quote_risk_market_iv_perf COMMAND quote_risk_perf --market-iv)
 set_tests_properties(quote_risk_market_iv_perf PROPERTIES LABELS "benchmark")
 add_test(NAME quote_risk_script_curve_perf COMMAND quote_risk_perf --script-curve-quote-risk)
 set_tests_properties(quote_risk_script_curve_perf PROPERTIES LABELS "benchmark")
+add_test(NAME quote_risk_compounded_ois_perf COMMAND quote_risk_perf --compounded-ois-quote-risk)
+set_tests_properties(quote_risk_compounded_ois_perf PROPERTIES LABELS "benchmark")

@@ -58,10 +58,6 @@ namespace Dal::CompoundedOisInternal {
                       "/calendar/work_weekends/" + OrdinalText(i), "weekend date without conflicting holiday", "", Row(d, i));
             }
         }
-        bool IsBusiness(const HolidayCenterData_& c, const Date_& day) {
-            return std::binary_search(c.workWeekends_.begin(), c.workWeekends_.end(), day) ||
-                   (!Date::IsWeekEnd(day) && !std::binary_search(c.holidays_.begin(), c.holidays_.end(), day));
-        }
         Date_ NextBusiness(const HolidayCenterData_& c, const Date_& start, const String_& path, const CalibrationDiagnostic_& d) {
             auto day = start;
             do {
@@ -72,7 +68,9 @@ namespace Dal::CompoundedOisInternal {
         }
         void Header(const CompoundedOisScriptSpec_& s, const CalibrationDiagnostic_& d) {
             Id(s.instrumentId_, "/instrument_id", d);
-            Check(Bytes(s.ruleId_) == "dal.compounded-ois-cashflows/1", UNSUPPORTED, "/rule", "dal.compounded-ois-cashflows/1", s.ruleId_, d);
+            Check(Bytes(s.ruleId_) == "dal.compounded-ois-cashflows/1" || IsVersionTwo(s), UNSUPPORTED, "/rule",
+                  "dal.compounded-ois-cashflows/1 or /2", s.ruleId_, d);
+            ValidateObservationConvention(s);
             Check(std::isfinite(s.notional_) && s.notional_ > 0., INVALID, "/notional", "finite positive currency amount", NumberText(s.notional_),
                   d);
             Check(std::isfinite(s.coupon_), INVALID, "/coupon", "finite decimal Rate", NumberText(s.coupon_), d);
@@ -181,6 +179,15 @@ namespace Dal::CompoundedOisInternal {
             const auto& r = s.fixedLeg_[i];
             Accrual(r.accrual_, r.start_, r.end_, s.fixedBasis_, "/fixed_leg/" + OrdinalText(i) + "/accrual", Row(d, i));
         }
-        Observations(s, d);
+        if (IsVersionTwo(s)) {
+            CouponRows(s, d);
+            for (size_t i = 0; i < s.coupons_.size(); ++i) {
+                const auto& c = s.coupons_[i];
+                Check(IsBusiness(*s.calendar_, c.start_) && IsBusiness(*s.calendar_, c.end_), UNSUPPORTED, "/coupons/" + OrdinalText(i),
+                      "business-day coupon boundaries for /2", "", Row(d, i, c.couponId_));
+            }
+        } else {
+            Observations(s, d);
+        }
     }
 } // namespace Dal::CompoundedOisInternal

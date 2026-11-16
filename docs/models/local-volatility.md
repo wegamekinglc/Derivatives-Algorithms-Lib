@@ -106,6 +106,84 @@ multi-factor GSR rates, including a GSR SLV rate component; foreign rates,
 FX quanto adjustments, and stochastic dividend yields
 are outside this model.
 
+## Internal market-grid preparation
+
+`dal/model/marketivlocalvolinternal.hpp` prepares an immutable source from a
+successful `MarketIvDupireResult_`. It checks the requested axes and every
+authoritative node, shares the immutable fit snapshot, and copies the surface,
+grid request and nodes. Detached configuration, carry and warning records remain
+valid after the caller destroys its inputs. Numeric capacity plans precede the
+copies and retain the existing fit/grid envelopes; these ledgers exclude dynamic
+strings and are not process-memory limits.
+
+The source records JCS/SHA-256 identities for the full market/fit/grid content
+and resolved model settings. Its carry uses endpoint differences of
+`L=log(F/S0)` and `H=log(D)`: `R=H(a)-H(b)` and
+`Q=R-(L(b)-L(a))`. Knot derivatives use the right segment; the tail keeps the
+last log slope. An internal passive equity component prepares `R-Q` and reuses
+the existing local-vol evolution with zero scalar dividend. Its timeline knots
+include both carry terms and surface times. Domestic discounting uses the same
+`H` with `HybridLogDfRateData_` and `LOG_LINEAR`.
+
+## Owning market model in core C++
+
+`BuildMarketIvLocalVolModelData(name, grid, settings)` in
+`dal/model/marketivlocalvol.hpp` returns a dedicated owning `ModelData_` from
+one successful market Dupire result. `MarketIvLocalVolModelSettings_` requires
+`index_`, `currency_`, `factor_` and a finite positive `horizon_` in years.
+These declare one plain `EQ[...]` asset, its domestic currency and one named
+Brownian factor; the snapshot supplies spot and carry, but does not identify
+the asset or currency. `maxStep_` defaults to 1/52 year and supports subday
+steps on the ACT/365 axis without dated-GSR whole-day restrictions. Convert
+the derived handle explicitly to `Handle_<ModelData_>` when calling the
+existing core `Script::MCSimulation<double>` entry. Pass a valuation date
+matching the snapshot, including for prepared requests; an omitted date follows
+the existing date resolution and must still match. This core entry supports
+passive compiled or tree valuation, domestic DF observations and delayed
+payments, with the existing RNG and Brownian-bridge choices.
+
+The wrapper keeps sample definitions alive, shares immutable source data and
+prepares private delegate state when cloned. It merges carry, surface, product
+and discount-maturity anchors and simulates only to the request's required
+time. All requested event, observation, payment and DF maturity times must fit
+within `horizon_`. `CreateModel<AAD::Number_>`, `enableAad_`, native/quote risk
+and weighted/Jacobian replay are rejected before sampling or tape recording;
+curvature and segmented risk are unavailable. EXERCISE is rejected before
+training or sampling. The new model rejects archives; a standalone grid archive
+cannot restore its source. Existing Hybrid native AAD and archives retain their
+own contracts.
+
+`Configuration()`, `Summary()`, `CarryTerms()`, `Warnings()` and
+`ConstructionExecution()` return detached records. Warnings retain fit
+underidentification and near ties, mark the first local-vol column's extension
+to zero, and flag horizons beyond the last grid time or market carry term.
+Local-vol tails remain flat; market carry retains the last log slope. These
+warnings do not certify extrapolated prices. `MarketIvLocalVolError_` carries
+`code_`, `stage_`, `field_`, `expected_` and `actual_`; for example,
+`InvalidModelEvaluationDate`, `MarketIvLocalVolHorizonExceeded`,
+`MarketIvLocalVolBudgetExceeded` and `DerivativeUnavailable` identify the
+rejected request and field.
+
+`Script::InspectMarketIvLocalVolExecution` in `dal/script/marketivlocalvol.hpp`
+runs the same preparation without RNG or paths and returns a separate owning
+report. Workspace admission uses checked conservative capacity envelopes, then
+tracks retained and peak preparation allocations and worker normal/path buffers.
+`maxInternalSteps_` and `maxSimulationDimension_` each default to 100000;
+the selected RNG's smaller limits still apply. `numericPayloadBudgetBytes_`
+defaults to 64 MiB and `workspaceBudgetBytes_` to 256 MiB. Zero limits deny
+allocation or work. Horizon, step, dimension and workspace admission precede
+large preparation allocations and sampling.
+The workspace ledger includes vector metadata, mappings, prepared columns,
+carry, numeraires and discounts; strings, payoff evaluators and RNG internals
+are excluded. It is not an RSS limit. Preparation query counts describe the
+fixed curve evaluations; path generation makes no market-curve queries.
+
+These core checks establish construction and execution contracts. Independent
+Black/smile/grid/MC accuracy qualification remains incomplete; fast checks do
+not establish it. Facade, Python and Excel market-model factories, dedicated
+runnable examples, formal performance acceptance and live Windows worksheet
+validation are not yet delivered.
+
 ## Design references
 
 The standalone surface and flat boundary behavior follow the same broad

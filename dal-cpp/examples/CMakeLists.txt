@@ -40,6 +40,7 @@ set(DAL_EXAMPLE_TARGETS
     digital
     concurrency
     curve_calibration
+    compounded_ois
     euribor3m_curve
     interpolate_curve
     joint_multi_curve_calibration

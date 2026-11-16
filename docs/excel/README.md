@@ -27,6 +27,16 @@ be midnight. Boolean numbers and nonfinite values fail.
 (a `CALIBRATIONDATES.NEW` handle), and optional `work_weekends`.
 `COMPOUNDEDOISSCRIPTSPEC.NEW` takes the shared spec fields in snake case,
 including `calendar`, `fixed_leg`, `coupons` and `observations` typed handles.
+For explicit `rule_id=dal.compounded-ois-cashflows/2`, supply
+`observation_convention` from `COMPOUNDEDOISOBSERVATIONCONVENTION.NEW` and omit
+or empty manual observations. Its exact field/value keys are `mode`,
+`lookback_business_days` and `lockout_business_days`. Modes are `None`,
+`Lookback`, `ObservationShift` and `Lockout`; counts are nonnegative integral
+numeric cells in the native int range, rejecting Boolean/fractional values.
+None uses zero counts, Lookback/ObservationShift use positive lookback only,
+and Lockout uses positive lockout only. Complete selected ranges are validated,
+including unknown/duplicate keys after blank rows. The default `/1` still
+requires observations and rejects any convention.
 Call `COMPOUNDEDOIS.PREPARE(spec,valuation)` then
 `COMPOUNDEDOISSCRIPTINSTRUMENT.NEW(tables)`.
 
@@ -47,8 +57,24 @@ Call `CURVESCRIPTINSTRUMENT.EVALUATE(instrument,request)` and inspect
 return `Failed` with owning reports; malformed context inputs raise worksheet
 errors. `CURVESCRIPTEVALUATION.GET.VALUE`, `.GET.NATIVEPARTIALS` and `.GET.TABLE`
 reject unavailable results. Table names are `summary`, `measures`, `parameters`,
-`cashflows` and `observations`; absent amounts, DFs and rates stay blank.
-Partials have raw native units; ON quote risk and MC remain unsupported.
+`cashflows`, `observations` and `observation_schedule`; absent amounts, DFs and
+rates stay blank. The original `observations` table keeps 15 columns.
+`COMPOUNDEDOIS.GET.OBSERVATIONSCHEDULE` returns 22 prepared columns;
+`observation_schedule` adds `source,rate,source_row,statement` for 26 evaluated
+columns. `source_row` is one-based, while
+`row,coupon_row,reused_from_row,statement` are zero-based. See the
+[ordered audit columns](../ccy-curves/compounded-ois.md#observation-conventions-and-audit-projections).
+Getters copy owning data and perform no valuation; settled rates remain blank.
+
+Native partials retain native units. Verified `/1` and `/2` contracts also use
+the [fixed-contract quote-risk workflow](#same-source-script-curve-quote-risk)
+after all fit/PV preparations are registered before calibration. Snapshot and
+each PV have separate availability checks; live-quote, non-Price, stale or
+unregistered-PV requests retain owning Unavailable diagnostics, and their
+numeric getters reject access. Raw units retain currency and actual N;
+signed DV01 is `raw*1e-4`. General script/MC and legacy tenor staging still
+reject ON/ON2. Session handles are not calibration replay archives; rebuild
+the XLL with matching core/public headers and libraries after layout changes.
 
 The native OPER tests are `CompoundedOisNativeExcelTest.*`. For real Excel,
 run `dal-excel/tests/windows/run-compounded-ois.ps1` with `-Xll`,
@@ -60,6 +86,8 @@ It
 records the actual loaded modules, Excel version, source/dependencies/configuration
 identities, both same-day policies, scalar/derivative oracles and owning/tail
 errors. Portable tests exercise typed adapters separately from these checks.
+Native XLL/OPER registration and Office COM/spill require their own execution
+evidence; portable tests or a hosted Windows CI gate do not establish either.
 
 ## Same-source script curve quote risk
 

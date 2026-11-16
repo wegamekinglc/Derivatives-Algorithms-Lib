@@ -50,6 +50,35 @@ TEST(ScriptFixingPreparationTest, TestUnpreparedFixingRejectedBeforeModelAccess)
     ASSERT_EQ(counter.submissions_, 0);
 }
 
+TEST(ScriptFixingPreparationTest, TestNullModelDataPreservesModeAndFactoryErrors) {
+    const Date_ today(2026, 9, 12);
+    const auto product = ScriptTestProduct("payoff PAYS SPOT()", today.AddDays(10));
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    SubmissionCounter_ workers;
+    const Dal::Script::Detail::ScopedSimulationObserver_ observe(&workers);
+    const auto tapeEvents = AAD::Tape()->ReverseEventCount();
+    const auto assertFactoryError = [](const auto& action) {
+        try {
+            action();
+            FAIL() << "expected the null-model factory error";
+        } catch (const Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("can't find matched model type"), std::string::npos) << error.what();
+        }
+    };
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        simulation.enableAad_ = true;
+        AssertError([&] { static_cast<void>(MCSimulation<double>(product, {}, 16, valuation, simulation)); }, "UnsupportedExecutionMode");
+        assertFactoryError([&] { static_cast<void>(MCSimulation<AAD::Number_>(product, {}, 16, valuation, simulation)); });
+        simulation.enableAad_ = false;
+        assertFactoryError([&] { static_cast<void>(MCSimulation<double>(product, {}, 16, valuation, simulation)); });
+    }
+    ASSERT_EQ(workers.submissions_, 0);
+    ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
+}
+
 TEST(ScriptFixingPreparationTest, TestEvaluationDateCapturedAtPreparation) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     ScriptProduct_ product({Cell_(Date_(2026, 9, 11))}, {"payoff PAYS 80"});

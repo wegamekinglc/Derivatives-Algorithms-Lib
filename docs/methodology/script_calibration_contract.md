@@ -550,7 +550,7 @@ expected/actual values and relevant observation, quote, parameter or source
 coordinates.
 
 `ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, context, request)`
-prepares the supplied bound contract's `Price` measure on every call. It uses
+resolves the supplied bound contract's `Price` plan from the frozen context. It uses
 the same deterministic cashflow evaluator as curve calibration and preserves
 the contract's signed payments, currency and actual notional. Only native
 curve parameters are registered on a local AAD recording. The passive cached
@@ -734,9 +734,10 @@ Pass the returned frozen tables to `NewCompoundedOisScriptInstrument` in
 `dal/curve/curvescript.hpp`, then evaluate the resulting source instrument or
 use it as an observation in native curve calibration.
 
-Supply fixed rows `(start,end,payment,accrual)`, floating coupons
-`(coupon_id,start,end,payment)` and observation rows
-`(start,end,fixing_time,accrual,coupon_id,rate_start,rate_end)`.
+Supply fixed rows `(start,end,payment,accrual)` and floating coupons
+`(coupon_id,start,end,payment)`. Default `/1` also requires observation rows
+`(start,end,fixing_time,accrual,coupon_id,rate_start,rate_end)`; explicit `/2`
+derives observations from its typed convention.
 Notional is a finite positive currency amount; coupon is a finite decimal
 rate. Direction is exactly `PayFixed` or `ReceiveFixed`. Currency,
 same-currency OIS collateral, fixing index, discount and projection route
@@ -750,7 +751,7 @@ ID, sorted unique holidays and sorted unique working-weekend exceptions.
 It is copied into the prepared contract; its name never resolves global
 calendar data. Weekends are closed unless explicitly working. Holiday and
 working-weekend exceptions cannot conflict. There is no currency calendar
-default or automatic schedule generation.
+default or automatic fixed-leg, coupon or payment schedule generation.
 
 Rule `dal.compounded-ois-cashflows/1` requires a business-day `rate_start`,
 the next business day as `rate_end`, and midnight at `rate_start` as
@@ -760,12 +761,43 @@ without gaps, overlap or reordering. Friday to Monday therefore uses one
 fixing and `3/360`, not three daily factors. A coupon starting on Sunday
 uses the same full Friday-to-Monday rate interval with only `1/360` weight.
 The prepared observation metadata also records the full rate accrual.
-Lookback, lockout, observation shift and intraday times are unsupported.
+This rule does not infer an observation convention; intraday times are unsupported.
+
+Explicit `dal.compounded-ois-cashflows/2` requires
+`observationConvention_` and empty manual `observations_`. Its exact mode
+tokens are None, Lookback, ObservationShift and Lockout. None requires zero
+counts; Lookback/ObservationShift require positive `lookbackBusinessDays_`
+and zero lockout; Lockout requires positive `lockoutBusinessDays_` and zero
+lookback. `/1` rejects any convention, including None. The default remains
+`/1`; unknown versions, modes and incompatible or mixed inputs are rejected.
+The explicit fixed-leg and coupon schedules are still supplied by the caller.
+
+For `/2`, each coupon starts and ends on a business day in the frozen calendar.
+Let its consecutive business boundaries be a[i], and B(d,-n) mean n business
+days earlier in that same calendar. Each `ObservationSchedule()` row separately
+owns actual accrual, complete rate and compounding-weight intervals:
+
+| Mode                | Rate interval / fixing                                         | Compounding weight                 |
+|---------------------|----------------------------------------------------------------|------------------------------------|
+| None                | [a[i],a[i+1]), fixing at a[i]                                  | Actual interval accrual            |
+| Lookback(n)         | [B(a[i],-n),B(a[i+1],-n)), fixing at the shifted start         | Actual interval accrual            |
+| ObservationShift(n) | Same shifted rate interval and fixing as Lookback              | Shifted interval accrual           |
+| Lockout(k)          | Final k rows reuse the last unlocked row's interval and fixing | Each row's actual interval accrual |
+
+Lockout requires `0<k<coupon_interval_count`. It preserves every separate
+factor and all repeated-rate adjoints. ObservationShift pays
+`N*(product(1+compounding_accrual*L)-1)`, without an actual/shifted length
+ratio; fixed-leg weights and payment dates do not shift. No modes combine,
+and nonbusiness `/2` boundaries are rejected without automatic adjustment.
+Legacy `/1` partial stubs remain supported.
 
 Valuation requires an explicit evaluation date and immutable fixing snapshot,
 including an explicit empty snapshot. The existing same-day default is Model;
-RequireHistorical marks same-day dependencies as historical. Preparation
-classifies historical dependencies for included coupons; it does not fetch
+RequireHistorical marks same-day dependencies as historical. Classification
+uses the final mapped fixing date, including a Lockout anchor's date; a
+strictly past required fixing never falls back to projection, and future
+snapshot values are ignored. Preparation classifies historical dependencies
+for included coupons; it does not fetch
 missing fixings or evaluate rates. All input rows remain available. Payment
 statuses follow IncludeUnsettledAtValuation: before today is settled, today
 and later are included. Settled coupons have no historical dependency.
@@ -777,11 +809,20 @@ today policy and the complete fixing snapshot. These are preparation
 identities, separate from executable definition/source/binding identities.
 `DumpPreparedCompoundedOisJson` and `LoadPreparedCompoundedOisJson` use strict
 schema `dal.compounded-ois-preparation/1`, recomputing identities and derived
-statuses on load. Existing instrument and report wire schemas are unchanged.
+statuses on load. Schema `dal.compounded-ois-preparation/2` stores the explicit
+convention/declaration and resolved rows. Loading re-expands the declaration
+and compares every derived field before publishing a preparation; it rejects
+tampering, unknown/duplicate fields and mixed versions. `/1` JSON does not
+gain convention fields. `ObservationScheduleIdentity()` binds rule, calendar,
+convention and resolved rows without valuation classification; preparation
+adds the explicit valuation/snapshot. Existing instrument and report wire
+schemas are unchanged. Fit sessions and quote-risk snapshots/results remain
+runtime objects without portable replay archives.
 
 Observation `sourceKey_` is the stable zero-based `observations/<row>` table
-key; `couponRow_` is the zero-based coupon ordinal. No script statement
-location is claimed before source exists. Invalid table diagnostics use
+key; `/2` uses `observation_schedule/<row>`. `couponRow_` is the zero-based
+coupon ordinal; resolved row and reuse ordinals are contract-wide. No script
+statement location is claimed before source exists. Invalid table diagnostics use
 zero-based JSON field paths, one-based `sourceRow_` within that table,
 instrument ID and coupon ID in `observationId_` where applicable. Failures
 throw owning `CalibrationError_` reports, which survive their input and
@@ -801,6 +842,12 @@ instrument, and the existing instrument JSON and clone interfaces preserve them.
 The ON literal is
 `IR[ccy,ON,fixing_key,route,start,end,rate_start,rate_end,basis]`.
 Its name contains both the actual accrual interval and full rate interval.
+The `/2` ON2 literal keeps those intervals separate even when shifted:
+`IR[ccy,ON2,fixing_key,route,accrual_start,accrual_end,rate_start,rate_end,basis]`.
+Each `/2` factor contains its explicit compounding weight. Whole-source
+matching checks all intervals, fixing dates, weights and bound N/K against
+the frozen schedule, including settled rows; a token alone does not admit
+general script or MC execution.
 Fixing keys and route IDs use percent encoding for bytes outside ASCII letters,
 digits, dot, underscore and hyphen. Parsing and cloning preserve the original
 UTF-8 identifiers. Historical lookup uses only the separate fixing key and
@@ -831,7 +878,8 @@ ParRate fails explicitly.
 Future and Model-today observations use only the explicitly bound ON curve,
 even when the snapshot contains a value for that date. Each rate uses the full
 `rate_start`/`rate_end` discount-factor ratio and full basis accrual; the
-coupon product uses the intersection weight from its observation row.
+coupon product uses its explicit compounding weight, which is the actual
+intersection accrual for `/1` and the mode's resolved weight for `/2`.
 Historical rates and background curves are passive. Every live rate interval
 and actual payment must fit within the explicit native curve horizon.
 
@@ -862,15 +910,31 @@ payment date, included/settled flags, amount, DF and PV. `observations_` records
 table/source locations, full rate intervals, accrual weights, rates and
 Historical/Projection/Settled provenance. Settled amounts and rates remain
 unavailable rather than invented. No partial matrix is returned for `None`.
+The separate `observationSchedule_` retains rule/mode/identity, resolved
+actual/rate/weight fields and evaluated provenance. The original
+`observations_` fields and 15-column table keep their actual-accrual meaning.
+The public prepared getter returns 22 columns; selector
+`observation_schedule` returns those same columns followed by
+`source,rate,source_row,statement` for 26 columns.
+`row,coupon_row,reused_from_row,statement` are zero-based;
+`source_row` is one-based in the bound source. Python uses copied records and
+`None`, Excel uses blank cells, and C++ references require a live owner.
+See the [ordered column list](../ccy-curves/compounded-ois.md#observation-conventions-and-audit-projections).
 
 Price is `B+K*A` and ParRate is `-B/A`. Live evaluations check the signed
 annuity against the contract's positive `minAbsAnnuity_`, including Price.
 All-settled Price is zero; ParRate is unavailable. Partials retain native units
 and notional scaling: they are neither quote risk nor basis-point-scaled risk.
 
-For calibration, place the same tables in
-`CurveInstrumentCalibrationSpec_::compoundedOis_` and the source instrument in
-its observation list. `PreparedCurveInstruments_` and `CalibrateCurveInstruments`
+Before calibration, register every fit and prospective PV contract's tables in
+`CurveInstrumentCalibrationSpec_::compoundedOis_`, with unique instrument IDs
+and identical valuation date, today policy and complete explicit fixing snapshot.
+Place fitting instruments in the observation list. Preparation validates unused
+PV registrations too, freezes the whole collection and prepares their Price
+plans. A PV's complete instrument/source/binding/table identity must match its
+own registered entry; a new or rebound PV requires a new evidenced fit/context.
+Mixed `/1` and `/2` instruments can share one specification.
+`PreparedCurveInstruments_` and `CalibrateCurveInstruments`
 share the direct evaluator's cashflow and FD/AAD kernels. Frozen native market
 curves, complete fixing snapshots (including empty series), ON target/routes
 and prepared tables enter preparation and solve evidence. Writable input
@@ -885,18 +949,37 @@ fixing snapshot remains required, including when empty.
 AAD uses the current thread's existing recording-scope contract, including
 nested-recording rejection and mode restoration after failure.
 
-The capability remains `dal.compounded-ois-cashflows/1`; compiler identity
-separately identifies the stable product lowering. ON source without matching
-tables or candidate context, general script/MC preparation, P1 quote-risk
-snapshots (including ON fitting observations) and per-PV quote risk are
-explicitly unsupported. Source or numerical failure never falls back to
-legacy affine or general execution. The public facade exposes the same preparation,
-source construction and direct evaluation APIs through
+Verified native `dal.compounded-ois-cashflows/1` and `/2` plans are admitted
+at both [quote-risk snapshot](#script-curve-quote-risk-snapshots) and per-PV
+Price entry points. ON target/passive discount, discount target/passive ON and
+one target serving both roles share the existing single-target, square
+full-rank EXACT root contract. Successful fit evidence, recomputed root/Jacobian,
+rank, reciprocal condition and response/transpose accuracy remain mandatory.
+Full and PV-only share admission; each PV still checks its own availability.
+Fixed K/N/source imply no direct payoff quote response: raw is currency per
+1.0 decimal quote rate and signed DV01 is `raw*1e-4`, without an extra minus
+sign or notional normalization. ParRate risk, live-quote payoffs, missing tables,
+stale/rebound contexts and unregistered PVs remain unavailable; owning
+diagnostics survive their inputs and numeric getters reject unavailable results.
+Calibration report `QuoteRiskAvailable()` and its `/1` schema are unchanged.
+
+Rule/capability/compiler identities distinguish new `/2` execution while
+preserving legacy `/1` source and identity values. General script/MC and legacy
+tenor staging still reject ON/ON2. Source or numerical failure never falls back
+to legacy affine or general execution. The public facade exposes the same
+preparation, source construction and direct evaluation APIs through
 `dal-public/src/calibrationinstrument.hpp`. Python projects these as
 `CompoundedOis_Prepare`, `CompoundedOisScriptInstrument_New` and
 `CurveScriptInstrument_Evaluate`; inputs and results are read-only values or
 immutable handles, with independent container getters. All Python conversion
 finishes before core preparation, construction or evaluation releases the GIL.
+Python `CompoundedOisObservationConvention_` and Excel
+`COMPOUNDEDOISOBSERVATIONCONVENTION.NEW` share strict mode/count validation.
+The prepared audit getters are `CompoundedOis_Get_ObservationSchedule` and
+`COMPOUNDEDOIS.GET.OBSERVATIONSCHEDULE`; evaluated tables use
+`observation_schedule`. C++ references remain tied to the owning object.
+Rebuild matching core/public/Python/XLL versions together after layout changes;
+these passive owning records do not isolate ABI or persist a calibration session.
 Excel uses typed tables and session handles for the same operations. See the
 [public](../public-api.md#explicit-compounded-ois),
 [Python](../python/README.md#explicit-compounded-ois) and

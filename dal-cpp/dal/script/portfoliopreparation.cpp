@@ -20,6 +20,7 @@ namespace Dal::Script::Detail {
                                  const ScriptValuationSettings_& valuation,
                                  const MonteCarloSettings_& simulation) {
             try {
+                RequireMarketIvLocalVolPassive(*portfolio.Models()[portfolio.ModelOwners()[trade]]);
                 return PlanScript(*portfolio.Products()[trade], CreateModel<double>(portfolio.Models()[portfolio.ModelOwners()[trade]]), valuation,
                                   simulation);
             } catch (const std::exception& error) {

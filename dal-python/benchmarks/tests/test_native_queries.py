@@ -120,6 +120,31 @@ def test_native_rebuild_is_clean_first(tmp_path, monkeypatch):
     assert all("--clean-first" in command for command in commands)
 
 
+@pytest.mark.parametrize("configured,expected", [(None, "2"), ("1", "1"), ("3", "3")])
+def test_native_build_respects_parallel_limit(tmp_path, monkeypatch, configured, expected):
+    monkeypatch.delenv("CMAKE_BUILD_PARALLEL_LEVEL", raising=False)
+    if configured is not None:
+        monkeypatch.setenv("CMAKE_BUILD_PARALLEL_LEVEL", configured)
+    commands = []
+    monkeypatch.setattr(native_queries.subprocess, "run", lambda command, **_kwargs: commands.append(command))
+
+    native_queries.clean_build("cmake", tmp_path, "install")
+
+    assert commands[0][commands[0].index("--parallel") + 1] == expected
+
+
+@pytest.mark.parametrize("configured", ["", "0", "-1", "auto"])
+def test_native_build_rejects_invalid_parallel_limit(tmp_path, monkeypatch, configured):
+    monkeypatch.setenv("CMAKE_BUILD_PARALLEL_LEVEL", configured)
+    commands = []
+    monkeypatch.setattr(native_queries.subprocess, "run", lambda command, **_kwargs: commands.append(command))
+
+    with pytest.raises(ValueError, match="CMAKE_BUILD_PARALLEL_LEVEL must be a positive integer"):
+        native_queries.clean_build("cmake", tmp_path, "install")
+
+    assert not commands
+
+
 def test_native_cmake_identity_rejects_foreign_checkout(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     build = tmp_path / "build"

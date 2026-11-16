@@ -244,8 +244,7 @@ namespace {
 
 int main(int argc, char** argv) {
     RegisterAll_::Init();
-    if (argc == 2 && std::string(argv[1]) == "--compounded-ois") {
-        RunCompoundedOis();
+    if (argc == 2 && RunCompoundedOisMode(argv[1])) {
         return 0;
     }
     constexpr int kRepeats = 5;

@@ -65,21 +65,7 @@ namespace {
             py::gil_scoped_release release;
             cells = CalibrationReportTable(report, group);
         }
-        py::list rows;
-        for (int i = 0; i < cells.Rows(); ++i) {
-            py::list row;
-            for (int j = 0; j < cells.Cols(); ++j)
-                row.append(std::visit(
-                    [](const auto& value) -> py::object {
-                        if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::monostate>)
-                            return py::none();
-                        else
-                            return Output(value);
-                    },
-                    cells(i, j).val_));
-            rows.append(row);
-        }
-        return rows;
+        return Output(cells);
     }
     void ErrorType(py::module_& m) {
         auto cls = py::class_<CalibrationDiagnostic_>(m, "CalibrationDiagnostic_");

@@ -20,7 +20,7 @@ namespace Dal {
         SquareMatrix_<> transpose_;
         DiagnosedLinearSolve_ solve_;
 
-        [[nodiscard]] Vector_<> TransposeErrors(const Matrix_<>& seeds, const Matrix_<>& adjoints) const;
+        [[nodiscard]] Vector_<> TransposeErrors(const Matrix_<>& seeds, LinearSolveAdjoints_* adjoints) const;
 
     public:
         CheckedLinearSolve_(const SquareMatrix_<>& matrix,

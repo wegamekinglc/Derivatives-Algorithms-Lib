@@ -70,6 +70,16 @@ fixing times use `DateTime_(date, 0)` and must be midnight. Call
 `CompoundedOis_Prepare(spec, valuation)` with an explicit fixing snapshot,
 then `CompoundedOisScriptInstrument_New(tables)`.
 
+For explicit `rule_id="dal.compounded-ois-cashflows/2"`, pass
+`observation_convention=dal.CompoundedOisObservationConvention_(mode, ...)`
+and omit or empty `observations`. Exact modes are `None`, `Lookback`,
+`ObservationShift` and `Lockout`; the two business-day counts are keyword-only
+integers in the native int range, excluding bool and floats. None uses zeros;
+Lookback/ObservationShift require positive `lookback_business_days` only;
+Lockout requires positive `lockout_business_days` only. Unknown fields/tokens,
+incompatible counts and nonempty manual `/2` observations fail explicitly.
+The default `/1` still requires manual observations and rejects a convention.
+
 `CurveScriptEvaluationRequest_` takes `geometry`, `market`, `valuation`,
 `parameters` and `compounded_ois=tables`. Optional `measure_ids` default to
 `["Price", "ParRate"]`, `evaluation` to `AutoFast`, `derivative_method` to
@@ -80,12 +90,34 @@ read-only owning values with independent container getters, including
 `CurveScriptEvaluation_Get_Value` and `CurveScriptEvaluation_Get_NativePartials`
 reject unavailable values; optional settled amounts/DFs/rates are `None`.
 `CalibrationError` retains its diagnostic and report after input destruction.
+`CurveScriptEvaluation_Get_Table` accepts `summary`, `measures`, `parameters`,
+`cashflows`, `observations` and `observation_schedule`.
 
 ON routing uses `CurveScriptRoute_(..., projection=True, overnight=True)`,
 `geometry.target_overnight_route`, `market.overnight_curves` and the explicit
 `use_target_curve` flag. Unset tenors read as `None`.
 Calibration specs accept `compounded_ois=[tables]`.
-These native derivatives do not admit ON contracts to P1 quote risk or MC.
+Verified native `/1` and `/2` contracts also have a separate fixed-contract
+Price [quote-risk workflow](#same-source-script-curve-quote-risk): register all
+fit and prospective PV tables in `compounded_ois` before calibration. Full and
+PV-only require a square full-rank EXACT root and matching frozen context.
+An unregistered/rebound PV, live-quote payoff, non-Price measure or stale context
+returns owning Unavailable diagnostics; numeric getters reject access.
+ON/ON2 remain unsupported by general script/MC and legacy tenor staging.
+
+`CompoundedOis_Get_ObservationSchedule(tables)` returns a 22-column table.
+Prepared/evaluated `observation_schedule` records are read-only copies;
+selector `CurveScriptEvaluation_Get_Table(result, "observation_schedule")`
+returns 26 columns: the same 22-column prefix plus `source,rate,source_row,statement`.
+The original `observations` table retains 15 columns. `source_row` is one-based;
+`row,coupon_row,reused_from_row,statement` are zero-based. Missing values are
+`None`, and getters return independent row lists with native dates/times.
+See the [ordered columns](../ccy-curves/compounded-ois.md#observation-conventions-and-audit-projections)
+and [four-mode example](../../dal-python/examples/020.compounded_ois_quote_risk.py).
+Owning results survive input deletion; they do not add pickle/session replay.
+Build the module against matching core/public headers and libraries after
+layout changes.
+
 The [shared contract](../methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation)
 defines the financial rules and defaults.
 
