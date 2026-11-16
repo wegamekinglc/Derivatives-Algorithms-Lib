@@ -156,7 +156,9 @@ D1–D6 已由 S0 API 决策逐项冻结；上表保留推荐方案及兼容理�
 - 参考 B：沿用现有 Python 测试可用的 mpmath，高精度（至少 80 位）重新构造实际 fitted SSVI/theta，独立求导 local variance 和 carry；保存 fixture、脚本/依赖版本、结果校验和。普通 C++ 快速测试读取固定参考数值；生成脚本与产品实现代码不共享导数实现。
 - 参考 C：测试专用独立 log-spot backward PDE/forward density solver，分别用连续解析 local vol 和离散 grid 插值作系数，验证 vanilla 与 MC。放在测试支持/数值鉴证目录，不给现有生产 BS PDE 增加 local-vol 准入。参考 solver 不调用生产 Hybrid/LocalVolSurface/MC kernel；独立验证 Black 极限、概率/鞅和加密收敛后才作为 oracle。
 
-S3现行增量为已批准的 [DAL-542 方案 A/1](../specs/dal-542-n5-resolution-a.md)（用户评论 `01a1e461-4d80-794a-9e15-ec4dfd4782ca`）。原连续reference的均匀空间 `{801,1601,3201}`、时间 `{512,1024,2048}`、`[-3,3]`→`[-4,4]`及唯一 `{6401,4096}` fallback 已有效证据保留。新离散reference采用knot/strike-fitted非均匀中央 `{601,1201,2401,4801}`、匹配中央mesh的扩域 `{801,1601,3201,6401}`，独立CN midpoint/两半IE、三点式及6+4求解层级按A/1 R7–R10；上限仍6401节点/4096 requested steps，anchors后actual保守≤4342，两半IE另多一次线性求解。原自证门槛不变，仍未自证为REFERENCE_UNAVAILABLE，不能宣告PASS。先8项Black与8项旧失败输入新方法自证，通过后才做16项P7/P8必需研究和56次诊断，最多376次新求解。
+S3现行增量为 [DAL-542 方案 A/2](../specs/dal-542-n5-resolution-a.md)（本次批准 `01a1e52a-e892-7771-920e-3a5dc20e6384`，范围确认 `01a1e52d-ccb8-7044-bae2-eb9f95c99d58`）；原A/1批准/来源/hash保留，只有R10旧输入阶段地位及必要身份/账目接续修订。原连续reference证据、非均匀中央 `{601,1201,2401,4801}`、matched扩域 `{801,1601,3201,6401}`、两侧各100初始区间同步二分、CN midpoint/两半IE、三点式及6+4层级均继承；上限仍6401节点/4096 requested，actual保守≤4342，两半IE另多一次线性求解。R7–R9及全部门槛不变，旧R10不再是现行前置。
+
+A/2 R10固定顺序：支持测试/身份及累计账接续 → 8 Black完整自证（P3受影响扩域重验）→ 8旧输入必做非阻塞诊断 → P0–P8 capture及P7/P8逐节点N4/首段/离节点/边界探针 → 16必需reference/grid → 56次诊断 → 默认流/逐路径价格及精确Brownian核对 → 正式MC/paired/SE。Black与旧输入按knots/flat、linear/nonlinear各四T固定顺序遍历，完整层级见A/2。只有旧输入数值未自证不阻断，仍保留REFERENCE_UNAVAILABLE，不能当oracle或认证归因；身份/输入/实现/资源异常及所有必需门禁失败仍停止。原48中央层适用性核对后复用，10修正扩域层NOT_RUN，旧Black PASS仅属于旧执行；原层不覆盖，新证据追加supersedes。
 
 ### 抽样规则
 
@@ -164,7 +166,7 @@ S3现行增量为已批准的 [DAL-542 方案 A/1](../specs/dal-542-n5-resolutio
 
 SE 使用独立批均值估计并报告自由度；4.5×SE 为本计划的固定统计带，不另宣称无条件覆盖概率。细化比较由测试侧同一细 Brownian 增量聚合到粗网格，计算配对差 SE；不能直接复用不同 SimDim 下同 ordinal 的 RNG 作为 common paths。Sobol 可作为辅助收敛/重复性证据，不替代统计门禁。
 
-A/1新F2固定两族linear/nonlinear，每族P7/P8×四档h共8模型；438 anchors、437段，粗n=ceil(384*Δt)，严格n/2n/4n/8n，维数1091/2182/4364/8728，checked上界10408。seed1024/Precise不变，地址 `(((f*16+b)*2^20+p)*8728+j)`，全部乘加checked uint64，两族预留292863082496槽；默认流逐坐标/路径/价格先对齐，旧Dmax1584 raw不可复用。任一预登记价格及相邻配对SE不足才升级整族，最后1/1536与1/3072配对和1/3072总价独立过门禁，不按价格选粗档。完整坐标/嵌套及停止规则以A/1 R11–R13为准，F1配置/stream不变。
+A/2承继的F2固定两族linear/nonlinear，每族P7/P8×四档h共8模型；438 anchors、437段，粗n=ceil(384*Δt)，严格n/2n/4n/8n，维数1091/2182/4364/8728，checked上界10408。seed1024/Precise不变，地址 `(((f*16+b)*2^20+p)*8728+j)`，全部乘加checked uint64，两族预留292863082496槽；默认流逐坐标/路径/价格先对齐，旧Dmax1584 raw不可复用。任一预登记价格及相邻配对SE不足才升级整族，最后1/1536与1/3072配对和1/3072总价独立过门禁，不按价格选粗档。完整坐标/嵌套及停止规则以A/2 R11–R13为准，F1配置/stream不变。
 
 | 编号                         | 可执行验收及 oracle                                                                       | 拟议门槛/观察                                                                                           |
 |----------------------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
@@ -176,9 +178,11 @@ A/1新F2固定两族linear/nonlinear，每族P7/P8×四档h共8模型；438 anch
 | N6 owning 和来源              | destroy-input、改 detached getter、重复构建/clone/多线程；refit/改carry/改grid的身份；假来源/裸archive拒绝 | 原模型和价格不变；同 build/config/draws 线程1/4结果遵守现有普通MC的确定性 reduction；非法pair或不支持的输入不能生成可用模型                 |
 | N7 预算/异常/能力                | 恰好预算/少1字节、0限额、步数上界、overflow、极端F/D、grid失败节点、horizon越界、AAD/EXERCISE、未知币种资产            | 稳定字段化错误在大分配/抽样/tape前出现，无部分成功模型、无NaN成功、无隐式fallback                                                 |
 
-N5 F2 grid改用A/1 R4–R6的P0–P8确定性组合logspot轴与“规则+首段几何+carry”时间列，90位求值后一次舍入binary64、仅相同值去重。P0–P6仅诊断，最终固定P7/P8，均为扩spot域[.1S0,6S0]、首列τ/4=1/146000，末列分别2.25/2年；最大401×246=98646点，保持100000准入，不删列/临时加点。τ阶梯仍为1/36500、1/73000、1/146000，其几何列按固定函数一起变化。h固定 `{1/384,1/768,1/1536,1/3072}`；T=91/365、1、2、2.25全部保留，P8尾段单列且不豁免FAIL。P7/P8必需reference与grid门禁全部通过后才启动MC，不按诊断价格改最终配置。
+N5 F2 grid采用A/2承继的R4–R6 P0–P8确定性组合logspot轴与“规则+首段几何+carry”时间列，90位求值后一次舍入binary64、仅相同值去重。P0–P6仅诊断，最终固定P7/P8，均为扩spot域[.1S0,6S0]、首列τ/4=1/146000，末列分别2.25/2年；最大401×246=98646点，保持100000准入，不删列/临时加点。τ阶梯仍为1/36500、1/73000、1/146000，其几何列按固定函数一起变化。h固定 `{1/384,1/768,1/1536,1/3072}`；T=91/365、1、2、2.25全部保留，P8尾段单列且不豁免FAIL。P7/P8必需reference/N4/grid门禁全部通过后才启动MC，不按诊断价格改最终配置。
 
-A/1正式数值计算前固定新namespace、请求/比较族、控制/配置/执行源码/二进制hash。预算跨阶段/接续累计：reference最多376次/PDE6小时、MC每族6小时、总数值计算18小时、RSS6GiB/进程、证据1GiB；两族最多33554432条fine字段路径。新方法/成本估算尚未验证，达到资源线INCOMPLETE、reference未自证REFERENCE_UNAVAILABLE、上限SE不足INCOMPLETE与真实FAIL分别保留，不能重置预算或临时加档。原320行184 PASS/76 FAIL/60 REFERENCE_UNAVAILABLE及失败基线保留；当次视图复用F1的160行加新F2的320行共480行。连续reference/生产证据适用性、定向重验与接受条件见A/1 R14–R18；既有Request Changes有效，控制冻结不构成S3通过或启动S4。
+A/2下一实际执行manifest固定新控制与实际source/binary/配置/请求/比较族身份、批准评论及旧manifest/ledger/journal hashes；原执行、此前发布与P3发布分开，旧180事件前缀/hash链封存，首新事件181显式transition绑定old/new身份。继承58次预留/完成、PDE及总20.26435111698811秒、两族MC秒/路径0、active_phase=null；拒绝重绑旧manifest、create=True或新namespace清零，本轮不改账/程序。
+
+累计376次硬上限含原58及全部重验/诊断/必需/fallback；`58+10+70+160+56=354`仅8项Black修正域后基础层仍通过时成立，额外fallback未截断最坏386>376。每次/每组执行前检查剩余容量，不足INCOMPLETE，不删验证凑数或加额度。PDE累计6h、MC每族6h、总18h、RSS6GiB、证据1GiB、每族16×2^20及两族33554432路径上限不变，checkpoint/run/source变化不重置预算。旧320行184 PASS/76 FAIL/60 REFERENCE_UNAVAILABLE不变，当次480行160复用PASS/320 NOT_RUN、accepted=false；中央失败1.146344457e-4>2.5e-5仍成立，P7/P8仍NOT_RUN。完整复用/重验/停止映射见A/2 R10–R18；既有Request Changes有效，不宣称S3通过或启动S4。
 
 N3/N5 的完整长路径资格检查不放进每次快速 unit test；保留小规模确定性路径/异常测试供常规 CI，正式数值运行作为独立验收任务，记录每个 K/T/carry fixture 的 raw estimate、SE、参考值、误差分量、配置和 PASS/FAIL/INCOMPLETE。高精度源码、参考 solver 与数据表由 tester 独立审查；产品开发者不能只以新旧自身结果一致替代 oracle。
 

@@ -1,11 +1,12 @@
 # DAL-542：N5 方案 A 增量数值合同
 
-版本：**A/1**。状态：已批准、已冻结；候选方法、配置和资源估算尚未验证，S3 仍为 in_progress，PR #705 保持 draft。日期：2026-11-16。本合同只替换 S3 受影响的 F2 测试轴、h、独立离散 reference 方法和执行协议；未列出的 [API 决策](../api-notes/dal-538-market-iv-local-vol-mc.md) 与 [计划](../plans/dal-538-market-iv-local-vol-mc.md) 条款继续生效。
+版本：**A/2**，唯一现行控制。状态：已批准、已冻结；A/1 已执行部分及失败历史保留，A/2 账目接续和定向资格尚未实施/验证，S3 仍为 in_progress，PR #705 保持 draft。日期：2026-11-17。A/2 仅修订旧输入研究的阶段地位及必要身份/累计账接续，继承 A/1 的算法、配置、全部门槛和资源上限；未列出的 [API 决策](../api-notes/dal-538-market-iv-local-vol-mc.md) 与 [计划](../plans/dal-538-market-iv-local-vol-mc.md) 条款继续生效。
 
 ## 1. 来源、问题、目标与边界
 
-- 来源：DAL-542，issue `01a1e086-d9b5-798f-931b-7ce8196156b7`；方案附件 `01a1e417-cc5c-7a09-bea5-0a0de765df72`，文件名 `n5-resolution-proposal.md`，SHA-256 `2f9aa3e27149031851325c33e759386788ee67910338dceb1676b7a148dd1942`。决定评论 `01a1e41e-3d3b-70a1-8c5d-857632775224`，用户批准 `01a1e461-4d80-794a-9e15-ec4dfd4782ca`；冻结交接 `01a1e466-7bf5-786b-98f6-57cc17db162a`。附件第 1、3–7 节是本版本的批准来源，第 2 节的研究判断不构成已验证事实，第 8 节的决定已完成。
-- 接续：原 [PR #705](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/705)，base master，远端分支 `agent/dal-tester/5d01380c3047`；冻结前 head `d40ff873b661cba94da2c43b0fe7675e1d921793`。保留全部原提交与历史证据，正常快进，不另建 PR 或 force-push。
+- A/1 来源：DAL-542，issue `01a1e086-d9b5-798f-931b-7ce8196156b7`；方案附件 `01a1e417-cc5c-7a09-bea5-0a0de765df72`，文件名 `n5-resolution-proposal.md`，SHA-256 `2f9aa3e27149031851325c33e759386788ee67910338dceb1676b7a148dd1942`。决定评论 `01a1e41e-3d3b-70a1-8c5d-857632775224`，用户批准 `01a1e461-4d80-794a-9e15-ec4dfd4782ca`；冻结交接 `01a1e466-7bf5-786b-98f6-57cc17db162a`。A/1 冻结 head `4b20c54bcd0bf4a5e052d8e13fac7f2ce81527f6`，主控制 SHA-256 `c7408b519cca9f1aa044843137d9bb5447eefa5e9de59f6bd965dba5d6ff57b8`。原附件第 1、3–7 节的未修订参数继续生效；A/1 原文仅作历史，R10 前置条件由下述 A/2 替换。
+- A/2 来源：提案附件 `01a1e515-b173-7c87-bfaa-dbaffd023176`，`a1-r10-resolution-proposal.md`，SHA-256 `1fa7693cc8e2322d19b721f70fcfa5aad057858ac7c03cd9a0fa55c2b43cf06d`；tester `01a1e515-dac5-73ff-a45c-be0196e53a8e`，reviewer `01a1e500-1a88-7c2b-a21e-a2b2dd6895fc`，决定说明 `01a1e51d-35d1-7bef-8dc8-374707a34870`，用户批准 `01a1e52a-e892-7771-920e-3a5dc20e6384`，批准范围确认/冻结交接 `01a1e52d-ccb8-7044-bae2-eb9f95c99d58`。现行 R10 使用提案的完整替换文字，AC3 及对应先决条件同步。
+- 接续：原 [PR #705](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/705)，base master，远端分支 `agent/dal-tester/5d01380c3047`；A/2 冻结前 head `25f4836ab43672bbf2eecf1ca0f20eb9d8429d93`。保留全部原提交与历史证据，正常快进，不另建 PR 或 force-push。
 - 问题：reviewed head `5e5f39f838b5f529a95a7c87d50eccb8ece32511` 的原 320 行为 **184 PASS / 76 FAIL / 60 REFERENCE_UNAVAILABLE**，全部 SE 达标。一年 ATM 已自证 grid 差/S0=`0.001111637541571362`，超过 `2.5e-4`；季度最后 paired 差/S0≈`0.000983889919`，超过其统计带。8 个末级 grid reference 空间检查失败，其中两项季度扩域也失败。既有 Request Changes 继续有效；只增加样本或修 reference 不能消除已成立的价格失败。
 - 目标：将获准配置、比较族、准入和停止规则固定为可执行合同，使原 tester 只重验受影响的 F2/reference/runner 证据；明确诊断与正式资格的区别。
 - 非目标：不改变 D1–D6、公共签名/default、F0/F1/F2 行情和拟合控制、实际 fitted snapshots、K/F、T、carry/支付语义、生产算法或生产 PDE 准入；不引入 cell-average、Richardson oracle、upwind、density floor、价格平滑或用连续系数替换离散 σ。生产 σ 对 logspot/time 线性插值及平坦边界、左端 σ log-Euler、passive-only 和抽样/tape 前 AAD/风险/EXERCISE 拒绝保持。
@@ -85,7 +86,15 @@ L  = .5*σ²*D2 + (L'−.5*σ²)*D1 − r*I
 
 时间模板沿用独立 solver：anchors 为 0、T 和范围内 grid/carry 时间的并集，每段用 ceil(requested_steps*Δt/T) 个子步，端点保留。最大节点 6401，最大 **requested steps=4096**；并入 grid/carry anchors 后保守 **actual steps≤4096+246=4342**，两半 IE 另多一次线性求解。requested/actual、全部节点、每层 residual/raw values、实际线性求解数分开留存；不能把 4096 宣称为实际总步数，也不能用 actual 的增加偷加 requested 档。病态/不可表示 oracle 逐项报不可用，不删点。
 
-**R10 顺序与次数上限。** 先做 focused reference/runner 支持测试，再冻结执行身份；正式 reference 先完成 8 项 Black F/D 极限（knots/flat × 四个 T，使用 P7 空间/时间模板，覆盖负 r/q 与固定 carry）与原 8 个失败 grid 输入（两族旧 tau_quarter × 四个 T）的新方法研究。后者评估原输入内的方法可行性，不能覆盖旧失败记录；仍未自证即停止为 REFERENCE_UNAVAILABLE。通过后才求两族 P7/P8 × 四 T 的 **16 项必需自证**；P0–P6 × 两族 × 四 T 的 **56 次单层诊断**不承担认证归因，采用中央 2401/2048 基础层。上限 `(8+8+16)*10+56=376` 次新求解，包含 fallback，不能重跑旧 344 次相同方法矩阵来替代定向缺口。必需自证与 grid 价格门禁通过后才启动正式 MC。
+**R10 顺序与累计次数上限。** 先完成定向 reference/runner 支持测试，再冻结本修订的控制、输入、执行身份及与原180事件累计账的接续关系。正式 reference 先完成8项 Black F/D极限（knots/flat × 四个T，P7空间/时间模板）的准入：只复用身份和输入一致、未受修改影响的原中央层，P3影响的原扩域层必须以修正后的外段重验；每项须按R9完成全部自检，基础层不通过仅允许R9的一次四求解fallback，最终未自证即停止为REFERENCE_UNAVAILABLE。随后完成原8个失败grid输入（两族旧tau_quarter × 四个T）的新方法**诊断研究**，逐项保留实际PASS/REFERENCE_UNAVAILABLE及原层级、差和输入身份；后者的数值未自证本身不再阻断新P7/P8，亦不覆盖旧历史或认证原输入。每项仍遵守R9的基础六层和唯一四层fallback，已执行层只能按明示适用性复用。身份/输入/实现或资源异常仍按R15/R16停止，不能作为普通诊断失败略过。
+
+完成上述诊断后，执行原定P0–P8 capture及P7/P8逐节点N4、首段/离节点/边界探针；按原准入通过后，执行两族P7/P8 × 四T的16项必需reference研究。每项均须按R9独立完整自证且满足原grid价格门禁，任一不可用或FAIL即停止。P0–P6 × 两族 × 四T的56次单层诊断仍采用中央2401/2048，不承担认证归因，未自证的诊断不标认证PASS。只有Black、P7/P8完整reference、N4和grid门禁全部通过，才可进行原定小规模生产默认流/逐路径价格对齐及正式MC/paired/SE资格；R11–R13不变。
+
+整个接续最多376次新reference求解，**包含原已完成58次、P3受影响重验和所有fallback**，不重新获得预算。每项待执行求解/四求解fallback先核对同一累计账的剩余容量；不足即INCOMPLETE，不删必需验证、不提高cap或预算。旧344次矩阵不能替代定向缺口，全部R14资源上限及R15/R16身份、停止、前台收齐规则继续生效。
+
+冻结后先完成 R17 的10个 P3 受影响扩域层重验，再按 Black_knots 四 T、Black_flat 四 T 重新判断准入，然后完成 F2_linear 旧输入四 T、F2_nonlinear 旧输入四 T 诊断，T 顺序均为 `{91/365,1,2,2.25}`。其后 capture/N4/探针 → 16项必需研究及 grid → 56次诊断 → 默认流/路径/价格与配对嵌套核对 → 两族正式 MC；不得凭剩余预算越过仍必需的门禁。
+
+累计次数的条件路径为 `58+10+70+160+56=354≤376`，仅当修正域后的8项 Black 仍在基础层通过；10层重验见 R17，70为余7项旧输入最多各10层，160为新16项最多各10层。8项 Black 原来均未用 fallback，若全部触发则额外 `8*4=32`，未截断需求为 **386>376**。354不是无条件最坏上界，376仍是硬上限且包含所有旧用量/重验/诊断/必需研究/fallback；不预支未发生的节省。22次条件余量最多容纳5组完整额外 fallback，实际每次/每组执行前按账检查，不足如实 INCOMPLETE，不删验证凑数或追加额度。
 
 ## 5. 比较族、Brownian 坐标与 SE-only 抽样
 
@@ -112,18 +121,22 @@ address(f,b,p,j) = (((f*16+b)*Pmax+p)*8728+j)
 
 **R14 计算/容量边界。** 每族最多 `16*2^20=16,777,216` 条 fine 字段路径，两族最多 **33,554,432**；每条驱动 8 个模型，不将其乘 8 重称独立路径。fine draws 上限 **292,863,082,496**；每条八模型总步数 `2*(1091+2182+4364+8728)=32730`，两族约 `1.098e12` 模型步。不得保存全部路径。
 
-| 资源 | 整个 A/1 接续的停止线 |
+| 资源 | A/1→A/2 同一累计接续的停止线 |
 |---|---|
-| reference | 新求解最多 376 次；PDE 阶段累计 6 小时，并发最多 4 |
+| reference | 累计最多 376 次，含原58次、全部重验/诊断/必需研究/fallback；PDE 阶段累计 6 小时，并发最多 4 |
 | MC | 每族累计 6 小时；一个 fixture 进程、16 并发 batch，两族顺序执行；不与 PDE 或另一族并跑 |
 | 总数值计算 | 累计最多 18 小时，含上述阶段，按前台阶段 elapsed 累加，并行子任务不重复计时；分阶段/重启/接续不得清零 |
 | 内存/证据 | 单进程 RSS 6 GiB；留存证据≤1 GiB；同时保持生产 payload/workspace/steps/dimension 准入 |
 
 按既有实测比例估计两族约 4.45/4.49 小时，保守维数约 5.30/5.35 小时/族；这不是实测新配置成本或时间保证。单最细 columns 上界 `8*401*10408=33,388,864 bytes`；八模型之和 `125,208,240 bytes/batch`，16 份约 1.87 GiB，尚未含其他状态/复制。PreparationEnvelope 主项约 160 MiB/模型亦仅估算，必须用实际 Allocate/inspection 及 RSS 检查，不能当已通过生产预算。单 max solve 估算 `6401*4342*12≈3.34e8` RHS 节点步，不等同墙钟成本。
 
-**R15 运行前身份。** 正式数值计算前建立 A/1 新 namespace 的 manifest，固定本合同/API note/plan 的 SHA-256、请求字节与轴算法/配置 hash、两个比较族/所有模型/输出/tiers/停止规则、reservations、源码 commit/实际执行源码 hash、依赖/工具链/build flags/解析模式/可执行 binary hash、机器/worker 设置和已有累计预算。先实施及支持测试，再冻结这些执行身份；禁止依据候选试价选择配置再补登记。capture、reference 和 MC 的后续结果追加其自身 hash，不覆盖已冻结输入。hash 缺失或实际身份不符不得启动正式求解/路径。改变执行身份时只重验直接受影响证据并说明，不能把它当作预算重置或另试配置的机会。
+**R15 运行前身份。** 下一实际执行前冻结 A/2 manifest，固定本合同/API note/plan 的 SHA-256、请求字节与轴算法/配置 hash、两个比较族/所有模型/输出/tiers/停止规则、reservations、源码 commit/实际执行源码 hash、依赖/工具链/build flags/解析模式/可执行 binary hash、机器/worker 设置和已有累计预算；引用本次批准评论、原 manifest/ledger/journal 的 SHA-256 以及逐层复用/待重验映射。先实施及支持测试，再冻结这些执行身份；禁止依据候选试价选择配置再补登记。capture、reference 和 MC 的后续结果追加其自身 hash，不覆盖已冻结输入。hash 缺失或实际身份/输入/层映射/账不符不得启动正式求解/路径。
 
-**R16 停止/接续。** 资源触线即前台收齐或终止本次子进程，保存可复现 checkpoint、已用累计时间/求解/路径/证据字节与停止原因，标 INCOMPLETE；停止时已有真实 FAIL 或 REFERENCE_UNAVAILABLE 保留。reference 到唯一 fallback 仍未自证则 REFERENCE_UNAVAILABLE；grid/最终统计带真实超限则 FAIL；SE 到路径上限不足则 INCOMPLETE。新方法不稳定/预算准入失败亦停止，不能提高限额、加档、平滑或按价格选择结果。相同冻结身份/坐标前缀的接续只可消耗原累计预算剩余量，耗尽即交协调器，不自动获新额度。长跑由协调器安排能在前台收齐的窗口，不结束 turn 遗留 run-owned 进程。
+三种已封存身份分开：实际数值执行 `6ae635f2f0e60622adcb3740c15d2dfacb51afc0` / `a23afd16afef0b73374f648264f03fd269dc90820207141b0da9cfe6e27181ba`；此前发布 `97e0c1a0e5400169736e4155e742902a9ac8fbc0` / `86cd2a05…`；P3发布 `25f4836ab43672bbf2eecf1ca0f20eb9d8429d93` / `8402dd04fc7839bfb2d5eddcc4e504aea77b96e2571f1267b0f7d14f4cf4124b`。发布身份不等同新的数值执行，不可重绑旧 manifest 或声称最终发布 head 已运行全部资格；完整身份/hash 从封存证据核验。
+
+同一累计账迁移必须封存原180事件前缀及hash链；首新事件 **181** 为显式 transition，绑定 old/new 执行身份、批准评论和新控制，引用原 manifest/ledger/journal hashes。原 ledger SHA-256=`3bf459b95be10ba8a13a3d4b22c4f424bfc164cfa5aceb0ae31db103c1fb95d2`，journal SHA-256=`651f549f358dd88afc31cbc7b9641348b4864a90c00f593025c62d35f4ccbecb`（tester P3封存报告）。继承 **58次预留/58次完成、PDE与总数值均20.26435111698811秒、两族MC秒数/预留路径/完成路径均0、active_phase=null**。transition只扩展执行身份，不新增额度；原事件不得改写。拒绝 `create=True`、另建 namespace 清零、冻结新预算或将旧 manifest 直接换绑新源码。本轮仅冻结上述接续合同，不迁移账、不改程序。
+
+**R16 停止/接续。** 资源触线即前台收齐或终止本次子进程，保存可复现 checkpoint、已用累计时间/求解/路径/证据字节与停止原因，标 INCOMPLETE；停止时已有真实 FAIL 或 REFERENCE_UNAVAILABLE 保留。reference 到唯一 fallback 仍未自证则 REFERENCE_UNAVAILABLE，其中仅 R10 的8项旧输入数值未自证为非阻塞诊断；Black与P7/P8必需reference不可用仍停止，身份/输入/实现/资源异常不能被诊断地位豁免。grid/最终统计带真实超限则 FAIL；SE 到路径上限不足则 INCOMPLETE。新方法不稳定/预算准入失败亦停止，不能提高限额、加档、平滑或按价格选择结果。经 R15 显式迁移后的新执行身份同样只可消耗原累计预算剩余量，checkpoint/run/source变化不清零，耗尽即交协调器，不自动获新额度。长跑由协调器安排能在前台收齐的窗口，不结束 turn 遗留 run-owned 进程。
 
 ## 7. 证据复用、验收与附件逐项对照
 
@@ -131,32 +144,44 @@ address(f,b,p,j) = (((f*16+b)*Pmax+p)*8728+j)
 
 新非均匀 reference 要有 focused RED→GREEN 支持测试（非均匀导数多项式、mandatory knots/strikes、matched-domain、fallback 离散系数保真、缺证据准入）及新 Black 自证；旧 15 项测试只支持未变部分。新 P7/P8 要重新 capture、逐节点高精度 N4 和首段/离节点/边界探针；旧坐标数值不能替代新节点。F2 N5 grid、MC/paired/SE、默认流对齐全部按新身份重验，实际 DF/支付仍检查 2e-12。仅对变化和证据缺口补验，不重跑无关产品全套或 benchmark。
 
+P3修复后原58层中 **48个中央层逐位不变**，可在 model/carry/T/strike、中央mesh、timeline/actual steps、scheme、依赖/工具链身份一致时复用；若另有输入/solver/依赖变化，先重新核定适用性及预算。需重验的 **10个扩域层** 为8项Black各level2/3201点/2048 requested，加首个 `F2_linear_old_T0` 的level2/3201/2048及level3/6401/4096（9个level2、1个level3）。其中央节点匹配不变，外段舍入已变；修正后的10层均 **NOT_RUN**，原8项Black PASS仅属于旧执行。按原输入/中央mesh/timeline/scheme/依赖身份定向重验，完整保留新mesh/raw/residual与扩域差，组合未变中央层重新判断自证；追加 supersedes 关系，不覆盖旧层、旧status或原hash。
+
+首旧季度同4096 requested/4107 actual的中央2401/4801价格仍为 `4.421132674134743 / 4.432596118708112`，差/S0=`1.146344457336923e-4 > 2.5e-5`，P3没有消除此失败。旧未自证价格不能作oracle或认证金额归因，诊断失败不能重标PASS；亦不能推定未运行的P7/P8已失败或通过。A/2冻结时当次480行仍为 **160复用PASS/320 NOT_RUN**、accepted=false；P7/P8/capture/N4/56诊断/MC尚未运行，旧320行 **184 PASS/76 FAIL/60 REFERENCE_UNAVAILABLE** 不变。
+
 **R18 可执行接受条件。** 以下由后续 tester 实施/运行及 reviewer 核验；本轮只做控制文档静态自检。
 
 | 编号 | 测试/观察与可判定结果 |
 |---|---|
 | AC1 | 请求生成/解析往返检查 R4/R5 的 canonical 规则、全部 P0–P8 计数/端点/knots；最大 98646，超限/近邻不可二分时拒绝，无 epsilon 合并 |
 | AC2 | reference 支持测试验证 D1/D2、多项式导数、强制 knots/strikes 和中央扩域节点逐位一致；原离散系数在 fallback 保真，缺证据不能 PASS |
-| AC3 | 分阶段账目最多 376 solves；8 Black+8 旧输入先自证，16 必需研究及 P7/P8 grid 门禁全部通过后方出现正式 MC 记录；各层、自证门槛、requested/actual 与停止传播可重算 |
+| AC3 | 同一累计账最多376 solves（含原58及重验/fallback）；8 Black先完整自证，8旧输入必做非阻塞诊断且保留真实状态，再capture/N4/探针、16项必需reference及grid、56次诊断、默认流/路径/价格与配对嵌套，全部必需门禁通过后方有正式MC。354仅Black基础复验通过的条件路径，未截断386不得突破376；每次/每组执行前检查容量，不足INCOMPLETE，各层/停止传播可重算 |
 | AC4 | 协议测试重算 438 anchors、1091/2182/4364/8728、10408 上界、checked addresses、族/块不重叠、默认逐坐标/路径/价格对齐、Brownian 精确嵌套及生产无额外步；不符即停 |
 | AC5 | 从 16 块 raw 重算各 tier means/SE/paired-SE、自由度15与 SE-only 升级决定，最终指定 pair/价格与 R2 逐项一致；故意缺 reference/SE/真实超限的支持测试保持真实状态 |
-| AC6 | manifest 在正式计算前固定全部输入/执行 hash；累计账跨进程/阶段继续增长，触线停止；零/边界/overflow 支持测试不放宽生产预算 |
+| AC6 | manifest在正式计算前固定新控制/实际输入/执行及原manifest/ledger/journal hashes；原180事件前缀/hash链不变，181显式transition绑定old/new身份及批准。58/58、PDE与总20.26435111698811秒、两族MC秒/路径0、active_phase=null继承；拒绝create=True/重绑/新namespace清零，跨进程/阶段/source不重置且容量不足停止；零/边界/overflow支持测试不放宽生产预算 |
 | AC7 | 历史 320 行及其 hash 不变；当次 480 行明确引用 F1 的适用身份和新 F2 的320行，不用旧Dmax路径；逐项复用理由、未运行/失败/诊断均可追溯 |
 | AC8 | 控制冻结 patch≤4 个授权文档，UTF-8/相对链接/文档检查与 patch 检查通过；无候选执行、生产测试或 benchmark；原提交为新 head 祖先，原 PR/base/分支和 draft 不变 |
 
 正式 S3 仍需全部适用资格、reviewer 复核、doc-writer 判断及既有合并门禁；本合同冻结不是 S3 通过。CI/Codacy 按新 head 的既有事实条件接续，本轮仅一次必要快照，不轮询或重复登记。S4 只能在 S3 正式资格完整并通过全部合并门禁后推进；父 DAL-538 保持 in_progress。
 
-| 批准附件 | A/1 落点及一致性 |
+| A/1 批准附件 | A/2 承继及显式替换 |
 |---|---|
 | §1 冲突/不变项 | §1/§2；仅替换 F2 grid/h/reference 配置，全部价格/SE/自证和生产/API/default 约束不变 |
 | §3 轴/计数/最终配置 | R4–R6；P0–P8 公式/计数、90位→binary64、严格去重、P7/P8 和诊断边界照录；不再沿用旧删列补预算规则 |
-| §4 reference | R7–R10；601 中央、matched 扩域到6401、非均匀三点式、6+4层、requested/actual、8+8+16研究及56诊断一致 |
+| §4 reference | R7–R9算法/中央与外段模板/6+4层/cap逐字不变；8+8+16研究及56诊断保留，旧8项的自证先决地位由A/2 R10替换为必做非阻塞诊断 |
 | §5 抽样 | R11–R13；两族×8模型、438 anchors、四档维数、Dmax/地址/SE-only/最终pair/旧raw不可复用一致 |
 | §6 资源 | R14–R16；376/33,554,432/6+6+6小时/18小时/RSS6GiB/证据1GiB一致，明确跨接续累计和触线状态保留 |
-| §7 证据 | R3/R15/R17/AC；160复用+320新=480当次视图，新namespace与计算前hash，旧失败/连续reference/生产证据边界一致 |
+| §7 证据 | R3/R15/R17/AC；160复用+320新=480当次视图与旧失败保留；R15明确跨身份同一累计账，不能以新namespace清零 |
 
-相对附件仅将“未批准/申请变更”转为已批准 A/1 合同，并展开可判定的层级交叉比较、执行前身份与累计停止验收；没有改变参数、方法选择、门槛或增加预算。资源/精度可行性仍未验证。
+| A/2 批准提案 | 现行对应条款 |
+|---|---|
+| R10完整替换及AC3同步 | R10前三段逐字采用获准替换文字；AC3及API note/plan同步先决条件，只有旧8项数值未自证不阻断 |
+| 固定顺序与48/10层映射 | R10/R17；Black、旧诊断、capture/N4、16研究/grid、56诊断、默认对齐/配对、MC顺序一致；10层修正结果NOT_RUN，旧层追加supersedes而非覆写 |
+| 354有条件/386未截断/376硬停止 | R10/R14/AC3；包含旧58、全部重验/诊断/必需/fallback，每次/每组先查同一账容量，不省略必需验证或提高额度 |
+| 跨执行身份同一累计账 | R15/R16/AC6；执行/发布分开，旧180事件封存、181显式transition，58/20.26435111698811/0继承，无重绑/清零 |
+| 退出与证据边界 | R16/R17；必需reference/N4/grid/MC/paired/SE仍阻塞，旧诊断不可当oracle，历史320及当次480状态不变 |
+
+A/2相对批准提案只将“未批准/建议”转为已批准的现行地位，并明确引用身份与验收映射；不改变算法、P0–P8/grid/h、门槛、随机方案、生产/API/default/PDE准入或资源额度。完整资格及资源可行性仍未验证；A/1来源/hash和真实失败历史继续保留，旧R10不再是现行先决条件。
 
 ## 8. Open Questions
 
-无待用户再次决定事项。新方法能否在 cap 内自证、新 P7/P8 是否满足 grid/MC 与资源门禁是待执行验证项；失败按 R16 交协调器。生产算法/公共默认的任何后续更改须另列决定，不能作为 A/1 的默认补救。
+无待用户再次决定事项。A/2身份迁移/账目接续、10层定向重验和新P7/P8完整资格仍待实施验证；354条件路径不保证376内完成，容量不足按R16保留INCOMPLETE交协调器。生产算法/公共默认的任何后续更改须另列决定，不能作为A/2的默认补救。
