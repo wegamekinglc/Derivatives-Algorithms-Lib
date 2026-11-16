@@ -49,3 +49,29 @@ def test_example_runs_through_its_guards(name, env, marker):
     )
     assert result.returncode == 0, result.stderr
     assert marker in result.stdout
+
+
+@pytest.mark.parametrize("optimized", [False, True])
+@pytest.mark.parametrize("invalid_audit", [False, True])
+def test_compounded_ois_example_checks_survive_optimization(optimized, invalid_audit):
+    child_env = {**os.environ, "DAL_NUM_THREADS": "1", "PYTHONPATH": os.pathsep.join((_PACKAGE_ROOT, str(EXAMPLES)))}
+    program = "import dal, runpy, sys\n"
+    if invalid_audit:
+        program += "dal.CompoundedOis_Get_ObservationSchedule = lambda prepared: []\n"
+    program += "runpy.run_path(sys.argv[1], run_name='__main__')\n"
+    flags = ["-O"] if optimized else []
+    result = subprocess.run(
+        [sys.executable, "-S", *flags, "-c", program, str(EXAMPLES / "020.compounded_ois_quote_risk.py")],
+        capture_output=True,
+        text=True,
+        env=child_env,
+        timeout=60,
+    )
+    if invalid_audit:
+        assert result.returncode == 1
+        assert "RuntimeError: Expected three observations in a 22-column prepared audit" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        for mode in ("None", "Lookback", "ObservationShift", "Lockout"):
+            assert f"Observation mode: {mode}\n" in result.stdout
+        assert "ScriptCurveQuoteRiskLiveQuoteUnsupported" in result.stdout
