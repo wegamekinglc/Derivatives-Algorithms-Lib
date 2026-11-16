@@ -58,6 +58,13 @@ freq is string
     Payment frequency as an ISO period (e.g. "3M", "6M")
 basis is string
     Day basis name (e.g. "ACT_365F", "ACT_360")
+&optional
+calendar is string
+    Holiday center for accrual and payment dates (empty uses weekends only)
+accrualConvention is string
+    Business-day convention for accrual dates (default Following)
+paymentConvention is string
+    Business-day convention for payment dates (default Following)
 &outputs
 convention is handle StorableRateLegConvention
     The rate leg convention
@@ -146,8 +153,19 @@ namespace Dal {
 
         void DayBasis_New(const String_& name, Handle_<StorableDayBasis_>* basis) { basis->reset(new StorableDayBasis_(Dal::DayBasis_New(name))); }
 
-        void RateLegConvention_New(const String_& freq, const String_& basis, Handle_<StorableRateLegConvention_>* convention) {
-            convention->reset(new StorableRateLegConvention_(Dal::RateLegConvention_New(Dal::PeriodLength_New(freq), Dal::DayBasis_New(basis))));
+        void RateLegConvention_New(const String_& freq,
+                                   const String_& basis,
+                                   const String_& calendar,
+                                   const String_& accrualConvention,
+                                   const String_& paymentConvention,
+                                   Handle_<StorableRateLegConvention_>* convention) {
+            auto leg = Dal::RateLegConvention_New(Dal::PeriodLength_New(freq), Dal::DayBasis_New(basis));
+            leg.accrualHolidays_ = leg.paymentHolidays_ = Holidays_(calendar);
+            if (!accrualConvention.empty())
+                leg.businessDayConvention_ = BizDayConvention_(accrualConvention);
+            if (!paymentConvention.empty())
+                leg.paymentConvention_ = BizDayConvention_(paymentConvention);
+            convention->reset(new StorableRateLegConvention_(leg));
         }
 
         void RateIndexConvention_New(const String_& forecastTenor,
