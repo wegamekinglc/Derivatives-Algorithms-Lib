@@ -309,10 +309,7 @@ def final_study_values(study):
 def blocked_reason(observed):
     if not all(grid["success"] for grid in observed["grids"]):
         return "Frozen production grid rejected before model construction"
-    return (
-        "Formal statistical runner not implemented; "
-        "this delivery is a blocked reference checkpoint"
-    )
+    return "Statistical qualification is recorded separately by formal_report.py"
 
 
 def not_run(fixture, time, product, strike, oracle, reason, **extra):
@@ -427,15 +424,15 @@ def qualify(request_path, capture_path, jobs):
         ]
     return dict(
         schema="dal.market-iv-independent-qualification/1",
-        status="BLOCKED",
+        status="REFERENCE_ONLY",
         decimal_digits=90,
         request_sha256=digest(request_path),
         capture_sha256=digest(capture_path),
         pde_studies=studies,
         fixtures=rows,
         remaining=(
-            "MRG32 production-path/price alignment and formal N3/N5 statistical runs "
-            "require valid production grids; not implemented or claimed here"
+            "Use mc.cpp and formal_report.py for the separate statistical and grid "
+            "qualification; reference-only output never certifies product prices"
         ),
     )
 

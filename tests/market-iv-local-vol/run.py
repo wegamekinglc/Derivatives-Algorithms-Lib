@@ -1,4 +1,4 @@
-"""Run the blocked S3 reference checkpoint; exit 2 means unqualified product."""
+"""Run the independent reference phase; product qualification is separate."""
 
 import argparse
 import json
