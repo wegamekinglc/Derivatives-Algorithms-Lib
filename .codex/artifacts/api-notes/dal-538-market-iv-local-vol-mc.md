@@ -111,6 +111,8 @@ void Write(Archive::Store_&) const override; // throws ArchiveUnsupported
 
 canonical 根 key 分别 `schema,market,quotes,fit_settings,fit,grid_request,local_vol,interpolation` 和 `schema,source_identity,settings,time_basis,step_scheme,local_vol_scheme,carry_scheme,timeline_scheme,capabilities`。对象键依 JCS 排序；数组顺序保留；有限 double 用 JCS 最短表示，-0 与 0 等价，optional 显式 null。日期 ISO；enum 用 canonical token。排除 name、指针、运行时间、机器/线程数、allocator capacity、迭代日志及执行计数，避免同内容因运行轨迹不同而改变身份。原始 quote 排序变化视为新来源。相同完整内容的复制/重建接受且同 identity；refit、任何 F/D/grid 数值或配置变化则重算，不复用旧 preparation。
 
+S1 的内部 canonical 编码将 size_t count/budget 字段保存为十进制字符串，避免经 JCS 的 binary64 数值丢失 2^53 以上的整数位；这不改变 C++/Python/Excel 的整数类型和取值范围。
+
 每次请求拥有其 prepared state；克隆可共享 source，不能共享 mutable columns/path/scratch。Clone 重绑参数指针和 delegate 所需的定义/时间线生命周期；不能继续借用已释放 defLine 指针。准备失败清理局部状态；原模型和并发请求仍可用。运行时 path 的不可表示 spot/numeraire/DF 必须报错，不能把 Inf/0 当成功；构建期不能保证正态随机变量的所有极端样本永不越界。
 
 ## 5. 数学、日期、时间网格

@@ -106,6 +106,28 @@ multi-factor GSR rates, including a GSR SLV rate component; foreign rates,
 FX quanto adjustments, and stochastic dividend yields
 are outside this model.
 
+## Internal market-grid preparation
+
+`dal/model/marketivlocalvolinternal.hpp` prepares an immutable source from a
+successful `MarketIvDupireResult_`. It checks the requested axes and every
+authoritative node, shares the immutable fit snapshot, and copies the surface,
+grid request and nodes. Detached configuration, carry and warning records remain
+valid after the caller destroys its inputs. Numeric capacity plans precede the
+copies and retain the existing fit/grid envelopes; these ledgers exclude dynamic
+strings and are not process-memory limits.
+
+The source records JCS/SHA-256 identities for the full market/fit/grid content
+and resolved model settings. Its carry uses endpoint differences of
+`L=log(F/S0)` and `H=log(D)`: `R=H(a)-H(b)` and
+`Q=R-(L(b)-L(a))`. Knot derivatives use the right segment; the tail keeps the
+last log slope. An internal passive equity component prepares `R-Q` and reuses
+the existing local-vol evolution with zero scalar dividend. Its timeline knots
+include both carry terms and surface times. Domestic discounting uses the same
+`H` with `HybridLogDfRateData_` and `LOG_LINEAR`.
+
+Access is limited to internal source/component preparation. The existing
+ModelData factories and language entry points retain their current contracts.
+
 ## Design references
 
 The standalone surface and flat boundary behavior follow the same broad
