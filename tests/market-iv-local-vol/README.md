@@ -11,6 +11,64 @@ Production baseline is `53a2b1592993f3a1d354df2d6ec2ae6918e5ef6d`;
 the production repair is `b0591270d904d9f4d1a6cf5ce94f121a8acee8f8`.
 This directory adds no production policy, public interface or dependency pin.
 
+## A/1 approved execution
+
+The active F2 amendment is
+`.codex/artifacts/specs/dal-542-n5-resolution-a.md` (A/1). The original 320 rows
+and all original fixtures remain historical evidence. The A/1 current view
+contains 160 reused F1 rows plus 320 newly registered F2 rows. Until actual
+admission succeeds, absent estimates remain NOT_RUN.
+
+`a1/request.json` contains the canonical 90-digit-to-binary64 P0–P8 axes,
+the two families, all four nested timelines and fixed coordinate reservations.
+`a1_axes.request` regenerates it from the unchanged original generated request;
+the generator does not evaluate candidate prices. The nonuniform reference is
+in `a1_pde.py`; the original `pde.py` and continuous oracle fixtures are intact.
+`mcpayoff.hpp` extracts the original passive payoff wiring for both runners.
+
+Build the core-only targets using the configuration below, adding
+`dal_market_iv_a1_mc`, `dal_market_iv_a1_probe` and
+`dal_market_iv_a1_protocol_tests`. Run focused support checks:
+
+```bash
+OPENBLAS_NUM_THREADS=1 python3 -m unittest discover \
+  -s tests/market-iv-local-vol -p test_a1.py -v
+ctest --test-dir build/dal-542-reference \
+  -R 'MarketIv(A1|Qualification)Test' --output-on-failure
+```
+
+After committing the tested implementation, freeze execution identities once:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+python3 tests/market-iv-local-vol/a1_run.py freeze \
+  --directory build/dal-542-a1
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+python3 tests/market-iv-local-vol/a1_run.py run \
+  --directory build/dal-542-a1
+```
+
+The default original input directory is `build/dal-542-formal` from the
+accepted evidence, and binary directory is `build/dal-542-reference`.
+The freeze records controls, actual sources/binaries/build/dependencies,
+request, outputs, tiers, coordinates and the initial cumulative ledger hash.
+Results use a separate namespace. Existing manifests and ledgers cannot be
+silently reset. Exit 2 reports a numerical non-acceptance/checkpoint.
+
+Execution stops at the first failed required study or grid gate. It first
+runs eight Black and eight unchanged old-grid studies under the new method;
+then actual capture/N4/probes, 16 required grid studies and 56 diagnostics.
+Only complete reference/grid admission permits the new F2 MC. PDE uses at
+most four workers; MC runs one family with 16 batch workers at a time.
+Budgets and phase elapsed are durably cumulative. An interrupted active phase
+requires explicit ledger recovery, never a new budget. Each MC tier reserves
+only its new prefix extension before launch; completed paths are recorded
+separately. Exact cumulative sums are checkpointed between tiers and checked
+before extension. A partially interrupted tier retains its conservative
+reservation; it is not evidence of completed paths. No repeated family launch
+is silently permitted. Resource stops retain INCOMPLETE and
+completed reference evidence; unavailable references and FAIL remain distinct.
+
 ## Build and quick checks
 
 Use Python 3.13 and the versions in `requirements.txt`. Initialize the pinned
