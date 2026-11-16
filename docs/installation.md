@@ -134,6 +134,7 @@ in the build configuration.
 | `DAL_CPP_BUILD_EXAMPLES`              | `ON`         | Build core C++ examples independently of the public facade                            |
 | `DAL_PUBLIC_BUILD_EXAMPLES`           | `ON`         | Build separate public-facade examples; see initial default below                      |
 | `DAL_CPP_BUILD_BENCHMARKS`            | `OFF`        | Build benchmarks                                                                      |
+| `DAL_PUBLIC_BUILD_BENCHMARKS`         | `OFF`        | Build separate public projection benchmarks; requires the facade                       |
 | `DAL_CPP_BUILD_NATIVE_COMPARISONS`    | `OFF`        | Build native third-party comparison workers; requires benchmarks and QuantLib         |
 | `DAL_ENABLE_NATIVE_ARCH`              | `OFF`        | Tune Release code for the build machine                                               |
 | `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
@@ -151,6 +152,10 @@ On first configuration, `DAL_PUBLIC_BUILD_EXAMPLES` defaults to the current
 `DAL_CPP_BUILD_EXAMPLES` value when available, or `OFF` in a standalone public
 build. It is then an independent cache option. Disable both example options
 explicitly when reconfiguring an existing build without examples.
+
+`DAL_PUBLIC_BUILD_BENCHMARKS=ON` enables `compounded_ois_audit_perf`, which
+links `DAL::public` independently of core benchmark targets. See the
+[audit timing and resource contract](../dal-public/benchmarks/README.md).
 
 ### Native AAD configuration
 
@@ -296,6 +301,54 @@ cmake \
 
 For a generator that must be selected explicitly, add
 `-DDAL_GENERATOR=Ninja` (or the required local generator).
+
+### Installed OIS consumers
+
+The OIS consumers can check a core SDK before the public package is installed.
+From the repository root, use fresh build/install directories:
+
+```bash
+cmake -S dal-cpp -B build/ois-core-sdk -DCMAKE_BUILD_TYPE=Release \
+  "-DCMAKE_INSTALL_PREFIX=$PWD/build/stage/ois-sdk" \
+  -DDAL_CPP_BUILD_TESTS=OFF -DDAL_CPP_BUILD_EXAMPLES=OFF
+cmake --build build/ois-core-sdk --parallel
+cmake --install build/ois-core-sdk
+cmake -S tests/installed-consumer -B build/ois-core-consumer \
+  "-DCMAKE_PREFIX_PATH=$PWD/build/stage/ois-sdk" -DDAL_CONSUMER_CORE_ONLY=ON
+cmake --build build/ois-core-consumer --parallel
+ctest --test-dir build/ois-core-consumer -R '^dal_installed_core_ois$' --output-on-failure
+```
+
+`DAL_CONSUMER_CORE_ONLY=ON` discovers only `dal-cpp` and builds
+`dal_installed_core_ois` with core headers and `DAL::cpp`. It does not require
+or link `DAL::public`. Install a matching facade into that prefix separately:
+
+```bash
+cmake -S dal-public -B build/ois-public-sdk -DCMAKE_BUILD_TYPE=Release \
+  "-DCMAKE_PREFIX_PATH=$PWD/build/stage/ois-sdk" \
+  "-DCMAKE_INSTALL_PREFIX=$PWD/build/stage/ois-sdk" \
+  -DDAL_PUBLIC_BUILD_TESTS=OFF -DDAL_PUBLIC_BUILD_EXAMPLES=OFF
+cmake --build build/ois-public-sdk --parallel
+cmake --install build/ois-public-sdk
+cmake -S tests/installed-consumer -B build/ois-sdk-consumer \
+  "-DCMAKE_PREFIX_PATH=$PWD/build/stage/ois-sdk"
+cmake --build build/ois-sdk-consumer --target dal_installed_core_ois dal_installed_public_ois --parallel
+ctest --test-dir build/ois-sdk-consumer -R '^dal_installed_(core|public)_ois$' --output-on-failure
+```
+
+The public consumer includes facade headers and links `DAL::public`, which
+resolves its matching core dependency. Both consumers check four modes, `/2`
+archive identity, EXACT calibration, full/PV-only risk, fixed-contract complete
+quote recalibration, signed DV01 and owning rejection after input destruction.
+They apply the exported MSVC runtime helper. Multi-configuration builds need
+`--config Release` on build/install and `-C Release` on CTest.
+
+Rebuild the core, facade, consumers, Python module and XLL together when shared
+OIS record layouts change. Source/default and archive compatibility do not
+promise compatibility with old binary layouts. Keep installed headers, libraries,
+compiler/runtime and AAD options matched, and ensure runtime library search
+resolves this SDK rather than another DAL install. These consumer commands
+exercise native C++ interfaces, not Microsoft Office.
 
 ### Standalone Public Facade and Test Dependencies
 

@@ -128,6 +128,12 @@ joint-XCCY, or staged-XCCY-basis calibration provenance and aggregates portfolio
 quote sensitivity plus DV01. Fingerprints reject stale curve state, and results
 remain separated by actual PV currency without FX conversion.
 
+The [compounded OIS workflow](docs/ccy-curves/compounded-ois.md) uses one frozen
+None/Lookback/ObservationShift/Lockout schedule through direct native pricing,
+same-source EXACT calibration and fixed-contract signed quote DV01. Separate
+core/public/Python examples and owning 22/26-column audits expose the same
+financial contract while retaining legacy `/1` inputs and defaults.
+
 ### Script Engine Modes
 
 Monte Carlo script valuation defaults to the compiled evaluator (`compiled=true`).

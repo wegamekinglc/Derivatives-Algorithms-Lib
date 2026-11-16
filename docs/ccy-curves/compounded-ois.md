@@ -1,7 +1,8 @@
 # Explicit compounded OIS scripts
 
-`NewCompoundedOisScriptInstrument` prices fixed contracts from explicit overnight
-observations. Floating coupons are `N*(product(1+alpha_i*L_i)-1)`, discounted at
+`NewCompoundedOisScriptInstrument` prices fixed contracts from manual `/1`
+observations or a frozen `/2` schedule for None, Lookback, ObservationShift or
+Lockout. Floating coupons are `N*(product(1+w_i*L_i)-1)`, discounted at
 actual payment dates. `NewPeriodForwardOisScriptInstrument` retains its existing
 whole-period forward representation. A mixed historical/future coupon needs
 the explicit product. The [financial contract](../methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation)
@@ -10,16 +11,19 @@ defines table admission, identities and numerical errors.
 Supply fixed-leg, coupon and observation tables, explicit ACT/360 or ACT/365F
 bases, resolved calendar, currency/collateral, routes, direction, positive N
 and fixed decimal K. `rate_start,rate_end` describe the complete overnight
-rate interval; `start,end,accrual` describe its intersection with the coupon.
-A Friday fixing through a Monday holiday uses one four-day factor.
+rate interval; `start,end,accrual` retain actual coupon accrual.
+Under `/1`, a Friday fixing through a Monday holiday uses one four-day factor.
+Under `/2`, the actual accrual interval, complete rate interval and compounding
+weight interval are separate; the [mode rules](#core-observation-schedule-preparation)
+determine the weight without changing fixed-leg accruals or payment dates.
 
 Times are midnight/date-only. Strictly past fixings require the explicit
 snapshot; future fixings always project. Set `Model` or `RequireHistorical`
 explicitly for today. Empty snapshots are authoritative. Structural preparation
 freezes inputs without sampling rates. Settled payments remain in source and
-reports but have no price dependency. Live payments and complete rate intervals
-must fit their bound curves. Short discount or passive base curves are valid
-when they cover every actual query.
+reports but have no price dependency. Live payment discounts and projected
+complete rate intervals must fit their bound curves. Short discount or passive
+base curves are valid when they cover every actual query.
 
 Native ON preparation can omit the auxiliary curve snapshot only with frozen
 candidate geometry and no model; this does not remove the explicit fixing
@@ -50,8 +54,9 @@ Call `PrepareCompoundedOis(spec, valuation)`, then
 `request.compoundedOis_`. Defaults are `Price,ParRate`, `AutoFast`, derivative
 `None` and FD step `1e-6`. Request `AAD` or `FiniteDifference` for partials.
 Check success and availability before calling `CurveScriptEvaluationValue`
-or `CurveScriptEvaluationPartials`. `CurveScriptEvaluationTable` projects
-summary, measures, parameters, cashflows and observations.
+or `CurveScriptEvaluationPartials`. `CurveScriptEvaluationTable` accepts
+`summary`, `measures`, `parameters`, `cashflows`, `observations` and
+`observation_schedule`.
 
 Partial rows follow measure order; columns follow `freeParameters_`.
 Price partials retain currency, actual N and direction; ParRate partials have
@@ -151,14 +156,15 @@ prepared audit. Excel creates the typed convention using
 `lookback_business_days` and `lockout_business_days`; its spec factory accepts
 an `observation_convention` handle and explicit `rule_id`.
 
-The new `observation_schedule` evaluation-table selector appends `source`,
-`rate`, `source_row` and `statement`. The prepared columns, in order, are
+The `observation_schedule` evaluation-table selector appends `source`,
+`rate`, `source_row` and `statement` for 26 columns. The prepared columns,
+in order, are
 `rule`, `mode`, `coupon_id`, `row`, `coupon_row`, `source_key`, `start`, `end`,
 `accrual`, `rate_start`, `rate_end`, `rate_accrual`, `weight_start`, `weight_end`,
 `compounding_accrual`, `fixing_index`, `fixing_time`, `historical_required`,
 `included`, `settled`, `reused_from_row` and `observation_schedule_identity`.
 `row`, `coupon_row`, `reused_from_row` and `statement` are zero-based;
-`source_row` is the one-based row number in the generated source. `/1` uses
+`source_row` is the one-based row number in the bound source. `/1` uses
 audit mode `Legacy` and its original `observations/<row>` source key; `/2` uses
 `observation_schedule/<row>`. Existing `observations` columns remain unchanged.
 
@@ -168,12 +174,30 @@ independent lists of rows, with native `Date_`/`DateTime_` values and `None` for
 absent cells; Excel uses blank cells. Evaluation results own their schedule,
 rule, mode and identity after requests and prepared handles leave scope.
 Settled rows keep an absent rate, never a fabricated zero fixing.
+C++ references remain tied to their owning result's lifetime. Rebuild core,
+facade, Python and XLL against matching headers and libraries; owning data
+does not promise compatibility with older binary layouts. Prepared `/2` JSON
+is re-expanded and verified on load; fit sessions, quote-risk snapshots/results
+and Excel session handles do not become portable archives.
 
 The separate C++ target `compounded_ois_quote_risk` and
 [`020.compounded_ois_quote_risk.py`](../../dal-python/examples/020.compounded_ois_quote_risk.py)
 show all four modes, fixed K/N, explicit accuracy limits, full/PV-only quote
 risk, complete per-quote recalibration and an owning live-quote rejection.
 The existing `compounded_ois_script` program continues to demonstrate `/1`.
+Build the new facade program and run its CTest separately:
+
+```bash
+cmake --build build/core-dev --target compounded_ois_quote_risk --parallel
+ctest --test-dir build/core-dev -R '^compounded_ois_quote_risk$' --output-on-failure
+python dal-python/examples/020.compounded_ois_quote_risk.py
+```
+
+These commands assume the facade example configuration above and a matching
+installed/built Python module. Excel recipes describe the worksheet interface;
+portable tests do not execute native XLL registrations or Office COM/spill.
+The [installation guide](../installation.md#installed-ois-consumers) covers
+core-only and matching core/public SDK consumers.
 
 ## Core observation schedule preparation
 
@@ -249,8 +273,9 @@ response to a quote rising 1bp. There is no per-million normalization or extra
 minus sign. Doubling N doubles PV/raw/DV01, and ReceiveFixed reverses them.
 ParRate risk, live-quote payoffs, stale contexts and unregistered PVs remain
 unavailable. Calibration report availability keeps its existing meaning.
-General script/MC and legacy tenor staging still reject ON/ON2. Python/Excel
-convention factories and new audit projections are not exposed.
+General script/MC and legacy tenor staging still reject ON/ON2. Public C++,
+Python and Excel expose the same admitted native path and owning audit; their
+factories do not extend the supported numerical or product scope.
 
 Build and run the core `compounded_ois` example under
 `dal-cpp/examples/curves/compounded_ois/`. It uses all four modes and checks
@@ -304,8 +329,36 @@ released live tape memory and retained tape capacity are reported separately.
 These are ON-target fixtures with passive discount, actual N=1 and multiple
 coupon payments. The 15-quote cases use ZERO_RATE; the others use LOG_DISCOUNT.
 Both 1bp and 0.5bp central recalibration references are checked before timing.
+The 100-PV shape cycles fifteen preregistered contracts within one context;
+it is not one hundred distinct tables or independent calibration contexts.
 
-The first mode uses D=30/365/1825 intervals, one live coupon, N=1, K=0.025,
+For the separate public audit benchmark, enable the facade and its opt-in
+benchmark option:
+
+```bash
+cmake --preset core-dev -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_BENCHMARKS=ON
+cmake --build build/core-dev --target compounded_ois_audit_perf --parallel
+ctest --test-dir build/core-dev -R '^compounded_ois_audit_perf$' --output-on-failure
+```
+
+`compounded_ois_audit_perf` measures all four modes at D=30/365/1825. Prepared
+22-column and evaluated 26-column conversions start with existing owning
+inputs and include output-table allocation and destruction. Its separate
+`owning_evaluation_end_to_end` starts from frozen tables and an existing
+instrument: native plan preparation/validation, pricing, details and report
+construction are timed; initial date expansion and source construction are
+outside this timer. Prepared compounding-kernel timings remain separate.
+The Cell projections exclude Python-list/Excel-OPER conversion and Office.
+
+Audit output-cell payload is a lower bound excluding indirect string storage;
+tracked vector capacity is not total heap usage. Linux process high-water RSS
+includes setup and earlier cases; zero elsewhere means unavailable. Each audit
+process retains three warmups and ten samples. New `/2`, OIS quote-risk and
+audit paths have no pre-feature baseline: report absolute costs separately
+from paired historical comparisons. See the
+[public benchmark contract](../../dal-public/benchmarks/README.md) for scope.
+
+`--compounded-ois` uses D=30/365/1825 intervals, one live coupon, N=1, K=0.025,
 eight free log-DF coordinates on fixed 400-day knot spacing, and `floor(D/2)`
 historical observations. Independent scalar Price/ParRate and two-step FD/AAD
 checks precede timing. A separate parser-alias probe preserves canonical ON

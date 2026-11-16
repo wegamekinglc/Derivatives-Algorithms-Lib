@@ -29,6 +29,13 @@ covers immutable contract data, typed bindings, quote/observation axes and persi
 Its [stochastic XCCY section](methodology/script_calibration_contract.md#stochastic-xccy-model-and-phased-mc)
 describes the typed Gaussian model, same-source staged/MC callers, phase ranges
 and current numerical acceptance limits.
+
+The [compounded OIS guide](ccy-curves/compounded-ois.md) covers explicit
+`/1` and four `/2` observation modes, owning cross-language schedule audits,
+same-source EXACT calibration and fixed-contract signed quote DV01. It links
+the separate core/facade/Python examples, installed consumers and scoped
+kernel/evaluation/audit measurement contracts.
+
 The [prepared XCCY basket calling recipe](methodology/script_calibration_contract.md#calling-prepared-xccy-mc-baskets)
 covers required C++/Python/Excel inputs, owning failures, JSON exports and the
 public C++ example.
