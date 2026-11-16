@@ -4,9 +4,11 @@ import os
 import signal
 import tempfile
 from pathlib import Path
+from threading import Lock
 
 REPO = Path(__file__).resolve().parents[2]
 BINARY_ROOT = REPO / "build/dal-542-reference"
+SPAWN_LOCK = Lock()
 NATIVE = dict(
     capture="dal_market_iv_capture",
     mc="dal_market_iv_a1_mc",
@@ -113,20 +115,10 @@ def validate_arguments(kind, args):
         raise ValueError("Invalid probe input")
 
 
-def launch(kind, arguments, stdout, stderr=None):
-    program(kind)
-    arguments = list(map(str, arguments))
-    validate_arguments(kind, arguments)
-    if Path.cwd().resolve() != REPO.resolve():
-        raise ValueError("Qualification dispatcher must run from the repository")
-    payload = job_data(kind, arguments)
-    errors = stderr if stderr is not None else stdout
-    read_fd, write_fd = os.pipe()
-    actions = [
-        (os.POSIX_SPAWN_DUP2, read_fd, 0),
-        (os.POSIX_SPAWN_DUP2, stdout.fileno(), 1),
-        (os.POSIX_SPAWN_DUP2, errors.fileno(), 2),
-    ]
+def spawn_dispatcher(descriptors):
+    inherited = {fd: os.get_inheritable(fd) for fd in set(descriptors)}
+    for fd in inherited:
+        os.set_inheritable(fd, True)
     try:
         pid = os.posix_spawn(
             "/bin/bash",
@@ -142,21 +134,32 @@ def launch(kind, arguments, stdout, stderr=None):
                 "OPENBLAS_NUM_THREADS": "1",
                 "OMP_NUM_THREADS": "1",
             },
-            file_actions=actions,
         )
-    except BaseException:
-        os.close(read_fd)
-        os.close(write_fd)
-        raise
-    os.close(read_fd)
-    child = Child(pid)
-    try:
-        with os.fdopen(write_fd, "wb") as stream:
-            stream.write(payload)
-    except BaseException:
-        child.wait()
-        raise
-    return child
+    finally:
+        for fd, previous in inherited.items():
+            os.set_inheritable(fd, previous)
+    return Child(pid)
+
+
+def launch(kind, arguments, stdout, stderr=None):
+    program(kind)
+    arguments = list(map(str, arguments))
+    validate_arguments(kind, arguments)
+    if Path.cwd().resolve() != REPO.resolve():
+        raise ValueError("Qualification dispatcher must run from the repository")
+    payload = job_data(kind, arguments)
+    errors = stderr if stderr is not None else stdout
+    with SPAWN_LOCK:
+        with os.fdopen(os.memfd_create("dal-a1-job", 0), "w+b") as control:
+            header = (
+                str(stdout.fileno()) + "\0" + str(errors.fileno()) + "\0"
+            ).encode()
+            control.write(header + payload)
+            control.flush()
+            control.seek(0)
+            return spawn_dispatcher(
+                (control.fileno(), stdout.fileno(), errors.fileno())
+            )
 
 
 def runtime_environment():

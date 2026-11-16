@@ -76,8 +76,8 @@ then actual capture/N4/probes, 16 required grid studies and 56 diagnostics.
 Only complete reference/grid admission permits the new F2 MC. PDE uses at
 most four workers; MC runs one family with 16 batch workers at a time.
 The opt-in supervisor requires Linux `/proc` and POSIX spawn. It starts a
-fixed dispatcher with a fixed environment; only typed, validated task data
-crosses stdin. The dispatcher uses fixed native/read-only metadata operations
+fixed dispatcher with a fixed environment; a private inherited descriptor
+carries typed task data and stdio capabilities. The dispatcher uses fixed native/read-only metadata operations
 and quoted argument arrays, then exec preserves the monitored PID. Runtime
 Multica credentials are forwarded only to the daemon-status operation.
 Budgets and phase elapsed are durably cumulative. An interrupted active phase

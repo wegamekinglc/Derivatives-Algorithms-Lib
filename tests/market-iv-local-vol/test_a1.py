@@ -23,11 +23,13 @@ class A1Test(unittest.TestCase):
         with tempfile.TemporaryDirectory(
             dir=REPO / "build", prefix="a1-probe;echo-"
         ) as folder:
+            descriptors_before = set(os.listdir("/proc/self/fd"))
             path = Path(folder) / "probe-input.txt"
             path.write_text("2 2 2\n80 120\n.1 1\n.2 .4 .3 .5\n0 1\n2 1000\n")
             actual = output("probe", [str(path)])
             values = [[float(x) for x in line.split()] for line in actual.splitlines()]
             np.testing.assert_allclose(values, [[0.2, 0.2], [0.5, 0.5]], atol=1e-14)
+            self.assertEqual(set(os.listdir("/proc/self/fd")), descriptors_before)
         with patch.dict(os.environ, {"LD_PRELOAD": "untrusted-library"}):
             self.assertNotIn(b"LD_PRELOAD", job_data("probe", ["data"]))
         with self.assertRaises(ValueError):

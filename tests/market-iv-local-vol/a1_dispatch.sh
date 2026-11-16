@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Typed data arrives on stdin; no command text is accepted from the controller.
+# The inherited private descriptor carries data and stdio capabilities only.
+control_fd=
+for descriptor in /proc/$$/fd/[0-9]*; do
+    target=$(readlink -- "$descriptor" 2>/dev/null || true)
+    if [[ "$target" == '/memfd:dal-a1-job (deleted)' ]]; then
+        [[ -z "$control_fd" ]]
+        control_fd=${descriptor##*/}
+    fi
+done
+[[ "$control_fd" =~ ^[0-9]+$ ]]
+exec 0<&"$control_fd"
+IFS= read -r -d '' output_fd
+IFS= read -r -d '' error_fd
+[[ "$output_fd" =~ ^[0-9]+$ && "$error_fd" =~ ^[0-9]+$ ]]
+[[ "$output_fd" -gt 2 && "$error_fd" -gt 2 ]]
+exec 1>&"$output_fd" 2>&"$error_fd"
 IFS= read -r -d '' operation
 IFS= read -r -d '' environment_count
 [[ "$environment_count" =~ ^[0-9]+$ && "$environment_count" -le 64 ]]
@@ -21,6 +36,10 @@ for ((index = 0; index < argument_count; index++)); do
     IFS= read -r -d '' argument
     arguments+=("$argument")
 done
+exec 0</dev/null
+exec {control_fd}<&-
+exec {output_fd}>&-
+if [[ "$error_fd" != "$output_fd" ]]; then exec {error_fd}>&-; fi
 
 require_build_path() {
     case "$1" in
