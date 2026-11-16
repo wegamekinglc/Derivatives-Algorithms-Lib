@@ -9,7 +9,7 @@ import numpy as np
 from a1_axes import grids, protocol, validate_axis
 from a1_budget import Budget, checked_address
 from a1_pde import admitted, configurations, derivative_weights, mesh
-from a1_process import REPO, output, program, validate_arguments
+from a1_process import REPO, job_data, output, program, validate_arguments
 from a1_report import report
 from a1_run import stop_children
 from a1_study import certify
@@ -17,6 +17,22 @@ from a1_verify import verify
 
 
 class A1Test(unittest.TestCase):
+    def test_fixed_dispatcher_treats_hostile_path_characters_as_data(self):
+        import os
+
+        with tempfile.TemporaryDirectory(
+            dir=REPO / "build", prefix="a1-probe;echo-"
+        ) as folder:
+            path = Path(folder) / "probe-input.txt"
+            path.write_text("2 2 2\n80 120\n.1 1\n.2 .4 .3 .5\n0 1\n2 1000\n")
+            actual = output("probe", [str(path)])
+            values = [[float(x) for x in line.split()] for line in actual.splitlines()]
+            np.testing.assert_allclose(values, [[0.2, 0.2], [0.5, 0.5]], atol=1e-14)
+        with patch.dict(os.environ, {"LD_PRELOAD": "untrusted-library"}):
+            self.assertNotIn(b"LD_PRELOAD", job_data("probe", ["data"]))
+        with self.assertRaises(ValueError):
+            job_data("probe", ["bad\0data"])
+
     def test_only_fixed_read_only_programs_and_registered_native_arguments(self):
         with self.assertRaises(ValueError):
             program("shell")

@@ -1,7 +1,6 @@
 """Supervise only the fixed local qualification programs without a shell."""
 
 import os
-import shutil
 import signal
 import tempfile
 from pathlib import Path
@@ -21,10 +20,7 @@ def program(kind):
     elif kind == "multica":
         path = Path(os.environ["MULTICA_CLI_PATH"])
     elif kind in ("git", "compiler"):
-        executable = shutil.which("git" if kind == "git" else "c++")
-        if executable is None:
-            raise RuntimeError("Missing metadata tool")
-        path = Path(executable)
+        path = Path("/usr/bin/git" if kind == "git" else "/usr/bin/c++")
     else:
         raise ValueError("Program is not in the qualification allowlist")
     if not path.is_absolute() or not path.is_file():
@@ -118,21 +114,71 @@ def validate_arguments(kind, args):
 
 
 def launch(kind, arguments, stdout, stderr=None):
-    executable = program(kind)
+    program(kind)
     arguments = list(map(str, arguments))
     validate_arguments(kind, arguments)
+    if Path.cwd().resolve() != REPO.resolve():
+        raise ValueError("Qualification dispatcher must run from the repository")
+    payload = job_data(kind, arguments)
     errors = stderr if stderr is not None else stdout
+    read_fd, write_fd = os.pipe()
     actions = [
+        (os.POSIX_SPAWN_DUP2, read_fd, 0),
         (os.POSIX_SPAWN_DUP2, stdout.fileno(), 1),
         (os.POSIX_SPAWN_DUP2, errors.fileno(), 2),
     ]
-    pid = os.posix_spawn(
-        str(executable),
-        [str(executable), *arguments],
-        dict(os.environ),
-        file_actions=actions,
-    )
-    return Child(pid)
+    try:
+        pid = os.posix_spawn(
+            "/bin/bash",
+            [
+                "/bin/bash",
+                "--noprofile",
+                "--norc",
+                "tests/market-iv-local-vol/a1_dispatch.sh",
+            ],
+            {
+                "PATH": "/usr/bin:/bin",
+                "LC_ALL": "C",
+                "OPENBLAS_NUM_THREADS": "1",
+                "OMP_NUM_THREADS": "1",
+            },
+            file_actions=actions,
+        )
+    except BaseException:
+        os.close(read_fd)
+        os.close(write_fd)
+        raise
+    os.close(read_fd)
+    child = Child(pid)
+    try:
+        with os.fdopen(write_fd, "wb") as stream:
+            stream.write(payload)
+    except BaseException:
+        child.wait()
+        raise
+    return child
+
+
+def runtime_environment():
+    return {
+        k: v
+        for k, v in os.environ.items()
+        if k in ("HOME", "USER") or k.startswith("MULTICA_")
+    }
+
+
+def job_data(kind, arguments):
+    environment = runtime_environment() if kind == "multica" else {}
+    fields = [kind, str(len(environment))]
+    for key, value in environment.items():
+        fields.extend((key, value))
+    fields.extend((str(len(arguments)), *arguments))
+    if any("\0" in value for value in fields):
+        raise ValueError("NUL is not valid job data")
+    payload = ("\0".join(fields) + "\0").encode()
+    if len(payload) > 131072:
+        raise ValueError("Oversized qualification job data")
+    return payload
 
 
 def output(kind, arguments):
