@@ -1267,7 +1267,8 @@ namespace Dal::Script {
                                                       int maxNestedIfs,
                                                       double eps,
                                                       const O_& objective = {}) {
-        RequireMarketIvLocalVolPassive(*modelData, "/simulation/enable_aad");
+        if (modelData)
+            RequireMarketIvLocalVolPassive(*modelData, "/simulation/enable_aad");
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
@@ -1393,7 +1394,7 @@ namespace Dal::Script {
                              std::optional<bool> compiled = DEFAULT_COMPILED,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
-        if (!std::is_same_v<T_, double> || prepared.Simulation().enableAad_)
+        if (modelData && (!std::is_same_v<T_, double> || prepared.Simulation().enableAad_))
             RequireMarketIvLocalVolPassive(*modelData, "/simulation/enable_aad");
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         prepared.RequireExecutable();
@@ -1428,7 +1429,7 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(execution.rsg_);
         execution.enableAad_ = !std::is_same_v<T_, double> || execution.enableAad_;
-        if (execution.enableAad_)
+        if (execution.enableAad_ && modelCopy)
             RequireMarketIvLocalVolPassive(*modelCopy, "/simulation/enable_aad");
         REQUIRE2((!std::is_same_v<T_, double> || !execution.enableAad_), "UnsupportedExecutionMode: double simulation requested AAD", ScriptError_);
         auto model = CreateModel<double>(modelCopy);

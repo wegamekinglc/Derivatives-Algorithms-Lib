@@ -397,6 +397,24 @@ TEST(MarketIvLocalVolTest, TestExpiredPreparedAadRejectsBeforeEmptyReturnAndTape
     ASSERT_DOUBLE_EQ(MCSimulation<double>(prepared, legacy, 16).aggregated_, 0.);
 }
 
+TEST(MarketIvLocalVolTest, TestPreparedExerciseRejectsBeforeAllocationAndTape) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ exercise("exercise", {Cell_(today.AddDays(365))}, {"EXERCISE MAX(spot() - 100, 0)"});
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    AAD::BlackScholes_<double> metadata(100., .2, .03);
+    const auto prepared = PrepareScript(exercise, &metadata, valuation, {});
+    const auto tapeEvents = AAD::Tape()->ReverseEventCount();
+    auto model = CreateModel<double>(data);
+    AssertError([&] { static_cast<void>(MCSimulation<double>(prepared, data, 16)); }, "UnsupportedMarketIvLocalVolExercise", "/product/exercise/0");
+    AssertError([&] { static_cast<void>(MCDoubleSimulation(prepared, model.get(), 16, "sobol", false, true)); },
+                "UnsupportedMarketIvLocalVolExercise", "/product/exercise/0");
+    ASSERT_EQ(model->SimDim(), 0U);
+    ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
+}
+
 TEST(MarketIvLocalVolTest, TestLegacyRejectsActualValuationDateBeforeEmptyReturn) {
     using namespace Script;
     const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
