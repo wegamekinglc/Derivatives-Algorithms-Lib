@@ -23,6 +23,7 @@ if(DEFINED DAL_CPP_BUILD_EXAMPLES)
     set(DAL_PUBLIC_EXAMPLES_DEFAULT "${DAL_CPP_BUILD_EXAMPLES}")
 endif()
 option(DAL_PUBLIC_BUILD_EXAMPLES "Build dal-public examples" "${DAL_PUBLIC_EXAMPLES_DEFAULT}")
+option(DAL_PUBLIC_BUILD_BENCHMARKS "Build dal-public projection benchmarks" OFF)
 
 # Need DAL::cpp from the workspace
 set(DAL_PUBLIC_USES_INSTALLED_CPP FALSE)
@@ -113,6 +114,13 @@ install(FILES
 # ---------------------------------------------------------------------------
 # Examples and tests
 # ---------------------------------------------------------------------------
+if(DAL_PUBLIC_BUILD_BENCHMARKS)
+    if(PROJECT_IS_TOP_LEVEL)
+        enable_testing()
+    endif()
+    add_subdirectory(benchmarks)
+endif()
+
 if(DAL_PUBLIC_BUILD_EXAMPLES)
     if(PROJECT_IS_TOP_LEVEL)
         enable_testing()

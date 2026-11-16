@@ -1,0 +1,7 @@
+add_executable(compounded_ois_audit_perf compounded_ois_audit_perf.cpp)
+target_link_libraries(compounded_ois_audit_perf PRIVATE DAL::public)
+if(COMMAND dal_cpp_apply_msvc_runtime)
+    dal_cpp_apply_msvc_runtime(compounded_ois_audit_perf)
+endif()
+add_test(NAME compounded_ois_audit_perf COMMAND compounded_ois_audit_perf)
+set_tests_properties(compounded_ois_audit_perf PROPERTIES LABELS "benchmark")
