@@ -86,26 +86,36 @@ namespace Dal::MarketIvLocalVolDetail {
         }
     }
 
+    namespace {
+        struct CarryValues_ {
+            double logForward_, logDiscount_, drift_, rate_, yield_;
+        };
+
+        CarryValues_ TermCarryValues(const Vector_<>& times, const Vector_<>& logForward, const Vector_<>& logDiscount, double time) {
+            const auto next = std::upper_bound(times.begin(), times.end(), time);
+            const size_t hi = std::min(static_cast<size_t>(next - times.begin()), times.size() - 1), lo = hi - 1;
+            const double dt = times[hi] - times[lo], weight = (time - times[lo]) / dt;
+            const double drift = (logForward[hi] - logForward[lo]) / dt;
+            const double rate = -(logDiscount[hi] - logDiscount[lo]) / dt;
+            const bool tail = time >= times.back();
+            const double l = tail ? logForward[hi] + drift * (time - times[hi]) : (1. - weight) * logForward[lo] + weight * logForward[hi];
+            const double h = tail ? logDiscount[hi] - rate * (time - times[hi]) : (1. - weight) * logDiscount[lo] + weight * logDiscount[hi];
+            return {l, h, drift, rate, rate - drift};
+        }
+    } // namespace
+
     CarryPoint_ Carry_::At(double time) const {
         if (!std::isfinite(time) || time < 0.)
             Fail("InvalidMarketIvLocalVolRequest", "Build", "/carry/time", "finite nonnegative time", ToString(time));
-        const auto next = std::upper_bound(times_.begin(), times_.end(), time);
-        const size_t hi = std::min(static_cast<size_t>(next - times_.begin()), times_.size() - 1), lo = hi - 1;
-        const double dt = times_[hi] - times_[lo], weight = (time - times_[lo]) / dt;
-        const double drift = flat_ ? rate_ - yield_ : (logForward_[hi] - logForward_[lo]) / dt;
-        const double rate = flat_ ? rate_ : -(logDiscount_[hi] - logDiscount_[lo]) / dt;
-        const bool tail = time >= times_.back();
-        const double l = flat_  ? drift * time
-                         : tail ? logForward_[hi] + drift * (time - times_[hi])
-                                : (1. - weight) * logForward_[lo] + weight * logForward_[hi];
-        const double h = flat_  ? -rate_ * time
-                         : tail ? logDiscount_[hi] - rate * (time - times_[hi])
-                                : (1. - weight) * logDiscount_[lo] + weight * logDiscount_[hi];
-        const double forward = CheckedExp(logSpot_ + l, "/carry/forward"), discount = CheckedExp(h, "/carry/discount");
-        static_cast<void>(CheckedExp(-h, "/carry/numeraire"));
-        if (!std::isfinite(drift) || !std::isfinite(rate) || !std::isfinite(rate - drift))
+        const double flatDrift = rate_ - yield_;
+        const auto values = flat_ ? CarryValues_{flatDrift * time, -rate_ * time, flatDrift, rate_, yield_}
+                                  : TermCarryValues(times_, logForward_, logDiscount_, time);
+        const double forward = CheckedExp(logSpot_ + values.logForward_, "/carry/forward");
+        const double discount = CheckedExp(values.logDiscount_, "/carry/discount");
+        static_cast<void>(CheckedExp(-values.logDiscount_, "/carry/numeraire"));
+        if (!std::isfinite(values.drift_) || !std::isfinite(values.rate_) || !std::isfinite(values.rate_ - values.drift_))
             Fail("MarketIvLocalVolNumericRange", "Build", "/carry/slopes", "finite r and q", ToString(time));
-        return {forward, discount, l, h, rate, flat_ ? yield_ : rate - drift};
+        return {forward, discount, values.logForward_, values.logDiscount_, values.rate_, values.yield_};
     }
 
     IntegratedCarry_ Carry_::Integrated(double from, double to) const {
@@ -144,13 +154,7 @@ namespace Dal::MarketIvLocalVolDetail {
     namespace {
         template <class T_> size_t Bytes(const Vector_<T_>& values) { return CheckedMultiply(sizeof(T_), values.capacity()); }
 
-        void ValidateGrid(const MarketIvDupireResult_& grid) {
-            if (!grid.IsSuccess())
-                Fail("MarketIvDupireUnavailable", "Build", "/grid", "successful Dupire result", grid.Failure().substr(0, 160));
-            const auto& snapshot = grid.Snapshot();
-            const auto& fit = MarketIvData(snapshot);
-            if ((fit.status_ != "SUCCESS" && fit.status_ != "SUCCESS_WITH_WARNINGS") || !snapshot.Certificate().certified_)
-                Fail("MarketIvDupireUnavailable", "Build", "/grid/snapshot", "successful certified fit", fit.status_);
+        void ValidateGridShape(const MarketIvDupireResult_& grid) {
             const auto& request = grid.Request();
             const auto& surface = grid.SurfaceData();
             if (surface.spots_ != request.spots_ || surface.times_ != request.times_)
@@ -161,16 +165,30 @@ namespace Dal::MarketIvLocalVolDetail {
             if (!rows || !cols || surface.vols_.Rows() != static_cast<int>(rows) || surface.vols_.Cols() != static_cast<int>(cols) ||
                 grid.Nodes().size() != count)
                 Fail("MarketIvSourceMismatch", "Build", "/grid/surface/shape", "spot-major requested grid", "different shape");
+        }
+
+        void ValidateGridNode(const MarketIvDupireResult_& grid, size_t i, size_t j) {
+            const auto& node = grid.Nodes()[i * grid.Request().times_.size() + j];
+            const String_ field = "/grid/nodes/" + String_(std::to_string(i * grid.Request().times_.size() + j)) + "/local_vol";
+            if (node.DupireStatus() != "SUCCESS" || !node.LocalVol() || !std::isfinite(*node.LocalVol()) || *node.LocalVol() < 0.)
+                Fail("MarketIvDupireUnavailable", "Build", field, "successful finite nonnegative local vol", node.DupireStatus());
+            if (grid.SurfaceData().vols_(static_cast<int>(i), static_cast<int>(j)) != *node.LocalVol())
+                Fail("MarketIvSourceMismatch", "Build", "/grid/surface/vols/" + String_(std::to_string(i)) + "/" + String_(std::to_string(j)),
+                     "authoritative node local vol", "different value");
+        }
+
+        void ValidateGrid(const MarketIvDupireResult_& grid) {
+            if (!grid.IsSuccess())
+                Fail("MarketIvDupireUnavailable", "Build", "/grid", "successful Dupire result", grid.Failure().substr(0, 160));
+            const auto& snapshot = grid.Snapshot();
+            const auto& fit = MarketIvData(snapshot);
+            if ((fit.status_ != "SUCCESS" && fit.status_ != "SUCCESS_WITH_WARNINGS") || !snapshot.Certificate().certified_)
+                Fail("MarketIvDupireUnavailable", "Build", "/grid/snapshot", "successful certified fit", fit.status_);
+            ValidateGridShape(grid);
+            const auto rows = grid.Request().spots_.size(), cols = grid.Request().times_.size();
             for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j) {
-                    const auto& node = grid.Nodes()[i * cols + j];
-                    const String_ field = "/grid/nodes/" + String_(std::to_string(i * cols + j)) + "/local_vol";
-                    if (node.DupireStatus() != "SUCCESS" || !node.LocalVol() || !std::isfinite(*node.LocalVol()) || *node.LocalVol() < 0.)
-                        Fail("MarketIvDupireUnavailable", "Build", field, "successful finite nonnegative local vol", node.DupireStatus());
-                    if (surface.vols_(static_cast<int>(i), static_cast<int>(j)) != *node.LocalVol())
-                        Fail("MarketIvSourceMismatch", "Build", "/grid/surface/vols/" + String_(std::to_string(i)) + "/" + String_(std::to_string(j)),
-                             "authoritative node local vol", "different value");
-                }
+                for (size_t j = 0; j < cols; ++j)
+                    ValidateGridNode(grid, i, j);
         }
 
         size_t RetainedBytes(const SourceData_& data) {
@@ -212,6 +230,20 @@ namespace Dal::MarketIvLocalVolDetail {
             static_cast<void>(CheckedExp(maxLog - minLog, "/carry/discount_ratios"));
         }
 
+        std::optional<Date_> CarryDate(const MarketIvMarket_& market, double time) {
+            std::optional<Date_> date;
+            const double days = time * 365.;
+            const int maxDays = Date::Maximum() - market.EvaluationDate();
+            if (std::isfinite(days) && days <= maxDays + 1.) {
+                const int lower = static_cast<int>(days);
+                // Exact year-fraction equality recognizes multiplication roundoff without rounding subdays.
+                for (const int day : {lower, lower + 1})
+                    if (day <= maxDays && day / 365. == time)
+                        date = market.EvaluationDate().AddDays(day);
+            }
+            return date;
+        }
+
         Vector_<MarketIvLocalVolCarryTerm_> CarryTerms(const MarketIvMarket_& market, const Carry_& carry, double horizon) {
             Vector_<MarketIvLocalVolCarryTerm_> result;
             result.reserve(CheckedAdd(market.Terms().size(), 2));
@@ -229,19 +261,8 @@ namespace Dal::MarketIvLocalVolDetail {
                 result.back().discount_ = term.discount_;
                 included = included || time == horizon;
             }
-            if (!included) {
-                std::optional<Date_> date;
-                const double days = horizon * 365.;
-                const int maxDays = Date::Maximum() - market.EvaluationDate();
-                if (std::isfinite(days) && days <= maxDays + 1.) {
-                    const int lower = static_cast<int>(days);
-                    // Exact year-fraction equality recognizes multiplication roundoff without rounding subdays.
-                    for (const int day : {lower, lower + 1})
-                        if (day <= maxDays && day / 365. == horizon)
-                            date = market.EvaluationDate().AddDays(day);
-                }
-                add(horizon, date, "HORIZON");
-            }
+            if (!included)
+                add(horizon, CarryDate(market, horizon), "HORIZON");
             std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) { return a.time_ < b.time_; });
             for (size_t i = 0; i < result.size(); ++i)
                 result[i].ordinal_ = i;

@@ -236,6 +236,17 @@ TEST(MarketIvLocalVolTest, TestGridAdmissionRejectsFailureAndAliasedCorruption) 
         !std::is_invocable_v<decltype(MarketIvLocalVolDetail::BuildSource), const LocalVolSurfaceData_&, const MarketIvLocalVolModelSettings_&>);
 }
 
+TEST(MarketIvLocalVolTest, TestGridValidationPrecedesBudgetAndChecksAxesBeforeNodes) {
+    auto grid = Grid();
+    auto settings = Settings();
+    settings.numericPayloadBudgetBytes_ = 0;
+    auto& surface = const_cast<LocalVolSurfaceData_&>(grid.SurfaceData());
+    surface.vols_(0, 0) += .01;
+    AssertError([&] { MarketIvLocalVolDetail::BuildSource(grid, settings); }, "MarketIvSourceMismatch", "/grid/surface/vols/0/0");
+    surface.spots_[0] += .01;
+    AssertError([&] { MarketIvLocalVolDetail::BuildSource(grid, settings); }, "MarketIvSourceMismatch", "/grid/surface/axes");
+}
+
 TEST(MarketIvLocalVolTest, TestSourceBudgetsExactZeroAndOverflow) {
     const auto grid = Grid();
     auto settings = Settings();
@@ -334,6 +345,23 @@ TEST(MarketIvLocalVolTest, TestPreparationPreflightsColumnsBeforeAllocation) {
     const Vector_<> times{0., .1, .2};
     const Vector_<> rates{-ReferenceLogs(.1).second, ReferenceLogs(.1).second - ReferenceLogs(.2).second};
     AssertError([&] { component.Prepare(times, rates); }, "MarketIvLocalVolBudgetExceeded", "/settings/workspace_budget_bytes");
+}
+
+TEST(MarketIvLocalVolTest, TestPreparationFailurePreservesPreviousStateAndErrorOrder) {
+    const LocalVolSurfaceData_ zero("zero", {100.}, {0.}, Matrix_<>(1, 1, 0.));
+    MarketIvLocalVolDetail::TermCarryEquity_ component(CarryMarket(), zero, Settings());
+    const Vector_<> times{0., .5, 1.};
+    const Vector_<> rates{-ReferenceLogs(.5).second, ReferenceLogs(.5).second - ReferenceLogs(1.).second};
+    component.Prepare(times, rates);
+    AssertError([&] { component.Prepare({0., .5, .4}, {rates[0], 0.}); }, "InvalidMarketIvLocalVolRequest", "/execution/timeline");
+    AssertError([&] { component.Prepare({0., std::numeric_limits<double>::denorm_min()}, {1.}); }, "MarketIvLocalVolNumericRange",
+                "/execution/steps/0");
+    Vector_<> state(1);
+    component.ResetState(&state, 0);
+    for (size_t step = 0; step < rates.size(); ++step) {
+        component.EvolveWithoutCarry(step, {0.}, {0}, &state, 0);
+        ASSERT_NEAR(component.Observe(0, 0, state, 0, false) / 100., std::exp(ReferenceLogs(times[step + 1]).first), 2e-12);
+    }
 }
 
 TEST(MarketIvLocalVolTest, TestSourceTextFailureHasFieldContext) {

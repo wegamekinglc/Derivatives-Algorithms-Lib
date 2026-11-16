@@ -14,6 +14,35 @@ namespace Dal::MarketIvLocalVolDetail {
             return HybridLocalVolEquityData_("equity", settings.index_, settings.currency_, settings.factor_, market.Spot(), 0., frozen,
                                              settings.maxStep_);
         }
+
+        struct VolatilityBounds_ {
+            double minPositive_ = std::numeric_limits<double>::infinity(), maximum_ = 0.;
+        };
+
+        VolatilityBounds_ VolatilityBounds(const Vector_<double*>& parameters) {
+            VolatilityBounds_ bounds;
+            for (size_t i = 2; i < parameters.size(); ++i) {
+                const double vol = *parameters[i];
+                bounds.maximum_ = std::max(bounds.maximum_, vol);
+                if (vol > 0.)
+                    bounds.minPositive_ = std::min(bounds.minPositive_, vol);
+            }
+            return bounds;
+        }
+
+        void ValidateStepTimes(double from, double to, double horizon) {
+            if (!std::isfinite(from) || !std::isfinite(to) || to <= from || to > horizon)
+                Fail("InvalidMarketIvLocalVolRequest", "Prepare", "/execution/timeline", "finite increasing times within horizon", ToString(to));
+        }
+
+        void ValidateStepVariance(double dt, const VolatilityBounds_& bounds, size_t step) {
+            const double rootDt = std::sqrt(dt), maxStd = bounds.maximum_ * rootDt;
+            const double minStd = std::isfinite(bounds.minPositive_) ? bounds.minPositive_ * rootDt : 0.;
+            if (dt < std::numeric_limits<double>::min() || !std::isfinite(maxStd * maxStd) ||
+                (std::isfinite(bounds.minPositive_) && minStd * minStd == 0.))
+                Fail("MarketIvLocalVolNumericRange", "Prepare", "/execution/steps/" + String_(std::to_string(step)),
+                     "normal positive dt and representable variance", ToString(dt));
+        }
     } // namespace
 
     TermCarryEquity_::TermCarryEquity_(const MarketIvMarket_& market,
@@ -39,25 +68,12 @@ namespace Dal::MarketIvLocalVolDetail {
         const size_t fixed = CheckedMultiply(64, CheckedAdd(gridValues_, CheckedAdd(gridAxes_, knots_.capacity())));
         const size_t workspace = CheckedAdd(columns, CheckedAdd(fixed, CheckedMultiply(128, CheckedAdd(steps, preparedSteps_))));
         CheckLimit(workspace, settings_.workspaceBudgetBytes_, "/settings/workspace_budget_bytes", "Prepare");
-        double minPositiveVol = std::numeric_limits<double>::infinity(), maxVol = 0.;
-        const auto& nativeParameters = delegate_.Parameters();
-        for (size_t i = 2; i < nativeParameters.size(); ++i) {
-            const double vol = *nativeParameters[i];
-            maxVol = std::max(maxVol, vol);
-            if (vol > 0.)
-                minPositiveVol = std::min(minPositiveVol, vol);
-        }
+        const auto bounds = VolatilityBounds(delegate_.Parameters());
         Vector_<> drift(integratedCarry.size());
         for (size_t step = 0; step < drift.size(); ++step) {
             const double a = timeline[step], b = timeline[step + 1];
-            if (!std::isfinite(a) || !std::isfinite(b) || b <= a || b > settings_.horizon_)
-                Fail("InvalidMarketIvLocalVolRequest", "Prepare", "/execution/timeline", "finite increasing times within horizon", ToString(b));
-            const double dt = b - a, rootDt = std::sqrt(dt), maxStd = maxVol * rootDt;
-            const double minStd = std::isfinite(minPositiveVol) ? minPositiveVol * rootDt : 0.;
-            if (dt < std::numeric_limits<double>::min() || !std::isfinite(maxStd * maxStd) ||
-                (std::isfinite(minPositiveVol) && minStd * minStd == 0.))
-                Fail("MarketIvLocalVolNumericRange", "Prepare", "/execution/steps/" + String_(std::to_string(step)),
-                     "normal positive dt and representable variance", ToString(dt));
+            ValidateStepTimes(a, b, settings_.horizon_);
+            ValidateStepVariance(b - a, bounds, step);
             const auto expected = carry_.Integrated(a, b);
             if (!std::isfinite(integratedCarry[step]) || std::abs(integratedCarry[step] - expected.rate_) > 2e-12)
                 Fail("MarketIvSourceMismatch", "Prepare", "/execution/rate_integral", "same-source logDF endpoint difference",
