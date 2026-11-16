@@ -43,6 +43,7 @@ set(DAL_EXAMPLE_TARGETS
     euribor3m_curve
     interpolate_curve
     joint_multi_curve_calibration
+    nanoql_multi_curve
     quote_risk
     xccy_curve_calibration
     xccy_mtm_calibration

@@ -832,6 +832,10 @@ The hand-written Python code in `src/dal/` provides:
 
 ## Curve Calibration
 
+The [NanoQL multi-curve example](examples/020.nanoql_multi_curve.py) calibrates
+€STR discount and Euribor 6M projection curves. It prints the spot and forward
+swap NPVs, fair spreads, fair fixed rates, and elapsed calibration and pricing time.
+
 The `curve` bindings (`dal-python/src/bindings/curve.cpp`) expose the supported Python
 curve-construction and calibration workflows:
 

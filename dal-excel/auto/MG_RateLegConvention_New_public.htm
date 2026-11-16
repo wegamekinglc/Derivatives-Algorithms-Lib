@@ -17,6 +17,9 @@ Create a rate leg convention handle
 
 <tr><td>freq</td><td>string</td><td></td><td>Payment frequency as an ISO period (e.g. "3M", "6M")</td></tr>
 <tr><td>basis</td><td>string</td><td></td><td>Day basis name (e.g. "ACT_365F", "ACT_360")</td></tr>
+<tr><td>calendar</td><td>string</td><td>yes</td><td>Holiday center for accrual and payment dates (empty uses weekends only)</td></tr>
+<tr><td>accrualConvention</td><td>string</td><td>yes</td><td>Business-day convention for accrual dates (default Following)</td></tr>
+<tr><td>paymentConvention</td><td>string</td><td>yes</td><td>Business-day convention for payment dates (default Following)</td></tr>
 
 </table>
 
