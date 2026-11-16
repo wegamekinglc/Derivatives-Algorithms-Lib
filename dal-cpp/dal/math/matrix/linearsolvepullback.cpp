@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <dal/math/matrix/linearsolveadjointsinternal.hpp>
 #include <dal/math/matrix/linearsolvepullback.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -128,17 +129,7 @@ namespace Dal {
 
     LinearSolveAdjoints_ LinearSolvePullback_::Reverse(const Matrix_<>& solutionAdjoints) const {
         auto rhs = ReverseRhs(solutionAdjoints);
-        const int n = factors_.Rows();
-        LinearSolveAdjoints_ result{SquareMatrix_<>(n), std::move(rhs)};
-        for (int row = 0; row < n; ++row)
-            for (int col = 0; col < n; ++col) {
-                double value = 0.0;
-                for (int rhs = 0; rhs < solution_.Cols(); ++rhs) {
-                    value -= result.rhs_(row, rhs) * solution_(col, rhs);
-                    REQUIRE(std::isfinite(value), "Linear solve matrix adjoint accumulation overflow");
-                }
-                result.matrix_(row, col) = value;
-            }
-        return result;
+        auto matrix = LinearSolveDetail::MatrixAdjoints(solution_, rhs);
+        return {std::move(matrix), std::move(rhs)};
     }
 } // namespace Dal

@@ -609,7 +609,7 @@ TEST(CompoundedOisEvaluationTest, TestAadNestedRejectionModeRestorationAndExcept
     }
 }
 
-TEST(CompoundedOisEvaluationTest, TestTwoMaturityCalibrationAndP1FitSnapshotRejection) {
+TEST(CompoundedOisEvaluationTest, TestTwoMaturityCalibrationAndNativeSnapshotAdmission) {
     const Vector_<> theta{-.0003, -.0016};
     auto first = OisSpec();
     first.instrumentId_ = "first-coupon";
@@ -639,8 +639,8 @@ TEST(CompoundedOisEvaluationTest, TestTwoMaturityCalibrationAndP1FitSnapshotReje
         for (int j = 0; j < 2; ++j)
             ASSERT_NEAR(fit.parameters_[j], theta[j], 1e-9);
         const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {{1e-10, 1e-10}, 1e-10, 1e-12});
-        ASSERT_FALSE(snapshot.MappingAvailable());
-        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+        ASSERT_TRUE(snapshot.MappingAvailable());
+        ASSERT_TRUE(snapshot.RiskAvailable());
     }
 }
 

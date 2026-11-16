@@ -3,6 +3,7 @@
 
 #include <dal/curve/curvescript.hpp>
 #include <dal/curve/curvescriptevaluation.hpp>
+#include <dal/curve/scriptcurvequoterisk.hpp>
 #include <dal/platform/initall.hpp>
 
 #include "../../aadreport.hpp"
@@ -69,6 +70,50 @@ namespace {
             Examples::Compare(("node " + std::to_string(j)).c_str(), result.nativePartials_(0, j), fd, .001);
         }
     }
+    double RecalibratedPrice(CurveInstrumentCalibrationSpec_ spec,
+                             const Handle_<CalibrationInstrument_>& instrument,
+                             CurveScriptEvaluationRequest_ request,
+                             int column,
+                             double bump) {
+        const auto row = spec.observations_[column];
+        const auto quote = NewCalibrationMarketQuote(row->Quote()->Id(), row->Quote()->Value() + bump, row->Quote()->Unit());
+        spec.observations_[column] = NewCalibrationObservation(row->Id(), row->Instrument(), row->MeasureId(), quote, row->ErrorScale());
+        CurveInstrumentCalibrationOptions_ options;
+        options.jacobianMode_ = CalibrationDerivative_("AAD");
+        const auto fit = CalibrateCurveInstruments(spec, options);
+        REQUIRE(fit.fitWithinTolerance_, "bumped OIS root must fit");
+        request.parameters_ = fit.parameters_;
+        return EvaluateCurveScriptInstrument(instrument, request).values_[0];
+    }
+    void QuoteRisk(const CurveInstrumentCalibrationResult_& fit,
+                   const Handle_<CalibrationInstrument_>& instrument,
+                   const CurveScriptEvaluationRequest_& request) {
+        const auto& context = *fit.resolvedSpec_;
+        auto accuracy = ScriptCurveQuoteRiskAccuracy_{{1e-12, 1e-12}, 1e-10, 1e-12};
+        const auto full = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+        accuracy.pvOnly_ = true;
+        const auto lean = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+        REQUIRE(full.MappingAvailable() && lean.RiskAvailable() && !lean.MappingAvailable(), "both OIS snapshot modes must be available");
+        const auto risk = ValueCalibrationInstrumentWithQuoteRisk(instrument, full, context);
+        const auto pvOnly = ValueCalibrationInstrumentWithQuoteRisk(instrument, lean, context);
+        REQUIRE(risk.Available() && pvOnly.Available(), "registered OIS Price risk must be available");
+        Examples::PrintReferenceHeader("Fixed K/N quote risk: raw USD per 1.0 decimal rate; signed DV01 USD per +1bp");
+        for (int j = 0; j < 2; ++j) {
+            const double h = 5e-5;
+            const double fd =
+                (RecalibratedPrice(context, instrument, request, j, h) - RecalibratedPrice(context, instrument, request, j, -h)) / (2. * h);
+            const double limit = 1e-7 * request.compoundedOis_->Spec().notional_ + 1e-5 * std::abs(fd);
+            Examples::Compare(("raw quote " + std::to_string(j)).c_str(), risk.RawSensitivity()[j], fd, limit);
+            Examples::Compare(("signed DV01 " + std::to_string(j)).c_str(), risk.DV01()[j], fd * 1e-4, limit * 1e-4);
+            Examples::Compare("PV-only raw", pvOnly.RawSensitivity()[j], risk.RawSensitivity()[j], 1e-8);
+        }
+        auto unknown = request.compoundedOis_->Spec();
+        unknown.instrumentId_ = "unregistered-pv";
+        const auto rejected = ValueCalibrationInstrumentWithQuoteRisk(
+            NewCompoundedOisScriptInstrument(PrepareCompoundedOis(unknown, context.valuation_)), full, context);
+        REQUIRE(!rejected.Available() && !rejected.Diagnostics().empty(), "unregistered OIS PV must remain unavailable");
+        std::cout << "Unregistered PV unavailable: " << rejected.Diagnostics()[0].code_ << '\n';
+    }
     void Calibrate(const CompoundedOisObservationMode_& mode) {
         const auto pvContract = Contract(mode);
         auto request = Request(pvContract);
@@ -111,6 +156,7 @@ namespace {
         const double value = EvaluateCurveScriptInstrument(instrument, frozen).values_[0];
         request.parameters_ = fit.parameters_;
         Examples::Compare("registered PV (USD)", value, EvaluateCurveScriptInstrument(instrument, request).values_[0], 1e-6);
+        QuoteRisk(fit, instrument, frozen);
     }
 } // namespace
 
@@ -122,5 +168,5 @@ int main() {
         Calibrate(mode);
     }
     std::cout << "Compounded OIS direct evaluation verified; native partials are not quote DV01.\n";
-    std::cout << "Same-source OIS calibration verified; OIS quote risk remains unavailable.\n";
+    std::cout << "Same-source OIS calibration and fixed-contract quote DV01 verified.\n";
 }

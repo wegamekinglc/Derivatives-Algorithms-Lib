@@ -83,9 +83,9 @@ namespace Dal::CompoundedOisCalibrationTest {
                             const String_& role,
                             const Vector_<>& theta,
                             bool zeroRate,
-                            const Script::ScriptValuationSettings_& valuation) {
+                            const Script::ScriptValuationSettings_& valuation,
+                            const Vector_<>& background = CompoundedOisTest::BackgroundParameters()) {
         const bool discountTarget = role == "Discount", passiveDiscount = role == "Overnight";
-        const auto background = CompoundedOisTest::BackgroundParameters();
         const auto& projection = discountTarget ? background : theta;
         const auto& discount = passiveDiscount ? background : theta;
         const String_ mode = s.observationConvention_ ? s.observationConvention_->mode_.String() : "None";
