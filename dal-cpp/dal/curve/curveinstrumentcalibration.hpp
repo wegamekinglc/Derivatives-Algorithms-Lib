@@ -147,6 +147,7 @@ namespace Dal {
         std::shared_ptr<const CandidateCurveGeometry_> geometry_;
         std::shared_ptr<const CurveInstrumentCalibrationEvidence_> evidence_;
         std::shared_ptr<const std::map<std::string, String_>> contextIdentities_;
+        std::shared_ptr<const std::map<std::string, PreparedCalibrationInstrument_>> compoundedPrices_;
         String_ planIdentity_;
         [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AadJacobian(const Vector_<>&) const;
         friend CurveInstrumentInternal::PreparedCurvePriceContext_

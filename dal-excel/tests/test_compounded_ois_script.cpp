@@ -238,7 +238,7 @@ TEST(CompoundedOisScriptExcelTest, TestTableHeadersDatesAndFieldsAfterBlankAreSt
     }
 }
 
-TEST(CompoundedOisScriptExcelTest, TestCalibrationTableListAndP1AdmissionStaySeparate) {
+TEST(CompoundedOisScriptExcelTest, TestCalibrationTableListControlsQuoteRiskAdmission) {
     const auto input = ExcelOis();
     const auto& request = input.second;
     const Handle_<StorablePreparedCompoundedOis_> table(new StorablePreparedCompoundedOis_(request.compoundedOis_));
@@ -266,17 +266,23 @@ TEST(CompoundedOisScriptExcelTest, TestCalibrationTableListAndP1AdmissionStaySep
     const Handle_<StorableScriptCurveQuoteRiskAccuracy_> accuracy(new StorableScriptCurveQuoteRiskAccuracy_({{1e-12}, 1e-10, 1e-12}));
     Handle_<StorableScriptCurveQuoteRiskSnapshot_> snapshot;
     ScriptCurveQuoteRiskSnapshot_New(fit, accuracy, &snapshot);
-    ASSERT_FALSE(snapshot->val_.RiskAvailable());
-    ASSERT_EQ(snapshot->val_.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+    ASSERT_TRUE(snapshot->val_.RiskAvailable());
+    ASSERT_TRUE(snapshot->val_.MappingAvailable());
+    Handle_<StorableScriptCurveQuoteRiskResult_> risk;
+    CalibrationInstrument_ValueWithQuoteRisk(input.first, snapshot, spec, {}, &risk);
+    ASSERT_TRUE(risk->val_.Available());
+    ASSERT_EQ(risk->val_.RawSensitivity().size(), 1u);
+    ASSERT_DOUBLE_EQ(risk->val_.DV01()[0], risk->val_.RawSensitivity()[0] * 1e-4);
 
     const Handle_<StorableCurveInstrumentCalibrationSpec_> p1(new StorableCurveInstrumentCalibrationSpec_(Dal::Test::ScriptQuoteRiskSpec()));
     Calibrate_CurveInstruments(p1, {}, &fit);
     const Handle_<StorableScriptCurveQuoteRiskAccuracy_> p1Accuracy(new StorableScriptCurveQuoteRiskAccuracy_({{1e-12, 1e-12}, 1e-10, 1e-12}));
     ScriptCurveQuoteRiskSnapshot_New(fit, p1Accuracy, &snapshot);
-    Handle_<StorableScriptCurveQuoteRiskResult_> risk;
     CalibrationInstrument_ValueWithQuoteRisk(input.first, snapshot, p1, {}, &risk);
     ASSERT_FALSE(risk->val_.Available());
-    ASSERT_EQ(risk->val_.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+    ASSERT_FALSE(risk->val_.Diagnostics().empty());
+    ASSERT_EQ(risk->val_.Diagnostics()[0].code_, "UnsupportedCompoundedOisContext");
+    ASSERT_THROW(static_cast<void>(risk->val_.PV()), Exception_);
 }
 
 TEST(CompoundedOisScriptExcelTest, TestOvernightRoutesRequireTenorColumnButAcceptBlankCell) {

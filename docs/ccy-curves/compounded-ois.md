@@ -176,16 +176,47 @@ fields plus source coordinates, Historical/Projection/Settled and an optional
 evaluated rate. Settled rows have no rate or fabricated cashflow amount/discount.
 The legacy `observations_` fields continue to mean actual accrual dates and weights.
 
-`/2` calibration remains explicitly rejected with
-`UnsupportedCompoundedOisCalibration`; quote risk continues to reject compounded
-OIS. General script/MC paths reject both ON and ON2. Python/Excel convention
-factories and new audit projections are not exposed. Existing `/1` pricing and
-calibration remain available.
+Core `/1` and `/2` use the same native Jacobian for calibration. Square, full-rank
+EXACT examples cover an ON target with passive discount, a discount target with
+passive ON, and one target serving both routes. Mixed `/1`/`/2` contracts share
+the same calibration specification.
+
+Register every calibration and prospective PV contract in `compoundedOis_`
+before calibration. IDs must be unique across the entire table collection, and
+every table must use the same valuation, today policy and complete explicit
+fixing snapshot. Preparation validates unused PV registrations too, freezes the
+market/route/calendar/fixing inputs and prepares their owning Price plans.
+The internal frozen price context matches each request's complete instrument,
+source and binding identity to its own table; a new or rebound PV needs a new
+registration and context. Calibration plan/evidence identity now includes the
+registered PV plans. Legacy contract, preparation, source and compiler identities
+retain their existing values.
+
+Core quote risk admits verified native `/1` and `/2` plans at both snapshot and
+per-PV entry points. It requires original successful square, full-rank EXACT
+solve evidence, a checked native Jacobian/root and matching frozen tables.
+The same admission applies to full mapping and `pvOnly_=true`; PV-only can have
+`RiskAvailable()==true` while `MappingAvailable()==false`. Every PV must check
+its own availability and transpose accuracy. Unavailable outcomes own diagnostics;
+their numeric getters reject access.
+
+Price risk holds K, N and the bound source fixed. `RawSensitivity()` is currency
+amount per 1.0 decimal quote rate; `DV01()` is raw times 0.0001, the signed PV
+response to a quote rising 1bp. There is no per-million normalization or extra
+minus sign. Doubling N doubles PV/raw/DV01, and ReceiveFixed reverses them.
+ParRate risk, live-quote payoffs, stale contexts and unregistered PVs remain
+unavailable. Calibration report availability keeps its existing meaning.
+General script/MC and legacy tenor staging still reject ON/ON2. Python/Excel
+convention factories and new audit projections are not exposed.
 
 Build and run the core `compounded_ois` example under
 `dal-cpp/examples/curves/compounded_ois/`. It uses all four modes and checks
-Price's native log-discount partials against FD. These partials are currency
-amounts per unit native parameter and are not quote DV01.
+Price's native log-discount partials against FD, then fits two same-source
+contracts and prices a preregistered PV from the frozen context. Its illustrative
+quotes are generated at the displayed native parameters. These partials are currency
+amounts per unit native parameter and are not quote DV01. The example then checks
+full/PV-only quote risk against complete quote bump/recalibration with fixed K/N,
+labels raw and signed DV01 units separately, and prints an unregistered-PV diagnostic.
 
 ## Resource measurement
 
@@ -197,6 +228,7 @@ DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-neighbor
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-observation-schedule
 DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-observation-evaluation
+DAL_NUM_THREADS=4 build/core-dev/dal-cpp/benchmarks/curve_calibration_perf/curve_calibration_perf --ois-calibration
 ```
 
 The observation-evaluation mode measures `/2` at D=30/365/1825 for all four modes,
@@ -206,6 +238,29 @@ product, two-step FD, AAD, parse counts and tape cleanup before timing cold
 preparation, prepared passive evaluation and AAD. Scratch/program/tape payload
 and process RSS are separate measurements. New-mode times are absolute coverage;
 the unchanged `/1` mode remains available for paired baseline comparisons.
+
+The calibration mode checks three target roles at D=30/365/1825 using unequal
+ObservationShift weights, plus long Lockout. It times preparation/freeze, EXACT
+AAD calibration, the prepared native Jacobian and registered-PV reuse/value.
+Quotes and PV checks use an independent scalar reference; source/table fixture
+construction is outside timed actions. Vector capacity and retained tape
+capacity are separate from total process memory.
+
+The shared frozen-context regression neighbors can be run with
+`quote_risk_perf --script-curve-quote-risk-scoped` and
+`--script-curve-quote-risk-pv-only-scoped`. These select 5 quotes/1 PV, 15/1 and
+15/100, retaining the existing warmups and repetitions. The PV-only mode times
+the PV-only snapshot. The original flags retain their full case inventory.
+`quote_risk_perf --compounded-ois-quote-risk` separately measures admitted OIS
+full/PV-only snapshots and per-PV transpose risk. It uses 5 quotes/1 PV, 15/1
+and 15/100 at 30 business factors, plus 2/1 at 365/1825 factors for long Lockout.
+The explicit calendar includes a holiday and a working Saturday. Independent
+scalar products generate calibration quotes; fixed-contract risk is checked
+against complete quote recalibration before timing. Snapshot vector capacity,
+released live tape memory and retained tape capacity are reported separately.
+These are ON-target fixtures with passive discount, actual N=1 and multiple
+coupon payments. The 15-quote cases use ZERO_RATE; the others use LOG_DISCOUNT.
+Both 1bp and 0.5bp central recalibration references are checked before timing.
 
 The first mode uses D=30/365/1825 intervals, one live coupon, N=1, K=0.025,
 eight free log-DF coordinates on fixed 400-day knot spacing, and `floor(D/2)`
@@ -247,7 +302,7 @@ Compare the new O(D) product with the same-size scalar reference, never the
 old O(1) period-forward product as a regression. Performance statements are
 limited to the measured build, machine and workload.
 
-P1 quote-risk snapshots/per-PV, general script/MC and legacy tenor staging
-continue to reject ON. Full tenor/payment schedule generation, combined
+General script/MC and legacy tenor staging continue to reject ON/ON2.
+Full tenor/payment schedule generation, combined
 observation modes, intraday publication rules and scenario revaluation remain
 outside scope.
