@@ -156,13 +156,15 @@ D1–D6 已由 S0 API 决策逐项冻结；上表保留推荐方案及兼容理�
 - 参考 B：沿用现有 Python 测试可用的 mpmath，高精度（至少 80 位）重新构造实际 fitted SSVI/theta，独立求导 local variance 和 carry；保存 fixture、脚本/依赖版本、结果校验和。普通 C++ 快速测试读取固定参考数值；生成脚本与产品实现代码不共享导数实现。
 - 参考 C：测试专用独立 log-spot backward PDE/forward density solver，分别用连续解析 local vol 和离散 grid 插值作系数，验证 vanilla 与 MC。放在测试支持/数值鉴证目录，不给现有生产 BS PDE 增加 local-vol 准入。参考 solver 不调用生产 Hybrid/LocalVolSurface/MC kernel；独立验证 Black 极限、概率/鞅和加密收敛后才作为 oracle。
 
-建议参考 PDE 初始 domain `log(S/S0)∈[-3,3]`，空间 `{801,1601,3201}`、时间 `{512,1024,2048}`，carry knots 强制命中，使用独立边界公式及 payoff 初始阻尼；最后再将 domain 扩为 `[-4,4]`。若自检未达门槛，只能按预定规则增加一个加密级并记录成本，不能带未自证的 reference 宣告 PASS。
+S3现行增量为已批准的 [DAL-542 方案 A/1](../specs/dal-542-n5-resolution-a.md)（用户评论 `01a1e461-4d80-794a-9e15-ec4dfd4782ca`）。原连续reference的均匀空间 `{801,1601,3201}`、时间 `{512,1024,2048}`、`[-3,3]`→`[-4,4]`及唯一 `{6401,4096}` fallback 已有效证据保留。新离散reference采用knot/strike-fitted非均匀中央 `{601,1201,2401,4801}`、匹配中央mesh的扩域 `{801,1601,3201,6401}`，独立CN midpoint/两半IE、三点式及6+4求解层级按A/1 R7–R10；上限仍6401节点/4096 requested steps，anchors后actual保守≤4342，两半IE另多一次线性求解。原自证门槛不变，仍未自证为REFERENCE_UNAVAILABLE，不能宣告PASS。先8项Black与8项旧失败输入新方法自证，通过后才做16项P7/P8必需研究和56次诊断，最多376次新求解。
 
 ### 抽样规则
 
 正式统计门禁使用 MRG32、Precise normal、无 payoff smoothing 的 passive vanilla；16 个预先固定的互不重叠子流批次。冻结 seed/stream ID 和正常标量坐标预留，避免步数变化导致伪 common paths；不把 deterministic Sobol 路径当 IID。每批路径按 `{2^16,2^17,2^18,2^19,2^20}` 的预定阶梯仅因 SE 不足升级，16 批最多 16,777,216 路径/fixture；S0 的 Black 方差预估表明旧 419 万上限对最长 forward-mean 的 SE 门槛不足，因此只扩充预定样本上限，精度门槛不变。测试侧标量 stream/坐标预留与限制详见 API 决策；到上限仍不够记 INCOMPLETE，不据价格是否接近 oracle 决定增样或换 seed。
 
 SE 使用独立批均值估计并报告自由度；4.5×SE 为本计划的固定统计带，不另宣称无条件覆盖概率。细化比较由测试侧同一细 Brownian 增量聚合到粗网格，计算配对差 SE；不能直接复用不同 SimDim 下同 ordinal 的 RNG 作为 common paths。Sobol 可作为辅助收敛/重复性证据，不替代统计门禁。
+
+A/1新F2固定两族linear/nonlinear，每族P7/P8×四档h共8模型；438 anchors、437段，粗n=ceil(384*Δt)，严格n/2n/4n/8n，维数1091/2182/4364/8728，checked上界10408。seed1024/Precise不变，地址 `(((f*16+b)*2^20+p)*8728+j)`，全部乘加checked uint64，两族预留292863082496槽；默认流逐坐标/路径/价格先对齐，旧Dmax1584 raw不可复用。任一预登记价格及相邻配对SE不足才升级整族，最后1/1536与1/3072配对和1/3072总价独立过门禁，不按价格选粗档。完整坐标/嵌套及停止规则以A/1 R11–R13为准，F1配置/stream不变。
 
 | 编号                         | 可执行验收及 oracle                                                                       | 拟议门槛/观察                                                                                           |
 |----------------------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
@@ -174,7 +176,9 @@ SE 使用独立批均值估计并报告自由度；4.5×SE 为本计划的固定
 | N6 owning 和来源              | destroy-input、改 detached getter、重复构建/clone/多线程；refit/改carry/改grid的身份；假来源/裸archive拒绝 | 原模型和价格不变；同 build/config/draws 线程1/4结果遵守现有普通MC的确定性 reduction；非法pair或不支持的输入不能生成可用模型                 |
 | N7 预算/异常/能力                | 恰好预算/少1字节、0限额、步数上界、overflow、极端F/D、grid失败节点、horizon越界、AAD/EXERCISE、未知币种资产            | 稳定字段化错误在大分配/抽样/tape前出现，无部分成功模型、无NaN成功、无隐式fallback                                                 |
 
-N5 grid 使用正首列时间 `τ=1/36500` 年，再到 horizon 的规则轴并入必要 knots，spot log 网格初设 `[0.2S0,4S0]`。按 `(81×约49,161×约97,321×约193)` 三档，分别加密空间、时间列和 `τ,τ/2,τ/4`；每次先验证实际并集总点数≤100000。spot 另扩域至 `[0.1S0,6S0]` 作边界敏感性检查。h 阶梯 `1/48,1/96,1/192` 年；先隔离 grid，再隔离 stepping，不同时改变所有配置掩盖误差。覆盖 T=91/365、1、2，以及 horizon 允许的 2.25 年尾段；尾段使用另列结果，不由拟合区结果替代。
+N5 F2 grid改用A/1 R4–R6的P0–P8确定性组合logspot轴与“规则+首段几何+carry”时间列，90位求值后一次舍入binary64、仅相同值去重。P0–P6仅诊断，最终固定P7/P8，均为扩spot域[.1S0,6S0]、首列τ/4=1/146000，末列分别2.25/2年；最大401×246=98646点，保持100000准入，不删列/临时加点。τ阶梯仍为1/36500、1/73000、1/146000，其几何列按固定函数一起变化。h固定 `{1/384,1/768,1/1536,1/3072}`；T=91/365、1、2、2.25全部保留，P8尾段单列且不豁免FAIL。P7/P8必需reference与grid门禁全部通过后才启动MC，不按诊断价格改最终配置。
+
+A/1正式数值计算前固定新namespace、请求/比较族、控制/配置/执行源码/二进制hash。预算跨阶段/接续累计：reference最多376次/PDE6小时、MC每族6小时、总数值计算18小时、RSS6GiB/进程、证据1GiB；两族最多33554432条fine字段路径。新方法/成本估算尚未验证，达到资源线INCOMPLETE、reference未自证REFERENCE_UNAVAILABLE、上限SE不足INCOMPLETE与真实FAIL分别保留，不能重置预算或临时加档。原320行184 PASS/76 FAIL/60 REFERENCE_UNAVAILABLE及失败基线保留；当次视图复用F1的160行加新F2的320行共480行。连续reference/生产证据适用性、定向重验与接受条件见A/1 R14–R18；既有Request Changes有效，控制冻结不构成S3通过或启动S4。
 
 N3/N5 的完整长路径资格检查不放进每次快速 unit test；保留小规模确定性路径/异常测试供常规 CI，正式数值运行作为独立验收任务，记录每个 K/T/carry fixture 的 raw estimate、SE、参考值、误差分量、配置和 PASS/FAIL/INCOMPLETE。高精度源码、参考 solver 与数据表由 tester 独立审查；产品开发者不能只以新旧自身结果一致替代 oracle。
 

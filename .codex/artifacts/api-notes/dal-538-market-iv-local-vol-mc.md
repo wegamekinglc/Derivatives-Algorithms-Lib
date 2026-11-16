@@ -278,13 +278,15 @@ Excel 最短工作流：成功 fit 的 snapshot → `MARKETIVDUPIRERESULT.NEW` �
 
 计划的 N1–N7 数值门槛保留，单位、SE 和独立 oracle 不放宽。S0 仅静态核验，不提供 PASS。F0/F1/F2、负 r/q、未报价 carry knot、t=0/首段/尾段、T={91/365,1,2,2.25} 和 K/F={0.7,0.85,1,1.15,1.3} 固定；call/put 不作为重复拟合经济报价。Black 生成 F1 使用 erfc，不调用生产 Black。
 
+S3 增量控制：[DAL-542 方案 A/1](../specs/dal-542-n5-resolution-a.md) 已由用户评论 `01a1e461-4d80-794a-9e15-ec4dfd4782ca` 批准，替换本节原 F2 grid/h、离散 reference 空间模板和比较族坐标配置；完整公式、层级、执行前 hash 与累计停止规则以 A/1 为准。D1–D6、全部 N 门槛和生产/API/default/预算准入不变。原 320 行 184 PASS/76 FAIL/60 REFERENCE_UNAVAILABLE 与 Request Changes 保留；新方法尚未验证，冻结不构成 S3 PASS。
+
 F1 fit 初始精确冻结：initialVolatility=.20、normalizedPriceTolerance=1e-8、decimalIvTolerance=1e-8、projectedGradientTolerance=1e-10、parameterStepTolerance=1e-12、objectiveTieTolerance=1e-14、feasibilityTolerance=1e-12、maxIterationsPerStart=400、maxModelRowEvaluations=5000000；其余 existing 默认。报价无 bid/ask（由上述容差构造窄带）；生成行情使用 PRICE/DECIMAL_IV 两种单位、call/put 交错，每 K/T 一条。当前 fit 有 eta=0 seed/bound 及线性 theta 的精确退化路径，附近 flat-fit 测试支持该方案的源码可行性。N3 必须先满足 fit价格/S0≤1e-6 且实际 local vol 与 .20 差≤1e-7；否则报告 fit/fixture FAIL，不拿 MC 抽样带掩盖。F2 默认 fit 设置，连续参考使用实际成功 snapshot，不假定恢复生成参数；另外报告拟合相对生成价格误差，未规定的 F2 fit 精度不能冒称通过 N3。
 
 参考 A 独立分段 logF/logD/Black；B 用 mpmath>=1.3、80 位，独立重建 theta/PCHIP 及 SSVI 导数，固定实际 snapshot 和校验和；禁止缺库 importorskip 后仍算正式 N4 PASS。C 测试专用 log-spot PDE，选 backward Crank–Nicolson + payoff 初始两段隐式 Euler 阻尼、carry knot 精确时间分段、独立边界公式；不调用生产 Hybrid/LocalVolSurface/MC/PDE kernel。连续系数和“σ 在 logspot/time 线性、平坦边界”的离散系数分别独立实现。spot PDE 包含 `r-q=L'`、`-rV` 符号，付款延迟单独检查 D(u)。
 
-C 先过以下自证才作为 oracle：独立 Black 的绝对价格误差/S0≤2.5e-5；概率质量/归一化 forward 的误差≤2.5e-5；空间 {801,1601,3201}、时间 {512,1024,2048} 分别加密，log(S/S0) domain [-3,3] 再扩到 [-4,4]，最后每个独立差/S0≤2.5e-5。若失败，固定只加 {6401,4096} 一档并再检查；仍失败为 REFERENCE_UNAVAILABLE，不输出新产品 PASS、不改阈值。边界/阻尼、实际 node counts、每层 residual/raw values 全留证据；可用独立 forward-density 自证概率/矩，不能拿生产 MC 校验参考后再反向证明 MC。
+C 先过以下自证才作为 oracle：独立 Black 的绝对价格误差/S0≤2.5e-5；概率质量/归一化 forward 的误差≤2.5e-5；最后空间/时间/扩域每个独立差/S0≤2.5e-5。既有连续 oracle 保持原均匀空间 {801,1601,3201}、时间 {512,1024,2048}、[-3,3]→[-4,4] 和唯一 {6401,4096} fallback 的已自证证据。A/1 新离散 reference 改为 knot/strike-fitted 非均匀中央 {601,1201,2401,4801}，匹配中央 mesh 的扩域 {801,1601,3201,6401}；保留 CN midpoint/两半 IE、原时间阶梯与唯一四求解 fallback，精确三点式/层级见 A/1 R7–R10。上限仍为6401节点/4096 requested steps，anchors 后 actual steps 保守≤4342，两半 IE 另多一次线性求解。仍未自证为 REFERENCE_UNAVAILABLE；边界/阻尼、实际节点/步数、每层 residual/raw values 全留证据，不能以生产 MC 反证参考。
 
-grid 三档 ns={81,161,321}、基础时间列 {49,97,193}，τ={1/36500,1/73000,1/146000}；并入必要 knot 后检查实际点数≤100000。若 321 档并集超限，在保持 contract 上限下均匀减少非-knot 时间点并记录确定性生成规则，不忽略 carry knot、不超预算。初始 spot [0.2S0,4S0]，再扩 [0.1S0,6S0]；分别隔离空间、时间、τ、spot 域和 tails，不能同变四项后把总改善归为 grid 收敛。h={1/48,1/96,1/192}；比较 h 与 h/2 的最后一组补 h=1/384，测试侧每段将粗 n 精确细分为 2n，保留全部原 anchors，以保障配对可聚合。报告实际 max dt，不因浮点 ceil 破坏 nesting。
+F2 grid 采用 A/1 R4–R6 的 P0–P8：宽 logspot 轴并中心 [-.02,.02] 轴、规则时间列并首段几何列及全部 carry knots；90位求值后一次舍入 binary64，仅按相同值去重。最大401×246=98646点，maxGridPoints=100000不变，禁止删列/临时加点。P0–P6仅诊断；正式预定 P7/P8 都用扩spot域[.1S0,6S0]、τ=1/146000，末列分别2.25/2年，完整参数表见 A/1。h固定为 {1/384,1/768,1/1536,1/3072}，最终只接受最后一档总价及最后两档配对。保留全部 canonical anchors 和严格 n/2n/4n/8n 嵌套，报告实际 max dt；间距不能三次严格二分或模型增非嵌套步时停止 INCOMPLETE，不按价格调轴。F1配置及已有有效证据不变。
 
 | 门禁 | 冻结判定 |
 |---|---|
@@ -296,7 +298,7 @@ grid 三档 ns={81,161,321}、基础时间列 {49,97,193}，τ={1/36500,1/73000,
 | N6 | owning/复制/别名/销毁输入/clone/并发1和4线程；相同环境/配置/draws 遵守现有 reduction；无不合法可用模型 |
 | N7 | 预算精确边界/0/overflow、range、坏grid/horizon、所有能力拒绝在大分配/抽样/tape 前；无 NaN 成功 |
 
-τ/尾段连续参考按解析 Dupire，离散参考按已声明 local-vol flat policy；T=2.25 超过 quote/carry 最后 2 年但 grid 可铺到 horizon。另跑 grid 最后时间=2年的显式 local-vol time-tail 场景，照样报告 N5 差及警告；若无法满足阈值为 FAIL，不把“外推有警告”当豁免。PDE 极远 logspot 位置的 oracle 本身不可表示/病态必须明确列 reference 不可用，不删失败点美化汇总。
+τ/尾段连续参考按解析 Dupire，离散参考按已声明 local-vol flat policy；T=2.25 超过 quote/carry 最后2年。A/1 P7铺到horizon=2.25，P8最后时间=2年，二者首列均为τ/4=1/146000并独立报告 N5 差及警告；若无法满足阈值为 FAIL，不把“外推有警告”当豁免。PDE 极远 logspot 位置的 oracle 本身不可表示/病态必须明确列 reference 不可用，不删失败点美化汇总。
 
 ### 统计协议与原计划的必要修正
 
@@ -304,7 +306,11 @@ grid 三档 ns={81,161,321}、基础时间列 {49,97,193}，τ={1/36500,1/73000,
 
 固定 batch b=0..15、每批最大 Pmax=2^20，某比较族最大细网格需要 Dmax 个正态坐标；固定标量位置 `((b*Pmax+p)*Dmax+j)`，p=0..Pmax-1，j=0..Dmax-1。同族不同 h/grid/tier 保留完整 fine 坐标槽，粗步通过同一细 Brownian 增量求和，除以 sqrt(dt粗)；不按粗 SimDim 重新解释同 ordinal RNG。checked 64-bit offsets，Precise inverse normal 一 draw 对应一 coordinate；跨批槽不重叠，不把 PRNG 数学独立当严格定理。测试先与 production 默认 stream 的小规模首批同配置逐路径/价格比较，并经 public 三端小集合证明接线一致。
 
+上述族内原则保留；A/1 新 F2 的跨族地址替换为 `(((f*16+b)*Pmax+p)*8728+j)`，f=0/1分别为linear/nonlinear，每族P7/P8×四档h共8模型。438 master anchors、437段，粗n=ceil(384*Δt)，维数1091/2182/4364/8728，checked维数上界10408；全部乘加及族预留检查uint64，两族总292863082496槽。先按新配置作默认流逐坐标/路径/价格对齐；旧Dmax=1584 raw不可复用。完整映射、严格Brownian嵌套和计数不符即停见 A/1 R11–R13；F1沿用其原配置/流的有效证据。
+
 每批路径阶梯 {2^16,2^17,2^18,2^19,2^20}，只因任一预登记输出 SE 超限才升级整个比较族；已有样本采用相同前缀，未因价格好坏挑 seed。16 独立分块均值估 SE，自由度15，ε=SE/S0、ε差=paired-SE/S0；4.5SE 是固定统计带，非无条件置信概率。达到上限仍 SE 不足为 INCOMPLETE；不能把 Sobol 当 IID，Sobol 仅作辅助重复性/bridge 证据。
+
+A/1执行前固定控制/请求/配置/源码/二进制hash与两个比较族，先reference方法自证、P7/P8全部reference及grid门禁，再MC。最多376次新reference求解，两族最多33554432条fine字段路径；PDE累计6小时、MC每族累计6小时、总数值计算累计18小时，单进程RSS6GiB/证据1GiB停止线，分阶段接续不重置。触线INCOMPLETE、reference未自证REFERENCE_UNAVAILABLE、SE不足INCOMPLETE及真实FAIL各自保留；不临时加档/按价格选配置。保留旧320行历史，当次资格视图复用F1的160行加新F2的320行共480行；只重验直接受影响证据。执行顺序、资源估算的未验证状态及证据身份细则见 A/1 R10–R18。
 
 扩充上限的可核验理由：F0 外推到2.25年时 F/S0≈1.04894，Black σ=.20，normalized SD=(F/S0)*sqrt(exp(.04*2.25)-1)≈.322；旧总 2^22 路径的理论 SE≈1.57e-4，超过 1e-4，即使正确实现也可能被样本上限卡住。新总2^24理论 SE≈7.86e-5，保留余量但不保证 smile 全部足够。仅增加运行成本，不修改 N 的精度/统计阈值。该长跑不放每次单测/每阶段矩阵。
 
