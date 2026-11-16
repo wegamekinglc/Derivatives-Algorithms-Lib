@@ -2,8 +2,9 @@
 
 This is the DAL-542 / S3 test harness. Production construction now accepts the
 frozen grids after the short-time Dupire repair. Numerical acceptance is
-determined separately: the current frozen smile grids fail the N5 grid gate,
-and the final tau/4 grid also exhausts the permitted PDE reference refinement.
+determined separately: the original smile grids fail N5, while the A/2 P7/P8
+reference/grid studies pass. A/2 now stops at production timeline nesting
+before any formal MC path.
 A successful executable exit or a small MC price error does not qualify S3.
 
 The controls are API note section 11 and the corresponding DAL-538 plan.
@@ -12,6 +13,30 @@ the production repair is `b0591270d904d9f4d1a6cf5ce94f121a8acee8f8`.
 This directory adds no production policy, public interface or dependency pin.
 
 ## A/2 continuation and A/1 history
+
+The A/2 execution at `fa0740a8` / identity `1099c383...` completed all ten
+corrected expanded layers, reused 48 central layers, re-admitted eight Black
+studies, and retained eight unavailable old-input diagnostics. All 16 P7/P8
+reference/grid studies pass (largest normalized grid difference 5.571189e-5).
+N4 checks 393782 nodes and 1984 off-node/boundary queries; the 56 single-layer
+diagnostics remain diagnostic INCOMPLETE. Cumulative solves are 290, including
+the original 58, leaving 86. No reference fallback was needed for P7/P8.
+
+The first tiny F2_linear alignment invocation stopped before fine fields were
+drawn: production Allocate returns dimensions 1093/2184/4372/8736 against the
+frozen 1091/2182/4364/8728, for both P7 and P8. Some binary64 interval lengths
+slightly exceed the nominal h and production `ceil(dt/h)` subdivides again.
+An Allocate/Init-only reproduction confirms the mismatch; it calls no RNG or
+GeneratePath. This is a compatibility blocker between the frozen coordinates
+and current step planning, not a demonstrated violation of the strict maxStep
+implementation. No h, timeline, reservation or production policy was changed.
+The alignment fine-field reservation is 16 with zero completed; formal MC is
+NOT_RUN. The current 480-row view remains 160 reused PASS / 320 NOT_RUN.
+The final ledger has 2284 events, 317.654266 cumulative numerical seconds and
+active_phase=null, including the preparation-only diagnostic. The original
+manifest and 180-event prefix remain sealed. Full raw and the minimal
+reproducer are delivered as issue attachments; the published README update
+is separate from the frozen numerical execution source.
 
 The active F2 amendment is
 `.codex/artifacts/specs/dal-542-n5-resolution-a.md` (A/2). The original 320 rows
