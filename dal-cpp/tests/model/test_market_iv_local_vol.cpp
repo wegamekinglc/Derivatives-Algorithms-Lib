@@ -196,6 +196,7 @@ TEST(MarketIvLocalVolTest, TestModelMetadataCopiesWarningsAndArchive) {
     const auto* copy = dynamic_cast<const MarketIvLocalVolModelData_*>(mutant.get());
     ASSERT_NE(copy, nullptr);
     ASSERT_EQ(copy->ModelIdentity(), data->ModelIdentity());
+    ASSERT_THROW(static_cast<void>(data->MutantModel("copy", {Handle_<Slide_>(new Slide_)})), Exception_);
     AssertError([&] { static_cast<void>(JSON::WriteString(*data)); }, "ArchiveUnsupported", "/model");
 }
 
@@ -342,6 +343,70 @@ TEST(MarketIvLocalVolTest, TestUnsupportedRequestsRejectBeforeDispatchAndTape) {
     simulation.rsg_ = "mrg32";
     AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation, simulation)); },
                 "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
+}
+
+TEST(MarketIvLocalVolTest, TestPreparedRejectsActualValuationDateBeforeAllocation) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ payment("payment", {Cell_(today.AddDays(365))}, {"pay PAYS 1"});
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today.AddDays(1);
+    AAD::BlackScholes_<double> metadata(100., .2, .03);
+    const auto prepared = PrepareScript(payment, &metadata, valuation, {});
+    ASSERT_EQ(prepared.EvaluationDate(), today.AddDays(1));
+    AssertError([&] { static_cast<void>(MCSimulation<double>(payment, data, 16, valuation)); }, "InvalidModelEvaluationDate",
+                "/valuation/evaluation_date");
+    AssertError([&] { static_cast<void>(MCSimulation<double>(prepared, data, 16)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+    auto model = CreateModel<double>(data);
+    AssertError([&] { static_cast<void>(MCDoubleSimulation(prepared, model.get(), 16, "sobol", false, true)); }, "InvalidModelEvaluationDate",
+                "/valuation/evaluation_date");
+    ASSERT_EQ(model->SimDim(), 0U);
+    const ScriptProductData_ expired("expired", {Cell_(today.AddDays(-1))}, {"pay PAYS 1"});
+    const auto wrongExpired = PrepareScript(expired, &metadata, valuation, {});
+    ASSERT_TRUE(wrongExpired.AllExpired());
+    AssertError([&] { static_cast<void>(MCSimulation<double>(wrongExpired, data, 16)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+    valuation.evaluationDate_ = today;
+    const auto valid = PrepareScript(payment, &metadata, valuation, {});
+    ASSERT_NEAR(MCSimulation<double>(valid, data, 16).aggregated_ / 16., 1.01, 2e-12);
+    const auto validExpired = PrepareScript(expired, &metadata, valuation, {});
+    ASSERT_DOUBLE_EQ(MCSimulation<double>(validExpired, data, 16).aggregated_, 0.);
+}
+
+TEST(MarketIvLocalVolTest, TestExpiredPreparedAadRejectsBeforeEmptyReturnAndTape) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ payment("expired", {Cell_(today.AddDays(-1))}, {"pay PAYS 1"});
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    AAD::BlackScholes_<double> metadata(100., .2, .03);
+    const auto prepared = PrepareScript(payment, &metadata, valuation, simulation);
+    ASSERT_TRUE(prepared.AllExpired());
+    const auto tapeEvents = AAD::Tape()->ReverseEventCount();
+    AssertError([&] { static_cast<void>(MCSimulation<double>(prepared, data, 16)); }, "DerivativeUnavailable", "/simulation/enable_aad");
+    AssertError([&] { static_cast<void>(MCSimulation<AAD::Number_>(prepared, data, 16)); }, "DerivativeUnavailable", "/simulation/enable_aad");
+    auto model = CreateModel<double>(data);
+    AssertError([&] { static_cast<void>(MCDoubleSimulation(prepared, model.get(), 16, "sobol", false, true)); }, "DerivativeUnavailable",
+                "/simulation/enable_aad");
+    ASSERT_EQ(model->SimDim(), 0U);
+    ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
+    const Handle_<ModelData_> legacy(new BSModelData_("legacy", 100., .2, .03));
+    ASSERT_DOUBLE_EQ(MCSimulation<double>(prepared, legacy, 16).aggregated_, 0.);
+}
+
+TEST(MarketIvLocalVolTest, TestLegacyRejectsActualValuationDateBeforeEmptyReturn) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    for (const int days : {-1, 365}) {
+        ScriptProduct_ payment({Cell_(today.AddDays(days))}, {"pay PAYS 1"});
+        payment.PartitionEvents(today.AddDays(1));
+        payment.PreProcess(false, false);
+        AssertError([&] { static_cast<void>(MCSimulation<double>(payment, data, 16)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+    }
 }
 
 TEST(MarketIvLocalVolTest, TestRequestBudgetExactBoundaryAndStepLimits) {
