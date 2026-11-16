@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from gen_script_calibration_examples import write_table
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE = ROOT / "dal-python/examples/020.nanoql_multi_curve.py"
+EXAMPLE = ROOT / "dal-python/examples/021.nanoql_multi_curve.py"
 OUTPUT = ROOT / "dal-excel/examples/014.nanoql_multi_curve.xlsx"
 PERCENT = "0.00000%"
 DATE = "yyyy-mm-dd"
@@ -22,24 +22,7 @@ def format_column(sheet, column, first, last, format_code):
         sheet.cell(row, column).number_format = format_code
 
 
-def calibration_sheet(sheet, anchor, quotes, projection=False):
-    sheet["A1"] = f"{sheet.title} calibration"
-    sheet["A1"].font = Font(bold=True, size=14)
-    for row, label in enumerate(("Calibration", "Curve", "Max residual (bp)"), 2):
-        sheet.cell(row, 1, label)
-    settings = [
-        ("curveName", sheet.title),
-        ("parameterization", "LOG_DISCOUNT"),
-        ("logDfScheme", "LOG_CUBIC_NATURAL"),
-        ("calibrateDiscountCurve", not projection),
-        ("initialGuess", 0.01),
-        ("tolerance", 1e-11),
-        ("fitTolerance", 1e-11),
-    ]
-    if projection:
-        settings.append(("targetTenor", "6M"))
-    settings_cells = write_table(sheet, 2, 10, ["Setting", "Value"], settings, include_header=False)
-
+def write_rate_conventions(sheet):
     conventions = [
         ("Overnight", '=RATEINDEXCONVENTION.NEW("1M","ACT_360","OIS",FALSE)'),
         ("Euribor 6M", '=RATEINDEXCONVENTION.NEW("6M","ACT_360","OIS",TRUE)'),
@@ -51,6 +34,9 @@ def calibration_sheet(sheet, anchor, quotes, projection=False):
         ),
     ]
     write_table(sheet, 2, 13, ["Convention", "Handle"], conventions)
+
+
+def write_calibration_quotes(sheet, anchor, quotes, projection):
     definitions = {
         "Deposit": ("DEPOSIT", "$N$4" if projection else "$N$3"),
         "FRA": ("FRA", "$N$4"),
@@ -76,7 +62,29 @@ def calibration_sheet(sheet, anchor, quotes, projection=False):
     if projection:
         headers.extend(["Shocked quote", "Shocked handle"])
     write_table(sheet, 8, 1, headers, rows)
-    last = 9 + len(quotes)
+    return 9 + len(quotes)
+
+
+def calibration_sheet(sheet, anchor, quotes, projection=False):
+    sheet["A1"] = f"{sheet.title} calibration"
+    sheet["A1"].font = Font(bold=True, size=14)
+    for row, label in enumerate(("Calibration", "Curve", "Max residual (bp)"), 2):
+        sheet.cell(row, 1, label)
+    settings = [
+        ("curveName", sheet.title),
+        ("parameterization", "LOG_DISCOUNT"),
+        ("logDfScheme", "LOG_CUBIC_NATURAL"),
+        ("calibrateDiscountCurve", not projection),
+        ("initialGuess", 0.01),
+        ("tolerance", 1e-11),
+        ("fitTolerance", 1e-11),
+    ]
+    if projection:
+        settings.append(("targetTenor", "6M"))
+    settings_cells = write_table(sheet, 2, 10, ["Setting", "Value"], settings, include_header=False)
+
+    write_rate_conventions(sheet)
+    last = write_calibration_quotes(sheet, anchor, quotes, projection)
     discount = ",ESTR!$B$3" if projection else ""
     for result_col, handle_col in (("B", "F"), ("E", "H")) if projection else (("B", "F"),):
         sheet[f"{result_col}2"] = (

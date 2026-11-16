@@ -878,7 +878,7 @@ headers/libraries together after layout changes.
 
 ## Curve Calibration
 
-The [NanoQL multi-curve example](examples/020.nanoql_multi_curve.py) calibrates
+The [NanoQL multi-curve example](examples/021.nanoql_multi_curve.py) calibrates
 €STR discount and Euribor 6M projection curves. It prints the spot and forward
 swap NPVs, fair spreads, fair fixed rates, and elapsed calibration and pricing time.
 

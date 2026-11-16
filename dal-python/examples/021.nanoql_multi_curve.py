@@ -176,22 +176,20 @@ def calibrate(anchor, quotes, calendar, discount=None):
     ois_leg = rate_leg(calendar, "12M", "ACT_360", modified, following)
     fixed_leg = rate_leg(calendar, "12M", "BOND", unadjusted, modified)
     float_leg = rate_leg(calendar, "6M", "ACT_360", modified, modified)
-
+    instrument_builders = {
+        "Deposit": (dal.Deposit_New, (deposit_index,)),
+        "OIS": (dal.OISSwap_New, (ois_leg, overnight, ois_leg)),
+        "FRA": (dal.FRA_New, (euribor,)),
+        "IRS": (dal.Swap_New, (fixed_leg, euribor, float_leg)),
+    }
+    trade_date = dal_date(anchor)
     instruments = []
     for kind, _, start, end, rate in quotes:
-        args = (dal_date(anchor), dal_date(start), dal_date(end), rate)
-        if kind == "Deposit":
-            instrument = dal.Deposit_New(*args, deposit_index)
-        elif kind == "OIS":
-            instrument = dal.OISSwap_New(*args, ois_leg, overnight, ois_leg)
-        elif kind == "FRA":
-            instrument = dal.FRA_New(*args, euribor)
-        else:
-            instrument = dal.Swap_New(*args, fixed_leg, euribor, float_leg)
-        instruments.append(instrument)
+        build_instrument, conventions = instrument_builders[kind]
+        instruments.append(build_instrument(trade_date, dal_date(start), dal_date(end), rate, *conventions))
 
     builder = dal.CurveCalibrationSpecBuilder_()
-    builder.today_ = dal_date(anchor)
+    builder.today_ = trade_date
     builder.ccy_ = dal.String_("EUR")
     builder.curveName_ = dal.String_("ESTR" if discount is None else "Euribor 6M")
     builder.parameterization_ = dal.CurveParameterization.LOG_DISCOUNT
@@ -199,7 +197,7 @@ def calibrate(anchor, quotes, calendar, discount=None):
     builder.initialGuess_ = 0.01
     builder.tolerance_ = builder.fitTolerance_ = TOLERANCE
     builder.instruments_ = instruments
-    builder.knotDates_ = [dal_date(anchor)] + [
+    builder.knotDates_ = [trade_date] + [
         dal_date(knot) for knot in sorted(adjust(q.end, calendar) for q in quotes)
     ]
     if discount is not None:
@@ -236,6 +234,27 @@ def price_swap(start, calendar, discount, projection):
     return NOTIONAL * pv_per_unit, -pv_per_unit / float_annuity, float_pv / fixed_annuity
 
 
+def print_swap_prices(prices):
+    print(
+        f"\n{'5Y input / trade':<20}{'DAL NPV (EUR)':>15}{'NanoQL (EUR)':>15}{'Spread (%)':>14}{'Rate (%)':>12}"
+    )
+    print("-" * 76)
+    reference = (
+        ("0.762%  5Y spot", 3076.04, -0.0006, 0.0076),
+        ("0.762%  1Y x 5Y", 19202.54, -0.0038, 0.0109),
+        ("0.900%  5Y spot", 9922.71, -0.0020, 0.0090),
+        ("0.900%  1Y x 5Y", 19202.54, -0.0038, 0.0109),
+    )
+    for (name, expected_pv, expected_spread, expected_rate), (pv, spread, rate) in zip(reference, prices):
+        print(f"{name:<20}{pv:>15.2f}{expected_pv:>15.2f}{100 * spread:>14.5f}{100 * rate:>12.5f}")
+        if not (
+            abs(pv - expected_pv) < 0.005
+            and abs(spread - expected_spread) < 0.00005
+            and abs(rate - expected_rate) < 0.00005
+        ):
+            raise RuntimeError(f"{name} differs from the published value")
+
+
 def main():
     timer = perf_counter()
     calendar = dal.Holidays_("TARGET")
@@ -259,24 +278,7 @@ def main():
         print(
             f"{diag.curve_name}: {len(diag.market_rates)} quotes, max absolute residual {1e4 * diag.max_abs_residual:.2e} bp"
         )
-    print(
-        f"\n{'5Y input / trade':<20}{'DAL NPV (EUR)':>15}{'NanoQL (EUR)':>15}{'Spread (%)':>14}{'Rate (%)':>12}"
-    )
-    print("-" * 76)
-    reference = (
-        ("0.762%  5Y spot", 3076.04, -0.0006, 0.0076),
-        ("0.762%  1Y x 5Y", 19202.54, -0.0038, 0.0109),
-        ("0.900%  5Y spot", 9922.71, -0.0020, 0.0090),
-        ("0.900%  1Y x 5Y", 19202.54, -0.0038, 0.0109),
-    )
-    for (name, expected_pv, expected_spread, expected_rate), (pv, spread, rate) in zip(reference, prices):
-        print(f"{name:<20}{pv:>15.2f}{expected_pv:>15.2f}{100 * spread:>14.5f}{100 * rate:>12.5f}")
-        if not (
-            abs(pv - expected_pv) < 0.005
-            and abs(spread - expected_spread) < 0.00005
-            and abs(rate - expected_rate) < 0.00005
-        ):
-            raise RuntimeError(f"{name} differs from the published value")
+    print_swap_prices(prices)
     print(f"\nCalibration and pricing time: {elapsed_ms:.3f} ms")
 
 
