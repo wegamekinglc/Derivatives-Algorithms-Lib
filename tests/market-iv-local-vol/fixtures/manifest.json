@@ -1,0 +1,14 @@
+{
+  "schema": "dal.market-iv-independent-fixtures/1",
+  "decimal_digits": 90,
+  "baseline": "53a2b1592993f3a1d354df2d6ec2ae6918e5ef6d",
+  "capture_sha256": "052a50a2e9a642851b35f0d60ec970a532a362448c049c16dbd115e64aeffb42",
+  "report_sha256": "57a99e6609bfd06084d9acfba93a411107114e3b00428309ccbe4e3326b15fd3",
+  "files": {
+    "quotes.jsonl": "e35bda6ab28e017abce33e37fc0dd5da7c1c3139051eb3469002d4809fe2d77b",
+    "snapshots.json": "39f7c77e1a1c14d387fd0b157a974222b46bc5af63b0559e4866593dc470edc6",
+    "derivatives.jsonl": "70a0ce9136dd7959b65f8fa9c32acc7a950c5f30e324edd62a36796a1c4f6149",
+    "pde.jsonl": "597a3dfe042934d12cf95815751589e6ee28321ecbaf74240446ea589a113226"
+  },
+  "status": "BLOCKED"
+}
