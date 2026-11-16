@@ -80,6 +80,28 @@ value is handle StorableCompoundedOisCalendar
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
+public CompoundedOisObservationConvention_New
+    Create an explicit overnight observation convention
+&inputs
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("CompoundedOisObservationConvention_New", "settings", 2)
+    Exact mode and optional business-day counts
+&outputs
+value is handle StorableCompoundedOisObservationConvention
+    Immutable typed convention
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOis_Get_ObservationSchedule
+    Inspect the frozen overnight observation schedule
+&inputs
+prepared is handle StorablePreparedCompoundedOis
+    Owning prepared OIS tables
+&outputs
+value is cell[][]
+    Schedule rows with zero-based row and reuse indices
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
 public CompoundedOisScriptSpec_New
     Create immutable typed compounded OIS input
 &inputs
@@ -244,11 +266,21 @@ namespace Dal {
         f.Finish();
         value->reset(new StorableCompoundedOisCalendar_(HolidayCenterData_(center, holidays, weekends)));
     }
+    void CompoundedOisObservationConvention_New(const Matrix_<Cell_>& settings, Handle_<StorableCompoundedOisObservationConvention_>* value) {
+        XccyFields_ fields(settings, "CompoundedOisObservationConvention_New", {"mode", "lookback_business_days", "lockout_business_days"}, true);
+        const auto convention = BindingInternal::ReadCompoundedOisObservationConvention(fields);
+        fields.Finish();
+        value->reset(new StorableCompoundedOisObservationConvention_(convention));
+    }
+    void CompoundedOis_Get_ObservationSchedule(const Handle_<StorablePreparedCompoundedOis_>& prepared, Matrix_<Cell_>* value) {
+        REQUIRE(prepared && prepared->val_, "CompoundedOis_Get_ObservationSchedule: expected prepared OIS tables");
+        *value = CompoundedOisObservationScheduleTable(prepared->val_);
+    }
     void CompoundedOisScriptSpec_New(const Matrix_<Cell_>& settings, Handle_<StorableCompoundedOisScriptSpec_>* value) {
         XccyFields_ f(settings, "CompoundedOisScriptSpec_New",
                       {"instrument_id", "direction", "discount_route", "projection_route", "fixing_index", "notional", "coupon", "currency",
                        "collateral_currency", "collateral_type", "observation_basis", "fixed_basis", "calendar", "fixed_leg", "coupons",
-                       "observations", "min_abs_annuity", "rule_id"},
+                       "observations", "min_abs_annuity", "rule_id", "observation_convention"},
                       true);
         const auto spec = BindingInternal::ReadCompoundedOisSpec(f);
         f.Finish();
@@ -318,10 +350,12 @@ namespace Dal {
 #include <dal-excel/auto/MG_CompoundedOisCalendar_New_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisCoupons_New_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisFixedLeg_New_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisObservationConvention_New_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisObservations_New_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisPreparations_New_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisScriptInstrument_New_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisScriptSpec_New_public.inc>
+#include <dal-excel/auto/MG_CompoundedOis_Get_ObservationSchedule_public.inc>
 #include <dal-excel/auto/MG_CompoundedOis_Prepare_public.inc>
 #include <dal-excel/auto/MG_CurveScriptEvaluationRequest_New_public.inc>
 #include <dal-excel/auto/MG_CurveScriptEvaluation_Get_NativePartials_public.inc>

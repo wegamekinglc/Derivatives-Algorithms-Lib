@@ -103,7 +103,8 @@ full-risk tables and a boundary PARTIAL result with per-row availability.
 | [aad_public_risk](examples/aad_public_risk/)                               | Owning weighted-risk results and reporting coordinates                         |
 | [script_calibration](examples/script_calibration/)                         | Deposit calibration, fixed coupon pricing and explicit parameter rebinding     |
 | [script_curve_quote_risk](examples/script_curve_quote_risk/)               | Explicit snapshot admission, fixed-contract Price/raw/DV01 and owning failures |
-| [compounded_ois_script](examples/compounded_ois_script/)                   | Mixed historical/future OIS, explicit holiday, delayed payment and native AAD |
+| [compounded_ois_script](examples/compounded_ois_script/)                   | Mixed historical/future OIS, explicit holiday, delayed payment and native AAD  |
+| [compounded_ois_quote_risk](examples/compounded_ois_quote_risk/)           | Four observation modes, frozen audit schedule and fixed-contract quote DV01    |
 | [interpolate_curve_script](examples/interpolate_curve_script/)             | Thirteen direct swap/FRA scripts fitted with three log-discount schemes        |
 | [gsr_script_calibration](examples/gsr_script_calibration/)                 | Gaussian BondOption fit, same-path plain/AAD prices and native partials        |
 | [xccy_script_calibration](examples/xccy_script_calibration/)               | Direct XCCY source cashflows fitted by the staged curve calibrator             |

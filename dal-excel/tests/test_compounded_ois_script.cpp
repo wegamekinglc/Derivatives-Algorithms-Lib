@@ -8,6 +8,14 @@
 using namespace Dal;
 
 namespace {
+    struct ExcelV2Case_ {
+        Handle_<StorablePreparedCompoundedOis_> tables_;
+        Handle_<StorableCurveScriptEvaluationRequest_> request_;
+        Handle_<CalibrationInstrument_> instrument_;
+    };
+} // namespace
+
+namespace {
     Matrix_<Cell_> Observations() {
         Matrix_<Cell_> cells(2, 7);
         const Vector_<String_> columns{"coupon_id", "rate_end", "fixing_time", "start", "accrual", "end", "rate_start"};
@@ -332,4 +340,158 @@ TEST(CompoundedOisScriptExcelTest, TestFullSelectionAfterBlankRowAndOriginalCoor
         ASSERT_NE(std::string(error.what()).find("row=4"), std::string::npos);
         ASSERT_NE(std::string(error.what()).find("column=5"), std::string::npos);
     }
+}
+
+namespace {
+    ExcelV2Case_ ExcelV2(const String_& mode, const Handle_<Storable_>& overrideConvention = {}) {
+        const auto legacy = ExcelOis();
+        auto request = legacy.second;
+        request.valuation_.evaluationDate_ = Date_(2024, 3, 1);
+        request.geometry_.today_ = Date_(2024, 3, 1);
+        request.geometry_.knotDates_ = {Date_(2024, 3, 1), Date_(2024, 3, 21)};
+        const Date_ start(2024, 3, 5), end(2024, 3, 8), pay(2024, 3, 12);
+        Handle_<StorableCompoundedOisObservationConvention_> convention;
+        CompoundedOisObservationConvention_New(
+            OisFields({{"mode", Cell_(mode)},
+                       {"lookback_business_days", Cell_(mode == "Lookback" || mode == "ObservationShift" ? 1. : 0.)},
+                       {"lockout_business_days", Cell_(mode == "Lockout" ? 1. : 0.)}}),
+            &convention);
+        const Handle_<StorableCompoundedOisFixedLeg_> fixed(new StorableCompoundedOisFixedLeg_({{start, end, pay, 3. / 365.}}));
+        const Handle_<StorableCompoundedOisCoupons_> coupons(new StorableCompoundedOisCoupons_({{"coupon", start, end, pay}}));
+        const Handle_<StorableCompoundedOisCalendar_> calendar(new StorableCompoundedOisCalendar_(*request.compoundedOis_->Spec().calendar_));
+        const auto selected = overrideConvention ? overrideConvention : Handle_<Storable_>(convention);
+        Handle_<StorableCompoundedOisScriptSpec_> spec;
+        CompoundedOisScriptSpec_New(OisFields({{"instrument_id", Cell_("excel-v2")},
+                                               {"direction", Cell_("PayFixed")},
+                                               {"discount_route", Cell_("USD.OIS")},
+                                               {"projection_route", Cell_("USD.SOFR")},
+                                               {"fixing_index", Cell_("USD-SOFR")},
+                                               {"notional", Cell_(100.)},
+                                               {"coupon", Cell_(.02)},
+                                               {"currency", Cell_("USD")},
+                                               {"collateral_currency", Cell_("USD")},
+                                               {"collateral_type", Cell_("OIS")},
+                                               {"observation_basis", Cell_("ACT_360")},
+                                               {"fixed_basis", Cell_("ACT_365F")},
+                                               {"calendar", Cell_(StoreOis(calendar))},
+                                               {"fixed_leg", Cell_(StoreOis(fixed))},
+                                               {"coupons", Cell_(StoreOis(coupons))},
+                                               {"rule_id", Cell_("dal.compounded-ois-cashflows/2")},
+                                               {"observation_convention", Cell_(StoreOis(selected))}}),
+                                    &spec);
+        const Handle_<StorableScriptValuationSettings_> valuation(new StorableScriptValuationSettings_("", request.valuation_));
+        ExcelV2Case_ result;
+        CompoundedOis_Prepare(spec, valuation, &result.tables_);
+        auto owned = request;
+        owned.compoundedOis_ = result.tables_->val_;
+        owned.derivativeMethod_ = CalibrationDerivative_("AAD");
+        result.request_.reset(new StorableCurveScriptEvaluationRequest_(owned));
+        CompoundedOisScriptInstrument_New(result.tables_, &result.instrument_);
+        return result;
+    }
+} // namespace
+
+TEST(CompoundedOisScriptExcelTest, TestTypedConventionScheduleAndOwnedEvaluationFourModes) {
+    for (const String_ mode : {"None", "Lookback", "ObservationShift", "Lockout"}) {
+        SCOPED_TRACE(mode);
+        Handle_<StorableCalibrationOutcome_> outcome;
+        Matrix_<Cell_> prepared;
+        {
+            const auto sample = ExcelV2(mode);
+            CompoundedOis_Get_ObservationSchedule(sample.tables_, &prepared);
+            ASSERT_EQ(prepared.Rows(), 4);
+            ASSERT_EQ(prepared.Cols(), 22);
+            ASSERT_EQ(prepared(1, 1), Cell_(mode));
+            CurveScriptInstrument_Evaluate(sample.instrument_, sample.request_, &outcome);
+        }
+        ASSERT_EQ(outcome->status_, "Evaluated");
+        Matrix_<Cell_> audit, legacy;
+        CurveScriptEvaluation_Get_Table(outcome, "observation_schedule", &audit);
+        CurveScriptEvaluation_Get_Table(outcome, "observations", &legacy);
+        ASSERT_EQ(audit.Cols(), 26);
+        ASSERT_EQ(legacy.Cols(), 15);
+        for (int i = 1; i < 4; ++i)
+            for (int j = 0; j < 22; ++j)
+                ASSERT_EQ(audit(i, j), prepared(i, j));
+        const double growth = mode == "Lookback"           ? (1. + std::expm1(.0004) / 4.) * std::exp(.0002)
+                              : mode == "ObservationShift" ? std::exp(.0006)
+                                                           : std::exp(.0003);
+        double price = 0.;
+        CurveScriptEvaluation_Get_Value(outcome, "Price", &price);
+        ASSERT_NEAR(price, 100. * (growth - 1. - .02 * 3. / 365.) * std::exp(-.0011), 1e-10);
+    }
+}
+
+namespace {
+    void CheckExcelV2QuoteRisk(const ExcelV2Case_& sample, bool pvOnly) {
+        Handle_<StorableScriptCurveQuoteRiskResult_> result;
+        {
+            const auto& request = sample.request_->val_;
+            CurveInstrumentCalibrationSpec_ raw;
+            raw.geometry_ = request.geometry_;
+            raw.market_ = request.market_;
+            raw.valuation_ = request.valuation_;
+            raw.compoundedOis_ = {sample.tables_->val_};
+            raw.observations_ = {NewCalibrationObservation("par", sample.instrument_, "ParRate",
+                                                           NewCalibrationMarketQuote("q", .025, CalibrationValueUnit_::Parse("Rate")), 1e-10)};
+            const Handle_<StorableCurveInstrumentCalibrationSpec_> spec(new StorableCurveInstrumentCalibrationSpec_(raw));
+            Handle_<StorableCalibrationOutcome_> fit;
+            Calibrate_CurveInstruments(spec, {}, &fit);
+            ASSERT_EQ(fit->status_, "Succeeded");
+            ASSERT_NEAR(fit->curveFit_->modelMeasures_[0], .025, 1e-12);
+            ScriptCurveQuoteRiskAccuracy_ policy{{1e-12}, 1e-10, 1e-12};
+            policy.pvOnly_ = pvOnly;
+            const Handle_<StorableScriptCurveQuoteRiskAccuracy_> accuracy(new StorableScriptCurveQuoteRiskAccuracy_(policy));
+            Handle_<StorableScriptCurveQuoteRiskSnapshot_> snapshot;
+            ScriptCurveQuoteRiskSnapshot_New(fit, accuracy, &snapshot);
+            ASSERT_TRUE(snapshot->val_.RiskAvailable());
+            ASSERT_EQ(snapshot->val_.MappingAvailable(), !pvOnly);
+            CalibrationInstrument_ValueWithQuoteRisk(sample.instrument_, snapshot, spec, {}, &result);
+        }
+        String_ status;
+        ScriptCurveQuoteRiskResult_Get_Status(result, &status);
+        ASSERT_EQ(status, "Available");
+        Vector_<> raw, dv01;
+        ScriptCurveQuoteRiskResult_Get_RawSensitivity(result, &raw);
+        ScriptCurveQuoteRiskResult_Get_DV01(result, &dv01);
+        ASSERT_EQ(raw.size(), 1u);
+        ASSERT_DOUBLE_EQ(dv01[0], raw[0] * 1e-4);
+        double price = 0.;
+        ScriptCurveQuoteRiskResult_Get_PV(result, &price);
+        ASSERT_GT(price, 0.);
+    }
+} // namespace
+
+TEST(CompoundedOisScriptExcelTest, TestVersionTwoCalibrationFullAndPvOnlyGettersFourModes) {
+    for (const String_ mode : {"None", "Lookback", "ObservationShift", "Lockout"}) {
+        SCOPED_TRACE(mode);
+        const auto sample = ExcelV2(mode);
+        ASSERT_NO_FATAL_FAILURE(CheckExcelV2QuoteRisk(sample, false));
+        ASSERT_NO_FATAL_FAILURE(CheckExcelV2QuoteRisk(sample, true));
+    }
+}
+
+TEST(CompoundedOisScriptExcelTest, TestConventionFieldsRejectStrictCountsAndKeepLocations) {
+    Excel::ScriptTestInitialize(1);
+    for (const auto& bad : {Cell_(true), Cell_("1"), Cell_(1.5), Cell_(-1.), Cell_(3e12)}) {
+        Handle_<StorableCompoundedOisObservationConvention_> result;
+        try {
+            CompoundedOisObservationConvention_New(OisFields({{"mode", Cell_("Lookback")}, {"lookback_business_days", bad}}), &result);
+            FAIL();
+        } catch (const Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("row=2 column=2"), std::string::npos);
+            ASSERT_NE(std::string(error.what()).find("lookback_business_days"), std::string::npos);
+        }
+    }
+    Handle_<StorableCompoundedOisObservationConvention_> result;
+    ASSERT_THROW(CompoundedOisObservationConvention_New(OisFields({{"mode", Cell_("none")}}), &result), Exception_);
+    ASSERT_THROW(CompoundedOisObservationConvention_New(OisFields({{"mode", Cell_("None")}, {"mode", Cell_("None")}}), &result), Exception_);
+    Matrix_<Cell_> extra(3, 2);
+    extra(0, 0) = "mode";
+    extra(0, 1) = "None";
+    extra(2, 0) = "unknown_after_blank";
+    extra(2, 1) = 1.;
+    ASSERT_THROW(CompoundedOisObservationConvention_New(extra, &result), Exception_);
+    const Handle_<StorableCompoundedOisCalendar_> wrong(new StorableCompoundedOisCalendar_(HolidayCenterData_("explicit", {})));
+    ASSERT_THROW(ExcelV2("None", Handle_<Storable_>(wrong)), Exception_);
 }

@@ -10,9 +10,54 @@ using namespace Dal::Python::Calibration;
 namespace {
     GilTestBarrier_ barrier;
     thread_local bool barrierArmed = false;
+
+    void BindConvention(py::module_& m) {
+        auto cls = py::class_<CompoundedOisObservationConvention_>(m, "CompoundedOisObservationConvention_");
+        cls.def(py::init([](const py::object& mode, const py::object& lookback, const py::object& lockout) {
+                    py::kwargs values;
+                    values["mode"] = mode;
+                    values["lookback_business_days"] = lookback;
+                    values["lockout_business_days"] = lockout;
+                    Fields_ fields(values);
+                    return BindingInternal::ReadCompoundedOisObservationConvention(fields);
+                }),
+                py::arg("mode"), py::kw_only(), py::arg("lookback_business_days") = py::int_(0), py::arg("lockout_business_days") = py::int_(0));
+        Property(cls, "mode", &CompoundedOisObservationConvention_::mode_);
+        Property(cls, "lookback_business_days", &CompoundedOisObservationConvention_::lookbackBusinessDays_);
+        Property(cls, "lockout_business_days", &CompoundedOisObservationConvention_::lockoutBusinessDays_);
+    }
+    void BindScheduleRows(py::module_& m) {
+        auto cls = py::class_<CompoundedOisResolvedObservation_>(m, "CompoundedOisResolvedObservation_");
+        Property(cls, "accrual_start", &CompoundedOisResolvedObservation_::accrualStart_);
+        Property(cls, "accrual_end", &CompoundedOisResolvedObservation_::accrualEnd_);
+        Property(cls, "rate_start", &CompoundedOisResolvedObservation_::rateStart_);
+        Property(cls, "rate_end", &CompoundedOisResolvedObservation_::rateEnd_);
+        Property(cls, "weight_start", &CompoundedOisResolvedObservation_::weightStart_);
+        Property(cls, "weight_end", &CompoundedOisResolvedObservation_::weightEnd_);
+        Property(cls, "fixing_time", &CompoundedOisResolvedObservation_::fixingTime_);
+        Property(cls, "accrual", &CompoundedOisResolvedObservation_::accrual_);
+        Property(cls, "rate_accrual", &CompoundedOisResolvedObservation_::rateAccrual_);
+        Property(cls, "compounding_accrual", &CompoundedOisResolvedObservation_::compoundingAccrual_);
+        Property(cls, "fixing_index", &CompoundedOisResolvedObservation_::fixingIndex_);
+        Property(cls, "coupon_id", &CompoundedOisResolvedObservation_::couponId_);
+        Property(cls, "source_key", &CompoundedOisResolvedObservation_::sourceKey_);
+        Property(cls, "row", &CompoundedOisResolvedObservation_::row_);
+        Property(cls, "coupon_row", &CompoundedOisResolvedObservation_::couponRow_);
+        Property(cls, "reused_from_row", &CompoundedOisResolvedObservation_::reusedFromRow_);
+        Property(cls, "historical_required", &CompoundedOisResolvedObservation_::historicalRequired_);
+        Property(cls, "included", &CompoundedOisResolvedObservation_::included_);
+        Property(cls, "settled", &CompoundedOisResolvedObservation_::settled_);
+        py::class_<CurveScriptResolvedObservationResult_, CompoundedOisResolvedObservation_>(m, "CurveScriptResolvedObservationResult_")
+            .def_property_readonly("source", [](const CurveScriptResolvedObservationResult_& r) { return Output(r.source_); })
+            .def_property_readonly("rate", [](const CurveScriptResolvedObservationResult_& r) { return Output(r.rate_); })
+            .def_property_readonly("source_row", [](const CurveScriptResolvedObservationResult_& r) { return r.sourceRow_; })
+            .def_property_readonly("statement", [](const CurveScriptResolvedObservationResult_& r) { return r.statement_; });
+    }
 } // namespace
 
 void init_compounded_ois(py::module_& m) {
+    BindConvention(m);
+    BindScheduleRows(m);
     {
         auto cls = Struct<CompoundedOisFixedRow_>(m, "CompoundedOisFixedRow_", [](Fields_& f) {
             return CompoundedOisFixedRow_{f.Required<Date_>("start"), f.Required<Date_>("end"), f.Required<Date_>("payment"),
@@ -77,6 +122,7 @@ void init_compounded_ois(py::module_& m) {
         Property(cls, "observations", &CompoundedOisScriptSpec_::observations_);
         Property(cls, "min_abs_annuity", &CompoundedOisScriptSpec_::minAbsAnnuity_);
         Property(cls, "rule_id", &CompoundedOisScriptSpec_::ruleId_);
+        Property(cls, "observation_convention", &CompoundedOisScriptSpec_::observationConvention_);
     }
     {
         auto cls = Struct<CurveScriptEvaluationRequest_>(m, "CurveScriptEvaluationRequest_",
@@ -96,7 +142,10 @@ void init_compounded_ois(py::module_& m) {
         .def_property_readonly("valuation", [](const PreparedCompoundedOis_& v) { return v.Valuation(); })
         .def_property_readonly("contract_identity", [](const PreparedCompoundedOis_& v) { return Text(v.ContractIdentity()); })
         .def_property_readonly("preparation_identity", [](const PreparedCompoundedOis_& v) { return Text(v.PreparationIdentity()); })
-        .def_property_readonly("calendar_identity", [](const PreparedCompoundedOis_& v) { return Text(v.CalendarIdentity()); });
+        .def_property_readonly("calendar_identity", [](const PreparedCompoundedOis_& v) { return Text(v.CalendarIdentity()); })
+        .def_property_readonly("observation_schedule", [](const PreparedCompoundedOis_& v) { return Output(v.ObservationSchedule()); })
+        .def_property_readonly("observation_schedule_identity",
+                               [](const PreparedCompoundedOis_& v) { return Text(v.ObservationScheduleIdentity()); });
     {
         auto cls = py::class_<CurveScriptCashflowResult_>(m, "CurveScriptCashflowResult_");
         Property(cls, "table", &CurveScriptCashflowResult_::table_);
@@ -145,6 +194,8 @@ void init_compounded_ois(py::module_& m) {
         Property(cls, "derivative_method", &CurveScriptEvaluationResult_::derivativeMethod_);
         Property(cls, "context_identity", &CurveScriptEvaluationResult_::contextIdentity_);
         Property(cls, "candidate_identity", &CurveScriptEvaluationResult_::candidateIdentity_);
+        Property(cls, "observation_schedule", &CurveScriptEvaluationResult_::observationSchedule_);
+        Property(cls, "observation_schedule_identity", &CurveScriptEvaluationResult_::observationScheduleIdentity_);
     }
     m.def(
         "CompoundedOis_Prepare",
@@ -180,6 +231,18 @@ void init_compounded_ois(py::module_& m) {
         },
         py::arg("result"), py::arg("measure_id"));
     m.def("CurveScriptEvaluation_Get_NativePartials", &CurveScriptEvaluationPartials, py::arg("result"));
+    m.def(
+        "CurveScriptEvaluation_Get_Table",
+        [](const CurveScriptEvaluationResult_& result, const py::object& table) {
+            return Output(CurveScriptEvaluationTable(result, Input_<String_>::Read(table, "/table")));
+        },
+        py::arg("result"), py::arg("table"));
+    m.def(
+        "CompoundedOis_Get_ObservationSchedule",
+        [](const py::object& prepared) {
+            return Output(CompoundedOisObservationScheduleTable(Input_<Handle_<PreparedCompoundedOis_>>::Read(prepared, "/prepared")));
+        },
+        py::arg("prepared"));
     m.def("_CurveScriptGilBarrier_ArmForTesting", [] { barrier.Arm(&barrierArmed); });
     m.def("_CurveScriptGilBarrier_AwaitEntryForTesting", [] {
         py::gil_scoped_release release;
