@@ -5,14 +5,12 @@ import json
 import os
 from pathlib import Path
 import platform
-import subprocess
 import sys
 
 import mpmath
 import numpy
 import scipy
 
-from generate import request
 from qualify import digest, qualify
 
 
@@ -22,22 +20,15 @@ def write_json(path, value):
     )
 
 
-def command_output(command, root):
-    return subprocess.run(
-        command, cwd=root, check=True, capture_output=True, text=True
-    ).stdout.strip()
-
-
-def provenance(binary):
+def provenance(binary, evidence):
     source = Path(__file__).resolve().parent
-    root = source.parent.parent
     return dict(
-        head=command_output(["git", "rev-parse", "HEAD"], root),
-        production_tree=command_output(["git", "rev-parse", "HEAD:dal-cpp/dal"], root),
-        production_diff=command_output(
-            ["git", "diff", "HEAD", "--", "dal-cpp/dal"], root
-        ),
-        submodules=command_output(["git", "submodule", "status"], root),
+        head=(evidence / "source-head.txt").read_text(encoding="utf-8").strip(),
+        production_tree=(evidence / "production-tree.txt")
+        .read_text(encoding="utf-8")
+        .strip(),
+        production_diff=(evidence / "production-diff.txt").read_text(encoding="utf-8"),
+        submodules=(evidence / "submodules.txt").read_text(encoding="utf-8"),
         platform=platform.platform(),
         python=sys.version,
         packages=dict(
@@ -50,7 +41,7 @@ def provenance(binary):
             if path.is_file()
         },
         library_sha256=digest(binary.parent / "workspace/dal-cpp/libdal_cpp.a"),
-        compiler=command_output(["c++", "--version"], root),
+        compiler=(evidence / "compiler.txt").read_text(encoding="utf-8"),
         cmake_cache_sha256=digest(binary.parent / "CMakeCache.txt"),
     )
 
@@ -58,21 +49,11 @@ def provenance(binary):
 def run(binary, output, jobs):
     output.mkdir(parents=True, exist_ok=True)
     request_path, capture_path = output / "request.json", output / "capture.json"
-    write_json(request_path, request())
-    result = subprocess.run(
-        [str(binary), str(request_path), str(capture_path)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    (output / "capture.log").write_text(result.stdout + result.stderr, encoding="utf-8")
-    if result.returncode not in (0, 2):
-        raise RuntimeError(f"Capture failed: exit {result.returncode}; see capture.log")
     report = qualify(request_path, capture_path, jobs)
     write_json(output / "qualification.json", report)
-    metadata = provenance(binary)
+    metadata = provenance(binary, output)
     metadata.update(
-        capture_exit=result.returncode,
+        capture_exit=int((output / "capture-exit.txt").read_text(encoding="utf-8")),
         qualification_exit=2,
         request_sha256=digest(request_path),
         capture_sha256=digest(capture_path),

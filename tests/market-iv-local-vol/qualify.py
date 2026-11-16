@@ -250,31 +250,31 @@ def _finish_study(name, coefficient, maturity, runs):
     )
 
 
-def pde_studies(captured, requested, jobs):
+def study_sources(captured, requested):
     sources = [
         (row["id"], coefficients(row["snapshot"], fixture["flat"]))
         for row, fixture in zip(captured, requested)
         if row["fit_success"]
     ]
-    # An exact flat-vol model checks the solver independently of a DAL fit.
     sources += [
         ("Black_knots", Coefficients((0.0, 2.0), (0.0, 0.08), (0.04, 0.04))),
         ("Black_flat", Coefficients((0.0, 2.0), (0.0, 0.08), (0.04, 0.04), flat=True)),
     ]
+    return sources
+
+
+def study_tasks(sources):
     tasks = []
     for name, coefficient in sources:
         for maturity in MATURITIES:
             forward = float(carry(maturity, coefficient.flat)[0])
+            strikes = [float(ratio) * forward for ratio in RATIOS]
             for configuration in configurations():
-                tasks.append(
-                    (
-                        name,
-                        coefficient,
-                        maturity,
-                        [float(ratio) * forward for ratio in RATIOS],
-                        configuration,
-                    )
-                )
+                tasks.append((name, coefficient, maturity, strikes, configuration))
+    return tasks
+
+
+def group_studies(tasks, jobs):
     groups = {}
     with ProcessPoolExecutor(max_workers=jobs) as executor:
         for name, maturity, configuration, result in executor.map(_study_task, tasks):
@@ -284,6 +284,12 @@ def pde_studies(captured, requested, jobs):
                 configuration["extent"],
             )
             groups.setdefault((name, maturity), {})[key] = result
+    return groups
+
+
+def pde_studies(captured, requested, jobs):
+    sources = study_sources(captured, requested)
+    groups = group_studies(study_tasks(sources), jobs)
     return [
         _finish_study(name, coefficient, maturity, groups[(name, maturity)])
         for name, coefficient in sources
@@ -291,90 +297,119 @@ def pde_studies(captured, requested, jobs):
     ]
 
 
+def final_study_values(study):
+    final = (6401, 4096, 3) if study["refined"] else (3201, 2048, 3)
+    return next(
+        level["values"]
+        for level in study["levels"]
+        if (level["nodes"], level["requested_steps"], level["extent"]) == final
+    )
+
+
+def blocked_reason(observed):
+    if not all(grid["success"] for grid in observed["grids"]):
+        return "Frozen production grid rejected before model construction"
+    return (
+        "Formal statistical runner not implemented; "
+        "this delivery is a blocked reference checkpoint"
+    )
+
+
+def not_run(fixture, time, product, strike, oracle, reason, **extra):
+    return dict(
+        fixture=fixture["id"],
+        maturity=time,
+        product=product,
+        strike=strike,
+        estimate=None,
+        se=None,
+        oracle=oracle,
+        status="NOT_RUN",
+        reason=reason,
+        seed=1024,
+        stream_ids=list(range(16)),
+        **extra,
+    )
+
+
+def product_rows(fixture, time, study, reason):
+    forward = float(carry(time, fixture["flat"])[0])
+    oracle = final_study_values(study)
+    products = [
+        (side, ratio, index + offset)
+        for side, offset in (("call", 0), ("put", 5))
+        for index, ratio in enumerate(RATIOS)
+    ]
+    products += [("discount", None, 10), ("discounted_forward", None, 11)]
+    return [
+        not_run(
+            fixture,
+            time,
+            side,
+            None if ratio is None else float(ratio) * forward,
+            oracle[index],
+            reason,
+            oracle_status=study["status"],
+            fit_error="see fit_rows",
+            grid_error=None,
+            paired_time_error=None,
+        )
+        for side, ratio, index in products
+    ]
+
+
+def moment_rows(fixture, time, reason):
+    forward, discount = map(float, carry(time, fixture["flat"]))
+    rows = [
+        not_run(
+            fixture,
+            time,
+            "parity",
+            float(ratio) * forward,
+            discount * forward * (1 - float(ratio)),
+            reason,
+        )
+        for ratio in RATIOS
+    ]
+    products = (
+        ("forward_mean", forward),
+        ("fixed_payment", discount),
+        ("delayed_payment", float(carry(2.25, fixture["flat"])[1])),
+    )
+    return rows + [
+        not_run(fixture, time, product, None, oracle, reason)
+        for product, oracle in products
+    ]
+
+
 def mc_rows(fixture, observed, studies):
-    result = []
+    index = {(row["fixture"], row["maturity"]): row for row in studies}
+    rows = []
+    reason = blocked_reason(observed)
     for time in MATURITIES:
-        forward, discount = map(float, carry(time, fixture["flat"]))
-        study = next(
-            row
-            for row in studies
-            if row["fixture"] == fixture["id"] and row["maturity"] == time
-        )
-        final = (6401, 4096, 3) if study["refined"] else (3201, 2048, 3)
-        oracle_values = next(
-            level["values"]
-            for level in study["levels"]
-            if (level["nodes"], level["requested_steps"], level["extent"]) == final
-        )
-        reason = (
-            "Frozen production grid rejected before model construction"
-            if not all(grid["success"] for grid in observed["grids"])
-            else "Formal statistical runner not implemented; "
-            "this delivery is a blocked reference checkpoint"
-        )
-        products = [
-            (side, ratio, index + offset)
-            for side, offset in (("call", 0), ("put", 5))
-            for index, ratio in enumerate(RATIOS)
-        ]
-        products += [("discount", None, 10), ("discounted_forward", None, 11)]
-        for side, ratio, index in products:
-            result.append(
-                dict(
-                    fixture=fixture["id"],
-                    maturity=time,
-                    product=side,
-                    strike=None if ratio is None else float(ratio) * forward,
-                    estimate=None,
-                    se=None,
-                    oracle=oracle_values[index],
-                    oracle_status=study["status"],
-                    fit_error="see fit_rows",
-                    grid_error=None,
-                    paired_time_error=None,
-                    status="NOT_RUN",
-                    reason=reason,
-                    seed=1024,
-                    stream_ids=list(range(16)),
-                )
-            )
-        for ratio in RATIOS:
-            result.append(
-                dict(
-                    fixture=fixture["id"],
-                    maturity=time,
-                    product="parity",
-                    strike=float(ratio) * forward,
-                    estimate=None,
-                    se=None,
-                    oracle=discount * forward * (1 - float(ratio)),
-                    status="NOT_RUN",
-                    reason=reason,
-                    seed=1024,
-                    stream_ids=list(range(16)),
-                )
-            )
-        for product, oracle in (
-            ("forward_mean", forward),
-            ("fixed_payment", discount),
-            ("delayed_payment", float(carry(2.25, fixture["flat"])[1])),
-        ):
-            result.append(
-                dict(
-                    fixture=fixture["id"],
-                    maturity=time,
-                    product=product,
-                    strike=None,
-                    estimate=None,
-                    se=None,
-                    oracle=oracle,
-                    status="NOT_RUN",
-                    reason=reason,
-                    seed=1024,
-                    stream_ids=list(range(16)),
-                )
-            )
-    return result
+        rows.extend(product_rows(fixture, time, index[(fixture["id"], time)], reason))
+        rows.extend(moment_rows(fixture, time, reason))
+    return rows
+
+
+def grid_summary(grid):
+    return {
+        key: value
+        for key, value in grid.items()
+        if key not in ("vols_spot_major", "times", "spots")
+    }
+
+
+def fixture_report(fixture, observed, studies):
+    if not observed["fit_success"]:
+        return dict(id=fixture["id"], status="FAIL", reason=observed["fit_failure"])
+    return dict(
+        id=fixture["id"],
+        fit_rows=fit_rows(fixture, observed),
+        high_precision=derivative_rows(fixture, observed),
+        grids=[grid_summary(grid) for grid in observed["grids"]],
+        mc_rows=mc_rows(fixture, observed, studies),
+    )
 
 
 def qualify(request_path, capture_path, jobs):
@@ -385,34 +420,11 @@ def qualify(request_path, capture_path, jobs):
     ]:
         raise ValueError("Incomplete or mismatched capture fixtures")
     studies = pde_studies(capture["fixtures"], request["fixtures"], jobs)
-    rows = []
     with mp.workdps(90):
-        for fixture, observed in zip(request["fixtures"], capture["fixtures"]):
-            if fixture["id"] != observed["id"]:
-                raise ValueError("Mismatched capture fixture")
-            if not observed["fit_success"]:
-                rows.append(
-                    dict(
-                        id=fixture["id"], status="FAIL", reason=observed["fit_failure"]
-                    )
-                )
-                continue
-            rows.append(
-                dict(
-                    id=fixture["id"],
-                    fit_rows=fit_rows(fixture, observed),
-                    high_precision=derivative_rows(fixture, observed),
-                    grids=[
-                        {
-                            key: value
-                            for key, value in grid.items()
-                            if key not in ("vols_spot_major", "times", "spots")
-                        }
-                        for grid in observed["grids"]
-                    ],
-                    mc_rows=mc_rows(fixture, observed, studies),
-                )
-            )
+        rows = [
+            fixture_report(fixture, observed, studies)
+            for fixture, observed in zip(request["fixtures"], capture["fixtures"])
+        ]
     return dict(
         schema="dal.market-iv-independent-qualification/1",
         status="BLOCKED",

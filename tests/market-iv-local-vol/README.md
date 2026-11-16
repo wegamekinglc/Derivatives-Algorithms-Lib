@@ -49,10 +49,9 @@ build/dal-542-reference/dal_market_iv_capture \
 Run the independent reference study and capture the whole frozen grid matrix:
 
 ```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
-python3 tests/market-iv-local-vol/run.py \
-  --capture build/dal-542-reference/dal_market_iv_capture \
-  --output build/dal-542-evidence --jobs 8
+bash tests/market-iv-local-vol/capture.sh \
+  "$PWD/build/dal-542-reference/dal_market_iv_capture" \
+  "$PWD/build/dal-542-evidence" 8
 # Exit 2 preserves BLOCKED, FAIL and NOT_RUN; it is not an infrastructure error.
 ```
 
@@ -60,7 +59,9 @@ Outputs are `request.json`, `capture.json`, `qualification.json`,
 `provenance.json` and `capture.log`. They record actual fitted snapshots, all
 grids' failure counts/examples, every PDE level, derivative comparisons, and
 per-K/T/carry unexecuted product rows. Oracle values are separate from absent
-MC estimates and SE. The capture makes no RNG draws.
+MC estimates and SE. The capture makes no RNG draws. `capture.sh` runs the
+explicit capture and records Git/compiler identity. `run.py` reads those
+completed files and performs numerical calculations without spawning commands.
 
 Freeze a completed capture explicitly, without silently changing fixtures:
 

@@ -3,7 +3,7 @@
   "decimal_digits": 90,
   "baseline": "53a2b1592993f3a1d354df2d6ec2ae6918e5ef6d",
   "capture_sha256": "052a50a2e9a642851b35f0d60ec970a532a362448c049c16dbd115e64aeffb42",
-  "report_sha256": "57a99e6609bfd06084d9acfba93a411107114e3b00428309ccbe4e3326b15fd3",
+  "report_sha256": "f3356a28e04b21bdf8680a3d1897a667878371258797c97bdadd2b5f3e78320d",
   "files": {
     "quotes.jsonl": "e35bda6ab28e017abce33e37fc0dd5da7c1c3139051eb3469002d4809fe2d77b",
     "snapshots.json": "39f7c77e1a1c14d387fd0b157a974222b46bc5af63b0559e4866593dc470edc6",

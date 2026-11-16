@@ -29,37 +29,32 @@ def generating_curve(nonlinear):
     return times, values, pchip_slopes(times, values)
 
 
-def fixture(name, flat, smile, nonlinear=False):
-    times, values, slopes = generating_curve(nonlinear)
-    quotes = []
-    for days in QUOTE_DAYS:
-        time = mp.mpf(days) / 365
-        forward, discount = carry(time, flat)
-        theta, _ = theta_at(time, times, values, slopes)
-        for ratio in RATIOS:
-            ordinal = len(quotes)
-            strike = forward * mp.mpf(ratio)
-            variance = (
-                ssvi(theta, mp.mpf("-.35"), mp.mpf(".60"), mp.log(mp.mpf(ratio)))
-                if smile
-                else theta
-            )
-            call = ordinal % 2 == 0
-            price = black(forward, discount, strike, variance, call)
-            price_unit = ordinal % 4 < 2
-            quotes.append(
-                dict(
-                    id=f"q{ordinal:02}",
-                    days=days,
-                    strike=mp.nstr(strike, 90),
-                    option="CALL" if call else "PUT",
-                    unit="PRICE" if price_unit else "DECIMAL_IV",
-                    mid=mp.nstr(price if price_unit else mp.sqrt(variance / time), 90),
-                    generating_price=mp.nstr(price, 90),
-                    generating_variance=mp.nstr(variance, 90),
-                )
-            )
-    probe_times = sorted(
+def generated_quote(days, ratio, ordinal, flat, smile, theta):
+    time = mp.mpf(days) / 365
+    forward, discount = carry(time, flat)
+    strike = forward * mp.mpf(ratio)
+    variance = (
+        ssvi(theta, mp.mpf("-.35"), mp.mpf(".60"), mp.log(mp.mpf(ratio)))
+        if smile
+        else theta
+    )
+    call = ordinal % 2 == 0
+    price = black(forward, discount, strike, variance, call)
+    price_unit = ordinal % 4 < 2
+    return dict(
+        id=f"q{ordinal:02}",
+        days=days,
+        strike=mp.nstr(strike, 90),
+        option="CALL" if call else "PUT",
+        unit="PRICE" if price_unit else "DECIMAL_IV",
+        mid=mp.nstr(price if price_unit else mp.sqrt(variance / time), 90),
+        generating_price=mp.nstr(price, 90),
+        generating_variance=mp.nstr(variance, 90),
+    )
+
+
+def probe_times():
+    return sorted(
         {
             mp.mpf(1) / 36500,
             mp.mpf(1) / 146000,
@@ -72,19 +67,34 @@ def fixture(name, flat, smile, nonlinear=False):
             ),
         }
     )
-    probes = [
+
+
+def probes(flat):
+    result = [
         dict(
             time=mp.nstr(time, 90),
             strike=mp.nstr(carry(time, flat)[0] * mp.mpf(ratio), 90),
         )
-        for time in probe_times
+        for time in probe_times()
         for ratio in RATIOS
     ]
-    probes.extend(
+    result.extend(
         dict(time=mp.nstr(mp.mpf(1) / 36500, 90), strike=str(strike))
         for strike in (20, 400)
     )
-    return dict(id=name, flat=flat, strict=not smile, quotes=quotes, probes=probes)
+    return result
+
+
+def fixture(name, flat, smile, nonlinear=False):
+    times, values, slopes = generating_curve(nonlinear)
+    quotes = []
+    for days in QUOTE_DAYS:
+        theta, _ = theta_at(mp.mpf(days) / 365, times, values, slopes)
+        for ratio in RATIOS:
+            quotes.append(generated_quote(days, ratio, len(quotes), flat, smile, theta))
+    return dict(
+        id=name, flat=flat, strict=not smile, quotes=quotes, probes=probes(flat)
+    )
 
 
 def grid(name, spots=81, columns=49, tau=1 / 36500, low=20, high=400, end=2.25):
