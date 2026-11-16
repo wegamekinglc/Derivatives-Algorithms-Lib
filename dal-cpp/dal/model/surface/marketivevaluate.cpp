@@ -18,12 +18,19 @@ namespace Dal {
                 Carry_ carry_;
                 Smile_ smile_;
                 double k_, thetaSlope_;
-                long double df_, wt_, g_, pdf_, root_, ck_, ckk_, ct_;
+                long double df_, wt_, g_, pdf_, root_, ck_, ckk_;
             };
             bool AllRepresented(std::initializer_list<std::optional<double>> values) {
                 return std::all_of(values.begin(), values.end(), [](const auto& value) { return value.has_value(); });
             }
-            PointContext_ Derivatives(PointContext_ x, double call) {
+            std::optional<double> Price(const PointContext_& x, bool call) {
+                try {
+                    return Representable(x.df_ * NormalizedBlack(x.k_, x.smile_.w_, call));
+                } catch (const Exception_&) {
+                    return std::nullopt;
+                }
+            }
+            PointContext_ Derivatives(PointContext_ x) {
                 const long double w = x.smile_.w_, wk = x.smile_.wk_, wkk = x.smile_.wkk_;
                 x.wt_ = static_cast<long double>(x.smile_.wTheta_) * x.thetaSlope_;
                 x.root_ = std::sqrt(w);
@@ -34,8 +41,6 @@ namespace Dal {
                 x.g_ = a * a - b + c;
                 x.ck_ = -x.carry_.discount_ * nd2 + x.df_ * x.pdf_ * wk / (2.L * x.root_ * x.query_.strike_);
                 x.ckk_ = x.df_ * x.pdf_ / x.root_ * x.g_ / x.query_.strike_ / x.query_.strike_;
-                x.ct_ = -x.carry_.yield_ * call - (x.carry_.rate_ - x.carry_.yield_) * x.query_.strike_ * x.ck_ +
-                        x.df_ * x.pdf_ / (2.L * x.root_) * x.wt_;
                 return x;
             }
             bool DensityCertified(const PointContext_& x, const MarketIvEvaluationSettings_& s) {
@@ -64,21 +69,24 @@ namespace Dal {
             return sizeof(PointContext_) + 2 * sizeof(MarketIvPointResult_) + sizeof(Smile_) + sizeof(Carry_) + 32 * sizeof(long double);
         }
         struct PointAccess_ {
-            static bool Values(MarketIvPointResult_* p, const PointContext_& x) {
+            static void Values(MarketIvPointResult_* p, const PointContext_& x) {
                 p->totalVariance_ = x.smile_.w_;
                 p->impliedVol_ = Representable(std::sqrt(static_cast<long double>(x.smile_.w_) / x.query_.time_));
-                try {
-                    p->callPrice_ = Representable(x.df_ * NormalizedBlack(x.k_, x.smile_.w_, true));
-                    p->putPrice_ = Representable(x.df_ * NormalizedBlack(x.k_, x.smile_.w_, false));
-                } catch (const Exception_&) {
-                    return false;
-                }
-                if (!AllRepresented({p->impliedVol_, p->callPrice_, p->putPrice_}))
-                    return false;
-                p->valueStatus_ = "SUCCESS";
-                return true;
+                p->callPrice_ = Price(x, true);
+                p->putPrice_ = Price(x, false);
+                if (AllRepresented({p->impliedVol_, p->callPrice_, p->putPrice_}))
+                    p->valueStatus_ = "SUCCESS";
             }
-            static bool PopulateDerivatives(MarketIvPointResult_* p, const PointContext_& x) {
+            static void CallDerivatives(MarketIvPointResult_* p, const PointContext_& x) {
+                if (!(x.pdf_ > 0.) || !(x.ckk_ > 0.))
+                    return;
+                p->callK_ = Representable(x.ck_);
+                p->callKK_ = Representable(x.ckk_);
+                if (p->callPrice_)
+                    p->callT_ = Representable(-x.carry_.yield_ * *p->callPrice_ - (x.carry_.rate_ - x.carry_.yield_) * x.query_.strike_ * x.ck_ +
+                                              x.df_ * x.pdf_ / (2.L * x.root_) * x.wt_);
+            }
+            static bool VarianceDerivatives(MarketIvPointResult_* p, const PointContext_& x) {
                 if (x.smile_.derivativeRange_)
                     return false;
                 p->varianceK_ = Representable(x.smile_.wk_);
@@ -86,16 +94,13 @@ namespace Dal {
                 p->varianceT_ = Representable(x.wt_);
                 p->fixedKVarianceT_ = Representable(x.wt_ - (x.carry_.rate_ - x.carry_.yield_) * x.smile_.wk_);
                 p->densityFactor_ = Representable(x.g_);
-                p->callK_ = Representable(x.ck_);
-                p->callKK_ = Representable(x.ckk_);
-                p->callT_ = Representable(x.ct_);
-                if (!AllRepresented(
+                return AllRepresented({p->varianceK_, p->varianceKK_, p->varianceT_, p->densityFactor_});
+            }
+            static void PopulateDerivatives(MarketIvPointResult_* p, const PointContext_& x) {
+                CallDerivatives(p, x);
+                if (AllRepresented(
                         {p->varianceK_, p->varianceKK_, p->varianceT_, p->fixedKVarianceT_, p->densityFactor_, p->callK_, p->callKK_, p->callT_}))
-                    return false;
-                if (!(x.pdf_ > 0.) || !(x.ckk_ > 0.))
-                    return false;
-                p->derivativeStatus_ = "SUCCESS";
-                return true;
+                    p->derivativeStatus_ = "SUCCESS";
             }
             static MarketIvPointResult_
             Evaluate(const MarketIvCalibrationSnapshot_& snapshot, const MarketIvQuery_& query, const MarketIvEvaluationSettings_& settings) {
@@ -107,11 +112,12 @@ namespace Dal {
                 if (!PreparePoint(snapshot, &x))
                     return p;
                 x.df_ = static_cast<long double>(x.carry_.forward_) * x.carry_.discount_;
-                if (!Values(&p, x))
+                Values(&p, x);
+                x = Derivatives(x);
+                if (!VarianceDerivatives(&p, x))
                     return p;
-                x = Derivatives(x, *p.callPrice_);
-                if (!PopulateDerivatives(&p, x))
-                    return p;
+                PopulateDerivatives(&p, x);
+                // The common Black density cancels from w_t/g, even when prices or C_KK underflow.
                 p.dupireStatus_ = "SINGULAR_DENSITY";
                 if (!DensityCertified(x, settings))
                     return p;

@@ -8,6 +8,7 @@
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/model/hybriddata.hpp>
+#include <dal/model/marketivlocalvol.hpp>
 #include <dal/model/surface/marketivsurface.hpp>
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
 #include <dal/storage/json.hpp>
@@ -199,6 +200,123 @@ TEST(MarketIvSurfaceTest, TestSparseDataWarnsWithEffectiveFlatRank) {
     ASSERT_EQ(fit.SelectedStart(), 0);
     ASSERT_EQ(fit.Starts()[0].rank_, 1);
     ASSERT_EQ(fit.Status(), "SUCCESS_WITH_WARNINGS");
+}
+
+TEST(MarketIvSurfaceTest, TestShortTimeDupireGridIndependentOfBlackPriceRange) {
+    const Date_ today(2026, 11, 16);
+    const MarketIvMarket_ market(today, 100.,
+                                 {{today.AddDays(91), 101., .995},
+                                  {today.AddDays(182), 99., 1.005},
+                                  {today.AddDays(273), 102., .998},
+                                  {today.AddDays(365), 100.5, 1.01},
+                                  {today.AddDays(730), 104., .97}});
+    const std::array<double, 20> strikes{70.7,  85.85,  101.,  116.15,  131.3,  69.3, 84.15, 99.,  113.85, 128.7,
+                                         70.35, 85.425, 100.5, 115.575, 130.65, 72.8, 88.4,  104., 119.6,  135.2};
+    // Frozen mixed-unit F1 premiums, independently computed at 90 decimal digits.
+    const std::array<double, 20> mids{30.148868002498393, .20133711586038747, .2, .2, .015337592530818666, .021717645065656797, .2, .2,
+                                      1.2784256691829772, 30.045629564905383, .2, .2, 8.0854492456096541,  18.333777941923671,  .2, .2,
+                                      19.73082067746078,  11.345258967924581, .2, .2};
+    const std::array<int, 4> days{91, 182, 365, 730};
+    auto settings = MarketIvFitSettings_{};
+    settings.normalizedPriceTolerance_ = settings.decimalIvTolerance_ = 1e-8;
+    settings.projectedGradientTolerance_ = 1e-10;
+    settings.parameterStepTolerance_ = settings.feasibilityTolerance_ = 1e-12;
+    settings.objectiveTieTolerance_ = 1e-14;
+    settings.maxIterationsPerStart_ = 400;
+    MarketIvFitRequest_ request{market, {}, settings};
+    for (size_t i = 0; i < strikes.size(); ++i)
+        request.quotes_.push_back({String_("q" + std::to_string(i)), today.AddDays(days[i / 5]), strikes[i], OptionType_(i % 2 == 0 ? "CALL" : "PUT"),
+                                   MarketIvQuoteType_(i % 4 < 2 ? "PRICE" : "DECIMAL_IV"), mids[i]});
+    const auto fit = FitMarketIvSurface(request);
+    ASSERT_TRUE(fit.IsSuccess()) << fit.Failure();
+    ASSERT_EQ(fit.Snapshot().Rho(), 0.);
+    ASSERT_EQ(fit.Snapshot().Eta(), 0.);
+    const auto grid = CalibrateMarketIvDupire(fit.Snapshot(), {{20., 100.}, {1. / 36500., 91. / 365.}, {}});
+    ASSERT_TRUE(grid.IsSuccess()) << grid.Failure();
+    ASSERT_EQ(grid.Nodes().size(), 4);
+    for (const auto& point : grid.Nodes()) {
+        ASSERT_EQ(point.DupireStatus(), "SUCCESS");
+        ASSERT_NEAR(*point.LocalVariance(), .04, 2e-10);
+        ASSERT_NEAR(*point.LocalVol(), .2, 1e-7);
+    }
+    const auto& wing = grid.Nodes().front();
+    ASSERT_EQ(wing.ValueStatus(), "NUMERIC_RANGE");
+    ASSERT_EQ(wing.DerivativeStatus(), "NUMERIC_RANGE");
+    ASSERT_TRUE(wing.CallPrice());
+    ASSERT_FALSE(wing.PutPrice());
+    ASSERT_FALSE(wing.CallKK());
+}
+
+TEST(MarketIvSurfaceTest, TestShortTimeDupireFlatAndSmileWingsRetainRangeDiagnostics) {
+    for (const double eta : {0., .8}) {
+        const auto snapshot = FitMarketIvSurface(Request(-.4, eta)).Snapshot();
+        for (const double time : {1. / 146000., 1. / 36500., .01}) {
+            for (const double strike : {20., 400.}) {
+                SCOPED_TRACE(eta);
+                SCOPED_TRACE(time);
+                SCOPED_TRACE(strike);
+                const auto point = EvaluateMarketIvSurface(snapshot, {strike, time});
+                ASSERT_EQ(point.DupireStatus(), "SUCCESS");
+                ASSERT_TRUE(point.LocalVariance());
+                ASSERT_TRUE(std::isfinite(*point.LocalVariance()));
+                ASSERT_GT(*point.LocalVariance(), 0.);
+                if (eta == 0.) {
+                    ASSERT_NEAR(*point.LocalVariance(), .04, 2e-10);
+                    ASSERT_NEAR(*point.LocalVol(), .2, 1e-7);
+                    ASSERT_EQ(point.ValueStatus(), "NUMERIC_RANGE");
+                    ASSERT_EQ(point.DerivativeStatus(), "NUMERIC_RANGE");
+                    ASSERT_EQ(point.CallPrice().has_value(), strike < 100.);
+                    ASSERT_EQ(point.PutPrice().has_value(), strike > 100.);
+                    ASSERT_FALSE(point.CallKK());
+                }
+            }
+        }
+    }
+}
+
+TEST(MarketIvSurfaceTest, TestDupireKeepsSingularAndNonfiniteRangeRejections) {
+    const auto snapshot = FitMarketIvSurface(Request()).Snapshot();
+    const auto tooEarly = EvaluateMarketIvSurface(snapshot, {100., 1e-12});
+    ASSERT_EQ(tooEarly.DupireStatus(), "SINGULAR_DENSITY");
+    ASSERT_FALSE(tooEarly.LocalVol());
+    MarketIvEvaluationSettings_ settings;
+    settings.densityFactorFloor_ = 2.;
+    const auto singular = EvaluateMarketIvSurface(snapshot, {100., .5}, settings);
+    ASSERT_EQ(singular.DupireStatus(), "SINGULAR_DENSITY");
+    ASSERT_FALSE(singular.LocalVariance());
+    const auto overflow = CalibrateMarketIvDupire(snapshot, {{100.}, {1e6}, {}});
+    ASSERT_FALSE(overflow.IsSuccess());
+    ASSERT_EQ(overflow.Nodes()[0].DupireStatus(), "NUMERIC_RANGE");
+    ASSERT_FALSE(overflow.Nodes()[0].LocalVariance());
+    ASSERT_THROW((void)overflow.SurfaceData(), Exception_);
+    for (const double invalid : {std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+        ASSERT_THROW(EvaluateMarketIvSurface(snapshot, {invalid, .5}), Exception_);
+        ASSERT_THROW(EvaluateMarketIvSurface(snapshot, {100., invalid}), Exception_);
+    }
+}
+
+TEST(MarketIvSurfaceTest, TestShortTimeDupireGridFeedsMarketModel) {
+    const auto snapshot = FitMarketIvSurface(Request()).Snapshot();
+    const auto grid = CalibrateMarketIvDupire(snapshot, {{20., 100., 400.}, {1. / 36500., .5}, {}});
+    ASSERT_TRUE(grid.IsSuccess()) << grid.Failure();
+    MarketIvLocalVolModelSettings_ settings;
+    settings.index_ = "EQ[A]";
+    settings.currency_ = "USD";
+    settings.factor_ = "W_EQ";
+    settings.horizon_ = .5;
+    const auto data = BuildMarketIvLocalVolModelData("short-time", grid, settings);
+    auto model = CreateModel<double>(Handle_<ModelData_>(data));
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].numeraire_ = true;
+    definitions[0].indexNames_ = {"EQ[A]"};
+    model->Allocate({.5}, definitions);
+    model->Init({.5}, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::InitializePath(path);
+    model->GeneratePath(Vector_<>(model->SimDim(), 0.), &path);
+    ASSERT_NEAR(path[0].spot_, 100., 1e-9);
+    ASSERT_NEAR(path[0].numeraire_, std::exp(.03 * .5), 1e-12);
 }
 
 TEST(MarketIvSurfaceTest, TestSyntheticRecoveryAndWorkFailure) {
