@@ -88,6 +88,7 @@ namespace Dal::Script::Detail {
                                                              size_t paths,
                                                              const Vector_<RiskOutputCoordinate_>& requestedOutputs,
                                                              AADBlockReplaySettings_ limits = {}) {
+        RequireMarketIvLocalVolPassive(*model);
         product.RequireExecutable();
         REQUIRE2(!product.Simulation().enableAad_ && !product.AllExpired() && !product.Product().ContainsExercise(),
                  "UnsupportedJacobianReplay: requires prepared passive non-exercise live product", ScriptError_);

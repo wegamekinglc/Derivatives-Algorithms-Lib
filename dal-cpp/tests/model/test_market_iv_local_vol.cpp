@@ -4,9 +4,13 @@
 #include <future>
 #include <type_traits>
 
+#include <dal/model/factory.hpp>
 #include <dal/model/marketivlocalvolcomponent.hpp>
 #include <dal/model/marketivlocalvolinternal.hpp>
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
+#include <dal/script/marketivlocalvol.hpp>
+#include <dal/script/passivereplay.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/storage/json.hpp>
 
 using namespace Dal;
@@ -98,6 +102,18 @@ namespace {
         ASSERT_NEAR(tail.logDiscount_, std::log(.1), 2e-12);
         ASSERT_DOUBLE_EQ(tail.rate_, 0.);
         ASSERT_DOUBLE_EQ(tail.yield_, 0.);
+        settings.maxStep_ = horizon;
+        const auto data = BuildMarketIvLocalVolModelData("long-tail", grid, settings);
+        AAD::MarketIvLocalVolModel_ model(*data);
+        const Vector_<AAD::SampleDef_> definitions(1);
+        model.Allocate({horizon}, definitions);
+        model.Init({horizon}, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::InitializePath(path);
+        model.GeneratePath(Vector_<>(model.SimDim(), 0.), &path);
+        ASSERT_NEAR(path[0].numeraire_, 10., 2e-12);
+        ASSERT_TRUE(AAD::IsValidModelPath(path));
     }
 
     template <class F_> void AssertError(F_ action, const String_& code, const String_& field) {
@@ -113,6 +129,408 @@ namespace {
         }
     }
 } // namespace
+
+TEST(MarketIvLocalVolTest, TestOwningModelFactoryRunsPassivePaths) {
+    const auto data = BuildMarketIvLocalVolModelData("market", Grid(), Settings());
+    auto model = CreateModel<double>(Handle_<ModelData_>(data));
+    ASSERT_EQ(model->EvaluationDate(), CarryMarket().EvaluationDate());
+    ASSERT_EQ(model->NumFactors(), 1U);
+    ASSERT_EQ(model->NumParams(), 0U);
+    const Vector_<> times{1.};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"EQ[A]"};
+    definitions[0].discountMats_ = {2.25};
+    model->Allocate(times, definitions);
+    model->Init(times, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::InitializePath(path);
+    model->GeneratePath(Vector_<>(model->SimDim(), 0.), &path);
+    ASSERT_TRUE(AAD::IsValidModelPath(path));
+    ASSERT_EQ(path.size(), 1U);
+    ASSERT_GT(path[0].spot_, 0.);
+    ASSERT_NEAR(path[0].numeraire_ * std::exp(ReferenceLogs(1.).second), 1., 2e-12);
+    ASSERT_NEAR(path[0].discounts_[0] / path[0].numeraire_, std::exp(ReferenceLogs(2.25).second), 2e-12);
+}
+
+TEST(MarketIvLocalVolTest, TestRequestBudgetFailureKeepsPreparedState) {
+    const auto grid = Grid();
+    auto settings = Settings();
+    Vector_<AAD::SampleDef_> definitions(1);
+    const auto ample = BuildMarketIvLocalVolModelData("ample", grid, settings);
+    AAD::MarketIvLocalVolModel_ probe(*ample);
+    probe.Allocate({1.}, definitions);
+    settings.workspaceBudgetBytes_ = probe.Execution().plannedWorkspaceBytes_ - 1;
+    const auto limited = BuildMarketIvLocalVolModelData("limited", grid, settings);
+    AAD::MarketIvLocalVolModel_ model(*limited);
+    model.Allocate({0.}, definitions);
+    model.Init({0.}, definitions);
+    ASSERT_EQ(model.SimDim(), 0U);
+    AssertError([&] { model.Allocate({1.}, definitions); }, "MarketIvLocalVolBudgetExceeded", "/settings/workspace_budget_bytes");
+    ASSERT_EQ(model.SimDim(), 0U);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::InitializePath(path);
+    model.GeneratePath({}, &path);
+    ASSERT_DOUBLE_EQ(path[0].spot_, 100.);
+}
+
+TEST(MarketIvLocalVolTest, TestModelMetadataCopiesWarningsAndArchive) {
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    const auto same = BuildMarketIvLocalVolModelData("renamed", Grid(), Settings());
+    ASSERT_EQ(data->ModelIdentity(), same->ModelIdentity());
+    const auto summary = data->Summary();
+    ASSERT_EQ(summary.evaluationDate_, CarryMarket().EvaluationDate());
+    ASSERT_EQ(summary.gridRows_, 3U);
+    ASSERT_EQ(summary.gridColumns_, 3U);
+    ASSERT_EQ(summary.carryMode_, "FORWARD_DISCOUNT_KNOTS");
+    ASSERT_TRUE(data->Capabilities().passivePrice_);
+    ASSERT_FALSE(data->Capabilities().aad_);
+    ASSERT_FALSE(data->Capabilities().archive_);
+    auto terms = data->CarryTerms();
+    terms.back().forward_ = 1.;
+    ASSERT_GT(data->CarryTerms().back().forward_, 100.);
+    auto warnings = data->Warnings();
+    ASSERT_TRUE(std::any_of(warnings.begin(), warnings.end(), [](const auto& item) { return item.code_ == "LOCAL_VOL_TIME_TAIL"; }));
+    const auto mutant = data->MutantModel("copy", {});
+    const auto* copy = dynamic_cast<const MarketIvLocalVolModelData_*>(mutant.get());
+    ASSERT_NE(copy, nullptr);
+    ASSERT_EQ(copy->ModelIdentity(), data->ModelIdentity());
+    ASSERT_THROW(static_cast<void>(data->MutantModel("copy", {Handle_<Slide_>(new Slide_)})), Exception_);
+    AssertError([&] { static_cast<void>(JSON::WriteString(*data)); }, "ArchiveUnsupported", "/model");
+}
+
+TEST(MarketIvLocalVolTest, TestSubdayTimelineIncludesCarryOnlyAndDiscountKnots) {
+    auto settings = Settings();
+    settings.maxStep_ = 1. / 1000.;
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), settings);
+    AAD::MarketIvLocalVolModel_ model(*data);
+    Vector_<AAD::SampleDef_> definitions(2);
+    const Vector_<> times{.5, 1.};
+    definitions[0].discountMats_ = {.75, 2.25};
+    model.Allocate(times, definitions);
+    model.Init(times, definitions);
+    const auto execution = model.Execution();
+    ASSERT_EQ(execution.carryKnots_, 5U);
+    ASSERT_EQ(execution.gridTimeKnots_, 3U);
+    ASSERT_EQ(execution.requiredTime_, 2.25);
+    ASSERT_EQ(execution.anchorCount_, 10U);
+    ASSERT_GT(execution.internalSteps_, 2250U);
+    ASSERT_NEAR(execution.resolvedMaxStep_, settings.maxStep_, 1e-15);
+    ASSERT_EQ(execution.preparedColumns_, execution.internalSteps_);
+    ASSERT_EQ(execution.perPathMarketQueries_, 0U);
+}
+
+TEST(MarketIvLocalVolTest, TestModelCloneOwnsDefinitionLifetimeAndPrivatePaths) {
+    std::unique_ptr<AAD::Model_<double>> clone;
+    {
+        const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+        auto model = CreateModel<double>(Handle_<ModelData_>(data));
+        Vector_<AAD::SampleDef_> definitions(1);
+        definitions[0].indexNames_ = {"EQ[A]"};
+        model->Allocate({1.}, definitions);
+        model->Init({1.}, definitions);
+        clone = model->Clone();
+        definitions[0].indexNames_.clear();
+    }
+    const auto run = [&] {
+        AAD::Scenario_<> path(1);
+        path[0].observations_.Resize(1);
+        AAD::InitializePath(path);
+        clone->GeneratePath(Vector_<>(clone->SimDim(), .1), &path);
+        return path[0].spot_;
+    };
+    const double expected = run();
+    Vector_<std::future<double>> jobs;
+    for (size_t i = 0; i < 4; ++i)
+        jobs.push_back(std::async(std::launch::async, run));
+    for (auto& job : jobs)
+        ASSERT_DOUBLE_EQ(job.get(), expected);
+}
+
+TEST(MarketIvLocalVolTest, TestOrdinaryMcPriceDiscountAndParallelExecution) {
+    using namespace Script;
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    const Handle_<ModelData_> base(data);
+    const auto today = CarryMarket().EvaluationDate();
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    const ScriptProductData_ call("call", {Cell_(today.AddDays(365))}, {"call PAYS MAX(FIX(EQ[A]) - 100, 0)"});
+    const ScriptProductData_ payment("payment", {Cell_(today.AddDays(365))}, {"pay PAYS 100 ON " + Date::ToString(today.AddDays(821))});
+    const ScriptProductData_ bond("bond", {Cell_(today.AddDays(365))}, {"pay PAYS FIX(IR[USD,DF," + Date::ToString(today.AddDays(730)) + "])"});
+    const auto originalThreads = ThreadPool_::GetInstance()->NumThreads();
+    struct Restore_ {
+        size_t threads_;
+        ~Restore_() { ThreadPool_::GetInstance()->Start(threads_, true); }
+    } restore{originalThreads};
+    double serial = 0.;
+    for (const size_t workers : {1U, 4U}) {
+        ThreadPool_::GetInstance()->Start(workers, true);
+        MonteCarloSettings_ simulation;
+        simulation.rsg_ = "mrg32";
+        simulation.normalPrecision_ = "Precise";
+        const double value = MCSimulation<double>(call, base, 4096, valuation, simulation).aggregated_ / 4096.;
+        ASSERT_GT(value, 0.);
+        if (workers == 1)
+            serial = value;
+        else
+            ASSERT_NEAR(value, serial, 1e-10);
+        const auto execution = InspectMarketIvLocalVolExecution(call, *data, valuation, simulation);
+        ASSERT_EQ(execution.workers_, workers);
+        ASSERT_EQ(execution.requiredTime_, 1.);
+        ASSERT_EQ(execution.requestIdentity_.size(), 71U);
+        ASSERT_LE(execution.numericPayloadBytes_, execution.plannedNumericPayloadBytes_);
+        ASSERT_LE(execution.peakWorkspaceBytes_, execution.plannedWorkspaceBytes_);
+        for (const String_ method : {"sobol", "mrg32", "irn"})
+            for (const bool compiled : {true, false}) {
+                simulation.rsg_ = method;
+                simulation.compiled_ = compiled;
+                simulation.useBb_ = compiled;
+                const double pv = MCSimulation<double>(payment, base, 31, valuation, simulation).aggregated_ / 31.;
+                ASSERT_NEAR(pv / 100., std::exp(ReferenceLogs(821. / 365.).second), 2e-12);
+                const double df = MCSimulation<double>(bond, base, 31, valuation, simulation).aggregated_ / 31.;
+                ASSERT_NEAR(df, .97, 2e-12);
+            }
+    }
+}
+
+TEST(MarketIvLocalVolTest, TestUnsupportedRequestsRejectBeforeDispatchAndTape) {
+    using namespace Script;
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    const Handle_<ModelData_> base(data);
+    const auto today = CarryMarket().EvaluationDate();
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    const ScriptProductData_ product("call", {Cell_(today.AddDays(365))}, {"call PAYS MAX(spot() - 100, 0)"});
+    const auto tapeEvents = AAD::Tape()->ReverseEventCount();
+    AssertError([&] { static_cast<void>(CreateModel<AAD::Number_>(base)); }, "DerivativeUnavailable", "/simulation/enable_aad");
+    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation)); },
+                "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
+    MonteCarloSettings_ hugeMrg;
+    hugeMrg.rsg_ = "mrg32";
+    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation, hugeMrg)); },
+                "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, 16, valuation, simulation)); }, "DerivativeUnavailable",
+                "/simulation/enable_aad");
+    AssertError([&] { static_cast<void>(MCSimulation<AAD::Number_>(product, base, 16, valuation)); }, "DerivativeUnavailable",
+                "/simulation/enable_aad");
+    auto model = CreateModel<double>(base);
+    AssertError([&] { static_cast<void>(PrepareScript(product, model.get(), valuation, simulation)); }, "DerivativeUnavailable",
+                "/simulation/enable_aad");
+    const ScriptProductData_ exercise("exercise", {Cell_(today.AddDays(365))}, {"EXERCISE MAX(spot() - 100, 0)"});
+    AssertError([&] { static_cast<void>(InspectMarketIvLocalVolExecution(exercise, *data, valuation)); }, "UnsupportedMarketIvLocalVolExercise",
+                "/product/exercise/0");
+    valuation.evaluationDate_ = today.AddDays(1);
+    AssertError([&] { static_cast<void>(PrepareScript(product, model.get(), valuation, {})); }, "InvalidModelEvaluationDate",
+                "/valuation/evaluation_date");
+    valuation.evaluationDate_ = today;
+    const auto prepared = PrepareScript(product, model.get(), valuation, {});
+    AssertError([&] { static_cast<void>(Script::Detail::EvaluatePassiveOutputReplay(prepared, base, 16, {})); }, "DerivativeUnavailable",
+                "/risk/model");
+    const auto plan = PlanWeightedRiskRequest(prepared.Product(), {}, today, {}, false);
+    AssertError(
+        [&] {
+            static_cast<void>(MCDoubleSimulationWithObjective(prepared, model.get(), 16, "sobol", false, true, true,
+                                                              Script::Detail::WeightedSimulationObjective_(plan)));
+        },
+        "DerivativeUnavailable", "/risk/model");
+    ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
+    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation)); },
+                "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
+    simulation.enableAad_ = false;
+    simulation.rsg_ = "mrg32";
+    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation, simulation)); },
+                "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
+}
+
+TEST(MarketIvLocalVolTest, TestPreparedRejectsActualValuationDateBeforeAllocation) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ payment("payment", {Cell_(today.AddDays(365))}, {"pay PAYS 1"});
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today.AddDays(1);
+    AAD::BlackScholes_<double> metadata(100., .2, .03);
+    const auto prepared = PrepareScript(payment, &metadata, valuation, {});
+    ASSERT_EQ(prepared.EvaluationDate(), today.AddDays(1));
+    AssertError([&] { static_cast<void>(MCSimulation<double>(payment, data, 16, valuation)); }, "InvalidModelEvaluationDate",
+                "/valuation/evaluation_date");
+    AssertError([&] { static_cast<void>(MCSimulation<double>(prepared, data, 16)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+    auto model = CreateModel<double>(data);
+    AssertError([&] { static_cast<void>(MCDoubleSimulation(prepared, model.get(), 16, "sobol", false, true)); }, "InvalidModelEvaluationDate",
+                "/valuation/evaluation_date");
+    ASSERT_EQ(model->SimDim(), 0U);
+    const ScriptProductData_ expired("expired", {Cell_(today.AddDays(-1))}, {"pay PAYS 1"});
+    const auto wrongExpired = PrepareScript(expired, &metadata, valuation, {});
+    ASSERT_TRUE(wrongExpired.AllExpired());
+    AssertError([&] { static_cast<void>(MCSimulation<double>(wrongExpired, data, 16)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+    valuation.evaluationDate_ = today;
+    const auto valid = PrepareScript(payment, &metadata, valuation, {});
+    ASSERT_NEAR(MCSimulation<double>(valid, data, 16).aggregated_ / 16., 1.01, 2e-12);
+    const auto validExpired = PrepareScript(expired, &metadata, valuation, {});
+    ASSERT_DOUBLE_EQ(MCSimulation<double>(validExpired, data, 16).aggregated_, 0.);
+}
+
+TEST(MarketIvLocalVolTest, TestExpiredPreparedAadRejectsBeforeEmptyReturnAndTape) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ payment("expired", {Cell_(today.AddDays(-1))}, {"pay PAYS 1"});
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    AAD::BlackScholes_<double> metadata(100., .2, .03);
+    const auto prepared = PrepareScript(payment, &metadata, valuation, simulation);
+    ASSERT_TRUE(prepared.AllExpired());
+    const auto tapeEvents = AAD::Tape()->ReverseEventCount();
+    AssertError([&] { static_cast<void>(MCSimulation<double>(prepared, data, 16)); }, "DerivativeUnavailable", "/simulation/enable_aad");
+    AssertError([&] { static_cast<void>(MCSimulation<AAD::Number_>(prepared, data, 16)); }, "DerivativeUnavailable", "/simulation/enable_aad");
+    auto model = CreateModel<double>(data);
+    AssertError([&] { static_cast<void>(MCDoubleSimulation(prepared, model.get(), 16, "sobol", false, true)); }, "DerivativeUnavailable",
+                "/simulation/enable_aad");
+    ASSERT_EQ(model->SimDim(), 0U);
+    ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
+    const Handle_<ModelData_> legacy(new BSModelData_("legacy", 100., .2, .03));
+    ASSERT_DOUBLE_EQ(MCSimulation<double>(prepared, legacy, 16).aggregated_, 0.);
+}
+
+TEST(MarketIvLocalVolTest, TestPreparedExerciseRejectsBeforeAllocationAndTape) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ exercise("exercise", {Cell_(today.AddDays(365))}, {"EXERCISE MAX(spot() - 100, 0)"});
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    AAD::BlackScholes_<double> metadata(100., .2, .03);
+    const auto prepared = PrepareScript(exercise, &metadata, valuation, {});
+    const auto tapeEvents = AAD::Tape()->ReverseEventCount();
+    auto model = CreateModel<double>(data);
+    AssertError([&] { static_cast<void>(MCSimulation<double>(prepared, data, 16)); }, "UnsupportedMarketIvLocalVolExercise", "/product/exercise/0");
+    AssertError([&] { static_cast<void>(MCDoubleSimulation(prepared, model.get(), 16, "sobol", false, true)); },
+                "UnsupportedMarketIvLocalVolExercise", "/product/exercise/0");
+    ASSERT_EQ(model->SimDim(), 0U);
+    ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
+}
+
+TEST(MarketIvLocalVolTest, TestLegacyRejectsActualValuationDateBeforeEmptyReturn) {
+    using namespace Script;
+    const Handle_<ModelData_> data(BuildMarketIvLocalVolModelData("model", Grid(), Settings()));
+    const auto today = CarryMarket().EvaluationDate();
+    for (const int days : {-1, 365}) {
+        ScriptProduct_ payment({Cell_(today.AddDays(days))}, {"pay PAYS 1"});
+        payment.PartitionEvents(today.AddDays(1));
+        payment.PreProcess(false, false);
+        AssertError([&] { static_cast<void>(MCSimulation<double>(payment, data, 16)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+    }
+}
+
+TEST(MarketIvLocalVolTest, TestRequestBudgetExactBoundaryAndStepLimits) {
+    const auto grid = Grid();
+    auto settings = Settings();
+    const Vector_<AAD::SampleDef_> definitions(1);
+    const auto ample = BuildMarketIvLocalVolModelData("ample", grid, settings);
+    AAD::MarketIvLocalVolModel_ probe(*ample);
+    probe.Allocate({1.}, definitions);
+    const auto execution = probe.Execution();
+    settings.workspaceBudgetBytes_ = execution.plannedWorkspaceBytes_;
+    settings.maxInternalSteps_ = execution.internalSteps_;
+    settings.maxSimulationDimension_ = execution.simulationDimension_;
+    const auto exact = BuildMarketIvLocalVolModelData("exact", grid, settings);
+    AAD::MarketIvLocalVolModel_ accepted(*exact);
+    ASSERT_NO_THROW(accepted.Allocate({1.}, definitions));
+    --settings.workspaceBudgetBytes_;
+    const auto shortData = BuildMarketIvLocalVolModelData("short", grid, settings);
+    AAD::MarketIvLocalVolModel_ shortModel(*shortData);
+    AssertError([&] { shortModel.Allocate({1.}, definitions); }, "MarketIvLocalVolBudgetExceeded", "/settings/workspace_budget_bytes");
+    settings = Settings();
+    settings.maxSimulationDimension_ = execution.simulationDimension_ - 1;
+    const auto dimension = BuildMarketIvLocalVolModelData("dimension", grid, settings);
+    AAD::MarketIvLocalVolModel_ dimensionModel(*dimension);
+    AssertError([&] { dimensionModel.Allocate({1.}, definitions); }, "MarketIvLocalVolBudgetExceeded", "/settings/max_simulation_dimension");
+    settings = Settings();
+    settings.maxInternalSteps_ = execution.internalSteps_ - 1;
+    const auto steps = BuildMarketIvLocalVolModelData("steps", grid, settings);
+    AAD::MarketIvLocalVolModel_ stepModel(*steps);
+    AssertError([&] { stepModel.Allocate({1.}, definitions); }, "MarketIvLocalVolBudgetExceeded", "/settings/max_internal_steps");
+    settings.maxInternalSteps_ = 0;
+    AssertError([&] { static_cast<void>(BuildMarketIvLocalVolModelData("zero", grid, settings)); }, "MarketIvLocalVolBudgetExceeded",
+                "/settings/max_internal_steps");
+    AssertError([&] { accepted.PrepareWorkers(std::numeric_limits<size_t>::max()); }, "MarketIvLocalVolBudgetExceeded", "/ledger");
+}
+
+TEST(MarketIvLocalVolTest, TestHorizonGuardsAndOverflowBeforePreparation) {
+    const auto grid = Grid();
+    auto settings = Settings();
+    const auto data = BuildMarketIvLocalVolModelData("model", grid, settings);
+    AAD::MarketIvLocalVolModel_ model(*data);
+    Vector_<AAD::SampleDef_> definitions(1);
+    AssertError([&] { model.Allocate({2.5}, definitions); }, "MarketIvLocalVolHorizonExceeded", "/product/timeline/0");
+    definitions[0].discountMats_ = {2.5};
+    AssertError([&] { model.Allocate({1.}, definitions); }, "MarketIvLocalVolHorizonExceeded", "/product/discount_maturities/0");
+    definitions[0].discountMats_.clear();
+    definitions[0].indexNames_ = {"IR[USD,DF,2030-11-16]"};
+    AssertError([&] { model.Allocate({1.}, definitions); }, "MarketIvLocalVolHorizonExceeded", "/product/discount_maturity");
+    definitions[0].indexNames_.clear();
+    settings.maxStep_ = std::numeric_limits<double>::denorm_min();
+    const auto tiny = BuildMarketIvLocalVolModelData("tiny", grid, settings);
+    AAD::MarketIvLocalVolModel_ tinyModel(*tiny);
+    AssertError([&] { tinyModel.Allocate({1.}, definitions); }, "MarketIvLocalVolBudgetExceeded", "/settings/max_internal_steps");
+    settings = Settings();
+    settings.maxStep_ = 1. / 22000.;
+    const auto high = BuildMarketIvLocalVolModelData("high", grid, settings);
+    AAD::MarketIvLocalVolModel_ highModel(*high);
+    highModel.ValidateRequest(false, false, model.EvaluationDate(), "sobol");
+    AssertError([&] { highModel.Allocate({1.}, definitions); }, "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
+    ASSERT_EQ(highModel.SimDim(), 0U);
+}
+
+TEST(MarketIvLocalVolTest, TestTodayOnlyAndPathRangeFailure) {
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    AAD::MarketIvLocalVolModel_ model(*data);
+    const Vector_<AAD::SampleDef_> definitions(1);
+    model.Allocate({0.}, definitions);
+    model.Init({0.}, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::InitializePath(path);
+    ASSERT_EQ(model.SimDim(), 0U);
+    model.GeneratePath({}, &path);
+    ASSERT_DOUBLE_EQ(path[0].spot_, 100.);
+    ASSERT_DOUBLE_EQ(path[0].numeraire_, 1.);
+    model.Allocate({1.}, definitions);
+    model.Init({1.}, definitions);
+    Vector_<> normals(model.SimDim(), 0.);
+    normals[0] = std::numeric_limits<double>::infinity();
+    AssertError([&] { model.GeneratePath(normals, &path); }, "MarketIvLocalVolNumericRange", "/path/spot");
+    normals[0] = 0.;
+    ASSERT_NO_THROW(model.GeneratePath(normals, &path));
+    ASSERT_TRUE(AAD::IsValidModelPath(path));
+    ASSERT_TRUE(model.SupportsIndex(*Index::Parse("EQ[A]")));
+    ASSERT_FALSE(model.SupportsIndex(*Index::Parse("EQ[B]")));
+    ASSERT_FALSE(model.SupportsIndex(*Index::Parse("IR[EUR,DF,2027-11-16]")));
+    ASSERT_FALSE(model.SupportsIndex(*Index::Parse("IR[USD,LIBOR_3M_LCH]")));
+}
+
+TEST(MarketIvLocalVolTest, TestInspectionIdentitySeparatesProductAndConfiguration) {
+    using namespace Script;
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    const auto today = CarryMarket().EvaluationDate();
+    ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = today;
+    const ScriptProductData_ one("one", {Cell_(today.AddDays(365))}, {"cash PAYS 1"});
+    const ScriptProductData_ two("two", {Cell_(today.AddDays(365))}, {"cash PAYS 2"});
+    const auto first = InspectMarketIvLocalVolExecution(one, *data, valuation);
+    ASSERT_EQ(first.requestIdentity_, InspectMarketIvLocalVolExecution(one, *data, valuation).requestIdentity_);
+    ASSERT_NE(first.requestIdentity_, InspectMarketIvLocalVolExecution(two, *data, valuation).requestIdentity_);
+    MonteCarloSettings_ simulation;
+    simulation.useBb_ = true;
+    ASSERT_NE(first.requestIdentity_, InspectMarketIvLocalVolExecution(one, *data, valuation, simulation).requestIdentity_);
+    const auto overrideDate = XGLOBAL::SetEvaluationDateInScope(today.AddDays(1));
+    AssertError([&] { static_cast<void>(InspectMarketIvLocalVolExecution(one, *data)); }, "InvalidModelEvaluationDate", "/valuation/evaluation_date");
+}
 
 TEST(MarketIvLocalVolTest, TestCarryEndpointIntegralsAndRightSlopes) {
     const MarketIvLocalVolDetail::Carry_ carry(CarryMarket());

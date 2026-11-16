@@ -107,7 +107,9 @@ namespace Dal {
             static void* operator new(size_t bytes) { return Dal::Detail::AllocateBufferObject(bytes); }
             static void* operator new(size_t bytes, std::align_val_t alignment) { return Dal::Detail::AllocateBufferObject(bytes, alignment); }
             static void operator delete(void* storage) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
-            static void operator delete(void* storage, std::align_val_t alignment) noexcept { Dal::Detail::DeallocateBufferObject(storage, alignment); }
+            static void operator delete(void* storage, std::align_val_t alignment) noexcept {
+                Dal::Detail::DeallocateBufferObject(storage, alignment);
+            }
             static void* operator new(size_t bytes, const std::nothrow_t&) noexcept { return Dal::Detail::AllocateBufferObjectNothrow(bytes); }
             static void* operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t&) noexcept {
                 return Dal::Detail::AllocateBufferObjectNothrow(bytes, alignment);
@@ -499,12 +501,8 @@ namespace Dal {
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
                 return model_->ObserveHybrid(sample, slot, &state[stateOffset]);
             }
-            void FillDiscounts(size_t sample,
-                               double,
-                               const Vector_<>&,
-                               const Vector_<T_>& state,
-                               size_t stateOffset,
-                               Vector_<T_>* discounts) const override {
+            void FillDiscounts(
+                size_t sample, double, const Vector_<>&, const Vector_<T_>& state, size_t stateOffset, Vector_<T_>* discounts) const override {
                 model_->ObserveHybridDiscounts(sample, &state[stateOffset], discounts);
             }
             [[nodiscard]] bool UsesObservationBatch(size_t sample) const override { return model_->UsesHybridObservationBatch(sample); }
@@ -675,12 +673,8 @@ namespace Dal {
                 return rate_;
             }
             [[nodiscard]] T_ Numeraire(double time) const override { return Dal::exp(rate_ * time); }
-            void FillDiscounts(size_t,
-                               double sampleTime,
-                               const Vector_<>& maturities,
-                               const Vector_<T_>&,
-                               size_t,
-                               Vector_<T_>* discounts) const override {
+            void
+            FillDiscounts(size_t, double sampleTime, const Vector_<>& maturities, const Vector_<T_>&, size_t, Vector_<T_>* discounts) const override {
                 for (size_t k = 0; k < maturities.size(); ++k)
                     (*discounts)[k] = Dal::exp(this->LogDiscount(maturities[k]) - this->LogDiscount(sampleTime));
             }
@@ -754,12 +748,8 @@ namespace Dal {
                 return result;
             }
             [[nodiscard]] T_ Numeraire(double time) const override { return Dal::exp(-LogDiscount(time)); }
-            void FillDiscounts(size_t,
-                               double sampleTime,
-                               const Vector_<>& maturities,
-                               const Vector_<T_>&,
-                               size_t,
-                               Vector_<T_>* discounts) const override {
+            void
+            FillDiscounts(size_t, double sampleTime, const Vector_<>& maturities, const Vector_<T_>&, size_t, Vector_<T_>* discounts) const override {
                 for (size_t k = 0; k < maturities.size(); ++k)
                     (*discounts)[k] = Dal::exp(this->LogDiscount(maturities[k]) - this->LogDiscount(sampleTime));
             }
@@ -1063,15 +1053,20 @@ namespace Dal {
                 copy->initialCarry_ = initialCarry_;
                 return copy;
             }
-            [[nodiscard]] Vector_<> GridAnchors(const Vector_<>& productTimeLine) const {
+            [[nodiscard]] Vector_<> GridAnchors(const Vector_<>& productTimeLine, double terminalTime) const {
                 Vector_<> anchors(productTimeLine);
+                if (terminalTime > productTimeLine.back())
+                    anchors.push_back(terminalTime);
                 for (const auto& component : components_)
                     for (const double knot : component->TimelineKnots())
-                        if (std::isfinite(knot) && knot > 0.0 && knot < productTimeLine.back())
+                        if (std::isfinite(knot) && knot > 0.0 && knot < terminalTime)
                             anchors.push_back(knot);
                 std::sort(anchors.begin(), anchors.end());
                 anchors.erase(std::unique(anchors.begin(), anchors.end()), anchors.end());
                 return anchors;
+            }
+            [[nodiscard]] Vector_<> GridAnchors(const Vector_<>& productTimeLine) const {
+                return GridAnchors(productTimeLine, productTimeLine.back());
             }
 
             void AppendSubSteps(double from, double to, double maxStep) {
@@ -1095,8 +1090,11 @@ namespace Dal {
             }
 
             void Allocate(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
-                this->ValidateTimeline(productTimeLine, defLine);
-                defLine_ = &defLine;
+                AllocateTo(productTimeLine, defLine, productTimeLine.empty() ? 0. : productTimeLine.back());
+            }
+
+        private:
+            void AllocateGrid(const Vector_<>& productTimeLine, double terminalTime) {
                 productTimeLine_ = productTimeLine;
                 timeLine_ = {0.0};
                 productGridIndices_.Resize(productTimeLine.size());
@@ -1106,7 +1104,7 @@ namespace Dal {
                 REQUIRE(!EvaluationDate() || maxStep >= 1.0 / DAYS_PER_YEAR,
                         "InvalidHybridTimeline: maximum step must be at least one calendar day for dated rate models");
                 size_t productSample = 0;
-                for (const double time : GridAnchors(productTimeLine)) {
+                for (const double time : GridAnchors(productTimeLine, terminalTime)) {
                     if (time > timeLine_.back()) {
                         AppendSubSteps(timeLine_.back(), time, maxStep);
                         timeLine_.push_back(time);
@@ -1118,8 +1116,8 @@ namespace Dal {
                 }
                 REQUIRE(productSample == productTimeLine.size(), "InvalidHybridTimeline: not every product sample reached the grid");
                 todayOnTimeLine_ = productTimeLine[0] == 0.0;
-                for (auto& component : components_)
-                    component->BeginAllocate(timeLine_);
+            }
+            void AllocateSampleOutputs(const Vector_<SampleDef_>& defLine) {
                 outputSlots_.Resize(defLine.size());
                 rateObservationSlots_.Resize(defLine.size());
                 batchSamples_.Resize(defLine.size());
@@ -1142,6 +1140,17 @@ namespace Dal {
                     components_[rateSlot_]->RegisterDiscounts(productGridIndices_[sample], defLine[sample].discountMats_);
                 }
                 numeraires_.Resize(defLine.size());
+            }
+
+        public:
+            void AllocateTo(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine, double terminalTime) {
+                this->ValidateTimeline(productTimeLine, defLine);
+                REQUIRE(std::isfinite(terminalTime) && terminalTime >= productTimeLine.back(), "InvalidHybridTimeline: invalid terminal time");
+                defLine_ = &defLine;
+                AllocateGrid(productTimeLine, terminalTime);
+                for (auto& component : components_)
+                    component->BeginAllocate(timeLine_);
+                AllocateSampleOutputs(defLine);
             }
             void Init(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
                 REQUIRE(defLine_ == &defLine && productTimeLine == productTimeLine_, "InvalidHybridTimeline: call Allocate before Init");
