@@ -47,11 +47,13 @@ namespace Dal::MarketIvLocalVolDetail {
 
     TermCarryEquity_::TermCarryEquity_(const MarketIvMarket_& market,
                                        const LocalVolSurfaceData_& surface,
-                                       const MarketIvLocalVolModelSettings_& settings)
+                                       const MarketIvLocalVolModelSettings_& settings,
+                                       const Vector_<>& extraKnots)
         : delegate_(EquityData(market, surface, settings)), carry_(market), settings_(settings), knots_(carry_.Times()),
           spotRows_(surface.spots_.size()), gridValues_(CheckedMultiply(surface.spots_.size(), surface.times_.size())),
           gridAxes_(CheckedAdd(surface.spots_.size(), surface.times_.size())) {
         knots_.Append(surface.times_);
+        knots_.Append(extraKnots);
         std::sort(knots_.begin(), knots_.end());
         knots_.erase(std::unique(knots_.begin(), knots_.end()), knots_.end());
     }

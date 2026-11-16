@@ -335,6 +335,8 @@ namespace Dal::Script {
                                     const MonteCarloSettings_& requestedSimulation) {
         REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
+        if (requestedSimulation.enableAad_)
+            RequireMarketIvLocalVolPassive(*modelData, "/simulation/enable_aad");
         //  The diagnostic runs the full three-phase valuation for exercise products,
         //  so its cost is the cost of a simulation; it runs the double valuation
         //  path only, and plain products skip the run entirely (their

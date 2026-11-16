@@ -4,6 +4,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <dal/concurrency/threadpool.hpp>
 #include <dal/curve/compoundedoisscript_internal.hpp>
 #include <dal/indice/detail/fixingobserver.hpp>
 #include <dal/indice/detail/snapshoterror.hpp>
@@ -12,6 +13,7 @@
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/model/gsr.hpp>
+#include <dal/model/marketivlocalvolmodel.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/plannedpreparation.hpp>
 
@@ -595,12 +597,18 @@ namespace Dal::Script {
             const auto simulation = requestedSimulation;
             const auto settings = ResolveValuationSettings(valuation, snapshot);
             const Date_ evaluationDate = *settings.evaluationDate_;
+            auto* market = dynamic_cast<AAD::MarketIvLocalVolModel_*>(model);
+            if (market)
+                market->ValidateRequest(simulation.enableAad_, false, settings.evaluationDate_, simulation.rsg_,
+                                        ThreadPool_::GetInstance()->NumThreads());
             if (model && model->EvaluationDate()) {
                 REQUIRE2(*model->EvaluationDate() == evaluationDate, "InvalidModelEvaluationDate: model curve date must match script valuation date",
                          ScriptError_);
             }
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
+            if (market && product->ContainsExercise())
+                market->ValidateRequest(false, true, settings.evaluationDate_, simulation.rsg_);
             REQUIRE2(!CompoundedOisInternal::ContainsOvernight(*product),
                      "UnsupportedCompoundedOisExecution: ON requires controlled deterministic table preparation", ScriptError_);
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);

@@ -18,6 +18,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-16
 
+- Add owning core C++ market-grid local-volatility Monte Carlo with same-source
+  nonflat forward/discount carry, dated horizon admission, passive script
+  pricing and detached resource diagnostics. AAD, risk and EXERCISE are
+  unavailable. Independent numerical qualification, facade/language factories,
+  dedicated examples, formal performance acceptance and live Windows worksheet
+  validation remain incomplete. See the
+  [core model guide](docs/models/local-volatility.md#owning-market-model-in-core-c).
+
 - Add native compounded OIS execution and same-source calibration for None,
   Lookback, ObservationShift and Lockout on one frozen `/2` date/weight mapping.
   Public C++, strict Python factories and Excel handles expose owning 22/26-column
