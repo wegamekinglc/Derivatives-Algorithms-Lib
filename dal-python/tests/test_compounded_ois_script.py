@@ -163,7 +163,7 @@ def test_ois_gil_release_after_input_copy():
     assert result.values == pytest.approx(oracle(), abs=1e-10)
 
 
-def test_ois_calibration_shares_tables_and_p1_quote_risk_rejects():
+def test_ois_calibration_shares_tables_and_quote_risk_requires_registration():
     instrument, request, _ = ois_request(method="AAD")
     quote = dal.CalibrationMarketQuote_New("q", 0.025, dal.CalibrationValueUnit_(kind="Rate"))
     observation = dal.CalibrationObservation_New("par", instrument, "ParRate", quote, 1e-10)
@@ -177,15 +177,20 @@ def test_ois_calibration_shares_tables_and_p1_quote_risk_rejects():
     accuracy = dal.ScriptCurveQuoteRiskAccuracy_(residual_absolute_limits=[1e-12],
         min_reciprocal_condition=1e-10, response_backward_error_limit=1e-12)
     snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(fit, accuracy)
-    assert not snapshot.risk_available and not snapshot.mapping_available
-    assert snapshot.diagnostics[0].code == "ScriptCurveQuoteRiskUnsupportedCapability"
-    # Per-PV admission is checked even against an ordinary valid P1 snapshot.
+    assert snapshot.risk_available and snapshot.mapping_available
+    result = dal.CalibrationInstrument_ValueWithQuoteRisk(instrument, snapshot, spec)
+    assert result.available
+    assert len(result.raw_sensitivity) == 1
+    assert result.dv01 == [x * 1e-4 for x in result.raw_sensitivity]
+    # An ordinary valid snapshot still requires the OIS table to be registered.
     from test_script_curve_quote_risk import _spec, _accuracy
     p1 = _spec()
     p1_snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(dal.Calibrate_CurveInstruments(p1), _accuracy())
     rejected = dal.CalibrationInstrument_ValueWithQuoteRisk(instrument, p1_snapshot, p1)
     assert not rejected.available
-    assert rejected.diagnostics[0].code == "ScriptCurveQuoteRiskUnsupportedCapability"
+    assert rejected.diagnostics[0].code == "UnsupportedCompoundedOisContext"
+    with pytest.raises(RuntimeError):
+        _ = rejected.pv
 
 
 def test_ois_generic_backend_and_mc_stay_in_their_admitted_domains():

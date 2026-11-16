@@ -83,11 +83,14 @@ TEST(CompoundedOisScriptPublicTest, TestNativeAxesAndRawPartials) {
     }
 }
 
-TEST(CompoundedOisScriptPublicTest, TestP1PerPvAdmissionRejectsNewSource) {
+TEST(CompoundedOisScriptPublicTest, TestPerPvAdmissionRequiresRegisteredTables) {
     const auto result = EvaluateOis();
     const auto spec = Dal::Test::ScriptQuoteRiskSpec();
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec), {{1e-12, 1e-12}, 1e-10, 1e-12});
+    ASSERT_TRUE(snapshot.RiskAvailable());
     const auto risk = ValueCalibrationInstrumentWithQuoteRisk(result.instrument_, snapshot, spec);
     ASSERT_FALSE(risk.Available());
-    ASSERT_EQ(risk.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
+    ASSERT_FALSE(risk.Diagnostics().empty());
+    ASSERT_EQ(risk.Diagnostics()[0].code_, "UnsupportedCompoundedOisContext");
+    ASSERT_THROW(static_cast<void>(risk.PV()), Exception_);
 }
