@@ -12,6 +12,62 @@
 #include <dal/math/buffercapacity.hpp>
 #include <dal/platform/platform.hpp>
 
+#include "../matrix/linearsolvetransposefixture.hpp"
+
+namespace {
+    void RegisterRefinementInputs(Dal::AAD::RecordingScope_* scope,
+                                  const Dal::Test::TransposeRefinementCase_& sample,
+                                  Dal::SquareMatrix_<Dal::AAD::Number_>* matrix,
+                                  Dal::Matrix_<Dal::AAD::Number_>* rhs) {
+        for (int row = 0; row < 3; ++row) {
+            for (int column = 0; column < 3; ++column)
+                scope->RegisterInput((*matrix)(row, column), sample.matrix_(row, column));
+            for (int column = 0; column < sample.rhs_.Cols(); ++column)
+                scope->RegisterInput((*rhs)(row, column), sample.rhs_(row, column));
+        }
+    }
+
+    void CheckRefinedActiveMatrix(double coupling, int columns) {
+        using namespace Dal;
+        AAD::Clear(*AAD::Tape());
+        const Test::TransposeRefinementCase_ sample(coupling, columns);
+        AAD::RecordingScope_ scope;
+        SquareMatrix_<AAD::Number_> matrix(3);
+        Matrix_<AAD::Number_> rhs(3, columns);
+        RegisterRefinementInputs(&scope, sample, &matrix, &rhs);
+        scope.StartRecording();
+        auto checked = AAD::LinearSolveWithAccuracy(&scope, matrix, rhs, {1e-12, 1e-12});
+        scope.FinishRecording();
+        scope.ClearAdjoints();
+        for (int row = 0; row < 3; ++row)
+            for (int column = 0; column < columns; ++column)
+                AAD::NativeOperations_::SetSeed(checked.solution_(row, column), sample.seeds_(row, column));
+        const auto reports = AAD::ReverseWithSolveAccuracy(&scope);
+        ASSERT_EQ(reports.Entries().size(), 1u);
+        for (int column = 0; column < columns; ++column)
+            ASSERT_LE(reports.Report(checked.event_).transposeBackwardErrors_(column, 0), 1e-12);
+        for (int row = 0; row < 3; ++row) {
+            for (int column = 0; column < 3; ++column)
+                ASSERT_NO_FATAL_FAILURE(
+                    Test::AssertTransposeValue(AAD::NativeOperations_::ReadAdjoint(matrix(row, column)), sample.MatrixAdjoint(row, column)));
+            for (int column = 0; column < columns; ++column)
+                ASSERT_NO_FATAL_FAILURE(
+                    Test::AssertTransposeValue(AAD::NativeOperations_::ReadAdjoint(rhs(row, column)), sample.RhsAdjoint(row, column)));
+        }
+        scope.Close();
+        AAD::Clear(*AAD::Tape());
+    }
+} // namespace
+
+TEST(AADLinearSolveTest, TestRefinedActiveMatrixUsesFinalRhsAdjoints) {
+    for (const double coupling : {0., 1e-20, 1e-200})
+        for (const int columns : {1, 2}) {
+            SCOPED_TRACE(coupling);
+            SCOPED_TRACE(columns);
+            ASSERT_NO_FATAL_FAILURE(CheckRefinedActiveMatrix(coupling, columns));
+        }
+}
+
 TEST(AADLinearSolveTest, TestCheckedActualReverseReportsComposeOrdinaryExpressions) {
     using namespace Dal;
     AAD::Clear(*AAD::Tape());

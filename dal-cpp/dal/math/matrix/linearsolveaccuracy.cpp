@@ -6,6 +6,7 @@
 #include <utility>
 
 #include <dal/math/matrix/linearsolveaccuracy.hpp>
+#include <dal/math/matrix/linearsolveadjointsinternal.hpp>
 #include <dal/math/matrix/physicalrowerrorinternal.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -124,27 +125,13 @@ namespace Dal {
                 }
             return result;
         }
-        // Refinement changes caller-owned outputs and reuses the immutable factorization.
-        void ApplyCorrection(LinearSolveAdjoints_* adjoints, const Matrix_<>& candidate, int column, const Matrix_<>& solution) {
-            for (int row = 0; row < adjoints->rhs_.Rows(); ++row) {
-                const double delta = candidate(row, column) - adjoints->rhs_(row, column);
-                adjoints->rhs_(row, column) = candidate(row, column);
-                for (int entry = 0; entry < adjoints->matrix_.Rows(); ++entry) {
-                    adjoints->matrix_(row, entry) = std::fma(-delta, solution(entry, column), adjoints->matrix_(row, entry));
-                    REQUIRE(std::isfinite(adjoints->matrix_(row, entry)), "Linear solve refined matrix adjoint overflow");
-                }
-            }
-        }
-        Vector_<> AcceptCorrection(const SquareMatrix_<>& matrix,
-                                   const Matrix_<>& seeds,
-                                   const Matrix_<>& candidate,
-                                   const Matrix_<>& solution,
-                                   LinearSolveAdjoints_* adjoints,
-                                   Vector_<> errors) {
+        Vector_<> AcceptCorrection(
+            const SquareMatrix_<>& matrix, const Matrix_<>& seeds, const Matrix_<>& candidate, LinearSolveAdjoints_* adjoints, Vector_<> errors) {
             const auto next = LinearSolveBackwardErrors(matrix, seeds, candidate);
             for (int column = 0; column < seeds.Cols(); ++column)
                 if (errors[column] > REFINEMENT_TARGET && next[column] <= errors[column]) {
-                    ApplyCorrection(adjoints, candidate, column, solution);
+                    for (int row = 0; row < adjoints->rhs_.Rows(); ++row)
+                        adjoints->rhs_(row, column) = candidate(row, column);
                     errors[column] = next[column];
                 }
             return errors;
@@ -165,7 +152,7 @@ namespace Dal {
         // Homogeneous equations with one unproved variable force exact zeros; no magnitude threshold is used.
         if (NeedsRefinement(errors)) {
             const auto candidate = StructuralCandidate(transpose_, seeds, adjoints->rhs_, errors);
-            errors = AcceptCorrection(transpose_, seeds, candidate, Solution(), adjoints, std::move(errors));
+            errors = AcceptCorrection(transpose_, seeds, candidate, adjoints, std::move(errors));
         }
         constexpr int MAX_REFINEMENTS =
             (std::numeric_limits<double>::max_exponent - std::numeric_limits<double>::min_exponent) / std::numeric_limits<double>::digits + 2;
@@ -173,7 +160,7 @@ namespace Dal {
             const auto candidate = Corrected(solve_.Solve(), adjoints->rhs_, Residual(transpose_, seeds, adjoints->rhs_, errors));
             if (!candidate || std::equal(candidate->begin(), candidate->end(), adjoints->rhs_.begin()))
                 break;
-            errors = AcceptCorrection(transpose_, seeds, *candidate, Solution(), adjoints, std::move(errors));
+            errors = AcceptCorrection(transpose_, seeds, *candidate, adjoints, std::move(errors));
         }
         ValidateErrors(errors, policy_.transposeBackwardErrorLimit_,
                        "CheckedLinearSolve.Reverse: transpose backward error exceeds the declared accuracy limit");
@@ -181,9 +168,9 @@ namespace Dal {
     }
 
     CheckedLinearSolveAdjoints_ CheckedLinearSolve_::Reverse(const Matrix_<>& solutionAdjoints) const {
-        auto adjoints = solve_.Solve().Reverse(solutionAdjoints);
-        auto errors = TransposeErrors(solutionAdjoints, &adjoints);
-        return {std::move(adjoints), std::move(errors)};
+        auto result = ReverseRhs(solutionAdjoints);
+        result.adjoints_.matrix_ = LinearSolveDetail::MatrixAdjoints(Solution(), result.adjoints_.rhs_);
+        return result;
     }
 
     CheckedLinearSolveAdjoints_ CheckedLinearSolve_::ReverseRhs(const Matrix_<>& solutionAdjoints) const {

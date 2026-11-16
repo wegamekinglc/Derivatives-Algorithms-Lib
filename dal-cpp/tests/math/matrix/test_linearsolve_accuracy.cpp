@@ -10,6 +10,8 @@
 #include <dal/math/matrix/linearsolveaccuracy.hpp>
 #include <dal/utilities/exceptions.hpp>
 
+#include "linearsolvetransposefixture.hpp"
+
 using Dal::CheckedLinearSolve_;
 using Dal::LinearSolveAccuracyPolicy_;
 using Dal::Matrix_;
@@ -107,6 +109,26 @@ TEST(LinearSolveDiagnosticsTest, TestTransposeCorrectionPreservesTinyNonzeroCoup
         ASSERT_NEAR(risk.adjoints_.rhs_(1, 0) / expected, 1., 1e-12);
         ASSERT_LE(risk.transposeBackwardErrors_[0], 1e-12);
     }
+}
+
+TEST(LinearSolveDiagnosticsTest, TestRefinedFullReverseUsesFinalRhsForMatrixAdjoints) {
+    for (const double coupling : {0., 1e-20, 1e-200})
+        for (const int columns : {1, 2}) {
+            SCOPED_TRACE(coupling);
+            SCOPED_TRACE(columns);
+            const Dal::Test::TransposeRefinementCase_ sample(coupling, columns);
+            const CheckedLinearSolve_ solve(sample.matrix_, sample.rhs_, {1e-12, 1e-12});
+            const auto full = solve.Reverse(sample.seeds_), lean = solve.ReverseRhs(sample.seeds_);
+            for (int row = 0; row < 3; ++row) {
+                for (int column = 0; column < columns; ++column) {
+                    ASSERT_LE(full.transposeBackwardErrors_[column], 1e-12);
+                    ASSERT_DOUBLE_EQ(full.adjoints_.rhs_(row, column), lean.adjoints_.rhs_(row, column));
+                    ASSERT_NO_FATAL_FAILURE(Dal::Test::AssertTransposeValue(full.adjoints_.rhs_(row, column), sample.RhsAdjoint(row, column)));
+                }
+                for (int column = 0; column < 3; ++column)
+                    ASSERT_NO_FATAL_FAILURE(Dal::Test::AssertTransposeValue(full.adjoints_.matrix_(row, column), sample.MatrixAdjoint(row, column)));
+            }
+        }
 }
 
 TEST(LinearSolveDiagnosticsTest, TestHomogeneousTransposeChainPreservesExactZeros) {
