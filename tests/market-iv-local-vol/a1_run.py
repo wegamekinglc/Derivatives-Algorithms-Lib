@@ -14,7 +14,7 @@ from pathlib import Path
 from a1_axes import MATURITIES
 from a1_budget import LIMITS, Budget, digest
 from a1_n4 import nodes, probes
-from a1_process import launch, native_kind, output, program
+from a1_process import launch, native_kind, output
 from a1_report import report
 from a1_study import (
     black_model,
@@ -29,7 +29,7 @@ from a1_verify import verify
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 CONTROL = REPO / ".codex/artifacts/specs/dal-542-n5-resolution-a.md"
-CONTROL_SHA = "c7408b519cca9f1aa044843137d9bb5447eefa5e9de59f6bd965dba5d6ff57b8"
+CONTROL_SHA = "84a6de0aa9c0773e74022a5d21ab865291c15fed37fe913f5b53f496d75e485a"
 BINARIES = (
     "dal_market_iv_capture",
     "dal_market_iv_mc",
@@ -140,34 +140,9 @@ def save_namespace(directory, original, sources):
 
 
 def freeze(directory, original, binaries):
-    directory.mkdir(parents=True, exist_ok=True)
-    if (directory / "manifest.json").exists() or (directory / "ledger.json").exists():
-        raise RuntimeError("Existing A/1 namespace cannot be reset")
-    if digest(CONTROL) != CONTROL_SHA:
-        raise RuntimeError("Frozen control mismatch")
-    if output("git", ["-C", str(REPO), "status", "--porcelain"]):
-        raise RuntimeError("Commit the tested execution source before freezing")
-    if binaries.resolve() != program("capture").parent.resolve():
-        raise ValueError("Build directory is outside the fixed qualification boundary")
-    sources, paths = execution_inventory(binaries, original)
-    core = execution_core(paths, original, binaries)
-    identity = seal(core)
-    budget = Budget(directory / "ledger.json", identity, create=True)
-    save_namespace(directory, original, sources)
-    write(
-        directory / "manifest.json",
-        dict(
-            core=core,
-            identity=identity,
-            initial_ledger_sha256=digest(budget.path),
-            frozen_utc=time.time(),
-            namespace_files={
-                n: digest(directory / n)
-                for n in ("request.json", "old-capture.json", "history.json")
-            },
-        ),
+    raise RuntimeError(
+        "A/2 requires freeze-a2 on the existing source budget; no new budget"
     )
-    print("A/1 frozen identity", identity, flush=True)
 
 
 def validate(directory):
@@ -216,6 +191,7 @@ def wait_results(executor, futures, directory, budget):
 
 
 def execute(arguments, name, directory, budget):
+    budget.check_capacity(len(arguments))
     for argument in arguments:
         budget.reserve_solve(name + ":" + repr(argument[-1]))
     executor = ProcessPoolExecutor(max_workers=4)
@@ -305,7 +281,15 @@ def stage1(directory, request, old, budget):
     write(directory / "stage1-admission.json", dict(status="PASS", studies=16))
 
 
-def stage2(directory, capture, budget):
+def selected_runner(directory, budget, runner):
+    return (
+        runner
+        if runner is not None
+        else partial(execute, directory=directory, budget=budget)
+    )
+
+
+def stage2(directory, capture, budget, runner=None):
     continuous = [
         json.loads(line)
         for line in (HERE / "fixtures/pde.jsonl").read_text().splitlines()
@@ -313,7 +297,7 @@ def stage2(directory, capture, budget):
     references = {(r["fixture"], r["maturity"]): r for r in continuous}
     records = {}
     budget.begin("pde")
-    run = partial(execute, directory=directory, budget=budget)
+    run = selected_runner(directory, budget, runner)
     for fixture in capture["fixtures"]:
         for grid in fixture["grids"]:
             if grid["id"] not in ("P7", "P8"):
@@ -428,8 +412,10 @@ def mc_stage(directory, manifest, budget):
         raise RuntimeError("Missing reference/grid admission")
     binary = Path(manifest["core"]["binary_directory"]) / "dal_market_iv_a1_mc"
     for family, name in enumerate(("F2_linear", "F2_nonlinear")):
-        if budget.state["paths"][family]:
-            raise RuntimeError("Reserved MC family cannot be restarted or reset")
+        if budget.state["paths"][family] != budget.state["paths_completed"][family]:
+            raise RuntimeError(
+                "Interrupted reserved MC tier requires explicit recovery"
+            )
         phase = "mc" + str(family)
         budget.begin(phase)
         sample_family(directory, binary, budget, family, name, phase)
@@ -438,10 +424,18 @@ def mc_stage(directory, manifest, budget):
 
 
 def sample_family(directory, binary, budget, family, name, phase):
-    evidence, prior, previous = None, None, 0
-    for exponent in range(16, 21):
+    from a2_sampling import restore_family
+
+    evidence, prior, previous = restore_family(directory, budget, family, name)
+    if evidence and evidence["tiers"][-1]["se_sufficient"]:
+        return
+    start = 16 + (len(evidence["tiers"]) if evidence else 0)
+    for exponent in range(start, 21):
         paths = 2**exponent
-        budget.paths(family, budget.state["paths"][family] + 16 * (paths - previous))
+        from a2_sampling import check_front_window
+
+        check_front_window(budget, paths, previous)
+        budget.paths(family, 16 * paths)
         output = directory / (name + "-tier-" + str(exponent) + ".json")
         arguments = [
             str(binary),
@@ -462,24 +456,31 @@ def sample_family(directory, binary, budget, family, name, phase):
             phase,
             name + "-tier-" + str(exponent) + ".log",
         )
-        current = read(output)
-        if evidence:
-            current["tiers"] = evidence["tiers"] + current["tiers"]
-        evidence = current
-        verification = verify(evidence)
-        write(directory / (name + "-mc.json"), evidence)
-        write(directory / (name + "-sampling-verification.json"), verification)
-        budget.completed_paths(family, 16 * paths)
-        prior = Path(str(output) + ".checkpoint.json")
-        budget.state.setdefault("mc_checkpoints", {})[str(family)] = {
-            "path": str(prior),
-            "sha256": digest(prior),
-        }
-        budget.save("checkpoint:" + name)
+        evidence, prior, verification = record_sampling(
+            directory, output, evidence, budget, family, name, paths
+        )
         previous = paths
         if verification["tiers"][-1]["se_sufficient"]:
             return
     raise RuntimeError("INCOMPLETE: preregistered SE at path cap " + name)
+
+
+def record_sampling(directory, output, evidence, budget, family, name, paths):
+    current = read(output)
+    if evidence:
+        current["tiers"] = evidence["tiers"] + current["tiers"]
+    verification = verify(current)
+    write(directory / (name + "-mc.json"), current)
+    write(directory / (name + "-sampling-verification.json"), verification)
+    budget.completed_paths(family, 16 * paths)
+    prior = Path(str(output) + ".checkpoint.json")
+    budget.state.setdefault("mc_checkpoints", {})[str(family)] = {
+        "path": str(prior),
+        "sha256": digest(prior),
+        "evidence_sha256": digest(directory / (name + "-mc.json")),
+    }
+    budget.save("checkpoint:" + name)
+    return current, prior, verification
 
 
 def run(directory):
@@ -528,14 +529,22 @@ def run(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["freeze", "run"])
+    parser.add_argument("action", choices=["freeze", "run", "freeze-a2", "run-a2"])
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--original", type=Path, default=REPO / "build/dal-542-formal")
+    parser.add_argument("--foreground-seconds", type=int, default=1800)
     parser.add_argument(
         "--binaries", type=Path, default=REPO / "build/dal-542-reference"
     )
     args = parser.parse_args()
     directory = args.directory.resolve()
+    if args.action in ("freeze-a2", "run-a2"):
+        from a2_run import freeze_a2, run_a2
+
+        if args.action == "freeze-a2":
+            freeze_a2(directory, args.original.resolve(), args.binaries.resolve())
+            return 0
+        return run_a2(directory, args.foreground_seconds)
     if args.action == "freeze":
         freeze(directory, args.original.resolve(), args.binaries.resolve())
         return 0

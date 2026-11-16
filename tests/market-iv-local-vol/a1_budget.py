@@ -6,6 +6,8 @@ import os
 import time
 from pathlib import Path
 
+from a2_journal import entry, validate
+
 LIMITS = dict(
     solves=376,
     pde_seconds=21600.0,
@@ -65,11 +67,17 @@ def resident_bytes(pid):
     )
 
 
+def require_creatable(path, journal, create):
+    if create and (path.exists() or journal.exists()):
+        raise RuntimeError("Existing cumulative budget cannot be created again")
+
+
 class Budget:
     def __init__(self, path, identity, limits=None, create=False):
         self.path = Path(path)
         self.journal = self.path.with_suffix(".jsonl")
         self.limits = {**LIMITS, **(limits or {})}
+        require_creatable(self.path, self.journal, create)
         if self.path.exists():
             self.state = json.loads(self.path.read_text())
             if (
@@ -77,9 +85,7 @@ class Budget:
                 or self.state["limits"] != self.limits
             ):
                 raise RuntimeError("Cumulative budget identity mismatch")
-            last = json.loads(self.journal.read_text().splitlines()[-1])
-            if last["state_sha256"] != digest(self.path):
-                raise RuntimeError("Cumulative budget journal mismatch")
+            validate(self.journal, digest(self.path), self.state)
         else:
             if not create or self.journal.exists():
                 raise RuntimeError("Missing cumulative budget; cannot reset")
@@ -111,14 +117,20 @@ class Budget:
         with self.journal.open("a") as stream:
             stream.write(
                 json.dumps(
-                    dict(
-                        sequence=self.state["sequence"],
-                        previous_hash=prior,
-                        state_sha256=digest(self.path),
-                        event=event,
-                        utc=self.state["utc"],
-                        solves_reserved=self.state["solves_reserved"],
-                        total_seconds=self.state["total_seconds"],
+                    entry(
+                        dict(
+                            sequence=self.state["sequence"],
+                            previous_hash=prior,
+                            state_sha256=digest(self.path),
+                            event=event,
+                            utc=self.state["utc"],
+                            solves_reserved=self.state["solves_reserved"],
+                            total_seconds=self.state["total_seconds"],
+                        ),
+                        self.journal,
+                        self.state.get("transition")
+                        if event == "transition:A/2"
+                        else None,
                     )
                 )
                 + "\n"
@@ -129,6 +141,12 @@ class Budget:
             raise RuntimeError(
                 "Unclosed prior phase; recover cumulative budget before continuing"
             )
+        if self.state["total_seconds"] >= self.limits["total_seconds"]:
+            raise RuntimeError("INCOMPLETE: total time limit")
+        if self.state["seconds"].get(phase, 0) >= self.limits.get(
+            phase + "_seconds", float("inf")
+        ):
+            raise RuntimeError("INCOMPLETE: stage time limit")
         self.last_tick = time.monotonic()
         self.state["active_phase"] = phase
         self.save("begin:" + phase)
@@ -139,10 +157,13 @@ class Budget:
         self.save("end:" + phase)
 
     def reserve_solve(self, name):
-        if self.state["solves_reserved"] >= self.limits["solves"]:
-            raise RuntimeError("INCOMPLETE: cumulative solve limit")
+        self.check_capacity(1)
         self.state["solves_reserved"] += 1
         self.save("reserve:" + name)
+
+    def check_capacity(self, count):
+        if count < 0 or self.state["solves_reserved"] + count > self.limits["solves"]:
+            raise RuntimeError("INCOMPLETE: cumulative solve limit")
 
     def completed(self):
         self.state["solves_completed"] += 1
@@ -172,7 +193,10 @@ class Budget:
         self.save("paths")
 
     def resources(self, directory, pids=()):
-        if evidence_bytes(directory) > self.limits["evidence_bytes"]:
+        if time.monotonic() >= getattr(self, "foreground_deadline", float("inf")):
+            raise RuntimeError("INCOMPLETE: foreground window")
+        root = self.state.get("origin_directory", directory)
+        if evidence_bytes(root) > self.limits["evidence_bytes"]:
             raise RuntimeError("INCOMPLETE: evidence limit")
         for pid in (os.getpid(), *pids):
             if resident_bytes(pid) >= self.limits["rss_bytes"]:

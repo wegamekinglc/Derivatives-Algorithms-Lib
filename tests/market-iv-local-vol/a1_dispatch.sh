@@ -56,7 +56,11 @@ case "$operation" in
     mc)
         [[ "$argument_count" == 4 || "$argument_count" == 5 ]]
         case "${arguments[2]}" in F2_linear|F2_nonlinear) ;; *) exit 2 ;; esac
-        case "${arguments[3]}" in 16|17|18|19|20) ;; *) exit 2 ;; esac
+        case "${arguments[3]}" in
+            0) [[ "$argument_count" == 4 && "${arguments[1]##*/}" == "${arguments[2]}-alignment.json" ]] ;;
+            16|17|18|19|20) ;;
+            *) exit 2 ;;
+        esac
         require_build_path "${arguments[0]}"
         require_build_path "${arguments[1]}"
         if [[ "$argument_count" == 5 ]]; then require_build_path "${arguments[4]}"; fi

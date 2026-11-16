@@ -11,10 +11,10 @@ Production baseline is `53a2b1592993f3a1d354df2d6ec2ae6918e5ef6d`;
 the production repair is `b0591270d904d9f4d1a6cf5ce94f121a8acee8f8`.
 This directory adds no production policy, public interface or dependency pin.
 
-## A/1 approved execution
+## A/2 continuation and A/1 history
 
 The active F2 amendment is
-`.codex/artifacts/specs/dal-542-n5-resolution-a.md` (A/1). The original 320 rows
+`.codex/artifacts/specs/dal-542-n5-resolution-a.md` (A/2). The original 320 rows
 and all original fixtures remain historical evidence. The A/1 current view
 contains 160 reused F1 rows plus 320 newly registered F2 rows. Until actual
 admission succeeds, absent estimates remain NOT_RUN.
@@ -38,7 +38,24 @@ rounding and need affected revalidation before use with the repaired source;
 those corrected PDE layers have not been run. The two central prices causing
 the stop and the historical results remain unchanged. The original execution
 source/manifest and cumulative budget remain separate from the published
-source. No formal solve or path was repeated; R10 still blocks later stages.
+source. P3 repeated no formal solve or path. A/2 now makes the old eight
+inputs mandatory nonblocking numerical diagnostics; Black, new P7/P8
+reference/N4/grid and MC gates remain mandatory.
+
+A/2 extends `build/dal-542-a1` with append-only evidence in its `a2/`
+subdirectory. Its manifest freezes actual source/binary/configuration,
+the 48-central/10-expanded layer map and the original manifest/ledger/journal
+hashes. It preserves the original manifest and 180-event prefix; transition
+181 binds both execution identities and approval while inheriting all 58
+solves, 20.26435111698811 seconds and zero MC paths. Existing budgets cannot
+be recreated, and the legacy `freeze` action refuses new namespaces.
+New layer files cite reused originals or superseded expanded layers by hash.
+Required Black admission follows all ten corrected-domain solves, then the
+eight old diagnostics, capture/N4/probes, 16 required studies, 56 diagnostics,
+separate tiny default alignment, and formal MC. Numerical old-grid
+unavailability is retained; identity, input, implementation and resource
+failures still stop. Actual A/2 results are appended as
+`a2/qualification-<event>.json`; the tracked `a1/` checkpoint is historical.
 
 `a1/request.json` contains the canonical 90-digit-to-binary64 P0–P8 axes,
 the two families, all four nested timelines and fixed coordinate reservations.
@@ -53,6 +70,8 @@ Build the core-only targets using the configuration below, adding
 
 ```bash
 bash tests/market-iv-local-vol/a1_driver.sh test
+OPENBLAS_NUM_THREADS=1 python3 -m unittest discover \
+  -s tests/market-iv-local-vol -p test_a2.py -v
 ctest --test-dir build/dal-542-reference \
   -R 'MarketIv(A1|Qualification)Test' --output-on-failure
 ```
@@ -60,10 +79,10 @@ ctest --test-dir build/dal-542-reference \
 After committing the tested implementation, freeze execution identities once:
 
 ```bash
-bash tests/market-iv-local-vol/a1_driver.sh freeze \
+bash tests/market-iv-local-vol/a1_driver.sh freeze-a2 \
   --directory build/dal-542-a1
-bash tests/market-iv-local-vol/a1_driver.sh run \
-  --directory build/dal-542-a1
+bash tests/market-iv-local-vol/a1_driver.sh run-a2 \
+  --directory build/dal-542-a1 --foreground-seconds 1800
 ```
 
 The default original input directory is `build/dal-542-formal` from the
@@ -72,9 +91,19 @@ The freeze records controls, actual sources/binaries/build/dependencies,
 request, outputs, tiers, coordinates and the initial cumulative ledger hash.
 Results use a separate namespace. Existing manifests and ledgers cannot be
 silently reset. Exit 2 reports a numerical non-acceptance/checkpoint.
+Foreground windows are operational checkpoints, not new numerical budgets:
+the default is 1800 seconds, at most 21600 per invocation. Before a formal
+tier, the controller uses the fixed six-hour/path-cap rate plus 30 seconds
+to avoid launching an extension that cannot fit the remaining window.
+Windows never change seeds, tiers or SE decisions. A closed checkpoint may
+resume with the same actual execution identity and remaining cumulative
+budget; interrupted active phases/tiers require explicit recovery. Genuine
+reference/grid failures cannot be silently replayed. New C++ builds are
+unnecessary when the recorded binary/build/dependency identities are unchanged.
 
 Execution stops at the first failed required study or grid gate. It first
-runs eight Black and eight unchanged old-grid studies under the new method;
+runs corrected-domain revalidation, eight Black and eight unchanged old-grid
+diagnostic studies under the new method;
 then actual capture/N4/probes, 16 required grid studies and 56 diagnostics.
 Only complete reference/grid admission permits the new F2 MC. PDE uses at
 most four workers; MC runs one family with 16 batch workers at a time.

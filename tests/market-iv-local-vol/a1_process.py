@@ -110,6 +110,13 @@ def mc_arguments(args):
     if len(args) not in (4, 5) or args[2] not in ("F2_linear", "F2_nonlinear"):
         raise ValueError("Invalid MC operation")
     exponent = int(args[3])
+    if exponent == 0:
+        alignment_arguments(args)
+        return
+    formal_mc_arguments(args, exponent)
+
+
+def formal_mc_arguments(args, exponent):
     if not 16 <= exponent <= 20:
         raise ValueError("Unregistered MC tier")
     request, result = map(data_path, args[:2])
@@ -119,6 +126,18 @@ def mc_arguments(args):
         raise ValueError("Invalid MC result identity")
     if len(args) == 5:
         checkpoint_argument(args[4], request.parent, args[2], exponent)
+
+
+def alignment_arguments(args):
+    if len(args) != 4:
+        raise ValueError("Alignment cannot use a formal tier checkpoint")
+    request, result = map(data_path, args[:2])
+    if (
+        request.name != "request.json"
+        or request.parent != result.parent
+        or result.name != args[2] + "-alignment.json"
+    ):
+        raise ValueError("Invalid fixed alignment namespace")
 
 
 def validate_arguments(kind, args):
