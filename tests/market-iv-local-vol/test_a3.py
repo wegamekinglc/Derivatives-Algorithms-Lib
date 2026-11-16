@@ -13,6 +13,65 @@ from a3_protocol import coarse_count
 
 
 class A3Test(unittest.TestCase):
+    def test_controller_repair_preserves_native_paths_cost_and_failed_prefix(self):
+        from a3_repair import STOP, append_repair
+
+        with tempfile.TemporaryDirectory() as folder:
+            budget = Budget(Path(folder) / "ledger.json", "old", create=True)
+            budget.state.update(
+                a3_stop_reason=STOP,
+                paths=[16, 0],
+                paths_completed=[0, 0],
+                total_seconds=325.0,
+                solves_completed=290,
+            )
+            budget.save("original-validation-failure")
+            prefix = budget.journal.read_bytes()
+            append_repair(budget, "new", dict(original_stop=STOP))
+            self.assertTrue(budget.journal.read_bytes().startswith(prefix))
+            self.assertEqual(budget.state["total_seconds"], 325.0)
+            self.assertEqual(budget.state["paths"], [16, 0])
+            self.assertEqual(budget.state["paths_completed"], [0, 0])
+            self.assertEqual(budget.state["a3_repair"]["original_stop"], STOP)
+            self.assertEqual(Budget(budget.path, "new").state["solves_completed"], 290)
+            with self.assertRaises(RuntimeError):
+                append_repair(budget, "third", {})
+
+    def test_payment_times_accept_canonical_decimal_strings(self):
+        import json
+
+        from a2_sampling import payment_targets
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "request.json").write_text(
+                json.dumps(
+                    dict(
+                        fixtures=[
+                            dict(
+                                id="F2_linear",
+                                mc_cases=[dict(time="0.2493150684931507")],
+                            )
+                        ]
+                    )
+                )
+            )
+            (root / "history.json").write_text(
+                json.dumps(
+                    dict(
+                        rows=[
+                            dict(
+                                fixture="F2_linear",
+                                maturity=91 / 365,
+                                product="discount",
+                                oracle=0.995,
+                            )
+                        ]
+                    )
+                )
+            )
+            self.assertEqual(payment_targets(root, "F2_linear"), {10: 0.995})
+
     def test_unique_override_dimensions_endpoints_and_strict_step_bounds(self):
         result = protocol(grids())
         self.assertEqual(result["dimensions"], [1092, 2184, 4368, 8736])

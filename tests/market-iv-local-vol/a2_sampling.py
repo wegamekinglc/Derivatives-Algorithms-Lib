@@ -116,7 +116,7 @@ def payment_targets(directory, name):
     products = {"discount": 10, "fixed_payment": 18, "delayed_payment": 19}
     cases = read(directory / "request.json")["fixtures"]
     fixture = next(f for f in cases if f["id"] == name)
-    by_time = {c["time"]: i for i, c in enumerate(fixture["mc_cases"])}
+    by_time = {float(c["time"]): i for i, c in enumerate(fixture["mc_cases"])}
     return {
         20 * by_time[r["maturity"]] + products[r["product"]]: r["oracle"]
         for r in history["rows"]

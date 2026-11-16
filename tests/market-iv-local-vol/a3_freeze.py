@@ -217,10 +217,13 @@ def validate_a3(root):
     if manifest["context"] != expected_context:
         raise RuntimeError("A/3 recovery context mismatch")
     validate_replacements(manifest["replacements"], expected_context, [16, 0], [0, 0])
-    validate_files(root, manifest)
-    budget = validate_recovered(root, manifest)
+    from a3_repair import active_manifest
+
+    active = active_manifest(root, manifest)
+    validate_files(root, active)
+    budget = validate_recovered(root, manifest, active["identity"])
     validate_checkpoint(root / "a3", budget)
-    return manifest, budget
+    return active, budget
 
 
 def validate_files(root, manifest):

@@ -44,6 +44,18 @@ only paths 1..65535; subsequent tiers extend the same fixed prefix solely for
 insufficient registered SE. Failed admission or an interrupted reserved tier
 requires explicit disposition rather than a silent retry.
 
+The first A/3 invocation completed the native F2_linear tiny, then its Python
+payment validator failed because decimal-string request times were compared
+with binary64 history keys. `repair-a3` is a one-time, exact-failure recovery
+for that controller defect. It requires the closed [16,0]/[0,0] boundary,
+unchanged native binaries/build/dependencies and a clean new source commit.
+It preserves the original manifest, failure, raw native output, checkpoint
+and full journal prefix; appends explicit disposition/transition under a
+separate `payment-key-repair/manifest.json`; and validates the existing native
+result before marking its sixteen fields complete. It draws no new field.
+The next `run-a3` uses this new controller identity and restores the same tiny
+sums. The original numerical execution identity remains attached to the raw.
+
 A/3 evidence is appended under `build/dal-542-a1/a3`; all old evidence keeps
 its actual execution identity. The manifest maps unchanged reference inputs,
 methods, dependencies and binaries to A/2's 10 P3 expanded revalidations,

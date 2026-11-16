@@ -105,9 +105,9 @@ def recover(root, identity, expected, context, rows):
     return budget
 
 
-def validate_recovered(root, manifest):
+def validate_recovered(root, manifest, active_identity=None):
     verify_boundary(root / "a3/origin", BOUNDARY)
-    budget = Budget(root / "ledger.json", manifest["identity"])
+    budget = Budget(root / "ledger.json", active_identity or manifest["identity"])
     prefix = (root / "a3/origin/ledger.jsonl").read_bytes()
     if not budget.journal.read_bytes().startswith(prefix):
         raise RuntimeError("Original 2284-event prefix changed")

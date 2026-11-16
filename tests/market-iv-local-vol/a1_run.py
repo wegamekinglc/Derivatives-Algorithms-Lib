@@ -534,7 +534,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=["freeze", "run", "freeze-a2", "run-a2", "freeze-a3", "run-a3"],
+        choices=[
+            "freeze",
+            "run",
+            "freeze-a2",
+            "run-a2",
+            "freeze-a3",
+            "run-a3",
+            "repair-a3",
+        ],
     )
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--original", type=Path, default=REPO / "build/dal-542-formal")
@@ -544,6 +552,11 @@ def main():
     )
     args = parser.parse_args()
     directory = args.directory.resolve()
+    if args.action == "repair-a3":
+        from a3_repair import repair
+
+        repair(directory, args.original.resolve(), args.binaries.resolve())
+        return 0
     if args.action in ("freeze-a3", "run-a3"):
         from a3_run import freeze_a3, run_a3
 
