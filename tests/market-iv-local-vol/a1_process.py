@@ -1,14 +1,15 @@
-"""Supervise only the fixed local qualification programs without a shell."""
+"""Validate typed jobs and monitor the foreground driver's owned processes."""
 
+import json
 import os
 import signal
+import sys
 import tempfile
+import time
 from pathlib import Path
-from threading import Lock
 
 REPO = Path(__file__).resolve().parents[2]
 BINARY_ROOT = REPO / "build/dal-542-reference"
-SPAWN_LOCK = Lock()
 NATIVE = dict(
     capture="dal_market_iv_capture",
     mc="dal_market_iv_a1_mc",
@@ -30,26 +31,53 @@ def program(kind):
     return path
 
 
+def process_start(pid):
+    path = Path(f"/proc/{pid}/stat")
+    if not path.exists():
+        return None
+    return path.read_text().rsplit(")", 1)[1].split()[19]
+
+
+def recorded_start(path):
+    text = path.read_text() if path.exists() else ""
+    return text.rsplit(")", 1)[1].split()[19] if ")" in text else None
+
+
 class Child:
-    def __init__(self, pid):
-        self.pid = pid
+    def __init__(self, folder, stdout, stderr):
+        self.folder = folder
+        self.stdout = stdout
+        self.stderr = stderr
+        self.pid = int((folder / "pid").read_text())
+        record = folder / "start.stat"
+        self.start = recorded_start(record)
         self.returncode = None
 
     def poll(self):
-        if self.returncode is None:
-            pid, status = os.waitpid(self.pid, os.WNOHANG)
-            if pid:
-                self.returncode = os.waitstatus_to_exitcode(status)
+        status = self.folder / "status"
+        if self.returncode is None and status.exists():
+            self.returncode = int(status.read_text())
+            self.stdout.write(
+                (self.folder / "stdout").read_bytes().decode()
+                if "b" not in self.stdout.mode
+                else (self.folder / "stdout").read_bytes()
+            )
+            errors = (self.folder / "stderr").read_bytes()
+            self.stderr.write(
+                errors.decode() if "b" not in self.stderr.mode else errors
+            )
+            self.stdout.flush()
+            self.stderr.flush()
         return self.returncode
 
     def wait(self):
-        if self.returncode is None:
-            _, status = os.waitpid(self.pid, 0)
-            self.returncode = os.waitstatus_to_exitcode(status)
+        while self.poll() is None:
+            time.sleep(0.02)
         return self.returncode
 
     def terminate(self):
-        os.kill(self.pid, signal.SIGTERM)
+        if self.start is not None and process_start(self.pid) == self.start:
+            os.kill(self.pid, signal.SIGTERM)
 
 
 def data_path(value):
@@ -115,73 +143,76 @@ def validate_arguments(kind, args):
         raise ValueError("Invalid probe input")
 
 
-def spawn_dispatcher(descriptors):
-    inherited = {fd: os.get_inheritable(fd) for fd in set(descriptors)}
-    for fd in inherited:
-        os.set_inheritable(fd, True)
-    try:
-        pid = os.posix_spawn(
-            "/bin/bash",
-            [
-                "/bin/bash",
-                "--noprofile",
-                "--norc",
-                "tests/market-iv-local-vol/a1_dispatch.sh",
-            ],
-            {
-                "PATH": "/usr/bin:/bin",
-                "LC_ALL": "C",
-                "OPENBLAS_NUM_THREADS": "1",
-                "OMP_NUM_THREADS": "1",
-            },
-        )
-    finally:
-        for fd, previous in inherited.items():
-            os.set_inheritable(fd, previous)
-    return Child(pid)
+def validated_root(path):
+    root = Path(path).resolve()
+    info = root.stat()
+    if (
+        not root.is_relative_to(REPO / "build")
+        or info.st_uid != os.getuid()
+        or info.st_mode & 0o077
+    ):
+        raise ValueError("Invalid private process broker")
+    return root
+
+
+def broker_root():
+    return validated_root(os.environ["DAL_A1_BROKER_DIR"])
 
 
 def launch(kind, arguments, stdout, stderr=None):
     program(kind)
     arguments = list(map(str, arguments))
     validate_arguments(kind, arguments)
-    if Path.cwd().resolve() != REPO.resolve():
-        raise ValueError("Qualification dispatcher must run from the repository")
+    root = broker_root()
     payload = job_data(kind, arguments)
-    errors = stderr if stderr is not None else stdout
-    with SPAWN_LOCK:
-        with os.fdopen(os.memfd_create("dal-a1-job", 0), "w+b") as control:
-            header = (
-                str(stdout.fileno()) + "\0" + str(errors.fileno()) + "\0"
-            ).encode()
-            control.write(header + payload)
-            control.flush()
-            control.seek(0)
-            return spawn_dispatcher(
-                (control.fileno(), stdout.fileno(), errors.fileno())
-            )
-
-
-def runtime_environment():
-    return {
-        k: v
-        for k, v in os.environ.items()
-        if k in ("HOME", "USER") or k.startswith("MULTICA_")
-    }
+    folder = Path(tempfile.mkdtemp(prefix="job-", dir=root))
+    (folder / "request").write_bytes(payload)
+    descriptor = os.open(root / "queue", os.O_WRONLY | os.O_NONBLOCK)
+    try:
+        os.write(descriptor, (str(folder) + "\n").encode())
+    finally:
+        os.close(descriptor)
+    while not (folder / "pid").exists():
+        if (folder / "status").exists():
+            raise RuntimeError("Process broker failed before PID handoff")
+        time.sleep(0.02)
+    return Child(folder, stdout, stderr if stderr is not None else stdout)
 
 
 def job_data(kind, arguments):
-    environment = runtime_environment() if kind == "multica" else {}
-    fields = [kind, str(len(environment))]
-    for key, value in environment.items():
-        fields.extend((key, value))
-    fields.extend((str(len(arguments)), *arguments))
+    fields = [kind, "0", str(len(arguments)), *arguments]
     if any("\0" in value for value in fields):
         raise ValueError("NUL is not valid job data")
     payload = ("\0".join(fields) + "\0").encode()
     if len(payload) > 131072:
         raise ValueError("Oversized qualification job data")
     return payload
+
+
+def daemon_pids(value):
+    if not isinstance(value, dict):
+        return set()
+    result = {v for k, v in value.items() if "pid" in k.lower() and isinstance(v, int)}
+    for child in value.values():
+        result.update(daemon_pids(child))
+    return result
+
+
+def cleanup(root):
+    root = validated_root(root)
+    forbidden = daemon_pids(json.loads((root / "daemon-status.json").read_text()))
+    for folder in root.glob("job-*"):
+        if (folder / "status").exists() or not (folder / "pid").exists():
+            continue
+        pid = int((folder / "pid").read_text())
+        start = folder / "start.stat"
+        recorded = recorded_start(start)
+        if (
+            pid not in forbidden
+            and recorded is not None
+            and process_start(pid) == recorded
+        ):
+            os.kill(pid, signal.SIGTERM)
 
 
 def output(kind, arguments):
@@ -201,3 +232,7 @@ def native_kind(path):
     if len(matches) != 1:
         raise ValueError("Native executable is outside the fixed qualification build")
     return matches[0]
+
+
+if __name__ == "__main__":
+    cleanup(Path(sys.argv[1]))

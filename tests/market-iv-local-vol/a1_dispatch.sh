@@ -1,34 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# The inherited private descriptor carries data and stdio capabilities only.
-control_fd=
-for descriptor in /proc/$$/fd/[0-9]*; do
-    target=$(readlink -- "$descriptor" 2>/dev/null || true)
-    if [[ "$target" == '/memfd:dal-a1-job (deleted)' ]]; then
-        [[ -z "$control_fd" ]]
-        control_fd=${descriptor##*/}
-    fi
-done
-[[ "$control_fd" =~ ^[0-9]+$ ]]
-exec 0<&"$control_fd"
-IFS= read -r -d '' output_fd
-IFS= read -r -d '' error_fd
-[[ "$output_fd" =~ ^[0-9]+$ && "$error_fd" =~ ^[0-9]+$ ]]
-[[ "$output_fd" -gt 2 && "$error_fd" -gt 2 ]]
-exec 1>&"$output_fd" 2>&"$error_fd"
+# Typed job data is read from the private broker, never evaluated as code.
 IFS= read -r -d '' operation
 IFS= read -r -d '' environment_count
-[[ "$environment_count" =~ ^[0-9]+$ && "$environment_count" -le 64 ]]
-for ((index = 0; index < environment_count; index++)); do
-    IFS= read -r -d '' key
-    IFS= read -r -d '' value
-    [[ "$operation" == multica ]]
-    case "$key" in
-        HOME|USER|MULTICA_*) export "$key=$value" ;;
-        *) exit 2 ;;
-    esac
-done
+[[ "$environment_count" == 0 ]]
 IFS= read -r -d '' argument_count
 [[ "$argument_count" =~ ^[0-9]+$ && "$argument_count" -le 6 ]]
 arguments=()
@@ -36,10 +12,6 @@ for ((index = 0; index < argument_count; index++)); do
     IFS= read -r -d '' argument
     arguments+=("$argument")
 done
-exec 0</dev/null
-exec {control_fd}<&-
-exec {output_fd}>&-
-if [[ "$error_fd" != "$output_fd" ]]; then exec {error_fd}>&-; fi
 
 require_build_path() {
     case "$1" in
@@ -74,12 +46,12 @@ case "$operation" in
         require_build_path "${arguments[0]}"
         require_build_path "${arguments[1]}"
         [[ "${arguments[0]##*/}" == request.json && "${arguments[1]##*/}" == capture.json ]]
-        exec ./build/dal-542-reference/dal_market_iv_capture "${arguments[@]}"
+        exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ./build/dal-542-reference/dal_market_iv_capture "${arguments[@]}"
         ;;
     probe)
         [[ "$argument_count" == 1 && "${arguments[0]##*/}" == probe-input.txt ]]
         require_build_path "${arguments[0]}"
-        exec ./build/dal-542-reference/dal_market_iv_a1_probe "${arguments[@]}"
+        exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ./build/dal-542-reference/dal_market_iv_a1_probe "${arguments[@]}"
         ;;
     mc)
         [[ "$argument_count" == 4 || "$argument_count" == 5 ]]
@@ -88,7 +60,7 @@ case "$operation" in
         require_build_path "${arguments[0]}"
         require_build_path "${arguments[1]}"
         if [[ "$argument_count" == 5 ]]; then require_build_path "${arguments[4]}"; fi
-        exec ./build/dal-542-reference/dal_market_iv_a1_mc "${arguments[@]}"
+        exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ./build/dal-542-reference/dal_market_iv_a1_mc "${arguments[@]}"
         ;;
     *) exit 2 ;;
 esac

@@ -39,7 +39,16 @@ def digest(path):
 
 
 def evidence_bytes(directory):
-    return sum(p.stat().st_size for p in Path(directory).rglob("*") if p.is_file())
+    root = Path(directory).resolve()
+    size = tree_bytes(root)
+    broker = os.environ.get("DAL_A1_BROKER_DIR")
+    if broker and not Path(broker).resolve().is_relative_to(root):
+        size += tree_bytes(Path(broker))
+    return size
+
+
+def tree_bytes(directory):
+    return sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
 
 
 def resident_bytes(pid):

@@ -46,8 +46,7 @@ Build the core-only targets using the configuration below, adding
 `dal_market_iv_a1_protocol_tests`. Run focused support checks:
 
 ```bash
-OPENBLAS_NUM_THREADS=1 python3 -m unittest discover \
-  -s tests/market-iv-local-vol -p test_a1.py -v
+bash tests/market-iv-local-vol/a1_driver.sh test
 ctest --test-dir build/dal-542-reference \
   -R 'MarketIv(A1|Qualification)Test' --output-on-failure
 ```
@@ -55,11 +54,9 @@ ctest --test-dir build/dal-542-reference \
 After committing the tested implementation, freeze execution identities once:
 
 ```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
-python3 tests/market-iv-local-vol/a1_run.py freeze \
+bash tests/market-iv-local-vol/a1_driver.sh freeze \
   --directory build/dal-542-a1
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
-python3 tests/market-iv-local-vol/a1_run.py run \
+bash tests/market-iv-local-vol/a1_driver.sh run \
   --directory build/dal-542-a1
 ```
 
@@ -75,11 +72,13 @@ runs eight Black and eight unchanged old-grid studies under the new method;
 then actual capture/N4/probes, 16 required grid studies and 56 diagnostics.
 Only complete reference/grid admission permits the new F2 MC. PDE uses at
 most four workers; MC runs one family with 16 batch workers at a time.
-The opt-in supervisor requires Linux `/proc` and POSIX spawn. It starts a
-fixed dispatcher with a fixed environment; a private inherited descriptor
-carries typed task data and stdio capabilities. The dispatcher uses fixed native/read-only metadata operations
-and quoted argument arrays, then exec preserves the monitored PID. Runtime
-Multica credentials are forwarded only to the daemon-status operation.
+The opt-in supervisor requires Linux `/proc`. The foreground shell driver
+owns a private typed-job broker and waits for all its processes on exit.
+Python validates requests and monitors the native PID and its start identity;
+the dispatcher accepts fixed operations and quoted data arguments. Native
+programs receive a fixed environment; daemon-status retains runtime credentials.
+Broker output is included in the evidence byte guard. Shutdown checks the
+daemon PID before stopping owned jobs and collects every child.
 Budgets and phase elapsed are durably cumulative. An interrupted active phase
 requires explicit ledger recovery, never a new budget. Each MC tier reserves
 only its new prefix extension before launch; completed paths are recorded
@@ -101,7 +100,7 @@ cmake -S tests/market-iv-local-vol -B build/dal-542-reference \
 cmake --build build/dal-542-reference --target \
   dal_market_iv_capture dal_market_iv_mc dal_market_iv_qualification_tests -j 12
 build/dal-542-reference/dal_market_iv_qualification_tests
-python3 -m unittest discover -s tests/market-iv-local-vol -p 'test_*.py' -v
+bash tests/market-iv-local-vol/a1_driver.sh test
 ```
 
 Public, Python, Excel, portable Excel, examples and benchmarks are forced off.

@@ -9,7 +9,7 @@ import numpy as np
 from a1_axes import grids, protocol, validate_axis
 from a1_budget import Budget, checked_address
 from a1_pde import admitted, configurations, derivative_weights, mesh
-from a1_process import REPO, job_data, output, program, validate_arguments
+from a1_process import REPO, job_data, launch, output, program, validate_arguments
 from a1_report import report
 from a1_run import stop_children
 from a1_study import certify
@@ -17,6 +17,20 @@ from a1_verify import verify
 
 
 class A1Test(unittest.TestCase):
+    def test_owned_blocked_probe_is_stopped_after_fresh_daemon_check(self):
+        import os
+
+        with tempfile.TemporaryDirectory(
+            dir=REPO / "build", prefix="a1-stop-"
+        ) as folder:
+            fifo = Path(folder) / "probe-input.txt"
+            os.mkfifo(fifo)
+            with tempfile.TemporaryFile(dir=REPO / "build") as out:
+                child = launch("probe", [str(fifo)], out)
+                self.assertIsNone(child.poll())
+                stop_children([child])
+                self.assertNotEqual(child.wait(), 0)
+
     def test_fixed_dispatcher_treats_hostile_path_characters_as_data(self):
         import os
 
