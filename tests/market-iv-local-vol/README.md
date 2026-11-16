@@ -19,6 +19,17 @@ and all original fixtures remain historical evidence. The A/1 current view
 contains 160 reused F1 rows plus 320 newly registered F2 rows. Until actual
 admission succeeds, absent estimates remain NOT_RUN.
 
+The sealed A/1 execution stopped at its first unavailable old-grid reference:
+all eight Black studies passed, but F2_linear at T=91/365 still had spatial
+difference/S0=1.146344457336923e-4 after the unique fallback (limit 2.5e-5).
+Its time, matched-domain, mass and forward checks passed. The run completed
+58 PDE solves in 20.264351 seconds of cumulative stage elapsed, with zero new
+MC paths. The remaining seven old-grid studies, new capture/N4, 16 required
+P7/P8 studies, 56 diagnostics and two MC families were not run. The checkpoint
+is in `a1/checkpoint.json`; `a1/qualification.jsonl` has 160 reused PASS rows
+and 320 NOT_RUN rows. Original 184/76/60 historical counts remain unchanged.
+These results do not qualify S3 or authorize a different mesh/refinement.
+
 `a1/request.json` contains the canonical 90-digit-to-binary64 P0–P8 axes,
 the two families, all four nested timelines and fixed coordinate reservations.
 `a1_axes.request` regenerates it from the unchanged original generated request;
