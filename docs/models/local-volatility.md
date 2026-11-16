@@ -125,8 +125,36 @@ the existing local-vol evolution with zero scalar dividend. Its timeline knots
 include both carry terms and surface times. Domestic discounting uses the same
 `H` with `HybridLogDfRateData_` and `LOG_LINEAR`.
 
-Access is limited to internal source/component preparation. The existing
-ModelData factories and language entry points retain their current contracts.
+## Owning market model in core C++
+
+`BuildMarketIvLocalVolModelData(name, grid, settings)` in
+`dal/model/marketivlocalvol.hpp` returns a dedicated owning `ModelData_` from
+one successful market Dupire result. Set `index_`, `currency_`, `factor_` and
+`horizon_` explicitly; `maxStep_` defaults to 1/52 year and supports subday
+steps. Convert the derived handle explicitly to `Handle_<ModelData_>` when
+calling the existing core `Script::MCSimulation<double>` entry. Pass a valuation
+date matching the snapshot. This core entry supports passive compiled or tree
+valuation, domestic DF observations and delayed payments.
+
+The wrapper keeps sample definitions alive, shares immutable source data and
+prepares private delegate state when cloned. It merges carry, surface, product
+and discount-maturity anchors and simulates only to the request's required
+time. Requests beyond `horizon_`, AAD, weighted/Jacobian replay and EXERCISE
+fail before sampling. The new model rejects archives. Its settings, summary,
+carry terms, warnings and identities are detached getters.
+
+`Script::InspectMarketIvLocalVolExecution` in `dal/script/marketivlocalvol.hpp`
+runs the same preparation without RNG or paths and returns a separate owning
+report. Workspace admission uses checked conservative capacity envelopes, then
+tracks retained and peak preparation allocations and worker normal/path buffers.
+The workspace ledger includes vector metadata, mappings, prepared columns,
+carry, numeraires and discounts; strings, payoff evaluators and RNG internals
+are excluded. It is not an RSS limit. Preparation query counts describe the
+fixed curve evaluations; path generation makes no market-curve queries.
+
+These core checks establish construction and execution contracts. Independent
+smile/grid/MC accuracy qualification is separate. Facade, Python and Excel
+market-model factories are not provided by this core entry.
 
 ## Design references
 

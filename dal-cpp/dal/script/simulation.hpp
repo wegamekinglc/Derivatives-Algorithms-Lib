@@ -920,10 +920,22 @@ namespace Dal::Script {
         ValidateRNG(rsg);
         const bool useCompiled = compiled.value_or(DEFAULT_COMPILED);
 
+        if (auto* market = dynamic_cast<AAD::MarketIvLocalVolModel_*>(mdl)) {
+            if constexpr (!std::is_same_v<O_, Detail::ScalarSimulationObjective_>)
+                throw MarketIvLocalVolError_("DerivativeUnavailable", "Prepare", "/risk/model", "passive Price", "weighted objective");
+            if (Detail::RequiresLsmc(product))
+                throw MarketIvLocalVolError_("UnsupportedMarketIvLocalVolExercise", "Prepare", "/product/exercise/0", "product without EXERCISE",
+                                             "EXERCISE");
+            market->ValidateRequest(false, false, market->EvaluationDate(), rsg, ThreadPool_::GetInstance()->NumThreads());
+            market->ValidatePaths(nPaths, rsg);
+        }
+
         if (product.EventDates().empty())
             return objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         Detail::InitializeDoubleSimulation(product, mdl, useCompiled, initialized);
+        if (auto* market = dynamic_cast<AAD::MarketIvLocalVolModel_*>(mdl))
+            market->PrepareWorkers(ThreadPool_::GetInstance()->NumThreads());
         if (Detail::RequiresLsmc(product)) {
             prepare.Finish();
             return Detail::RunDoubleLsmc<P_, O_>(product, mdl, nPaths, rsg, useBb);
@@ -1058,21 +1070,18 @@ namespace Dal::Script {
         bool AdmitPassiveConstants(const P_& product, const AAD::Model_<double>* model, const String_& rsg, bool useBb) {
             if (!RequestedPassiveConstants(product))
                 return false;
-            REQUIRE2((std::is_same_v<O_, ScalarSimulationObjective_>),
-                     "UnsupportedPassiveConstants: requires the ordinary scalar objective", ScriptError_);
-            REQUIRE2(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1,
-                     "UnsupportedPassiveConstants: requires scalar adjoints", ScriptError_);
-            REQUIRE2(rsg == "sobol" && !useBb,
-                     "UnsupportedPassiveConstants: requires default Sobol without a Brownian bridge", ScriptError_);
+            REQUIRE2((std::is_same_v<O_, ScalarSimulationObjective_>), "UnsupportedPassiveConstants: requires the ordinary scalar objective",
+                     ScriptError_);
+            REQUIRE2(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1, "UnsupportedPassiveConstants: requires scalar adjoints", ScriptError_);
+            REQUIRE2(rsg == "sobol" && !useBb, "UnsupportedPassiveConstants: requires default Sobol without a Brownian bridge", ScriptError_);
             ValidatePassiveConstantModel(model, RequiresLsmc(product));
             return true;
         }
 
-        template <class P_>
-        void ConfigurePassiveConstants(const P_& product, const AADBatchSettings_& settings, AAD::RecordingScope_* recording) {
+        template <class P_> void ConfigurePassiveConstants(const P_& product, const AADBatchSettings_& settings, AAD::RecordingScope_* recording) {
             const bool passiveConstants = RequestedPassiveConstants(product);
-            REQUIRE2(passiveConstants == settings.passiveConstants_,
-                     "UnsupportedPassiveConstants: requires scalar ordinary MC entry point", ScriptError_);
+            REQUIRE2(passiveConstants == settings.passiveConstants_, "UnsupportedPassiveConstants: requires scalar ordinary MC entry point",
+                     ScriptError_);
             if (passiveConstants) {
                 REQUIRE2(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1,
                          "UnsupportedPassiveConstants: vector adjoints are not admitted for GSR MC", ScriptError_);
@@ -1253,6 +1262,7 @@ namespace Dal::Script {
                                                       int maxNestedIfs,
                                                       double eps,
                                                       const O_& objective = {}) {
+        RequireMarketIvLocalVolPassive(*modelData, "/simulation/enable_aad");
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
@@ -1378,6 +1388,8 @@ namespace Dal::Script {
                              std::optional<bool> compiled = DEFAULT_COMPILED,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
+        if constexpr (!std::is_same_v<T_, double>)
+            RequireMarketIvLocalVolPassive(*modelData, "/simulation/enable_aad");
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         prepared.RequireExecutable();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
@@ -1410,8 +1422,12 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(execution.rsg_);
         execution.enableAad_ = !std::is_same_v<T_, double> || execution.enableAad_;
+        if (execution.enableAad_)
+            RequireMarketIvLocalVolPassive(*modelCopy, "/simulation/enable_aad");
         REQUIRE2((!std::is_same_v<T_, double> || !execution.enableAad_), "UnsupportedExecutionMode: double simulation requested AAD", ScriptError_);
         auto model = CreateModel<double>(modelCopy);
+        if (auto* market = dynamic_cast<AAD::MarketIvLocalVolModel_*>(model.get()))
+            market->ValidatePaths(nPaths, execution.rsg_);
         const auto prepared = PrepareScript(data, model.get(), valuation, execution, {}, contract);
         prepare.Finish();
         if constexpr (!std::is_same_v<T_, double>)

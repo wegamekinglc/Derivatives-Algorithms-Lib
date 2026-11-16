@@ -9,8 +9,26 @@
 #include <dal/model/gsr.hpp>
 #include <dal/model/gsrslv.hpp>
 #include <dal/model/hybrid.hpp>
+#include <dal/model/marketivlocalvolmodel.hpp>
 
 namespace Dal {
+    namespace ModelFactoryDetail {
+        template <class T_> std::unique_ptr<AAD::Model_<T_>> Hybrid(const HybridModelData_& data) {
+            REQUIRE(data.correlation_, "InvalidHybridCorrelation: provider is required");
+            Vector_<std::unique_ptr<AAD::HybridComponent_<T_>>> components;
+            for (const auto& component : data.components_) {
+                REQUIRE(component, "InvalidHybridComponent: null component");
+                components.push_back(AAD::CreateHybridComponent<T_>(*component));
+            }
+            return std::make_unique<AAD::HybridModel_<T_>>(data.domesticCurrency_, std::move(components), *data.correlation_);
+        }
+        template <class T_> std::unique_ptr<AAD::Model_<T_>> MarketIvLocalVol(const MarketIvLocalVolModelData_& data) {
+            if constexpr (std::is_same_v<T_, double>)
+                return std::make_unique<AAD::MarketIvLocalVolModel_>(data);
+            RequireMarketIvLocalVolPassive(data, "/simulation/enable_aad");
+            THROW("DerivativeUnavailable: unsupported market local-vol scalar");
+        }
+    } // namespace ModelFactoryDetail
 
     template <class D_> Vector_<D_> CastVector(const Vector_<>& src) {
         Vector_<D_> dst;
@@ -21,6 +39,8 @@ namespace Dal {
     }
 
     template <class T_> std::unique_ptr<AAD::Model_<T_>> CreateModel(const Handle_<ModelData_>& model_data) {
+        if (const auto* market = dynamic_cast<const MarketIvLocalVolModelData_*>(model_data.get()))
+            return ModelFactoryDetail::MarketIvLocalVol<T_>(*market);
         auto modelBSImp = dynamic_cast<const BSModelData_*>(model_data.get());
         if (modelBSImp)
             return std::make_unique<AAD::BlackScholes_<T_>>(T_(modelBSImp->spot_), T_(modelBSImp->vol_), T_(modelBSImp->rate_), T_(modelBSImp->div_));
@@ -32,15 +52,8 @@ namespace Dal {
                 CastVector<T_>(modelCorrelatedImp->divs_), T_(modelCorrelatedImp->rate_), modelCorrelatedImp->correlations_);
 
         auto modelHybridImp = dynamic_cast<const HybridModelData_*>(model_data.get());
-        if (modelHybridImp) {
-            REQUIRE(modelHybridImp->correlation_, "InvalidHybridCorrelation: provider is required");
-            Vector_<std::unique_ptr<AAD::HybridComponent_<T_>>> components;
-            for (const auto& data : modelHybridImp->components_) {
-                REQUIRE(data, "InvalidHybridComponent: null component");
-                components.push_back(AAD::CreateHybridComponent<T_>(*data));
-            }
-            return std::make_unique<AAD::HybridModel_<T_>>(modelHybridImp->domesticCurrency_, std::move(components), *modelHybridImp->correlation_);
-        }
+        if (modelHybridImp)
+            return ModelFactoryDetail::Hybrid<T_>(*modelHybridImp);
 
         if (const auto* gsr = dynamic_cast<const GSRModelData_*>(model_data.get()))
             return std::make_unique<AAD::GSR_<T_>>(*gsr);

@@ -14,7 +14,10 @@ namespace Dal::MarketIvLocalVolDetail {
         size_t spotRows_, gridValues_, gridAxes_, preparedSteps_ = 0;
 
     public:
-        TermCarryEquity_(const MarketIvMarket_& market, const LocalVolSurfaceData_& surface, const MarketIvLocalVolModelSettings_& settings);
+        TermCarryEquity_(const MarketIvMarket_& market,
+                         const LocalVolSurfaceData_& surface,
+                         const MarketIvLocalVolModelSettings_& settings,
+                         const Vector_<>& extraKnots = {});
         [[nodiscard]] const String_& Name() const override { return delegate_.Name(); }
         [[nodiscard]] const String_& Currency() const override { return delegate_.Currency(); }
         [[nodiscard]] size_t StateDim() const override { return delegate_.StateDim(); }
