@@ -157,8 +157,9 @@ The new `observation_schedule` evaluation-table selector appends `source`,
 `accrual`, `rate_start`, `rate_end`, `rate_accrual`, `weight_start`, `weight_end`,
 `compounding_accrual`, `fixing_index`, `fixing_time`, `historical_required`,
 `included`, `settled`, `reused_from_row` and `observation_schedule_identity`.
-Row, coupon-row, reuse and source coordinates are zero-based. `/1` uses audit
-mode `Legacy` and its original `observations/<row>` source key; `/2` uses
+`row`, `coupon_row`, `reused_from_row` and `statement` are zero-based;
+`source_row` is the one-based row number in the generated source. `/1` uses
+audit mode `Legacy` and its original `observations/<row>` source key; `/2` uses
 `observation_schedule/<row>`. Existing `observations` columns remain unchanged.
 
 Python exposes copied read-only resolved rows through `observation_schedule`
