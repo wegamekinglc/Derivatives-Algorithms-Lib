@@ -7,9 +7,11 @@ under `dal-cpp/benchmarks` and build without the facade.
 The audit workload uses D=30/365/1825, all four `/2` modes, one native
 coordinate, a January holiday and an explicit working Saturday. It measures
 22-column prepared and 26-column evaluated table conversion from already
-prepared/evaluated owning inputs. A separate end-to-end owning evaluation
-includes source preparation, pricing, details and report construction; it is
-not a measurement of the prepared compounding kernel. Both table projections
+prepared/evaluated owning inputs. A separate owning evaluation starts with
+frozen tables and an existing instrument. It includes native plan preparation
+and validation, pricing, details and report construction; initial schedule
+expansion and script source construction are outside its timer. It is not a
+measurement of the prepared compounding kernel. Both table projections
 include allocation and destruction. They retain identical 22-column prefixes
 and the documented zero-based row/statement and one-based source row.
 
