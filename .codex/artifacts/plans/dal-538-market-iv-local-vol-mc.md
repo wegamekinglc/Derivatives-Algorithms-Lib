@@ -156,13 +156,17 @@ D1–D6 已由 S0 API 决策逐项冻结；上表保留推荐方案及兼容理�
 - 参考 B：沿用现有 Python 测试可用的 mpmath，高精度（至少 80 位）重新构造实际 fitted SSVI/theta，独立求导 local variance 和 carry；保存 fixture、脚本/依赖版本、结果校验和。普通 C++ 快速测试读取固定参考数值；生成脚本与产品实现代码不共享导数实现。
 - 参考 C：测试专用独立 log-spot backward PDE/forward density solver，分别用连续解析 local vol 和离散 grid 插值作系数，验证 vanilla 与 MC。放在测试支持/数值鉴证目录，不给现有生产 BS PDE 增加 local-vol 准入。参考 solver 不调用生产 Hybrid/LocalVolSurface/MC kernel；独立验证 Black 极限、概率/鞅和加密收敛后才作为 oracle。
 
-建议参考 PDE 初始 domain `log(S/S0)∈[-3,3]`，空间 `{801,1601,3201}`、时间 `{512,1024,2048}`，carry knots 强制命中，使用独立边界公式及 payoff 初始阻尼；最后再将 domain 扩为 `[-4,4]`。若自检未达门槛，只能按预定规则增加一个加密级并记录成本，不能带未自证的 reference 宣告 PASS。
+S3唯一现行增量为 [DAL-542 方案 A/3](../specs/dal-542-n5-resolution-a.md)（批准 `01a1e58d-1d44-78ac-9b5e-089ac7de74f0`，范围确认 `01a1e590-7664-777a-82c6-7fe8329b5776`）。获准附件 `01a1e58a-e622-7842-828a-61f3a2d48278` SHA-256为 `6c8b2c4a2db8244fb01dcaa3ac48043b72706260200ae288148b2530a1d4fbb2`；A/1、A/2来源/hash及失败保留为历史，A/2主控制hash `84a6de0aa9c0773e74022a5d21ab865291c15fed37fe913f5b53f496d75e485a`。仅R11唯一段、R12/R14固定标量槽和真实FAIL/16条未执行预留的显式恢复修订。原连续reference证据、非均匀中央 `{601,1201,2401,4801}`、matched扩域 `{801,1601,3201,6401}`、两侧各100初始区间同步二分、CN midpoint/两半IE、三点式及6+4层级均继承；上限仍6401节点/4096 requested，actual保守≤4342，两半IE另多一次线性求解。R7–R9及全部门槛不变，R10诊断地位和必需门禁保留。用户追加 `01a1e58d-bf5d-7616-84e8-eb2f47673218` 作为后续协调依据：计划内纠偏/控制/实施/review/修复/合并自主推进，不再逐次请求同类批准。
+
+A/3承继R10必需顺序：支持测试/身份及累计账接续 → 8 Black完整自证 → 8旧输入必做非阻塞诊断 → P0–P8 capture及P7/P8 N4/探针 → 16必需reference/grid → 56次诊断 → 完整默认流/逐路径价格及精确Brownian核对 → 正式MC/paired/SE。只有旧输入数值未自证不阻断，仍保留REFERENCE_UNAVAILABLE，不能当oracle或认证归因；身份/输入/实现/资源异常及所有必需门禁失败仍停止。A/2已完成10个P3扩域重验、48中央层、8Black、8旧REFERENCE_UNAVAILABLE、16新reference/grid、56单层诊断INCOMPLETE、393782个N4节点及1984探针；reference/grid/carry/payoff/mesh/kernel及相关依赖未变时按字段级输入/依赖映射复用，不能因MC protocol改变request总hash就重跑这些数值，或把旧层重标新request执行。保留旧层/hash及supersedes；F1/原24连续研究/57生产回归仅保持原适用性。完整F2 alignment、正式MC/paired/SE仍缺失。
 
 ### 抽样规则
 
 正式统计门禁使用 MRG32、Precise normal、无 payoff smoothing 的 passive vanilla；16 个预先固定的互不重叠子流批次。冻结 seed/stream ID 和正常标量坐标预留，避免步数变化导致伪 common paths；不把 deterministic Sobol 路径当 IID。每批路径按 `{2^16,2^17,2^18,2^19,2^20}` 的预定阶梯仅因 SE 不足升级，16 批最多 16,777,216 路径/fixture；S0 的 Black 方差预估表明旧 419 万上限对最长 forward-mean 的 SE 门槛不足，因此只扩充预定样本上限，精度门槛不变。测试侧标量 stream/坐标预留与限制详见 API 决策；到上限仍不够记 INCOMPLETE，不据价格是否接近 oracle 决定增样或换 seed。
 
 SE 使用独立批均值估计并报告自由度；4.5×SE 为本计划的固定统计带，不另宣称无条件覆盖概率。细化比较由测试侧同一细 Brownian 增量聚合到粗网格，计算配对差 SE；不能直接复用不同 SimDim 下同 ordinal 的 RNG 作为 common paths。Sobol 可作为辅助收敛/重复性证据，不替代统计门禁。
+
+A/3 F2固定两族linear/nonlinear，每族P7/P8×四档h共8模型；438 anchors/437段全部端点保留。唯一从0计数段60必须同时匹配 `0x1.0006f5248e2e8p-4 → 0x1.2006f5248e2e8p-4`、精确长1/128，粗n=3→4；其他436段保持ceil(384*Δt)。四层仍n/2n/4n/8n，例外段步长1/512、1/1024、1/2048、1/4096；维数1092/2184/4368/8736，checked上界10408、h/生产严格maxStep不变。seed1024/Precise/16块/no bridge不变，Dmax8736、j=0..8735，地址 `(((f*16+b)*2^20+p)*8736+j)`，全部乘加checked uint64。每族146565758976槽、两族fine-draw硬上限293131517952、最后地址293131517951；增加268435456约0.09166%，八模型32730→32760步、+30/字段，prepared columns增96240 bytes/batch、16批1539840 bytes，仅静态结构计数，不是峰值/时耗保证。候选仍须实际核验全部间距/端点、严格2x嵌套/权重、八模型Allocate/Init及完整R13，不能接受旧输入1093/2184/4372/8736或删非嵌套断言，旧Dmax1584/8728 raw不可复用。任一预登记价格及相邻配对SE不足才升级整族，最后1/1536与1/3072配对和1/3072总价独立过门禁，不按价格选粗档；F1原适用性不变。
 
 | 编号                         | 可执行验收及 oracle                                                                       | 拟议门槛/观察                                                                                           |
 |----------------------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
@@ -174,7 +178,11 @@ SE 使用独立批均值估计并报告自由度；4.5×SE 为本计划的固定
 | N6 owning 和来源              | destroy-input、改 detached getter、重复构建/clone/多线程；refit/改carry/改grid的身份；假来源/裸archive拒绝 | 原模型和价格不变；同 build/config/draws 线程1/4结果遵守现有普通MC的确定性 reduction；非法pair或不支持的输入不能生成可用模型                 |
 | N7 预算/异常/能力                | 恰好预算/少1字节、0限额、步数上界、overflow、极端F/D、grid失败节点、horizon越界、AAD/EXERCISE、未知币种资产            | 稳定字段化错误在大分配/抽样/tape前出现，无部分成功模型、无NaN成功、无隐式fallback                                                 |
 
-N5 grid 使用正首列时间 `τ=1/36500` 年，再到 horizon 的规则轴并入必要 knots，spot log 网格初设 `[0.2S0,4S0]`。按 `(81×约49,161×约97,321×约193)` 三档，分别加密空间、时间列和 `τ,τ/2,τ/4`；每次先验证实际并集总点数≤100000。spot 另扩域至 `[0.1S0,6S0]` 作边界敏感性检查。h 阶梯 `1/48,1/96,1/192` 年；先隔离 grid，再隔离 stepping，不同时改变所有配置掩盖误差。覆盖 T=91/365、1、2，以及 horizon 允许的 2.25 年尾段；尾段使用另列结果，不由拟合区结果替代。
+N5 F2 grid采用A/3承继的R4–R6 P0–P8确定性组合logspot轴与“规则+首段几何+carry”时间列，90位求值后一次舍入binary64、仅相同值去重。P0–P6仅诊断，最终固定P7/P8，均为扩spot域[.1S0,6S0]、首列τ/4=1/146000，末列分别2.25/2年；最大401×246=98646点，保持100000准入，不删列/临时加点。τ阶梯仍为1/36500、1/73000、1/146000，其几何列按固定函数一起变化。h固定 `{1/384,1/768,1/1536,1/3072}`；T=91/365、1、2、2.25全部保留，P8尾段单列且不豁免FAIL。P7/P8必需reference/N4/grid门禁全部通过后才启动MC，不按诊断价格改最终配置。
+
+A/3恢复须先封存A/2执行source `fa0740a86b934c7b8cb21fde480e4ffec58e87a7` / identity `1099c383560b6d252b0dd3a6f7d1ec27649e7bbe8637dee64c3cd9de067094f8`；发布 `9b0de583…` 仅README，不能当新执行。原失败/停止原因/截断JSON/manifest、180事件字节前缀/181迁移和完整2284事件/hash链保留；2284之后追加disposition/transition，绑定旧/新控制和实际source/binary/config/request/family/slots及逐证据适用性。旧tiny fine在首个Level构造、RNG创建/FillNormal前失败，保留paths=[16,0]、paths_completed=[0,0]及全部成本。对b=0..15，旧(f=0,b,p=0,Dmax8728)显式退役，一对一替换为新同(f=0,b,p=0,Dmax8736)；逐条记录old/new坐标身份、地址及未执行依据，不新增或清零已计预留，完成数保持0，仅新tiny真实完整成功才完成。两个coarse64-path自对照不构成完整alignment，旧部分数据不填新统计。原tester先隔离合成账RED/GREEN、实际R11协议准入和完整R13后才正式MC；禁止旧freeze重跑、manifest重绑、create=True/借新namespace清零/空预算，本轮不改账/程序。
+
+累计376次硬上限含全部历史用量/重验/诊断/必需/fallback；354条件路径/386未截断需求保留为A/2历史分析，不突破376。继承290/290、剩86；PDE221.18207862298004秒、other94.90929656999651秒、MC0 1.5628903489996446秒、MC1 0秒、总317.6542655419762秒、active_phase=null，全部已耗成本不回退。每次/每组先检查剩余容量，不足INCOMPLETE，不删验证或加额度。PDE6h、MC每族6h、总18h、RSS6GiB、证据1GiB、每族16×2^20/两族33554432路径不增，只有上述固定标量槽额度获准变更。旧320行184 PASS/76 FAIL/60 REFERENCE_UNAVAILABLE不变，当次480行160复用PASS/320新NOT_RUN、accepted=false，旧中央失败保留；16项reference/grid通过不代表MC通过。完整复用/恢复/停止映射见A/3 R10–R18；S3/父保持in_progress、PR保持draft，完整资格、reviewer、doc-writer判断及全部当前head CI/Codacy/合并门禁满足前不合并或启动S4。
 
 N3/N5 的完整长路径资格检查不放进每次快速 unit test；保留小规模确定性路径/异常测试供常规 CI，正式数值运行作为独立验收任务，记录每个 K/T/carry fixture 的 raw estimate、SE、参考值、误差分量、配置和 PASS/FAIL/INCOMPLETE。高精度源码、参考 solver 与数据表由 tester 独立审查；产品开发者不能只以新旧自身结果一致替代 oracle。
 

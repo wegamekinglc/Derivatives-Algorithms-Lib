@@ -1,0 +1,13 @@
+{
+  "schema": "dal.market-iv-independent-fixtures/1",
+  "decimal_digits": 90,
+  "baseline": "53a2b1592993f3a1d354df2d6ec2ae6918e5ef6d",
+  "capture_sha256": "052a50a2e9a642851b35f0d60ec970a532a362448c049c16dbd115e64aeffb42",
+  "report_sha256": "f3356a28e04b21bdf8680a3d1897a667878371258797c97bdadd2b5f3e78320d",
+  "files": {
+    "snapshots.json": "39f7c77e1a1c14d387fd0b157a974222b46bc5af63b0559e4866593dc470edc6",
+    "pde.jsonl": "597a3dfe042934d12cf95815751589e6ee28321ecbaf74240446ea589a113226"
+  },
+  "status": "MATHEMATICAL_REFERENCE_ONLY",
+  "note": "Historical execution and qualification snapshots are preserved in DAL-542 attachments; these two files identify the independent continuous reference."
+}

@@ -16,6 +16,12 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-17
+
+- **Market-IV short-time Dupire** — retain representable local variance and
+  volatility when Black prices or density underflow. Prices and absolute
+  derivatives retain separate availability and range diagnostics.
+
 ## 2026-11-16
 
 - Add owning core C++ market-grid local-volatility Monte Carlo with same-source
