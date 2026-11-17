@@ -744,6 +744,8 @@ tables. `GET.CARRY` returns
 a fractional-day horizon's date is blank. These are detached tables with
 checked spill dimensions and exact integer outputs. Typed settings also expose
 `MARKETIVLOCALVOLMODELSETTINGS.GET.CONFIGURATION`.
+The execution report's `/2` request identity includes the complete fixing
+snapshot. See [identity encoding and serial-fraction comparison](../models/local-volatility.md#request-identity-and-execution-reports).
 
 The model/settings cannot be archived. AAD/risk and EXERCISE are unavailable.
 See the [model contract](../models/local-volatility.md#owning-market-model-in-core-c).

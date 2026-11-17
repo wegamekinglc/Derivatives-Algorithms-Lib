@@ -153,6 +153,18 @@ training or sampling. The new model rejects archives; a standalone grid archive
 cannot restore its source. Existing Hybrid native AAD and archives retain their
 own contracts.
 
+Direct `AAD::MarketIvLocalVolModel_` callers must pass `Init` the complete values
+frozen by the most recent successful `Allocate`: timeline, numeraire flags,
+ordered index names, discount maturities, Libor definitions and nested forward
+maturities. Independent copies are accepted. Order, duplicates and empty rows
+matter; numbers compare exactly with signed zeros equivalent, and strings use
+DAL's existing case-insensitive value comparison. A changed request requires
+another `Allocate`. A mismatch raises `InvalidMarketIvLocalVolRequest` at
+`Prepare`, identifying the first differing field. Failed `Init` preserves the
+entering state: an initialized model retains its original paths and execution
+report; a model that was only allocated still requires a successful `Init`.
+Retrying with the original values is supported.
+
 `Configuration()`, `Summary()`, `CarryTerms()`, `Warnings()` and
 `ConstructionExecution()` return detached records. Warnings retain fit
 underidentification and near ties, mark the first local-vol column's extension
@@ -183,6 +195,25 @@ The public facade in `dal-public/src/marketivlocalvol.hpp` exposes
 with the same settings and records. Convert the factory result explicitly to
 `Handle_<ModelData_>` for `ValueByMonteCarlo`. The model owns its source;
 passing a standalone surface or a second market is not supported.
+
+### Request identity and execution reports
+
+The execution report uses `dal.market-iv-local-vol-execution/1` with 23 fields.
+Its `request_identity` is a `sha256:<64 lower hex>` fingerprint in the
+`dal.market-iv-local-vol-request/2` domain, including requests without fixings.
+It includes the complete supplied fixing snapshot, even unused history. Each
+record is encoded as `[name, ISO date, binary64 day fraction, value]` in snapshot
+name/time order. Fractions use the existing JCS shortest round-trip number
+encoding, with signed zeros equivalent. This distinguishes subsecond and
+adjacent representable timestamps. Product/preparation, model identity,
+resolved simulation settings and worker count also enter the request identity.
+
+Source and model identities retain their own version domains. Compare request
+fingerprints only within the same schema and with identical native inputs.
+C++, Python and Excel expose the same core identity. Python's DateTime
+constructor accepts whole seconds; Excel serial conversion can round a day
+fraction before it reaches core. Exactly representable times such as noon allow
+direct cross-interface comparison. The report remains detached from the model.
 
 [Python](../python/README.md#market-grid-local-volatility-monte-carlo) and
 [Excel](../excel/README.md#market-grid-local-volatility-monte-carlo) expose

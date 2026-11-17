@@ -115,6 +115,8 @@ S1 的内部 canonical 编码将 size_t count/budget 字段保存为十进制字
 
 每次请求拥有其 prepared state；克隆可共享 source，不能共享 mutable columns/path/scratch。Clone 重绑参数指针和 delegate 所需的定义/时间线生命周期；不能继续借用已释放 defLine 指针。准备失败清理局部状态；原模型和并发请求仍可用。运行时 path 的不可表示 spot/numeraire/DF 必须报错，不能把 Inf/0 当成功；构建期不能保证正态随机变量的所有极端样本永不越界。
 
+`Init` 按值匹配最近成功 `Allocate` 冻结的完整 timeline 与 definitions：逐项 `numeraire_`、有序 `indexNames_`、`discountMats_`、`liborDefs_` 的 `(start_,end_,curve_)`、`forwardMats_` 的外层/内层结构及每个 maturity。顺序、重复项和空行均有意义；double 精确数值相等（±0 等价、无 tolerance），String_ 沿用既有大小写规则，不重解析别名或排序去重。等内容独立副本和重复 Init 接受；改变请求应重新 Allocate，不能向当前仅允许空 libor/forward 的冻结请求添加内容。Init 检查通过后才设置 initialized，不重跑 Plan、parser 或 delegate Init。失败保留进入 Init 时的 initialized、delegate、SimDim 和 Execution：已有有效路径仍按原定义生成；只 Allocate 的对象仍不能 GeneratePath，随后正确 Init 可恢复。
+
 ## 5. 数学、日期、时间网格
 
 `t=(date-evaluationDate)/365.0`，含闰日，无营业日调整，无全局估值日捕获。wrapper.EvaluationDate() 返回 snapshot date；现有 script 日期解析/历史 fixing/today policy 继续工作。valuation 解析出的 date 必须相同，包含“未显式给 valuation”的调用：旧入口仍按原逻辑解析全局日期，然后新模型 guard 检查。推荐 happy path 显式 date。
@@ -166,6 +168,8 @@ local vol 是 σ 而不是 σ²，空间对 log(S)、时间对 t 线性；t=0/�
 
 新增 `MarketIvLocalVolError_` 派生 `ScriptError_`，保存只读 `code_,stage_,field_,expected_,actual_`（全部 String_）；stage token 为 Input/Build/Prepare/Evaluate/Archive。field 是零基 JSON-pointer 风格路径；actual 为简短安全值，不输出整份市场/handle。what() 的业务消息以 `code: field=...; expected=...; actual=...` 开始（保留既有 Exception 的位置栈）。不返回 NaN/空 handle 表示失败。
 
+Init 未 Allocate 或冻结值错配均为 `InvalidMarketIvLocalVolRequest` / `Prepare`。未分配时 field=`/product/definitions`、expected=`successful Allocate before Init`、actual=`unallocated`。长度错配定位对应集合；内容错配定位首个不同叶子，例如 `/product/timeline/0`、`/product/definitions/0/numeraire`、`…/index_names/0`、`…/discount_maturities/0`、`…/libor_definitions/0/start`、`…/forward_maturities/0/0`。expected 为 `same as Allocate (<短值或长度>)`，actual 为本次短值或长度；失败不撤销最近成功 Allocate。
+
 | code | field 示例/约束 |
 |---|---|
 | InvalidMarketIvLocalVolRequest | `/settings/horizon` 有限>0；`/settings/index` 一个 plain EQ；`/grid/nodes/12/local_vol` 有限非负；unknown/duplicate key 指原 key |
@@ -212,7 +216,8 @@ MarketIvLocalVolExecution_ InspectMarketIvLocalVolExecution(
 
 它调用与 Price 完全相同的 capability/date/horizon/预算/Allocate/Init preparation，释放局部准备区后返回 owning 报告；不运行路径/RNG、不改变全局线程或模型。费用包含 preparation；“inspection 成功”不代表后续所有随机路径成功。新 `MarketIvLocalVolExecution_` 的 v1 field/value 顺序为：
 `schema="dal.market-iv-local-vol-execution/1",source_identity,model_identity,request_identity,evaluation_date,requested_max_step,resolved_max_step,required_time,carry_knots,grid_time_knots,anchor_count,internal_steps,simulation_dimension,workers,shared_numeric_bytes,per_worker_numeric_bytes,planned_numeric_payload_bytes,numeric_payload_bytes,planned_workspace_bytes,peak_workspace_bytes,prepared_columns,prepared_market_queries,per_path_market_queries`。
-request_identity 域 `dal.market-iv-local-vol-request/1`，包含 model_identity、完整产品源/准备后的定义及时间、resolved valuation/today/fixing 内容、resolved simulation（含 normal/bridge/compiled）、worker 数、ledger/layout version；同一来源的并发产品不可串表。
+request_identity 域 `dal.market-iv-local-vol-request/2`（包括无 fixings 请求），包含 model_identity、完整产品源/准备后的定义及时间、resolved valuation/today/fixing 内容、resolved simulation（含 normal/bridge/compiled）、worker 数、ledger/layout version；同一来源的并发产品不可串表。fixings 按 snapshot 的 name/history map 顺序编码全部给定记录，每行为 `[name, Date::ToString(time.Date()), Number(time.Frac()), Number(value)]`，fraction 为原始 binary64 日内小数，沿用 JCS 最短可往返数值表示及 ±0→0；不得用显示字符串、ticks 或 date+fraction 合成 double。
+只有 request 哈希域升级：source/model 域、`sha256:<64 lower hex>` 外观、execution/1 的 23 字段/顺序/类型不变，不新增 getter/版本列。旧 /1 哈希及数值 manifest 保持原 producer，不重写或跨版本比较；哈希改变本身不证明价格/路径改变。三端完整原生请求（含 workers/settings）相同时身份相同；Python DateTime 当前只开放整秒构造，Excel serial 转换可能已舍入 fraction，不保证任意原始 C++ fraction 跨端相同。可精确表示的中午用于跨端 golden，亚秒/相邻 fraction 由 core 回归保护。
 resolved_max_step 是实际最大区间长度（无步为 0），不是随意回填默认；count knots 只计 (0,Treq] 内精确不同时间。prepared_columns=m（每个左端）；per_path_market_queries=0。
 
 Python `MarketIvLocalVolModelData_Get_Execution(product, model, *, valuation=None, simulation=None)`，None 沿用现有默认 settings。Excel `MarketIvLocalVolModelData_Get_Execution(product, model, valuation_optional, simulation_optional)`；worksheet 名为 `MARKETIVLOCALVOLMODELDATA.GET.EXECUTION`。返回字段与上述类型一致，不能原地向旧 `dal.script-simulation/1` JSON 加字段。

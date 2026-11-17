@@ -16,6 +16,18 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-18
+
+- Market-grid local-volatility core `Init` now checks the complete request frozen
+  by `Allocate` and reports structured preparation errors without changing valid
+  prepared state. Independent equal copies and correct retries are accepted.
+- Market-grid local-volatility request fingerprints use the `/2` domain with
+  exact fixing dates and binary64 day fractions, including unused history.
+  All request hashes change, including requests without fixings; `/1` hashes
+  and numerical manifests retain their original producers and cannot be compared
+  across versions. Source/model identities and the 23-field execution report
+  remain on their existing schemas. See the [identity contract](docs/models/local-volatility.md#request-identity-and-execution-reports).
+
 ## 2026-11-17
 
 - Add C++ facade, strict Python bindings and typed Excel factories for the
