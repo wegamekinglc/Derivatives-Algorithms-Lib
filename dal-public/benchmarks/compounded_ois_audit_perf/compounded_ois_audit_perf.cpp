@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <string>
 
 #include <dal-public/src/calibrationinstrument.hpp>
 #include <dal/benchmarks/bench.hpp>
@@ -113,11 +114,24 @@ namespace {
     }
 } // namespace
 
-int main(int argc, char**) {
+int main(int argc, char** argv) {
     try {
-        REQUIRE(argc == 1, "Audit benchmark takes no arguments");
+        REQUIRE(argc == 1 || argc == 5, "usage: compounded_ois_audit_perf [--mode None|Lockout --days 30|1825]");
+        std::string mode, days;
+        if (argc == 5) {
+            REQUIRE(std::string(argv[1]) == "--mode" && std::string(argv[3]) == "--days", "Expected --mode MODE --days DAYS");
+            mode = argv[2];
+            days = argv[4];
+            REQUIRE(mode == "None" || mode == "Lockout", "Selector mode must be None or Lockout");
+            REQUIRE(days == "30" || days == "1825", "Selector days must be 30 or 1825");
+        }
         Dal::RegisterAll_::Init();
         Dal::Bench::PrintHeader();
+        if (argc == 5) {
+            Run(days == "30" ? 30 : 1825, Dal::String_(mode));
+            std::cout << "OIS audit conversion verified: mode=" << mode << "; D=" << days << '\n';
+            return 0;
+        }
         for (const int count : {30, 365, 1825})
             for (const Dal::String_ mode : {"None", "Lookback", "ObservationShift", "Lockout"})
                 Run(count, mode);
