@@ -11,7 +11,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         Logging::Write("MarketIvLocalVolModelSettings_New");        
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
-        argName = "name"; Excel::ValidateRiskRequestText(xl_name, "InvalidMarketIvLocalVolRequest: /name"); Excel::ValidateMarketIvRange(xl_settings, "settings", true); const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get();
+        argName = "name"; Excel::ValidateRiskRequestText(xl_name, "InvalidMarketIvLocalVolRequest: /name"); Excel::ValidateMarketIvLocalVolSettingsInput(xl_settings); const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get();
         argName = "settings (input #2)";
         const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, false, true);
         argName = 0;

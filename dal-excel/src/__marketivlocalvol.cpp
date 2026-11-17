@@ -14,7 +14,7 @@ public MarketIvLocalVolModelSettings_New
 name is string
     name
 +argName = "name"; Excel::ValidateRiskRequestText(xl_name, "InvalidMarketIvLocalVolRequest: /name");
-+Excel::ValidateMarketIvRange(xl_settings, "settings", true);
++Excel::ValidateMarketIvLocalVolSettingsInput(xl_settings);
 +const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get();
 settings is cell[][]+
     settings
@@ -289,6 +289,16 @@ namespace Dal {
                                                        simulation ? simulation->val_ : MonteCarloSettings_{}));
     }
 #ifdef _WIN32
+    namespace Excel {
+        void ValidateMarketIvLocalVolSettingsInput(const OPER_* input) {
+            try {
+                ValidateMarketIvRange(input, "settings", true);
+            } catch (const Exception_& error) {
+                throw MarketIvLocalVolError_("InvalidMarketIvLocalVolRequest", "binding", "/settings", "typed two-column settings range",
+                                             error.what());
+            }
+        }
+    } // namespace Excel
 #include <dal-excel/auto/MG_MarketIvLocalVolModelData_Get_Capabilities_public.inc>
 #include <dal-excel/auto/MG_MarketIvLocalVolModelData_Get_Carry_public.inc>
 #include <dal-excel/auto/MG_MarketIvLocalVolModelData_Get_Configuration_public.inc>

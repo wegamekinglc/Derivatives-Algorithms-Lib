@@ -49,6 +49,6 @@ TEST(MarketIvLocalVolNativeExcelTest, TestGeneratedExportsAndStrictSettings) {
     const auto& error = result->val.array.lparray[0];
     ASSERT_EQ(error.xltype, xltypeStr);
     const std::wstring message(error.val.str + 1, error.val.str[0]);
-    ASSERT_NE(message.find(L"InvalidMarketIv"), std::wstring::npos);
+    ASSERT_NE(message.find(L"InvalidMarketIvLocalVolRequest"), std::wstring::npos);
 }
 #endif
