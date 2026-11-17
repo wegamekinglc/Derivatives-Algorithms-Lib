@@ -31,12 +31,17 @@ Yield-curve construction, interpolation, calibration and risk, including cross-c
 | [euribor3m_curve](curves/euribor3m_curve/)                             | `euribor3m_curve`               | Euribor 3M curve construction                                             |
 | [interpolate_curve](curves/interpolate_curve/)                         | `interpolate_curve`             | Compare log-discount interpolation schemes                                |
 | [joint_multi_curve_calibration](curves/joint_multi_curve_calibration/) | `joint_multi_curve_calibration` | Joint multi-curve calibration                                             |
+| [nanoql_multi_curve](curves/nanoql_multi_curve/)                       | `nanoql_multi_curve`            | €STR discounting and Euribor 6M forecasting                               |
 | [quote_risk](curves/quote_risk/)                                       | `quote_risk`                    | Single-curve quote risk and coordinate reporting                          |
 | [underdetermined](curves/underdetermined/)                             | `underdetermined`               | Yield-curve calibration with underdetermined search                       |
 | [xccy_curve_calibration](curves/xccy_curve_calibration/)               | `xccy_curve_calibration`        | Staged cross-currency basis calibration                                   |
 | [xccy_mtm_calibration](curves/xccy_mtm_calibration/)                   | `xccy_mtm_calibration`          | Joint domestic, foreign and resettable cross-currency calibration         |
 | [xccy_reset_pricing](curves/xccy_reset_pricing/)                       | `xccy_reset_pricing`            | Reset-aware cross-currency swap pricing                                   |
 | [yield_curve_jacobian](curves/yield_curve_jacobian/)                   | `yield_curve_jacobian`          | Compare analytic and finite-difference curve Jacobians                    |
+
+`nanoql_multi_curve` uses DAL's natural-cubic log-discount interpolation to
+reproduce the published spot and forward payer swap values under the 0.762% and
+0.900% five-year quotes. [NanoQL multi-curve example](https://nanoql.org/docs/rates/multi-curve.html)
 
 ## Models
 

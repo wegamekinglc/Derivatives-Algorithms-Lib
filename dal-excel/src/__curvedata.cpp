@@ -96,6 +96,21 @@ curve is handle StorableDiscountCurve
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
+public DiscountCurve_Get_Factor
+    Evaluate the discount factor between two dates
+&inputs
+curve is handle StorableDiscountCurve
+    Discount or projection curve
+fromDate is date
+    Start date
+toDate is date
+    End date
+&outputs
+factor is number
+    The discount factor from fromDate to toDate
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
 public CurveBlock_New_Simple
     Build a CurveBlock from a single discount curve
 &inputs
@@ -134,6 +149,11 @@ namespace Dal {
     }
 
     namespace {
+        void DiscountCurve_Get_Factor(const Handle_<StorableDiscountCurve_>& curve, const Date_& fromDate, const Date_& toDate, double* factor) {
+            REQUIRE(curve && curve->val_, "Invalid discount curve handle");
+            *factor = (*curve->val_)(fromDate, toDate);
+        }
+
         void DiscountPWLF_New(const String_& name,
                               const String_& ccy,
                               const Vector_<Date_>& knotDates,
@@ -175,6 +195,7 @@ namespace Dal {
 #ifdef _WIN32
 #include <dal-excel/auto/MG_CurveBlock_New_Simple_public.inc>
 #include <dal-excel/auto/MG_CurveBlock_New_public.inc>
+#include <dal-excel/auto/MG_DiscountCurve_Get_Factor_public.inc>
 #include <dal-excel/auto/MG_DiscountPWC_New_public.inc>
 #include <dal-excel/auto/MG_DiscountPWLF_New_public.inc>
 #include <dal-excel/auto/MG_DiscountZeroRate_New_public.inc>

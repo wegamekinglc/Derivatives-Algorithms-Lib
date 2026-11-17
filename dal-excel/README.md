@@ -91,6 +91,20 @@ snowball, Phoenix, memory-coupon, airbag, principal-protected, participation and
 two-asset worst-of examples. Each has editable payoff scripts and model inputs,
 plus worksheet formulas for double and smoothed AAD valuation.
 
+## EUR Multi-Curve Calibration Example
+
+[014.nanoql_multi_curve.xlsx](examples/014.nanoql_multi_curve.xlsx) calibrates
+€STR discount and Euribor 6M projection curves with the DAL Excel add-in.
+Load the add-in and recalculate the workbook. Edit either five-year quote on
+the Results sheet to reprice the spot and forward swaps with the same discount
+curve. The Cashflows sheet shows the discount factors and leg values used to
+compute NPVs, fair spreads, and fair fixed rates.
+
+`RATELEGCONVENTION.NEW` accepts an optional calendar, accrual convention, and
+payment convention. `DISCOUNTCURVE.GET.FACTOR` evaluates a discount factor
+between two dates. Regenerate the workbook with
+`python scripts/gen_nanoql_multi_curve_example.py` using DAL Python and openpyxl.
+
 ## Direct-Script Curve Calibration Examples
 
 [012.interpolate_curve_script.xlsx](examples/012.interpolate_curve_script.xlsx)
