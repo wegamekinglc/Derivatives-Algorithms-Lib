@@ -9,6 +9,51 @@ explicit tree-walk, and explicit compiled execution for vanilla and
 weekly barrier products in double and AAD modes. The RNG-policy profile also
 uses compiled evaluation when its optional evaluator argument is omitted.
 
+## Market-grid local volatility
+
+Build `script_mc_perf` in Release with `DAL_CPP_BUILD_BENCHMARKS=ON`; it uses
+only core. The focused entry accepts exactly `CASE MODE PATHS`:
+
+```bash
+DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol small prepare 65536
+DAL_NUM_THREADS=4 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol large prepare 65536
+DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol monthly-asian cold 65536
+DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol flat-pair steady 65536
+```
+
+Cases `small/medium/large` use 8/64/256 carry terms, 21×13/81×49/161×97 grids
+and base step targets 52/208/832. Actual dimensions include every distinct
+carry/grid/product knot and are printed. `monthly-asian` uses twelve ACT/365
+observations (`floor(365*i/12)` days), at small size. These use a fixed analytic
+SSVI smile and positive nonflat F/D. `flat-pair` uses a constant-IV flat market.
+Source/model fingerprints bind the full fit/grid inputs and model settings.
+
+`prepare` reports constructor and repeated inspection/preparation cost, initial
+preparation latency, capacity plans/actuals, workers, columns and market-query
+counts. PATHS does not affect these preparations. `cold` times owning model
+construction plus first valuation; `steady` reuses ModelData and times whole
+valuation, including preparation on every call. Fit/grid setup is separately
+reported. No prepared-handle cache is implied. Cases use compiled passive
+valuation, MRG32, default precision and no Brownian bridge.
+
+`flat-pair steady` measures two prepared path kernels including identical
+precise MRG32 draws (seed 1024), with one worker and no payoff evaluator. Both
+receive the explicit carry/grid anchor union, the same max step and vol grid;
+dimension and sixteen paired path values are checked before timing. Set
+`DAL_MARKET_IV_OLD_FIRST=1` on alternating process samples to reverse order.
+This path-only comparison is separate from whole valuation cost.
+
+Each timed case calibrates a batch to at least 10 ms (up to 16384 loops),
+then uses the existing `Bench::Run` warmup and ten measurements. Collect two
+rounds of at least ten interleaved process samples, retain raw output and use
+per-round best-of-N minima. The supplementary flat new/old path budget is 10%;
+it does not alter the official nine-target 4% gate. New nonflat cases report
+absolute cost. Busy/unstable measurements are inconclusive. Record immutable
+base/head, dependencies, flags, compiler/CPU/threads and executable hashes.
+
+CTest's `script_mc_market_iv_local_vol` is a small preparation smoke, labelled
+`benchmark`; it is separate from performance acceptance sampling.
+
 ## LSMC training-budget study
 
 The address overlay supports the historical native functions in

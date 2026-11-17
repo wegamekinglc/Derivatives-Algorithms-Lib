@@ -45,6 +45,11 @@ reproduce the published spot and forward payer swap values under the 0.762% and
 
 ## Models
 
+The [market F/D workflow](models/market_iv_local_vol/) builds as
+`dal_market_iv_local_vol_example`, links only core, and is registered with CTest
+and installed under `bin`. It prints fit residuals, identities, vanilla prices,
+forward/DF checks and preparation counters. It builds with public and bindings off.
+
 Complex model construction, calibration and pricing with GSR, SLV and hybrid composition.
 
 | Program                                            | Build target                | Shows                                                            |

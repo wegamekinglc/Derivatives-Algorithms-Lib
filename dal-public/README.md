@@ -89,6 +89,11 @@ See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-req
 
 ## Examples
 
+The [market F/D example](examples/market_iv_local_vol/) uses target, CTest and
+installed name `market_iv_local_vol_public`. It runs the public model factory,
+valuation and inspection on the same core fixture as the separate
+`dal_market_iv_local_vol_example` program.
+
 Facade examples live in `examples/`, link `DAL::public`, and are enabled by
 `DAL_PUBLIC_BUILD_EXAMPLES` when `DAL_BUILD_PUBLIC` is on. Each directory below
 contains a program whose build target, CTest name and installed executable name

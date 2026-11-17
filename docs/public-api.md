@@ -1,5 +1,10 @@
 # DAL C++ Public API Guide
 
+The [market F/D example](../dal-public/examples/market_iv_local_vol/) runs
+fit/grid → `NewMarketIvLocalVolModelData` → `ValueByMonteCarlo` with explicit
+valuation dates, fit residuals, identities and forward/DF checks. Its build,
+CTest and installed program name is `market_iv_local_vol_public`.
+
 DAL exposes related workflows through C++, Python, and Excel. This guide
 focuses on the C++ public facade and points to the dedicated [Python](python/README.md)
 and [Excel](excel/README.md) chapters. It is not an exhaustive reference for

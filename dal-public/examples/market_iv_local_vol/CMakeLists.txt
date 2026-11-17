@@ -1,0 +1,3 @@
+add_executable(market_iv_local_vol_public market_iv_local_vol.cpp)
+target_link_libraries(market_iv_local_vol_public PRIVATE DAL::public)
+install(TARGETS market_iv_local_vol_public RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

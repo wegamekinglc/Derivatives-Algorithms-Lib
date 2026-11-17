@@ -33,6 +33,7 @@ _PACKAGE_ROOT = str(Path(dal.__file__).resolve().parent.parent)
         ("018.quote_curvature.py", {"DAL_NUM_THREADS": "1"}, "Native quote curvature examples passed."),
         ("020.compounded_ois_quote_risk.py", {"DAL_NUM_THREADS": "1"}, "ScriptCurveQuoteRiskLiveQuoteUnsupported"),
         ("021.nanoql_multi_curve.py", {"DAL_NUM_THREADS": "1"}, "Calibration and pricing time:"),
+        ("022.market_iv_local_vol.py", {"DAL_NUM_THREADS": "1"}, "Market-grid checks passed"),
     ],
 )
 def test_example_runs_through_its_guards(name, env, marker):

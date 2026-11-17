@@ -1,0 +1,3 @@
+add_executable(dal_market_iv_local_vol_example market_iv_local_vol.cpp)
+target_link_libraries(dal_market_iv_local_vol_example PRIVATE DAL::cpp)
+install(TARGETS dal_market_iv_local_vol_example RUNTIME DESTINATION bin)

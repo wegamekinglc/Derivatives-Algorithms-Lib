@@ -16,6 +16,11 @@ not implemented.
 
 ## C++ construction
 
+For a single deterministic equity market with nonflat F/D, the
+[owning market model](local-volatility.md#owning-market-model-in-core-c) prepares
+consistent integrated carry and grid knots. Its [runnable core example](../../dal-cpp/examples/models/market_iv_local_vol/)
+is separate from the existing Hybrid composition examples.
+
 ```cpp
 #include <dal-public/src/models.hpp>
 #include <dal/model/factory.hpp>
