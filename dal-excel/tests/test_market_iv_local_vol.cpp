@@ -3,8 +3,10 @@
 #include <iomanip>
 
 #include <dal-excel/src/__marketivlocalvol.hpp>
+#include <dal-excel/src/__xccy_test_api.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
+#include <dal/concurrency/threadpool.hpp>
 #include <dal/storage/json.hpp>
 
 using namespace Dal;
@@ -106,6 +108,30 @@ TEST(ExcelMarketIvLocalVolTest, TestModelHandleReportsAndPassiveValuation) {
         ASSERT_EQ(Cell::ToString(table(r, 0)), executionFields[r]);
     ASSERT_EQ(Cell::ToString(table(0, 1)), "dal.market-iv-local-vol-execution/1");
     ASSERT_NEAR(ValueByMonteCarlo(product, Handle_<ModelData_>(model), 16, valuation).at("PV"), .98, 2e-12);
+    {
+        struct RestoreThreads_ {
+            size_t count_ = ThreadPool_::GetInstance()->NumThreads();
+            ~RestoreThreads_() { ThreadPool_::GetInstance()->Start(count_, true); }
+        } restore;
+        ThreadPool_::GetInstance()->Start(1, true);
+        const auto identityProduct = NewScriptProduct("ScriptProductData_", {Cell_(expiry)}, {"pay PAYS 1"});
+        MarketIvLocalVolModelData_Get_Execution(identityProduct, model, v, {}, &table);
+        ASSERT_EQ(Cell::ToString(table(3, 1)), "sha256:0f0aa577def22e9db4b2bab9ab3ccc4237b6fc00cec12eb2f444b85345a1b5e2");
+        Handle_<StorableMarketFixingSnapshot_> fixings;
+        MarketFixingSnapshot_New({"EQ[A]"}, {Cell_(Date::ToExcel(today.AddDays(-1)) + .5)}, {99.}, &fixings);
+        ASSERT_DOUBLE_EQ(fixings->val_->Values().at("EQ[A]").begin()->first.Frac(), .5);
+        auto frozenValuation = valuation;
+        frozenValuation.fixings_ = fixings->val_;
+        const Handle_<StorableScriptValuationSettings_> noonSettings(new StorableScriptValuationSettings_("noon", frozenValuation));
+        MarketIvLocalVolModelData_Get_Execution(identityProduct, model, noonSettings, {}, &table);
+        ASSERT_EQ(Cell::ToString(table(3, 1)), "sha256:04f36f435aec453a561fbcd494742776ea35fa821be56291492de3eeb19d2339");
+        ASSERT_EQ(table.Cols(), 2);
+        ASSERT_EQ(table.Rows(), executionFields.size());
+        for (int r = 0; r < table.Rows(); ++r)
+            ASSERT_EQ(Cell::ToString(table(r, 0)), executionFields[r]);
+        ASSERT_EQ(Cell::ToString(table(0, 1)), "dal.market-iv-local-vol-execution/1");
+        ASSERT_NEAR(ValueByMonteCarlo(identityProduct, Handle_<ModelData_>(model), 16, frozenValuation).at("PV"), .98, 2e-12);
+    }
     const auto vanilla = NewScriptProduct("call", {Cell_(expiry)}, {"pay PAYS MAX(FIX(EQ[A]) - 102, 0)"});
     MonteCarloSettings_ simulation;
     simulation.rsg_ = "mrg32";

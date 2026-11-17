@@ -288,6 +288,29 @@ TEST(MarketIvLocalVolTest, TestInitChecksFrozenValuesAndPreservesBothStates) {
     }
 }
 
+TEST(MarketIvLocalVolTest, TestRequestIdentityRetainsCompleteFixingTimes) {
+    using namespace Script;
+    RegisterAll_::Init(1);
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    const auto today = CarryMarket().EvaluationDate();
+    const ScriptProductData_ product("unit", {Cell_(today.AddDays(365))}, {"pay PAYS 1"});
+    const auto identity = [&](const Date_& date, double fraction, double value) {
+        ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = today;
+        valuation.fixings_.reset(new MarketFixingSnapshot_({{"EQ[A]", {{DateTime_(date, fraction), value}}}}));
+        return InspectMarketIvLocalVolExecution(product, *data, valuation).requestIdentity_;
+    };
+    const auto date = today.AddDays(-1);
+    const double fraction = .1 / 86400.;
+    const auto first = identity(date, fraction, 99.);
+    ASSERT_NE(first, identity(date, .2 / 86400., 99.));
+    ASSERT_NE(first, identity(date, std::nextafter(fraction, 1.), 99.));
+    ASSERT_EQ(first, identity(date, fraction, 99.));
+    ASSERT_EQ(identity(date, 0., 99.), identity(date, -0., 99.));
+    ASSERT_NE(first, identity(date.AddDays(-1), fraction, 99.));
+    ASSERT_NE(first, identity(date, fraction, 100.));
+}
+
 TEST(MarketIvLocalVolTest, TestRequestBudgetFailureKeepsPreparedState) {
     const auto grid = Grid();
     auto settings = Settings();

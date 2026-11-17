@@ -1,5 +1,9 @@
 import copy
+import os
 import pickle
+from pathlib import Path
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -90,6 +94,40 @@ def test_passive_pricing_inspection_and_capability_errors():
 def test_strict_settings(key, value, error):
     with pytest.raises(error, match="InvalidMarketIvLocalVolRequest"):
         settings(**{key: value})
+
+
+def test_request_identity_v2_matches_native_noon_golden():
+    code = """
+import dal
+from test_market_iv_local_vol import grid, settings
+
+today = dal.Date_(2026, 11, 16)
+model = dal.MarketIvLocalVolModelData_New("market", grid(), settings())
+product = dal.Product_New([today.AddDays(365)], ["pay PAYS 1"])
+snapshot = dal.MarketFixingSnapshot_New({"EQ[A]": {dal.DateTime_(today.AddDays(-1), 12): 99.}})
+for fixings, golden in (
+    (None, "sha256:0f0aa577def22e9db4b2bab9ab3ccc4237b6fc00cec12eb2f444b85345a1b5e2"),
+    (snapshot, "sha256:04f36f435aec453a561fbcd494742776ea35fa821be56291492de3eeb19d2339"),
+):
+    valuation = dal.ScriptValuationSettings_(evaluation_date=today, fixings=fixings)
+    report = dal.MarketIvLocalVolModelData_Get_Execution(product, model, valuation=valuation)
+    assert report["workers"] == 1
+    assert report["request_identity"] == golden
+    assert report["schema"] == "dal.market-iv-local-vol-execution/1"
+    assert len(report) == 23
+    assert report["source_identity"] == model.source_identity
+    assert report["model_identity"] == model.model_identity
+    pv = dal.MonteCarlo_ValueWithSettings(product, model, 16, valuation=valuation)["PV"]
+    assert abs(pv - 0.98) <= 2e-12, pv
+"""
+    package = str(Path(dal.__file__).resolve().parent.parent)
+    tests = str(Path(__file__).resolve().parent)
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "DAL_NUM_THREADS": "1", "PYTHONPATH": os.pathsep.join((package, tests))},
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_factory_releases_gil():

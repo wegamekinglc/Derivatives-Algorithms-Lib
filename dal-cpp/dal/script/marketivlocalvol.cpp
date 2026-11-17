@@ -28,7 +28,7 @@ namespace Dal::Script {
             ValidateIdentityTextSize(product, prepared);
             using J_ = CanonicalJson::Json_;
             J_ root = J_::Object();
-            root.object_["schema"] = J_::String("dal.market-iv-local-vol-request/1");
+            root.object_["schema"] = J_::String("dal.market-iv-local-vol-request/2");
             root.object_["model_identity"] = J_::String(execution.modelIdentity_);
             root.object_["product"] = J_::String(DescribeScriptProductData(product));
             root.object_["prepared"] = J_::String(ExplainPreparedScript(prepared));
@@ -43,7 +43,7 @@ namespace Dal::Script {
                 for (const auto& [name, history] : frozen->Values())
                     for (const auto& [time, value] : history) {
                         J_ row = J_::Array();
-                        row.array_ = {J_::String(name), J_::String(DateTime::ToString(time)), J_::Number(value)};
+                        row.array_ = {J_::String(name), J_::String(Date::ToString(time.Date())), J_::Number(time.Frac()), J_::Number(value)};
                         fixings.array_.push_back(std::move(row));
                     }
             root.object_["fixings"] = std::move(fixings);
