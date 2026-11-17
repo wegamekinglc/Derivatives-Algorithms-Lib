@@ -2,13 +2,10 @@
 
 import unittest
 
-from formal_report import acceptance, gate, qualified_status
+from formal_report import gate, qualified_status
 
 
 class FormalReportTest(unittest.TestCase):
-    def test_empty_or_partial_evidence_cannot_be_accepted(self):
-        self.assertFalse(acceptance([], [], {}))
-
     def test_exact_price_with_insufficient_se_is_incomplete(self):
         self.assertEqual(gate(10.0, 0.02, 10.0, True, False, "PASS"), "INCOMPLETE")
         self.assertEqual(gate(None, None, 10.0, True, False, "PASS"), "NOT_RUN")

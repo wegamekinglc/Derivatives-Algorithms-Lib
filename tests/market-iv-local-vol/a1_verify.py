@@ -58,3 +58,11 @@ def verify(mc):
     if not records:
         raise ValueError("Missing sampling tiers")
     return dict(status="PASS", tiers=records, degrees_of_freedom=15)
+
+
+if __name__ == "__main__":
+    import json
+    import sys
+    from pathlib import Path
+
+    print(json.dumps(verify(json.loads(Path(sys.argv[1]).read_text()))))

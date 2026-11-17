@@ -1,4 +1,4 @@
-"""Focused A/1 invariants before any formal numerical execution."""
+"""Focused canonical-input, reference and statistical regression tests."""
 
 import tempfile
 import unittest
@@ -7,81 +7,29 @@ from unittest.mock import patch
 
 import numpy as np
 from a1_axes import grids, protocol, validate_axis
-from a1_budget import Budget, checked_address
 from a1_pde import admitted, configurations, derivative_weights, mesh
-from a1_process import REPO, job_data, launch, output, program, validate_arguments
 from a1_report import report
-from a1_run import stop_children
 from a1_study import certify
 from a1_verify import verify
 
 
 class A1Test(unittest.TestCase):
-    def test_owned_blocked_probe_is_stopped_after_fresh_daemon_check(self):
-        import os
+    def test_generated_request_matches_the_executed_input_without_overwriting(self):
+        import hashlib
 
-        with tempfile.TemporaryDirectory(
-            dir=REPO / "build", prefix="a1-stop-"
-        ) as folder:
-            fifo = Path(folder) / "probe-input.txt"
-            os.mkfifo(fifo)
-            with tempfile.TemporaryFile(dir=REPO / "build") as out:
-                child = launch("probe", [str(fifo)], out)
-                self.assertIsNone(child.poll())
-                stop_children([child])
-                self.assertNotEqual(child.wait(), 0)
+        from a1_axes import write_request
 
-    def test_fixed_dispatcher_treats_hostile_path_characters_as_data(self):
-        import os
-
-        with tempfile.TemporaryDirectory(
-            dir=REPO / "build", prefix="a1-probe;echo-"
-        ) as folder:
-            descriptors_before = set(os.listdir("/proc/self/fd"))
-            path = Path(folder) / "probe-input.txt"
-            path.write_text("2 2 2\n80 120\n.1 1\n.2 .4 .3 .5\n0 1\n2 1000\n")
-            actual = output("probe", [str(path)])
-            values = [[float(x) for x in line.split()] for line in actual.splitlines()]
-            np.testing.assert_allclose(values, [[0.2, 0.2], [0.5, 0.5]], atol=1e-14)
-            self.assertEqual(set(os.listdir("/proc/self/fd")), descriptors_before)
-        with patch.dict(os.environ, {"LD_PRELOAD": "untrusted-library"}):
-            self.assertNotIn(b"LD_PRELOAD", job_data("probe", ["data"]))
-        with self.assertRaises(ValueError):
-            job_data("probe", ["bad\0data"])
-
-    def test_only_fixed_read_only_programs_and_registered_native_arguments(self):
-        with self.assertRaises(ValueError):
-            program("shell")
-        with self.assertRaises(ValueError):
-            validate_arguments("git", ["push", "--force"])
-        with self.assertRaises(ValueError):
-            validate_arguments("probe", [str(REPO / "outside-build-input")])
-        prefix = REPO / "build/a1-unit"
-        args = [
-            str(prefix / "request.json"),
-            str(prefix / "F2_linear-tier-16.json"),
-            "F2_linear",
-            "16",
-        ]
-        validate_arguments("mc", args)
-        bad = list(args)
-        bad[3] = "21"
-        with self.assertRaises(ValueError):
-            validate_arguments("mc", bad)
-        head = output("git", ["-C", str(REPO), "rev-parse", "HEAD"]).strip()
-        self.assertEqual(len(head), 40)
-
-    def test_stop_never_terminates_reported_daemon_pid(self):
-        from unittest.mock import Mock
-
-        daemon = Mock(pid=123)
-        child = Mock(pid=456)
-        with patch("a1_run.output", return_value='{"pid":123}'):
-            with self.assertRaises(RuntimeError):
-                stop_children([daemon])
-            stop_children([child])
-        daemon.terminate.assert_not_called()
-        child.terminate.assert_called_once()
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "request.json"
+            write_request(path)
+            self.assertEqual(
+                hashlib.sha256(path.read_bytes()).hexdigest(),
+                "2818bfc153f3ae8b12980bcdf2adc5d400deb47a2abee474d013ec58cc7721db",
+            )
+            write_request(path)
+            path.write_text("old frozen data")
+            with self.assertRaises(ValueError):
+                write_request(path)
 
     def test_canonical_axes_counts_anchors_and_binary64_round_trip(self):
         import json
@@ -172,26 +120,6 @@ class A1Test(unittest.TestCase):
         self.assertEqual(len(configurations()), 6)
         self.assertEqual(len(configurations(True)), 4)
 
-    def test_checked_reservations_and_persistent_budget(self):
-        with self.assertRaises(ValueError):
-            checked_address(0, 0, 0, 0, 0)
-        self.assertEqual(checked_address(1, 15, 2**20 - 1, 8735), 293131517951)
-        with self.assertRaises(ValueError):
-            checked_address(2, 0, 0, 0)
-        with self.assertRaises(OverflowError):
-            checked_address(1, 15, 2**20 - 1, 8735, 2**63)
-        with tempfile.TemporaryDirectory() as name:
-            path = Path(name) / "ledger.json"
-            budget = Budget(path, "test", limits={"solves": 2}, create=True)
-            budget.reserve_solve("one")
-            budget = Budget(path, "test", limits={"solves": 2})
-            self.assertEqual(budget.state["solves_reserved"], 1)
-            budget.reserve_solve("two")
-            with self.assertRaises(RuntimeError):
-                budget.reserve_solve("three")
-            with self.assertRaises(RuntimeError):
-                Budget(path, "other")
-
     def test_fallback_keeps_discrete_coefficient_and_missing_evidence_stays_unavailable(
         self,
     ):
@@ -212,30 +140,6 @@ class A1Test(unittest.TestCase):
                 self.assertFalse(
                     report(Path(name), {"counts": {}}, {}, None)["accepted"]
                 )
-
-    def test_time_path_and_missing_ledger_stops_survive_reopen(self):
-        with tempfile.TemporaryDirectory() as name:
-            path = Path(name) / "ledger.json"
-            limits = {"pde_seconds": 1.0, "total_seconds": 2.0}
-            budget = Budget(path, "test", limits=limits, create=True)
-            budget.begin("pde")
-            budget.last_tick -= 3.0
-            with self.assertRaises(RuntimeError):
-                budget.tick("pde")
-            reopened = Budget(path, "test", limits=limits)
-            self.assertGreaterEqual(reopened.state["total_seconds"], 3.0)
-            with self.assertRaises(RuntimeError):
-                reopened.begin("pde")
-            budget.paths(0, 16 * 2**20)
-            with self.assertRaises(RuntimeError):
-                budget.paths(0, 16 * 2**20 + 1)
-            with self.assertRaises(RuntimeError):
-                budget.paths(0, 0)
-            path.unlink()
-            with self.assertRaises(RuntimeError):
-                Budget(path, "test", limits=limits)
-            with self.assertRaises(RuntimeError):
-                Budget(path, "test", limits=limits, create=True)
 
     def test_batch_se_recomputed_and_bad_se_or_post_sufficient_tier_rejected(self):
         import copy

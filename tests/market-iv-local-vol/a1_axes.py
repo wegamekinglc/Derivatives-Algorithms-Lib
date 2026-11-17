@@ -1,7 +1,9 @@
 """Canonical A/1 axes and preregistered Brownian timelines."""
 
 import copy
+import json
 import math
+from pathlib import Path
 
 import mpmath as mp
 from a3_protocol import DIMENSIONS, DMAX, coarse_count
@@ -122,3 +124,24 @@ def request(original):
     from prepare_mc import prepare
 
     return prepare(result)
+
+
+def write_request(path):
+    from generate import request as market_request
+
+    data = (
+        json.dumps(request(market_request()), indent=2, allow_nan=False) + "\n"
+    ).encode()
+    if path.exists() and path.read_bytes() != data:
+        raise ValueError("Refusing to replace a different frozen request")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_bytes(data)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path)
+    write_request(parser.parse_args().output)

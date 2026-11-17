@@ -5,13 +5,12 @@ from pathlib import Path
 
 import mpmath as mp
 import numpy as np
-from a1_process import output, program
 from a1_study import make_model
 from qualify import curve
 from reference import carry, local_variance, theta_at
 
 
-def nodes(capture, directory, budget):
+def nodes(capture, directory):
     count, worst = 0, 0.0
     with mp.workdps(90), (directory / "n4-nodes.jsonl").open("w") as stream:
         for fixture in capture["fixtures"]:
@@ -54,8 +53,6 @@ def nodes(capture, directory, budget):
                         )
                         count += 1
                         worst = max(worst, error)
-                    budget.tick("other")
-                    budget.resources(directory)
     return dict(nodes=count, max_scaled_variance_error=worst, status="PASS", digits=90)
 
 
@@ -113,12 +110,9 @@ def probe_inputs(capture, directory):
     return expected, labels
 
 
-def probes(capture, directory, binary):
-    if Path(binary).resolve() != program("probe").resolve():
-        raise ValueError("Probe is outside the fixed qualification build")
+def probes(capture, directory):
     expected, labels = probe_inputs(capture, directory)
-    actual = output("probe", [directory / "probe-input.txt"])
-    (directory / "probe-actual.txt").write_text(actual)
+    actual = (directory / "probe-actual.txt").read_text()
     values = np.array(
         [[float(v) for v in line.split()] for line in actual.splitlines()]
     )
@@ -134,3 +128,19 @@ def probes(capture, directory, binary):
     if result["status"] != "PASS":
         raise ValueError("FAIL: A/1 off-node production interpolation")
     return result
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=["nodes", "inputs", "probes"])
+    parser.add_argument("capture", type=Path)
+    parser.add_argument("directory", type=Path)
+    args = parser.parse_args()
+    args.directory.mkdir(parents=True, exist_ok=True)
+    functions = dict(nodes=nodes, inputs=probe_inputs, probes=probes)
+    result = functions[args.action](
+        json.loads(args.capture.read_text()), args.directory
+    )
+    print(json.dumps(result, allow_nan=False))

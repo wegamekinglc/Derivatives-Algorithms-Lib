@@ -3,7 +3,9 @@
 import copy
 import json
 from collections import Counter
+from pathlib import Path
 
+from a1_verify import verify
 from formal_report import gate, paired_gate, qualified_status
 from reference import carry
 
@@ -23,7 +25,7 @@ def base_row(source, grid, name):
     row = copy.deepcopy(source)
     row.update(
         grid=grid,
-        evidence_namespace="A/1",
+        evidence_namespace="A/3",
         estimate=None,
         se=None,
         paired_difference=None,
@@ -87,6 +89,8 @@ def add_measurement(row, mc, g, index):
             paired_gate=pair,
             status=qualified_status(price, admission, pair, deterministic, False),
         )
+        if not tier["se_sufficient"]:
+            row["status"] = "INCOMPLETE"
         if row["grid_pde"] is not None:
             row["stepping_plus_sampling_normalized"] = (
                 estimate - row["grid_pde"]
@@ -96,6 +100,8 @@ def add_measurement(row, mc, g, index):
 def family_rows(directory, history, studies, name):
     mc_path = directory / (name + "-mc.json")
     mc = json.loads(mc_path.read_text()) if mc_path.exists() else None
+    if mc and mc["sampling"] == "FORMAL":
+        verify(mc)
     original = [r for r in history["rows"] if r["fixture"] == name]
     result = []
     for g, grid in enumerate(("P7", "P8")):
@@ -161,3 +167,15 @@ def report(directory, history, studies, stop_reason):
         and len(counts) == 1,
         stop_reason=stop_reason,
     )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("directory", type=Path, help="Verified, extracted A/3 evidence")
+    args = parser.parse_args()
+    studies = json.loads((args.directory / "grid-studies.json").read_text())
+    lookup = {(r["fixture"], r["grid"], r["maturity"]): r for r in studies}
+    history = json.loads((args.directory / "history.json").read_text())
+    print(json.dumps(report(args.directory, history, lookup, None), allow_nan=False))

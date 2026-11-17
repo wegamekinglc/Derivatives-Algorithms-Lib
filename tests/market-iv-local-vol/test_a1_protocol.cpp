@@ -9,6 +9,15 @@
 #include "a1protocol.hpp"
 #include "capturecommon.hpp"
 
+TEST(MarketIvA1Test, TestBatchMeanStandardErrorUsesFifteenDegreesOfFreedom) {
+    std::array<double, 16> means{};
+    for (size_t i = 0; i < means.size(); ++i)
+        means[i] = static_cast<double>(i);
+    const auto estimate = DalTest::Estimate(means);
+    ASSERT_DOUBLE_EQ(estimate.first, 7.5);
+    ASSERT_NEAR(estimate.second, std::sqrt(340. / 240.), 1e-14);
+}
+
 TEST(MarketIvA1Test, TestCanonicalRequestPreservesDimensionsAndNestedBrownianFields) {
     std::ifstream input(DAL_A1_REQUEST);
     rapidjson::IStreamWrapper stream(input);
