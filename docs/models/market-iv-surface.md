@@ -14,6 +14,10 @@ defines shared binding settings; there is one numerical implementation.
 [Python](../python/README.md#market-implied-volatility-surfaces) and
 [Excel](../excel/README.md#market-implied-volatility-surfaces) expose the same workflow.
 
+A successful Dupire result also feeds the
+[owning local-volatility MC model](local-volatility.md#owning-market-model-in-core-c),
+which retains this snapshot's date, spot and F/D carry across C++, Python and Excel.
+
 ## Quotes, dates and carry
 
 `MarketIvMarket_` freezes an evaluation date, positive spot and strictly

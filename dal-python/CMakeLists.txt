@@ -247,7 +247,8 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/europeanpderisk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/earlyexercisepde.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/earlyexercisepderisk.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/marketivsurface.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/marketivsurface.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/marketivlocalvol.cpp)
 
 if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
     if(NOT COMMAND dal_cpp_apply_msvc_runtime)

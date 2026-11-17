@@ -17,6 +17,7 @@
 #include <dal/model/hybriddata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal-public/src/marketivlocalvol.hpp>
 
 namespace Dal {
     Handle_<ModelData_> NewCorrelatedBSModelData(const String_& name,
