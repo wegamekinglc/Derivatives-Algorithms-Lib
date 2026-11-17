@@ -712,6 +712,41 @@ no history access or valuation. Zero-column matrices spill one blank cell, while
 `2^53-1` are text to preserve their values. Requests/results do not support
 archive serialization. See [portfolio risk semantics](../methodology/aad.md#script-portfolio-jacobians).
 
+## Market-grid local-volatility Monte Carlo
+
+Use a successful `MARKETIVDUPIRERESULT.NEW` handle as the model's sole
+market source. Create a headerless two-column settings range with required
+`index`, `currency`, `factor`, `horizon` rows, for example
+`EQ[A]`, `USD`, `W_EQ`, `1.25`. Then call
+`MARKETIVLOCALVOLMODELSETTINGS.NEW(name,settings)` and
+`MARKETIVLOCALVOLMODELDATA.NEW(name,dupire_result,settings_handle)`.
+The result is a genuine ModelData handle accepted by
+`MONTECARLO.VALUEWITHSETTINGS`; use the snapshot's explicit valuation date
+and passive simulation settings.
+
+Optional rows are `max_step` (1/52 year), `max_internal_steps` (100000),
+`max_simulation_dimension` (100000), `numeric_payload_budget_bytes` (64 MiB),
+`workspace_budget_bytes` (256 MiB). Only optional values may be blank.
+Trailing double-blank rows are ignored; interior gaps, duplicate/unknown keys,
+text numbers, booleans, errors and fractional counts reject. Counts must be
+exact nonnegative integers at most min(size_t maximum, 2^53-1). Zero denies work.
+Failed construction preserves the previous output handle.
+
+`MARKETIVLOCALVOLMODELDATA.GET.SUMMARY`, `GET.CONFIGURATION`,
+`GET.CAPABILITIES`, `GET.CONSTRUCTIONEXECUTION` and
+`GET.EXECUTION(product,model,valuation,simulation)` return versioned field/value
+tables. `GET.CARRY` returns
+`ordinal,date,time,forward,discount,log_forward_over_spot,log_discount,origin`;
+`GET.WARNINGS` returns `code,field,message`. Dates are integral Excel serials;
+a fractional-day horizon's date is blank. These are detached tables with
+checked spill dimensions and exact integer outputs. Typed settings also expose
+`MARKETIVLOCALVOLMODELSETTINGS.GET.CONFIGURATION`.
+
+The model/settings cannot be archived. AAD/risk and EXERCISE are unavailable.
+See the [model contract](../models/local-volatility.md#owning-market-model-in-core-c).
+Portable binding tests and native XLL tests cover different boundaries;
+live worksheets require Windows, installed Excel and a separate worksheet run.
+
 ## Market implied-volatility surfaces
 
 The `MARKETIV*` family fits raw European market quotes, retains an owning

@@ -497,6 +497,42 @@ explicit `FLAT_CARRY`; inherited legacy LocalVol remains finite differences.
 See the [method and defaults](../models/market-iv-surface.md) for the global
 certificate's scope, local fitting/quality limits, budgets and model boundaries.
 
+## Market-grid local-volatility Monte Carlo
+
+Continue from a successful `grid` in the market-IV workflow:
+
+```python
+settings = dal.MarketIvLocalVolModelSettings_("EQ[A]", "USD", "W_EQ", 1.25)
+model = dal.MarketIvLocalVolModelData_New("market", grid, settings)
+valuation = dal.ScriptValuationSettings_(evaluation_date=today)
+pv = dal.MonteCarlo_ValueWithSettings(product, model, 65536, valuation=valuation)
+execution = dal.MarketIvLocalVolModelData_Get_Execution(product, model, valuation=valuation)
+```
+
+The four constructor arguments are required; optional settings are keyword-only:
+`max_step=1/52`, `max_internal_steps=100000`,
+`max_simulation_dimension=100000`, `numeric_payload_budget_bytes=67108864`
+and `workspace_budget_bytes=268435456`. Counts require non-bool integers in
+size_t range. Zero budgets deny work. Numbers reject bool/enums/numeric text;
+unknown keys and invalid ranges raise ValueError.
+
+The model inherits ModelData_ and owns its source after grid/fit inputs die.
+`configuration` is an independent read-only settings value; `summary`,
+`capabilities`, `construction_execution` and the execution inspection return
+detached dicts; `carry_terms` and `warnings` return lists of dicts.
+Carry rows include the origin, every market term and the horizon; a fractional-day
+horizon has `date=None`. Factory and execution preparation release the GIL;
+getters never expose native arrays or a mutable last-request report.
+
+Pass the snapshot's evaluation date explicitly. The single declared EQ and
+domestic currency, horizon and passive-only capability checks apply to normal
+MC too. AAD/risk and EXERCISE reject before sampling. Native failures raise
+`MarketIvLocalVolError(RuntimeError)` with `code`, `stage`, `field`,
+`expected` and `actual`. Models and typed settings reject pickle; models
+reject archive, including through the Storable base. Copy/deepcopy preserve
+immutable ownership and identity. See the
+[model contract](../models/local-volatility.md#owning-market-model-in-core-c).
+
 ## Dupire quote risk
 
 `DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration

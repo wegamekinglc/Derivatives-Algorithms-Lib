@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-17
 
+- Add C++ facade, strict Python bindings and typed Excel factories for the
+  owning market-grid local-volatility MC model, with detached source/carry/
+  execution diagnostics and passive pricing through the existing engine.
+  Date, horizon and unsupported-risk checks apply across all three interfaces.
+  See the [model guide](docs/models/local-volatility.md#owning-market-model-in-core-c).
+
 - **Market-IV short-time Dupire** — retain representable local variance and
   volatility when Black prices or density underflow. Prices and absolute
   derivatives retain separate availability and range diagnostics.

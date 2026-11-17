@@ -178,11 +178,20 @@ carry, numeraires and discounts; strings, payoff evaluators and RNG internals
 are excluded. It is not an RSS limit. Preparation query counts describe the
 fixed curve evaluations; path generation makes no market-curve queries.
 
-These core checks establish construction and execution contracts. Independent
-Black/smile/grid/MC accuracy qualification remains incomplete; fast checks do
-not establish it. Facade, Python and Excel market-model factories, dedicated
-runnable examples, formal performance acceptance and live Windows worksheet
-validation are not yet delivered.
+The public facade in `dal-public/src/marketivlocalvol.hpp` exposes
+`NewMarketIvLocalVolModelData` and `Dal::InspectMarketIvLocalVolExecution`
+with the same settings and records. Convert the factory result explicitly to
+`Handle_<ModelData_>` for `ValueByMonteCarlo`. The model owns its source;
+passing a standalone surface or a second market is not supported.
+
+[Python](../python/README.md#market-grid-local-volatility-monte-carlo) and
+[Excel](../excel/README.md#market-grid-local-volatility-monte-carlo) expose
+the same factories, passive valuation and detached diagnostics. Copying these
+handles preserves identity; model and typed settings pickle/archive are
+unsupported. The independent Black/smile/grid/MC qualification applies to its
+frozen fixtures and sampling configurations; fast interface checks do not extend
+that numerical scope. Dedicated examples, formal performance acceptance and
+live Windows worksheet validation remain separate delivery gates.
 
 ## Design references
 

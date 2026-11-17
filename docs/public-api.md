@@ -23,6 +23,15 @@ paths. See the [installation guide](installation.md#installed-cmake-packages).
 
 ## C++
 
+For a same-source market-IV/Dupire model, include
+`dal-public/src/marketivlocalvol.hpp`, call
+`NewMarketIvLocalVolModelData(name, grid, settings)`, then pass an explicit
+`Handle_<ModelData_>(model)` to `ValueByMonteCarlo`.
+`InspectMarketIvLocalVolExecution(*product, *model, valuation, simulation)`
+prepares without drawing paths and returns a separate report. See the
+[model contract](models/local-volatility.md#owning-market-model-in-core-c)
+for required settings, date/horizon checks, budgets and passive-only capabilities.
+
 ### CMake consumption
 
 ```cmake
