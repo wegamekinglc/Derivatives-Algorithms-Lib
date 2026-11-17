@@ -214,6 +214,16 @@ TEST(MarketIvLocalVolTest, TestInitChecksFrozenValuesAndPreservesBothStates) {
         {"/product/definitions/1/libor_definitions", [](auto*, auto* d) { (*d)[1].liborDefs_.emplace_back(1., 1.1, "USD"); }},
         {"/product/definitions/1/forward_maturities", [](auto*, auto* d) { (*d)[1].forwardMats_.push_back({1.1}); }},
         {"/product/definitions/1/forward_maturities", [](auto*, auto* d) { (*d)[1].forwardMats_.push_back({}); }},
+        {"/product/timeline/1",
+         [](auto* t, auto* d) {
+             (*t)[1] = std::nextafter(1., 2.);
+             (*d)[1].numeraire_ = true;
+         }},
+        {"/product/definitions/1/numeraire",
+         [](auto*, auto* d) {
+             (*d)[1].numeraire_ = true;
+             (*d)[1].discountMats_[0] = 1.25;
+         }},
     };
     AAD::MarketIvLocalVolModel_ reference(*data);
     reference.Allocate(timeline, definitions);

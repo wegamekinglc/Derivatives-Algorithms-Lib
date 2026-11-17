@@ -21,35 +21,38 @@ namespace Dal::AAD {
             return result.size() <= 120 ? result : String_(result.substr(0, 117) + "...");
         }
 
-        template <class T_> void CheckFrozenValue(const T_& expected, const T_& actual, const String_& field) {
+        template <class T_, class P_> void CheckFrozenValue(const T_& expected, const T_& actual, const P_& field) {
             if (actual != expected)
-                Fail("InvalidMarketIvLocalVolRequest", "Prepare", field, "same as Allocate (" + FrozenValueText(expected) + ")",
+                Fail("InvalidMarketIvLocalVolRequest", "Prepare", field(), "same as Allocate (" + FrozenValueText(expected) + ")",
                      FrozenValueText(actual));
         }
 
-        template <class T_, class F_>
-        void CheckFrozenSequence(const Vector_<T_>& expected, const Vector_<T_>& actual, const String_& field, F_ check) {
+        template <class T_, class P_, class F_>
+        void CheckFrozenSequence(const Vector_<T_>& expected, const Vector_<T_>& actual, const P_& field, F_ check) {
             CheckFrozenValue(expected.size(), actual.size(), field);
             for (size_t i = 0; i < expected.size(); ++i)
-                check(expected[i], actual[i], field + "/" + String_(std::to_string(i)));
+                check(expected[i], actual[i], [&field, i] { return field() + "/" + String_(std::to_string(i)); });
         }
 
-        template <class T_> void CheckFrozenSequence(const Vector_<T_>& expected, const Vector_<T_>& actual, const String_& field) {
-            CheckFrozenSequence(expected, actual, field, CheckFrozenValue<T_>);
+        template <class T_, class P_> void CheckFrozenSequence(const Vector_<T_>& expected, const Vector_<T_>& actual, const P_& field) {
+            CheckFrozenSequence(expected, actual, field,
+                                [](const auto& lhs, const auto& rhs, const auto& path) { CheckFrozenValue(lhs, rhs, path); });
         }
 
-        void CheckFrozenDefinition(const SampleDef_& expected, const SampleDef_& actual, const String_& field) {
-            CheckFrozenValue(expected.numeraire_, actual.numeraire_, field + "/numeraire");
-            CheckFrozenSequence(expected.indexNames_, actual.indexNames_, field + "/index_names");
-            CheckFrozenSequence(expected.discountMats_, actual.discountMats_, field + "/discount_maturities");
-            CheckFrozenSequence(expected.liborDefs_, actual.liborDefs_, field + "/libor_definitions",
-                                [](const auto& lhs, const auto& rhs, const String_& path) {
-                                    CheckFrozenValue(lhs.start_, rhs.start_, path + "/start");
-                                    CheckFrozenValue(lhs.end_, rhs.end_, path + "/end");
-                                    CheckFrozenValue(lhs.curve_, rhs.curve_, path + "/curve");
-                                });
-            CheckFrozenSequence(expected.forwardMats_, actual.forwardMats_, field + "/forward_maturities",
-                                [](const auto& lhs, const auto& rhs, const String_& path) { CheckFrozenSequence(lhs, rhs, path); });
+        template <class P_> void CheckFrozenDefinition(const SampleDef_& expected, const SampleDef_& actual, const P_& field) {
+            CheckFrozenValue(expected.numeraire_, actual.numeraire_, [&] { return field() + "/numeraire"; });
+            CheckFrozenSequence(expected.indexNames_, actual.indexNames_, [&] { return field() + "/index_names"; });
+            CheckFrozenSequence(expected.discountMats_, actual.discountMats_, [&] { return field() + "/discount_maturities"; });
+            CheckFrozenSequence(
+                expected.liborDefs_, actual.liborDefs_, [&] { return field() + "/libor_definitions"; },
+                [](const auto& lhs, const auto& rhs, const auto& path) {
+                    CheckFrozenValue(lhs.start_, rhs.start_, [&] { return path() + "/start"; });
+                    CheckFrozenValue(lhs.end_, rhs.end_, [&] { return path() + "/end"; });
+                    CheckFrozenValue(lhs.curve_, rhs.curve_, [&] { return path() + "/curve"; });
+                });
+            CheckFrozenSequence(
+                expected.forwardMats_, actual.forwardMats_, [&] { return field() + "/forward_maturities"; },
+                [](const auto& lhs, const auto& rhs, const auto& path) { CheckFrozenSequence(lhs, rhs, path); });
         }
 
         void CheckTime(double time, double horizon, const String_& field) {
@@ -414,8 +417,10 @@ namespace Dal::AAD {
     void MarketIvLocalVolModel_::Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) {
         if (!state_)
             Fail("InvalidMarketIvLocalVolRequest", "Prepare", "/product/definitions", "successful Allocate before Init", "unallocated");
-        CheckFrozenSequence(state_->timeline_, timeline, "/product/timeline");
-        CheckFrozenSequence(state_->definitions_, definitions, "/product/definitions", CheckFrozenDefinition);
+        CheckFrozenSequence(state_->timeline_, timeline, [] { return String_("/product/timeline"); });
+        CheckFrozenSequence(
+            state_->definitions_, definitions, [] { return String_("/product/definitions"); },
+            [](const auto& lhs, const auto& rhs, const auto& path) { CheckFrozenDefinition(lhs, rhs, path); });
         state_->initialized_ = true;
     }
     size_t MarketIvLocalVolModel_::SimDim() const { return state_ ? state_->execution_.simulationDimension_ : 0; }
