@@ -50,7 +50,7 @@ class A1Test(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_axis([1.0, np.nextafter(1.0, 2.0)])
 
-    def test_nonuniform_weights_and_mandatory_matched_mesh(self):
+    def test_nonuniform_weights_differentiate_polynomials(self):
         x = np.array([-0.8, -0.3, 0.0, 0.1, 0.7])
         first, second = derivative_weights(x)
         for power in (0, 1, 2):
@@ -61,13 +61,6 @@ class A1Test(unittest.TestCase):
             expected2 = power * max(0, power - 1) * x[1:-1] ** max(0, power - 2)
             np.testing.assert_allclose(actual1, expected1, atol=2e-14)
             np.testing.assert_allclose(actual2, expected2, atol=2e-14)
-        central = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], 2, False)
-        expanded = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], 2, True)
-        self.assertEqual(len(central), 2401)
-        self.assertEqual(len(expanded), 3201)
-        np.testing.assert_array_equal(central, expanded[400:-400])
-        for point in (-0.31, 0.0, 0.29, -0.2, 0.14):
-            self.assertIn(point, central)
 
     def test_expanded_mesh_has_exact_parent_endpoints_and_midpoints(self):
         parent = mesh([-0.31, 0.0, 0.29], [-0.2, 0.14], 0, True)

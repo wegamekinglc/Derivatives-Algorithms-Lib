@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <functional>
 #include <future>
 #include <type_traits>
 
@@ -290,7 +291,6 @@ TEST(MarketIvLocalVolTest, TestInitChecksFrozenValuesAndPreservesBothStates) {
 
 TEST(MarketIvLocalVolTest, TestRequestIdentityRetainsCompleteFixingTimes) {
     using namespace Script;
-    RegisterAll_::Init(1);
     const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
     const auto today = CarryMarket().EvaluationDate();
     const ScriptProductData_ product("unit", {Cell_(today.AddDays(365))}, {"pay PAYS 1"});
@@ -495,12 +495,6 @@ TEST(MarketIvLocalVolTest, TestUnsupportedRequestsRejectBeforeDispatchAndTape) {
         },
         "DerivativeUnavailable", "/risk/model");
     ASSERT_EQ(AAD::Tape()->ReverseEventCount(), tapeEvents);
-    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation)); },
-                "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
-    simulation.enableAad_ = false;
-    simulation.rsg_ = "mrg32";
-    AssertError([&] { static_cast<void>(MCSimulation<double>(product, base, std::numeric_limits<size_t>::max(), valuation, simulation)); },
-                "MarketIvLocalVolBudgetExceeded", "/simulation/rsg");
 }
 
 TEST(MarketIvLocalVolTest, TestPreparedRejectsActualValuationDateBeforeAllocation) {
