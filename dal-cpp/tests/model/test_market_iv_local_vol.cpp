@@ -153,6 +153,141 @@ TEST(MarketIvLocalVolTest, TestOwningModelFactoryRunsPassivePaths) {
     ASSERT_NEAR(path[0].discounts_[0] / path[0].numeraire_, std::exp(ReferenceLogs(2.25).second), 2e-12);
 }
 
+TEST(MarketIvLocalVolTest, TestInitRejectsChangedDefinitionsWithoutPublishingState) {
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    AAD::MarketIvLocalVolModel_ model(*data);
+    const Vector_<> timeline{1.};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].numeraire_ = false;
+    definitions[0].discountMats_ = {1.1};
+    model.Allocate(timeline, definitions);
+    auto changed = definitions;
+    changed[0].numeraire_ = true;
+    AssertError([&] { model.Init(timeline, changed); }, "InvalidMarketIvLocalVolRequest", "/product/definitions/0/numeraire");
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::InitializePath(path);
+    const Vector_<> normals(model.SimDim(), .37);
+    ASSERT_THROW(model.GeneratePath(normals, &path), Exception_);
+    const auto copy = definitions;
+    model.Init(Vector_<>(timeline), copy);
+    model.Init(timeline, definitions);
+    model.GeneratePath(normals, &path);
+    const auto original = path;
+    ASSERT_DOUBLE_EQ(path[0].numeraire_, 1.);
+    ASSERT_NEAR(path[0].discounts_[0], std::exp(ReferenceLogs(1.1).second - ReferenceLogs(1.).second), 2e-12);
+    changed = definitions;
+    changed[0].discountMats_[0] = 1.25;
+    AssertError([&] { model.Init(timeline, changed); }, "InvalidMarketIvLocalVolRequest", "/product/definitions/0/discount_maturities/0");
+    model.GeneratePath(normals, &path);
+    ASSERT_DOUBLE_EQ(path[0].spot_, original[0].spot_);
+    ASSERT_DOUBLE_EQ(path[0].numeraire_, original[0].numeraire_);
+    ASSERT_EQ(path[0].discounts_, original[0].discounts_);
+}
+
+TEST(MarketIvLocalVolTest, TestInitChecksFrozenValuesAndPreservesBothStates) {
+    const auto data = BuildMarketIvLocalVolModelData("model", Grid(), Settings());
+    const Vector_<> timeline{0., 1.};
+    Vector_<AAD::SampleDef_> definitions(2);
+    definitions[0].discountMats_ = {0.};
+    definitions[1].numeraire_ = false;
+    definitions[1].indexNames_ = {"EQ[A]", "IR[USD,DF,2028-11-16]", "EQ[A]"};
+    definitions[1].discountMats_ = {1.1, 1.25, 1.1};
+    using Definitions_ = Vector_<AAD::SampleDef_>;
+    struct Change_ {
+        const char* field_;
+        std::function<void(Vector_<>*, Definitions_*)> apply_;
+    };
+    const Vector_<Change_> changes{
+        {"/product/timeline", [](auto* t, auto*) { t->push_back(1.5); }},
+        {"/product/timeline/1", [](auto* t, auto*) { (*t)[1] = std::nextafter(1., 2.); }},
+        {"/product/definitions", [](auto*, auto* d) { d->pop_back(); }},
+        {"/product/definitions/1/numeraire", [](auto*, auto* d) { (*d)[1].numeraire_ = true; }},
+        {"/product/definitions/1/index_names", [](auto*, auto* d) { (*d)[1].indexNames_.pop_back(); }},
+        {"/product/definitions/1/index_names/0", [](auto*, auto* d) { (*d)[1].indexNames_[0] = "EQ[B]"; }},
+        {"/product/definitions/1/index_names/0", [](auto*, auto* d) { std::swap((*d)[1].indexNames_[0], (*d)[1].indexNames_[1]); }},
+        {"/product/definitions/1/discount_maturities", [](auto*, auto* d) { (*d)[1].discountMats_.pop_back(); }},
+        {"/product/definitions/1/discount_maturities/0", [](auto*, auto* d) { (*d)[1].discountMats_[0] = 1.25; }},
+        {"/product/definitions/1/discount_maturities/0", [](auto*, auto* d) { std::swap((*d)[1].discountMats_[0], (*d)[1].discountMats_[1]); }},
+        {"/product/definitions/1/discount_maturities/0", [](auto*, auto* d) { (*d)[1].discountMats_[0] = std::nextafter(1.1, 2.); }},
+        {"/product/definitions/1/libor_definitions", [](auto*, auto* d) { (*d)[1].liborDefs_.emplace_back(1., 1.1, "USD"); }},
+        {"/product/definitions/1/forward_maturities", [](auto*, auto* d) { (*d)[1].forwardMats_.push_back({1.1}); }},
+        {"/product/definitions/1/forward_maturities", [](auto*, auto* d) { (*d)[1].forwardMats_.push_back({}); }},
+    };
+    AAD::MarketIvLocalVolModel_ reference(*data);
+    reference.Allocate(timeline, definitions);
+    reference.Init(timeline, definitions);
+    const Vector_<> normals(reference.SimDim(), .37);
+    AAD::Scenario_<> expected;
+    AAD::AllocatePath(definitions, expected);
+    AAD::InitializePath(expected);
+    reference.GeneratePath(normals, &expected);
+    for (const bool initialized : {false, true}) {
+        for (const auto& change : changes) {
+            SCOPED_TRACE(change.field_);
+            SCOPED_TRACE(initialized);
+            AAD::MarketIvLocalVolModel_ model(*data);
+            model.Allocate(timeline, definitions);
+            if (initialized)
+                model.Init(timeline, definitions);
+            const auto execution = model.Execution();
+            auto alteredTimes = timeline;
+            auto alteredDefinitions = definitions;
+            change.apply_(&alteredTimes, &alteredDefinitions);
+            try {
+                model.Init(alteredTimes, alteredDefinitions);
+                FAIL() << "Changed frozen request accepted";
+            } catch (const MarketIvLocalVolError_& error) {
+                ASSERT_EQ(error.code_, "InvalidMarketIvLocalVolRequest");
+                ASSERT_EQ(error.stage_, "Prepare");
+                ASSERT_EQ(error.field_, change.field_);
+                ASSERT_EQ(error.expected_.find("same as Allocate ("), 0U);
+                ASSERT_FALSE(error.actual_.empty());
+            }
+            ASSERT_EQ(model.SimDim(), reference.SimDim());
+            const auto after = model.Execution();
+            ASSERT_EQ(after.internalSteps_, execution.internalSteps_);
+            ASSERT_EQ(after.preparedColumns_, execution.preparedColumns_);
+            ASSERT_EQ(after.preparedMarketQueries_, execution.preparedMarketQueries_);
+            ASSERT_EQ(after.plannedWorkspaceBytes_, execution.plannedWorkspaceBytes_);
+            ASSERT_EQ(after.peakWorkspaceBytes_, execution.peakWorkspaceBytes_);
+            ASSERT_EQ(after.sharedNumericBytes_, execution.sharedNumericBytes_);
+            ASSERT_EQ(after.workers_, execution.workers_);
+            auto path = expected;
+            if (!initialized)
+                ASSERT_THROW(model.GeneratePath(normals, &path), Exception_);
+            else {
+                model.GeneratePath(normals, &path);
+                ASSERT_DOUBLE_EQ(path[1].spot_, expected[1].spot_);
+                ASSERT_DOUBLE_EQ(path[1].numeraire_, expected[1].numeraire_);
+                ASSERT_EQ(path[1].observations_, expected[1].observations_);
+                ASSERT_EQ(path[1].discounts_, expected[1].discounts_);
+            }
+            auto copy = definitions;
+            copy[0].discountMats_[0] = -0.;
+            copy[1].indexNames_[0] = "eq[a]";
+            model.Init({-0., 1.}, copy);
+            model.Init(timeline, definitions);
+            model.GeneratePath(normals, &path);
+            ASSERT_DOUBLE_EQ(path[1].spot_, expected[1].spot_);
+            ASSERT_DOUBLE_EQ(path[1].numeraire_, expected[1].numeraire_);
+            ASSERT_EQ(path[1].observations_, expected[1].observations_);
+            ASSERT_EQ(path[1].discounts_, expected[1].discounts_);
+        }
+    }
+    AAD::MarketIvLocalVolModel_ unallocated(*data);
+    try {
+        unallocated.Init(timeline, definitions);
+        FAIL() << "Unallocated model accepted";
+    } catch (const MarketIvLocalVolError_& error) {
+        ASSERT_EQ(error.code_, "InvalidMarketIvLocalVolRequest");
+        ASSERT_EQ(error.stage_, "Prepare");
+        ASSERT_EQ(error.field_, "/product/definitions");
+        ASSERT_EQ(error.expected_, "successful Allocate before Init");
+        ASSERT_EQ(error.actual_, "unallocated");
+    }
+}
+
 TEST(MarketIvLocalVolTest, TestRequestBudgetFailureKeepsPreparedState) {
     const auto grid = Grid();
     auto settings = Settings();

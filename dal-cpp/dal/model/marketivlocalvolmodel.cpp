@@ -1,5 +1,7 @@
 #include <dal/platform/platform.hpp>
 
+#include <sstream>
+
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/math/buffercapacity.hpp>
@@ -10,6 +12,45 @@
 namespace Dal::AAD {
     namespace {
         using namespace MarketIvLocalVolDetail;
+
+        template <class T_> String_ FrozenValueText(const T_& value) {
+            std::ostringstream text;
+            text.precision(std::numeric_limits<double>::max_digits10);
+            text << std::boolalpha << value;
+            const String_ result(text.str());
+            return result.size() <= 120 ? result : String_(result.substr(0, 117) + "...");
+        }
+
+        template <class T_> void CheckFrozenValue(const T_& expected, const T_& actual, const String_& field) {
+            if (actual != expected)
+                Fail("InvalidMarketIvLocalVolRequest", "Prepare", field, "same as Allocate (" + FrozenValueText(expected) + ")",
+                     FrozenValueText(actual));
+        }
+
+        template <class T_, class F_>
+        void CheckFrozenSequence(const Vector_<T_>& expected, const Vector_<T_>& actual, const String_& field, F_ check) {
+            CheckFrozenValue(expected.size(), actual.size(), field);
+            for (size_t i = 0; i < expected.size(); ++i)
+                check(expected[i], actual[i], field + "/" + String_(std::to_string(i)));
+        }
+
+        template <class T_> void CheckFrozenSequence(const Vector_<T_>& expected, const Vector_<T_>& actual, const String_& field) {
+            CheckFrozenSequence(expected, actual, field, CheckFrozenValue<T_>);
+        }
+
+        void CheckFrozenDefinition(const SampleDef_& expected, const SampleDef_& actual, const String_& field) {
+            CheckFrozenValue(expected.numeraire_, actual.numeraire_, field + "/numeraire");
+            CheckFrozenSequence(expected.indexNames_, actual.indexNames_, field + "/index_names");
+            CheckFrozenSequence(expected.discountMats_, actual.discountMats_, field + "/discount_maturities");
+            CheckFrozenSequence(expected.liborDefs_, actual.liborDefs_, field + "/libor_definitions",
+                                [](const auto& lhs, const auto& rhs, const String_& path) {
+                                    CheckFrozenValue(lhs.start_, rhs.start_, path + "/start");
+                                    CheckFrozenValue(lhs.end_, rhs.end_, path + "/end");
+                                    CheckFrozenValue(lhs.curve_, rhs.curve_, path + "/curve");
+                                });
+            CheckFrozenSequence(expected.forwardMats_, actual.forwardMats_, field + "/forward_maturities",
+                                [](const auto& lhs, const auto& rhs, const String_& path) { CheckFrozenSequence(lhs, rhs, path); });
+        }
 
         void CheckTime(double time, double horizon, const String_& field) {
             if (!std::isfinite(time) || time < 0.)
@@ -371,8 +412,10 @@ namespace Dal::AAD {
     }
 
     void MarketIvLocalVolModel_::Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) {
-        REQUIRE(state_ && timeline == state_->timeline_ && definitions.size() == state_->definitions_.size(),
-                "InvalidMarketIvLocalVolRequest: Allocate before Init");
+        if (!state_)
+            Fail("InvalidMarketIvLocalVolRequest", "Prepare", "/product/definitions", "successful Allocate before Init", "unallocated");
+        CheckFrozenSequence(state_->timeline_, timeline, "/product/timeline");
+        CheckFrozenSequence(state_->definitions_, definitions, "/product/definitions", CheckFrozenDefinition);
         state_->initialized_ = true;
     }
     size_t MarketIvLocalVolModel_::SimDim() const { return state_ ? state_->execution_.simulationDimension_ : 0; }
