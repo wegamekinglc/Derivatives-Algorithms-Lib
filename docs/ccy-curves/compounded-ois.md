@@ -222,6 +222,12 @@ actual/shifted-period length ratio. Lockout reuses the last unlocked rate for k
 tail business intervals, retaining a separate factor and actual weight per row;
 it requires `0<k<coupon_interval_count`. Fixed-leg dates and weights stay fixed.
 
+The independent [manual schedule fixture](../../dal-cpp/tests/curve/data/compounded_ois_observation_schedule.csv)
+uses a Mar-4 holiday and a Mar-5 to Mar-8, 2024 coupon. With one-day lookback,
+the first rate interval is Mar-1 to Mar-5: Lookback weights it by 1/360,
+ObservationShift by 4/360. Lockout(1) uses Mar-5, Mar-6 and Mar-6 fixings with
+three separate 1/360 factors. This distinguishes rate, accrual and weight dates.
+
 Preparation classifies history from the mapped fixing date and payment status
 without fetching rate/fixing values. Missing required history is detected when
 execution requests it. Contract and schedule identities exclude valuation
@@ -229,6 +235,17 @@ classification; preparation identity includes the complete explicit snapshot,
 valuation date and today policy. `/2` archives store the declaration and complete
 resolved rows; loading re-expands and verifies every stored row before publishing
 the preparation. Legacy `/1` JSON, source and identities retain their format.
+Readers reject unknown/duplicate fields, mixed versions or tampered derived rows.
+They do not trust stored identity strings or downgrade new inputs to `/1`.
+Mode tokens and wire keys are case-sensitive. `/1` plus any convention,
+including None, and `/2` plus nonempty manual observations are rejected.
+
+Payment dates strictly before valuation are settled; payments at valuation
+remain included under `IncludeUnsettledAtValuation`. An all-settled contract
+has Price zero and unavailable ParRate. Lockout history follows the mapped
+anchor fixing, not tail accrual dates. Today's default Model projects even if
+the explicit snapshot has a different today value; RequireHistorical requires
+it. Historical rates have no ON-curve derivative, but live discount risk remains.
 
 Core `/2` source construction and direct Price/ParRate evaluation use the frozen
 schedule. Each ON2 literal carries the actual and complete rate intervals, with
@@ -285,6 +302,47 @@ quotes are generated at the displayed native parameters. These partials are curr
 amounts per unit native parameter and are not quote DV01. The example then checks
 full/PV-only quote risk against complete quote bump/recalibration with fixed K/N,
 labels raw and signed DV01 units separately, and prints an unregistered-PV diagnostic.
+
+## Quote-risk validation
+
+For residual `R(theta,q)=F(theta)-Q*q` and a fixed-contract Price V, the implicit
+response and adjoint solve are:
+
+```text
+J = dF/dtheta; J*M = Q
+g = dV/dtheta; J^T*lambda = g^T
+raw = Q^T*lambda; DV01 = raw*1e-4
+```
+
+The contract has no direct live-quote payoff term. The implementation checks
+the factorization and response/transpose errors rather than differentiating
+solver iterations or forming an explicit inverse. Full mapping and PV-only
+share the same admission. A fit-success flag or optional stored Jacobian alone
+does not provide the original EXACT root evidence.
+
+The independent regression oracle recalibrates every quote at `q[j]+/-h` for
+both `h=1e-4` and `5e-5`, checking both bumped roots and their conditioning.
+It reprices the same immutable K/N/source with direct native evaluation and
+rebuilt curves, holding passive curves, calendars and fixings fixed. The raw
+reference is `(PV_plus-PV_minus)/(2*h)`; its DV01 reference is that value times
+`1e-4`. A one-sided 1bp price move includes curvature.
+
+Well-conditioned fixtures require raw Rate residuals at most `1e-12`, reciprocal
+condition at least `1e-10` and response/transpose backward errors at most `1e-12`.
+After dividing by N, raw error and two-step FD instability are bounded by
+`1e-7+1e-5*abs(FD_raw/N)`; the DV01 bound is
+`1e-11+1e-5*abs(FD_DV01/N)`. These are qualification-fixture thresholds;
+production accuracy settings remain explicit. They must not be relaxed to make
+an unobservable or poorly solved fixture pass.
+
+`dal-cpp/tests/curve/test_compounded_ois_quote_risk.cpp` protects all four modes,
+the three target roles, LOG_DISCOUNT/ZERO_RATE positives, full/PV-only parity,
+scaling/signs, complete quote recalibration and owning failures. Independent
+schedule/product checks protect holiday/weekend weights and accumulated Lockout
+adjoints. `/1` golden source/archive/identities, tampering, lifecycle and
+unobservable PWLF/PWC cases retain separate protection. Rejection remains for
+multi-target/joint or staged risk, APPROXIMATE roots, ParRate risk, live-quote
+payoffs, unregistered PVs and general MC/GSR/XCCY execution.
 
 ## Resource measurement
 

@@ -57,6 +57,12 @@ covers constrained SSVI quote fitting, global static certificates, analytic
 Dupire, complete refit bumps and C++/Python/Excel use, with explicit legacy
 IVS and nonflat-carry model boundaries.
 
+The [owning market-grid local-volatility model](models/local-volatility.md#owning-market-model-in-core-c)
+covers passive MC, frozen Init requests, identity domains and resource admission.
+Its [independent qualification method](methodology/monte-carlo/market-iv-local-vol-validation.md)
+separates fit, grid, time-step and statistical gates, with fixed Brownian
+coordinates and producer-specific evidence reuse.
+
 The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
 row supports, compressed direction recovery, numeric payload admission and
 rate-trade dependency capture with complete structural identity, and

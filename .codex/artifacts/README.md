@@ -8,10 +8,6 @@ references.
 
 ## Current Controls
 
-- [DAL-538 market-IV to nonflat F/D local-vol MC API decision](api-notes/dal-538-market-iv-local-vol-mc.md)
-- [DAL-538 staged implementation and acceptance plan](plans/dal-538-market-iv-local-vol-mc.md)
-- [DAL-542 N5 resolution A/3: current MC protocol and explicit recovery](specs/dal-542-n5-resolution-a.md)
-- [DAL-526 compounded OIS observation and quote-risk contract](specs/dal-526-compounded-ois-observation-quote-risk.md)
 - [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
 - [DAL-497 PDE risk contract](specs/dal-497-early-exercise-pde-risk.md)
 - [DAL-497 acceptance fixtures and gates](specs/dal-497-pde-risk-acceptance.md)
@@ -19,6 +15,24 @@ references.
 - [DAL-410 domestic-collateral Gaussian model](api-notes/dal-410-xccy-mc-model-decision.md)
 - [Prepared mixed-mapping XCCY basket allocation](api-notes/dal-xccy-mixed-mapping-basket.md)
 
-The implemented behavior and supported interfaces are described by the current
-[documentation](../../docs/README.md). Historical completion or validation text
-in a controlling document describes its named baseline, not live branch status.
+These controls retain the independent PDE fixed-plan/schema/acceptance limits,
+shared script ownership and binding rules, and XCCY model/scalar-allocation
+contracts. Their numerical and platform qualifications remain scoped to the
+named fixtures and producers; task completion alone does not supersede a contract.
+
+## Implemented contracts and qualification
+
+Use the current-state guides for:
+
+- [Market-grid local-volatility model/API](../../docs/models/local-volatility.md#owning-market-model-in-core-c),
+  including Init freezing, resource admission and request identity domains.
+- [Independent local-volatility qualification](../../docs/methodology/monte-carlo/market-iv-local-vol-validation.md),
+  including N1-N7 gates, canonical grids, A/3 sampling and evidence reuse.
+- [Compounded OIS](../../docs/ccy-curves/compounded-ois.md), including `/1`/`/2`
+  schedules, frozen context, signed quote DV01 and independent FD checks.
+
+The [numerical harness guide](../../tests/market-iv-local-vol/README.md) identifies
+the sealed execution evidence and reproduction entry points. Frozen control
+bytes remain with their original Git revisions and evidence archives; current
+guides do not rebind their hashes, reopen completed budgets or claim a new run.
+The [documentation index](../../docs/README.md) covers other implemented interfaces.

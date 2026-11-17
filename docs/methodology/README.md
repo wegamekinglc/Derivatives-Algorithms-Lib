@@ -9,7 +9,7 @@ C++ implementation. Model and curve-specific mathematics lives in the
 
 - [Monte Carlo](monte-carlo/README.md) — simulation, sampling and path
   construction, least-squares exercise pricing, randomized QMC, and performance
-  choices.
+  choices, including [market-grid local-volatility qualification](monte-carlo/market-iv-local-vol-validation.md).
 - [PDE](pde/README.md) — one-dimensional grids, finite-difference operators,
   theta rollback, European pricing/adjoints, and deterministic-carry
   Bermudan/American pricing.

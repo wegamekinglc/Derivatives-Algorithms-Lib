@@ -178,6 +178,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Core Script Calibration Contracts** — [Script calibration contracts](docs/methodology/script_calibration_contract.md), including immutable contract data, typed bindings, quote/observation axes and persistence
 - **Dupire Local Volatility** — [Dupire local volatility](docs/models/dupire.md)
 - **Constrained Market IV Surfaces** — [Market IV surfaces](docs/models/market-iv-surface.md), including global SSVI certificates, analytic Dupire, owning snapshots and full quote refits
+- **Market-Grid Local-Volatility Qualification** — [Independent numerical gates](docs/methodology/monte-carlo/market-iv-local-vol-validation.md), including canonical grids, fixed Brownian coordinates, SE-only stopping and evidence reuse
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/models/black-scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)
 - **Random Number Generation and Path Construction** — [Random and path generation](docs/methodology/monte-carlo/sampling.md)
