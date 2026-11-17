@@ -4,7 +4,6 @@ from functools import partial
 
 from .harness import Case
 
-
 # 'partial' means reachable public workloads, never native-kernel timing parity.
 CPP_COVERAGE = {
     "rng_perf": {
@@ -17,11 +16,11 @@ CPP_COVERAGE = {
     },
     "script_mc_perf": {
         "status": "partial",
-        "detail": "All twelve native vanilla/barrier x double/AAD x default/tree/compiled cases, plus sixteen common third-party MC price/Delta/Vega/Rho workloads (European/barrier/Bermudan/American approximation) at 16K/64K pricing paths; LSM trains on a separate 16K paths. Includes public result conversion.",
+        "detail": "Twelve native-aligned MC cases, sixteen comparison workloads at 16K/64K paths (LSM trains on 16K separate paths), and six market-grid inspection/fixing/carry conversion cases. Includes public result conversion.",
     },
     "curve_calibration_perf": {
         "status": "partial",
-        "detail": "All 21 native-aligned cases plus six non-flat single/staged/joint multi-curve calibration comparisons at 5/15 quotes per block.",
+        "detail": "All 21 native-aligned cases, six non-flat multi-curve comparisons at 5/15 quotes per block, and four owning OIS audit projections at None-D30/Lockout-D1825.",
     },
     "xccy_perf": {
         "status": "partial",
@@ -96,7 +95,7 @@ CPP_COVERAGE = {
 
 def build_cases(smoke=False):
     # --coverage reads the mapping without importing the native extension.
-    from . import calibration, risk, simulation, xccy
+    from . import calibration, compoundedois, marketivlocalvol, risk, simulation, xccy
 
     cases = []
 
@@ -118,6 +117,48 @@ def build_cases(smoke=False):
     _quote_cases(add, smoke, risk, xccy)
     _generic_cases(add, smoke, risk)
     _expanded_comparison_cases(add, smoke)
+    for count in (0, 1, 365):
+        add(
+            f"market_iv_local_vol.execution_fixings_{count}",
+            "script_mc_perf",
+            {
+                "history_rows": count,
+                "boundary": "complete inspection and 23-field dict; setup excluded",
+            },
+            partial(marketivlocalvol.prepare_execution, count),
+        )
+    add(
+        "market_iv_local_vol.fixing_input_365",
+        "script_mc_perf",
+        {"history_rows": 365, "boundary": "MarketFixingSnapshot_New(dict)"},
+        marketivlocalvol.prepare_fixing_input,
+    )
+    for terms in (1, 256):
+        add(
+            f"market_iv_local_vol.carry_output_{terms + 2}_rows",
+            "script_mc_perf",
+            {
+                "carry_terms": terms,
+                "rows": terms + 2,
+                "columns": 8,
+                "boundary": "native owning getter and list/dict conversion",
+            },
+            partial(marketivlocalvol.prepare_carry, terms),
+        )
+    for mode, count in (("None", 30), ("Lockout", 1825)):
+        for kind, columns in (("prepared", 22), ("evaluated", 26)):
+            add(
+                f"compounded_ois.audit.{mode}_D{count}.{kind}_{columns}",
+                "curve_calibration_perf",
+                {
+                    "mode": mode,
+                    "days": count,
+                    "rows": count + 1,
+                    "columns": columns,
+                    "boundary": "owning observation schedule projection; preparation/evaluation excluded",
+                },
+                partial(compoundedois.prepare_audit, mode, count, columns),
+            )
     return cases
 
 
@@ -197,7 +238,11 @@ def _simulation_cases(add, smoke, simulation):
         for aad in (False, True):
             for compiled in (None, False, True):
                 paths = 2048 if smoke else aad_paths if aad else double_paths
-                evaluator = "default" if compiled is None else "compiled" if compiled else "tree"
+                evaluator = (
+                    "default"
+                    if compiled is None
+                    else "compiled" if compiled else "tree"
+                )
                 name = f"mc.{kind}.{'aad' if aad else 'double'}.{evaluator}"
                 add(
                     name,
