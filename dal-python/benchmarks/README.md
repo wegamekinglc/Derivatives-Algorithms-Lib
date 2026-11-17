@@ -1,6 +1,6 @@
 # DAL Python interface benchmarks
 
-This suite runs 98 workloads through `import dal`, with a coverage entry for every
+This suite runs 108 workloads through `import dal`, with a coverage entry for every
 target in [the C++ benchmark inventory](../../dal-cpp/benchmarks/CMakeLists.txt).
 It requires a current DAL Python build and Python 3.9–3.13. The runner uses the
 standard library and NumPy for the independent option integration and tree oracles;
@@ -58,8 +58,8 @@ are errors, never silently skipped workloads.
 |--------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation                      |
 | `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                               |
-| `script_mc_perf`         | 28           | Twelve native-aligned default/tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
-| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block                           |
+| `script_mc_perf`         | 34           | Twelve native-aligned default/tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
+| `curve_calibration_perf` | 31           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block                           |
 | `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                                     |
 | `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01                       |
 | `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                                      |
@@ -67,6 +67,31 @@ are errors, never silently skipped workloads.
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
 of full native case parity.
+
+The additional six `market_iv_local_vol.*` cases measure complete execution
+inspection with 0/1/365 unused noon fixings, conversion of 365 fixing inputs, and
+owning carry output with 3/258 rows. They use the fixed 2026-11-16 unit-payment
+fixture, MRG32 and the native default settings; setup is outside timing. Carry
+output includes the source getter's owning copy and Python list/dict conversion.
+Four `compounded_ois.audit.*` cases project prepared 22-column and evaluated
+26-column schedules for None-D30 and Lockout-D1825. They share the public audit
+driver's calendar, ACT360/ACT365F contract and log-discount curve; preparation and
+evaluation occur before timing. Each preflight checks shape, common prefixes,
+coordinate bases and detached ownership.
+
+```bash
+DAL_NUM_THREADS=1 python benchmarks/run_benchmarks.py --group script_mc_perf --filter market_iv_local_vol. --samples 10 --warmups 2 --output-dir ../benchmark-results/market-grid
+DAL_NUM_THREADS=1 python benchmarks/run_benchmarks.py --group curve_calibration_perf --filter compounded_ois.audit. --samples 10 --warmups 2 --output-dir ../benchmark-results/ois-audit
+```
+
+These focused rows retain the harness's two warmups, ten raw samples, validation
+outside timing and result destruction after each timer. They are not directly
+comparable with `timeit` measurements that include destruction and calibrated
+inner loops. Sample two rounds of ten alternating fresh processes per side with
+distinct output directories, record module/harness hashes, and report noise and
+paired support. New rows remain informational. Python traced bytes, native
+tracked capacity and whole-process RSS describe separate allocation scopes;
+none establishes real Excel OPER/Office conversion cost.
 
 Native-only PWL query microbenchmarks additionally isolate integral reuse at
 8/24/64/256 knots in `curve_calibration_perf`.

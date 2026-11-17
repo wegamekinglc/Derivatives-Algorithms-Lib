@@ -12,7 +12,7 @@ uses compiled evaluation when its optional evaluator argument is omitted.
 ## Market-grid local volatility
 
 Build `script_mc_perf` in Release with `DAL_CPP_BUILD_BENCHMARKS=ON`; it uses
-only core. The focused entry accepts exactly `CASE MODE PATHS`:
+only core. The existing entries accept exactly `CASE MODE PATHS`:
 
 ```bash
 DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol small prepare 65536
@@ -53,6 +53,48 @@ base/head, dependencies, flags, compiler/CPU/threads and executable hashes.
 
 CTest's `script_mc_market_iv_local_vol` is a small preparation smoke, labelled
 `benchmark`; it is separate from performance acceptance sampling.
+
+### Preparation stages and fixing histories
+
+```bash
+DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol small stages 64
+DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol monthly-asian stages 64
+DAL_NUM_THREADS=1 build/perf/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --market-iv-local-vol identity inspection 64 365
+```
+
+`stages` supports small and monthly inputs. It freezes independent copies of a
+real prepared timeline/definitions, checks fixed-normal paths and prepared/whole
+prices, then times `reallocate_only` and `init_frozen_values` separately. Reallocate
+includes Plan/delegate/columns, old-state destruction and coexisting states.
+Init uses an already initialized model and equal independent inputs; copies,
+allocation, path generation and inspection hashing are outside that timer.
+Input field counts and actual dimensions are printed.
+
+`identity inspection` alone accepts a sixth argument: history rows 0, 1 or 365.
+It uses the single-term F=102/D=.98, ATM IV=.2, 3×2 grid fixture, a future unit
+payment and unused EQ[A] history at exact noon with value 99. It times complete
+inspection, including preparation, reports, canonical hashing and returned-report
+destruction. It does not isolate hash-only cost. PATHS is validated for CLI
+consistency; the payment preflight uses 16 paths and does not enter the timer.
+
+Both modes retain >=10 ms calibration (16384-loop cap), one warmup and ten
+inner measurements. `PROFILE_SAMPLES` JSON lines retain all batch nanoseconds,
+inner loop counts and per-call nanoseconds. Apply the same two rounds of ten
+interleaved process pairs and min reduction; new rows are informational, with
+both absolute cost and comparable deltas. Do not infer a phase by subtracting
+independently minimized aggregate timers.
+
+`STAGE_RESOURCE` is a separate untimed lifecycle diagnostic. It uses the existing
+owned buffer accounting around Allocate's internal capacity budgets, which cannot
+be nested under another capacity scope. It reports before/after retained tracked
+storage, the peak with old/new state coexistence, internal numeric ledgers and
+zero tracked storage after cleanup. These scopes count different buffer sets;
+neither is total malloc or RSS. Init string/heap allocations remain unmeasured.
+
+The opt-in preflight tests are in
+`dal-python/benchmarks/tests/test_focused_native_profiles.py`; set
+`DAL_MARKET_IV_PROFILE_BINARY` and `DAL_OIS_AUDIT_PROFILE_BINARY` to build-tree
+executables. They check correctness and complete samples without timing thresholds.
 
 ## LSMC training-budget study
 
