@@ -60,6 +60,7 @@ set(DAL_EXAMPLE_TARGETS
     gsr_swap_swaption
     gsr_slv_calibration
     dal_hybrid_script_example
+    dal_market_iv_local_vol_example
     snowball
     sobol
     script

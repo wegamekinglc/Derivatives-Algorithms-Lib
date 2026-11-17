@@ -499,6 +499,11 @@ certificate's scope, local fitting/quality limits, budgets and model boundaries.
 
 ## Market-grid local-volatility Monte Carlo
 
+Run [022.market_iv_local_vol.py](../../dal-python/examples/022.market_iv_local_vol.py)
+with the built `dal` package on `PYTHONPATH`. It fits a smile with nonflat F/D,
+constructs an owning model, prints fit and valuation tables, checks forward/DF
+values and demonstrates the passive-only error.
+
 Continue from a successful `grid` in the market-IV workflow:
 
 ```python

@@ -714,6 +714,9 @@ archive serialization. See [portfolio risk semantics](../methodology/aad.md#scri
 
 ## Market-grid local-volatility Monte Carlo
 
+The [complete recipe](../../dal-excel/examples/014.market_iv_local_vol.md) includes
+input tables, formulas, price guards, failure diagnostics and a real Excel runner.
+
 Use a successful `MARKETIVDUPIRERESULT.NEW` handle as the model's sole
 market source. Create a headerless two-column settings range with required
 `index`, `currency`, `factor`, `horizon` rows, for example

@@ -190,8 +190,11 @@ the same factories, passive valuation and detached diagnostics. Copying these
 handles preserves identity; model and typed settings pickle/archive are
 unsupported. The independent Black/smile/grid/MC qualification applies to its
 frozen fixtures and sampling configurations; fast interface checks do not extend
-that numerical scope. Dedicated examples, formal performance acceptance and
-live Windows worksheet validation remain separate delivery gates.
+that numerical scope. The [core example](../../dal-cpp/examples/models/market_iv_local_vol/)
+and [public example](../../dal-public/examples/market_iv_local_vol/) print fit
+residuals, identities and explicit smoke tolerances. The
+[focused benchmark](../../dal-cpp/benchmarks/script_mc_perf/README.md#market-grid-local-volatility)
+separates construction, preparation, whole valuation and comparable flat paths.
 
 ## Design references
 

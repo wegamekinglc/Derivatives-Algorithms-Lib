@@ -306,6 +306,12 @@ archives are not provided; new Excel handles reject serialization.
 
 ## Legacy compatibility and model boundary
 
+For market F/D → fit → grid → owning model → vanilla/forward/DF, run the
+[core example](../../dal-cpp/examples/models/market_iv_local_vol/),
+[public example](../../dal-public/examples/market_iv_local_vol/),
+[Python script](../../dal-python/examples/022.market_iv_local_vol.py), or
+[Excel recipe](../../dal-excel/examples/014.market_iv_local_vol.md).
+
 `MarketIvSurfaceAsLegacyIVS` is an explicit C++/Python owning adapter for
 `FLAT_CARRY` snapshots only. Its implied volatility uses the new surface;
 inherited `IVS_::Call/LocalVol` still use the original flat r/q and price

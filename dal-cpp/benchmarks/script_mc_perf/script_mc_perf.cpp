@@ -33,6 +33,7 @@
 #include "gsrperf.hpp"
 #include "gsrslvcalibrationperf.hpp"
 #include "lsmctrainingstudy.hpp"
+#include "marketivlocalvolperf.hpp"
 #include "productionprofile.hpp"
 #include "rngpolicyprofile.hpp"
 
@@ -338,6 +339,8 @@ int main(int argc, char** argv) {
     std::cout.rdbuf(startupOutput);
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--market-iv-local-vol")
+            return RunMarketIvLocalVolProfile(argc, argv);
         if (std::string(argv[1]) == "--compiled-soa")
             return RunCompiledSoaProfile(argc - 1, argv + 1);
         if (std::string(argv[1]) == "--lsmc-training-sample")
