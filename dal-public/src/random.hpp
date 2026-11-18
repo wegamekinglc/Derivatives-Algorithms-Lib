@@ -22,6 +22,11 @@ namespace Dal {
         return Handle_<SobolRSG_>(new SobolRSG_(name, iPath, ndim, precise, polish));
     }
 
+    namespace RandomBinding {
+        Handle_<PseudoRSG_> NewPseudoRSG(const String_& name, double seed, double ndim);
+        Handle_<SobolRSG_> NewSobolRSG(const String_& name, double iPath, double ndim, bool precise, bool polish);
+    } // namespace RandomBinding
+
     template <class RSG_>
     FORCE_INLINE void FillRSG_(const Handle_<RSG_>& f, int numPath, void (RSG_::*fill)(Vector_<>* ) const, Matrix_<>* y) {
         REQUIRE(f.get() != nullptr, "Random generator handle must not be null");

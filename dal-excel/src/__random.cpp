@@ -7,7 +7,6 @@
 #include "__value.hpp"
 #include <dal-public/src/random.hpp>
 #include <dal-public/src/types.hpp>
-#include <dal/math/random/validation_internal.hpp>
 
 /*IF--------------------------------------------------------------------------
 public PseudoRSG_New
@@ -100,12 +99,11 @@ y is number[][]
 
 namespace Dal {
     void PseudoRSG_New(const String_& name, double seed, double ndim, Handle_<PseudoRSG_>* f) {
-        NewPseudoRSG(name, RandomInput::Seed(seed), RandomInput::PublicDimension(ndim)).swap(*f);
+        RandomBinding::NewPseudoRSG(name, seed, ndim).swap(*f);
     }
 
     void SobolRSG_New(const String_& name, double iPath, double ndim, bool precise, bool polish, Handle_<SobolRSG_>* f) {
-        RandomInput::Integer(iPath, 0., static_cast<double>(std::numeric_limits<int>::max()) + 1., "/i_path", "finite integer in [0,INT_MAX]");
-        NewSobolRSG(name, static_cast<int>(iPath), RandomInput::SobolDimension(ndim), precise, polish).swap(*f);
+        RandomBinding::NewSobolRSG(name, iPath, ndim, precise, polish).swap(*f);
     }
 
     void PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& f, double numPaths, Matrix_<>* y) {
