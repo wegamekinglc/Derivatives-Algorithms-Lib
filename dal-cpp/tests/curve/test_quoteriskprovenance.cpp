@@ -1230,6 +1230,23 @@ TEST(QuoteRiskProvenanceTest, TestSingleCurveAnalyticAndBumpedConstruction) {
     }
 }
 
+TEST(QuoteRiskProvenanceTest, TestLegacyTimeComponentFingerprintsUseFrozenBytes) {
+    const Dal::Date_ today(2025, 1, 2);
+    const Dal::Handle_<Dal::DiscountCurve_> curve(Dal::NewDiscountPWC(
+        "fixed", "USD", Dal::PiecewiseConstant_({today, Dal::Date_(2026, 1, 2)}, {0.02, 0.025})));
+    Dal::RatePricingMarket_ market;
+    market.valuationTime_ = Dal::DateTime_(today, 0, 0, 11);
+    market.resultCurrency_ = Dal::Ccy_("USD");
+    market.curveComponents_["discount"] = curve;
+    market.fixings_.reset(new Dal::MarketFixingSnapshot_({{"EQ[A]", {{Dal::DateTime_(today.AddDays(-1), 0, 0, 11), 99.}}}}));
+    for (const auto& [scheme, expected] : Dal::Vector_<std::pair<Dal::String_, Dal::String_>>{
+             {"dal.quote-risk-state/1+jcs+sha256", "sha256:c46c37770374bb7093cebcaefa53cb9c36a4375f6dd10a1094f2d34f31720da4"},
+             {"dal.quote-risk-state/2+jcs+sha256", "sha256:535bc2c70df683273c04ef75322dc7101258ee08136dbb334359d0ca68a3a2b1"}}) {
+        SCOPED_TRACE(scheme);
+        ASSERT_EQ(Dal::CurrentRateQuoteRiskComponentState("discount", market, scheme).fingerprint_, expected);
+    }
+}
+
 // Fail-closed regression: when every instrument matures at or before the last knot, the last
 // piecewise-constant forward is unconstrained, the residual Jacobian is rank-deficient, and the
 // solver's finite-but-wrong effective inverse must be discarded rather than published.

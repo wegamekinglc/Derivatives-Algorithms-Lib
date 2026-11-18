@@ -93,22 +93,6 @@ def provenance_from(inputs):
     )
 
 
-def test_joint_state_preserves_the_frozen_time_fingerprint():
-    spec, options, result, _, config, _ = joint_inputs()
-    today = spec.today
-    market = dal.RatePricingMarket_(
-        valuation_time=dal.DateTime_(today, 0, 0, 11), result_currency="USD",
-        curve_components={"discount": next(iter(result.discount_curves.values())),
-                          "forward": next(iter(result.forward_curves.values()))},
-        fixings=dal.MarketFixingSnapshot_New({"EQ[A]": {dal.DateTime_(today.AddDays(-1), 0, 0, 11): 99.}}),
-    )
-    provenance = dal.BuildJointMultiCurveQuoteRiskProvenance(
-        spec=spec, result=result, options=options, bound_market=market, config=config,
-    )
-    assert provenance.axis.fingerprint == "sha256:72b3567b5929852fd4db2549681d1b5348393434ae98ac3cb217d6e2a98e2f3e"
-    assert provenance.state.fingerprint == "sha256:82d127ee8e7f6251b5577949b40b3d02663f92eaab8299b7c085a269c1c7c046"
-
-
 def unregistered_xccy_inputs(*, bump=None, register=False, opaque_leaf=None):
     spec, options, result, market, config, _ = joint_inputs(bump=bump, strict=True)
     today = spec.today

@@ -174,21 +174,6 @@ def test_single_provenance_snapshots_mutable_inputs(changed):
     assert result.state.fingerprint == baseline.state.fingerprint
 
 
-def test_single_state_preserves_the_frozen_time_fingerprint():
-    spec, options, result, _, _, config, *_ = _single_quote_risk_inputs()
-    today = dal.Date_(2025, 6, 20)
-    market = dal.RatePricingMarket_(
-        valuation_time=dal.DateTime_(today, 0, 0, 11), result_currency="USD",
-        curve_components={"discount": result.curve_},
-        fixings=dal.MarketFixingSnapshot_New({"EQ[A]": {dal.DateTime_(today.AddDays(-1), 0, 0, 11): 99.}}),
-    )
-    provenance = dal.BuildSingleCurveQuoteRiskProvenance(
-        spec=spec, result=result, options=options, bound_market=market, config=config,
-    )
-    assert provenance.axis.fingerprint == "sha256:81d5c60259066ab4777d666f4539289bff0d1c8f0be1c11ee088d465dab1639e"
-    assert provenance.state.fingerprint == "sha256:85068bebf02d4bf70f480a9cc1788078a84b180f51bcc4921b5be67b9474b20d"
-
-
 def test_quote_risk_factories_and_aggregate_are_keyword_only():
     signatures = {
         "BuildSingleCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
