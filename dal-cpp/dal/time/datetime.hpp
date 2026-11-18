@@ -2,7 +2,7 @@
 // Created by Cheng Li on 2018/2/4.
 //
 
-// compact DateTime -- stores dates as in class Date_, plus times with ~1 second resolution
+// Compact date plus a binary64 day fraction.
 
 #pragma once
 

@@ -27,14 +27,38 @@ interpolation coordinates. `Date::FromString`
 map to 20xx) and `yyyy-mm-dd`; `Date::IsDateString` predicts whether a string
 matches one of those formats.
 
-`DateTime_` (`dal-cpp/dal/time/datetime.hpp`) pairs a `Date_` with a `double`
-day fraction, giving roughly one-second resolution for fixing times.
+`DateTime_` (`dal-cpp/dal/time/datetime.hpp`) pairs a `Date_` with a binary64
+day fraction. Native comparison and fixing lookup preserve that fraction exactly.
 The fraction must lie in `[0, 1)`; negative and non-finite values throw.
 The hour/minute/second constructor requires hour in `[0, 24)` and minute and
 second in `[0, 60)`. Millisecond offsets from `Date::Minimum()` must be
 nonnegative and stay within the supported date range. Addition accepts only
 finite positive day increments and preserves the original value if the result
 would leave that range.
+
+`DateTime::TimeString` and `ToString` display whole seconds using
+`min(86399, round(86400 * fraction))`, with half seconds rounded upward. The
+date stays fixed, including at `Date::Maximum()`; the last displayed time is
+`23:59:59`. This uses the computed binary64 product without an epsilon, so a
+fraction just below a half-second boundary still rounds downward. `Hour`,
+`Minute`, `MSec` and the native stored value retain their existing semantics.
+
+JSON archives encode every DateTime value, including values in Cell arrays and
+matrices, as `{"~datetime":"dal.datetime/1","date":"2026-02-14","fraction":0.5}`.
+The date must be a supported `YYYY-MM-DD`; the finite fraction is in `[0,1)`.
+Round-trip decimal formatting preserves every binary64 fraction, including
+subnormal values; both signs of zero write as `0`. Version, keys and types are
+checked strictly. Invalid values raise `ARCHIVE_DATETIME_INVALID` with the field,
+expected value and actual input description.
+
+The reader also accepts legacy date/time strings and typed datetime Excel
+serials, including integer midnight values. Numeric Cells remain numeric.
+Compatibility runs from new readers to old archives; old readers cannot read
+the new time objects. Precision already lost in a legacy file cannot be
+recovered. Fixings archives reject duplicate times with
+`ARCHIVE_FIXINGS_DUPLICATE_TIME` at the second key and reject unequal key/value
+lengths. Existing fingerprint domains retain their frozen legacy time bytes;
+their time precision does not increase with the archive protocol.
 
 ## Holiday centers and business days
 

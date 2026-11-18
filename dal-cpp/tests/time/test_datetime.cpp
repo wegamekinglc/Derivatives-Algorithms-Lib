@@ -132,6 +132,25 @@ TEST(DateTimeTest, TestDateTimeToString) {
     ASSERT_EQ(String_("2017-01-01 12:00:00"), ToString(src));
 }
 
+TEST(DateTimeTest, TestDisplayRoundsWholeSecondsAndClampsTheLastDay) {
+    for (const auto& row : Vector_<std::pair<double, String_>>{
+             {0., "00:00:00"}, {11. / 86400., "00:00:11"},
+             {(59.5 - 1e-8) / 86400., "00:00:59"}, {59.5 / 86400., "00:00:59"},
+             {std::nextafter(59.5 / 86400., 1.), "00:01:00"},
+             {(59.5 + 1e-8) / 86400., "00:01:00"},
+             {(3599.5 - 1e-8) / 86400., "00:59:59"}, {3599.5 / 86400., "01:00:00"},
+             {(86399.5 - 1e-8) / 86400., "23:59:59"}, {86399.5 / 86400., "23:59:59"},
+             {std::nextafter(1., 0.), "23:59:59"}}) {
+        const DateTime_ value(Date::Maximum(), row.first);
+        const auto original = value;
+        ASSERT_EQ(TimeString(value), row.second);
+        ASSERT_EQ(ToString(value), Date::ToString(Date::Maximum()) + " " + row.second);
+        ASSERT_EQ(value, original);
+        ASSERT_EQ(Hour(value), static_cast<int>(24 * row.first));
+        ASSERT_EQ(Minute(value), static_cast<int>(1440 * row.first) % 60);
+    }
+}
+
 TEST(DateTimeTest, TestDateTimeMinimum) {
     DateTime_ src = Minimum();
     DateTime_ exp(Date::Minimum());

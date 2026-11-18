@@ -5,6 +5,11 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <fstream>
+#include <limits>
+#include <dal/indice/fixings.hpp>
+#include <dal/script/event.hpp>
+#include <dal/storage/box.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -16,6 +21,103 @@
 #include <dal/utilities/file.hpp>
 
 using namespace Dal;
+
+TEST(StorageTest, TestJSONDateTimeKeepsFrozenLegacyIdentityBytes) {
+    const DateTime_ time(Date_(2026, 2, 14), 0, 0, 11);
+    const Fixings_ source("legacy", {{time, 1.}});
+    ASSERT_EQ(LegacyIdentity::DateTimeString(time), "2026-02-14 00:00:10");
+    ASSERT_EQ(LegacyIdentity::ObjectJson(source),
+              "{\n\"~type\": \"Fixings\",\n\"name\": \"legacy\",\n\"fixings\": [1],\n\"fixing_times\": [\"2026-02-14 00:00:10\"]}");
+    Matrix_<Cell_> cells(1, 1);
+    cells(0, 0) = Cell_(time);
+    ASSERT_EQ(LegacyIdentity::ObjectJson(Box_("legacy", cells)),
+              "{\n\"~type\": \"Box\",\n\"name\": \"legacy\",\n\"contents\": { \"rows\": 1,\n\"cols\": 1,\n\"vals\": [\"2026-02-14 00:00:10\"]}}");
+}
+
+TEST(StorageTest, TestJSONDateTimePreservesExactFixingKeys) {
+    const Date_ date(2026, 2, 14);
+    Fixings_::vals_t values;
+    double ordinal = 0.;
+    for (double fraction : {0., std::numeric_limits<double>::denorm_min(), .1 / 86400., .2 / 86400.,
+                            std::nextafter(.2 / 86400., 1.), std::nextafter(1., 0.)})
+        values.emplace(DateTime_(date, fraction), ++ordinal);
+    const Fixings_ source("subseconds", values);
+    const auto encoded = JSON::WriteString(source);
+    const auto restored = handle_cast<Fixings_>(JSON::ReadString(encoded, false));
+    ASSERT_EQ(restored->vals_.size(), values.size());
+    for (const auto& [time, value] : values) {
+        ASSERT_EQ(restored->vals_.at(time), value);
+        ASSERT_EQ(LookupFixing(restored->vals_, time), value);
+    }
+    ASSERT_EQ(JSON::WriteString(*restored), encoded);
+    const Fixings_ negativeZero("subseconds", {{DateTime_(date, -0.), 1.}});
+    ASSERT_EQ(JSON::WriteString(negativeZero), JSON::WriteString(Fixings_("subseconds", {{DateTime_(date, 0.), 1.}})));
+    ASSERT_THROW(JSON::WriteString(Fixings_("invalid", {{DateTime_(), 1.}})), Exception_);
+}
+
+TEST(StorageTest, TestJSONDateTimeUsesTheSameProtocolForCellsAndMatrices) {
+    const Date_ date(2026, 2, 14);
+    const DateTime_ time(date, std::nextafter(.2 / 86400., 1.));
+    const Vector_<Cell_> cells{Cell_(time), Cell_(date), Cell_(String_("ordinary")), Cell_(47123.5)};
+    const Script::ScriptProductData_ product("cells", cells, {"PV=1", "PV=1", "PV=1", "PV=1"});
+    const auto productCopy = handle_cast<Script::ScriptProductData_>(JSON::ReadString(JSON::WriteString(product), false));
+    ASSERT_EQ(Cell::ToDateTime(productCopy->Dates()[0]), time);
+    ASSERT_TRUE(Cell::IsDate(productCopy->Dates()[1]));
+    ASSERT_TRUE(Cell::IsString(productCopy->Dates()[2]));
+    ASSERT_TRUE(Cell::IsDouble(productCopy->Dates()[3]));
+    Matrix_<Cell_> matrix(1, 4);
+    for (int i = 0; i < 4; ++i)
+        matrix(0, i) = cells[i];
+    const Box_ box("matrix", matrix);
+    const auto boxCopy = handle_cast<Box_>(JSON::ReadString(JSON::WriteString(box), false));
+    ASSERT_EQ(Cell::ToDateTime(boxCopy->contents_(0, 0)), time);
+    ASSERT_TRUE(Cell::IsDate(boxCopy->contents_(0, 1)));
+    ASSERT_TRUE(Cell::IsString(boxCopy->contents_(0, 2)));
+    ASSERT_TRUE(Cell::IsDouble(boxCopy->contents_(0, 3)));
+}
+
+TEST(StorageTest, TestJSONDateTimeReadsLegacyValuesAndRejectsMalformedArchives) {
+    const auto decode = [](const String_& times, const String_& values = "[1]") {
+        return handle_cast<Fixings_>(JSON::ReadString(
+            "{\"~type\":\"Fixings\",\"name\":\"legacy\",\"fixing_times\":" + times + ",\"fixings\":" + values + "}", false));
+    };
+    for (const auto& [text, expected] : Vector_<std::pair<String_, DateTime_>>{
+             {"[\"2026-02-14\"]", DateTime_(Date_(2026, 2, 14), 0.)},
+             {"[\"2026-02-14 11:22\"]", DateTime_(Date_(2026, 2, 14), 11, 22)},
+             {"[\"2026-02-14 00:00:10\"]", DateTime_(Date_(2026, 2, 14), 0, 0, 10)},
+             {"[46067]", DateTime_(Date::FromExcel(46067), 0.)},
+             {"[46067.25]", DateTime_(Date::FromExcel(46067), .25)}})
+        ASSERT_EQ(decode(text)->vals_.begin()->first, expected);
+    const Vector_<std::pair<String_, String_>> bad{
+        {"[{\"~datetime\":\"dal.datetime/2\",\"date\":\"2026-02-14\",\"fraction\":0}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-30\",\"fraction\":0}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-14\",\"fraction\":1}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-14\",\"fraction\":-0.1}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-14\",\"fraction\":\"0\"}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-14\"}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-14\",\"fraction\":0,\"fraction\":0}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[{\"~datetime\":\"dal.datetime/1\",\"date\":\"2026-02-14\",\"fraction\":0,\"other\":0}]", "ARCHIVE_DATETIME_INVALID"},
+        {"[1e100]", "ARCHIVE_DATETIME_INVALID"},
+        {"[\"2026-02-14 00:00:10\",\"2026-02-14 00:00:10\"]", "ARCHIVE_FIXINGS_DUPLICATE_TIME"},
+    };
+    for (const auto& [times, error] : bad) {
+        try {
+            decode(times, times.find("10\",\"") == String_::npos ? "[1]" : "[1,2]");
+            FAIL() << "invalid datetime archive accepted";
+        } catch (const Exception_& caught) {
+            ASSERT_NE(String_(caught.what()).find(error), String_::npos);
+            ASSERT_NE(String_(caught.what()).find("fixing_times/"), String_::npos);
+        }
+    }
+    try {
+        decode("[]", "[1]");
+        FAIL() << "unequal fixing arrays accepted";
+    } catch (const Exception_& error) {
+        const String_ message(error.what());
+        ASSERT_NE(message.find("ARCHIVE_FIXINGS_LENGTH_MISMATCH"), String_::npos);
+        ASSERT_NE(message.find("fixing_times=0; fixings=1"), String_::npos);
+    }
+}
 
 TEST(StorageTest, TestJSONStore) {
     Vector_<> x = {1.0, 2.0, 3.0, 4.0, 5.0};

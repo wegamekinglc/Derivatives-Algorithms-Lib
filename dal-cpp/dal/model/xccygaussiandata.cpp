@@ -8,6 +8,7 @@
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/model/xccygaussiandata.hpp>
 #include <dal/storage/json.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_XccyGaussianCurveData_v1_Read.inc>
@@ -296,7 +297,7 @@ namespace Dal {
     }
 
     String_ XccyGaussianModelData_::Identity() const {
-        return CalibrationInternal::Fingerprint(CalibrationInternal::Parse(JSON::WriteString(*this)));
+        return CalibrationInternal::Fingerprint(CalibrationInternal::Parse(LegacyIdentity::ObjectJson(*this)));
     }
 
     void XccyGaussianModelData_::RequireSameGeometry(const XccyGaussianModelData_& candidate) const {

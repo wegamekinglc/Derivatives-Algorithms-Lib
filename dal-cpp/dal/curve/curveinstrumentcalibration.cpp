@@ -12,6 +12,7 @@
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/curve/curvenativepartials_internal.hpp>
 #include <dal/storage/json.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 namespace Dal {
     using namespace CalibrationInternal;
@@ -515,7 +516,7 @@ namespace Dal {
                                   const std::map<std::string, PreparedCalibrationInstrument_>& compoundedPrices) {
             auto result = Obj(
                 {{"adapter", Str("dal.native-curve-instruments/1")},
-                 {"curve", Parse(JSON::WriteString(*provider.Target()))},
+                 {"curve", Parse(LegacyIdentity::ObjectJson(*provider.Target()))},
                  {"discount_target", Bool(spec.geometry_.calibrateDiscountCurve_)},
                  {"collateral", Str(spec.geometry_.targetCollateral_.String())},
                  {"tenor", !spec.geometry_.calibrateDiscountCurve_ && spec.geometry_.targetTenor_.String() ? Str(spec.geometry_.targetTenor_.String())

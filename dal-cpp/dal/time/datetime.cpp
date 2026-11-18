@@ -2,8 +2,11 @@
 // Created by Cheng Li on 2018/2/4.
 //
 
+#include <cstdio>
+
 #include <dal/platform/strict.hpp>
 #include <dal/time/datetime.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
@@ -13,6 +16,12 @@ namespace Dal {
             ASSIGN(h, static_cast<int>(24 * frac));
             ASSIGN(m, static_cast<int>(1440 * frac) % 60);
             ASSIGN(s, static_cast<int>(86400 * frac) % 60);
+        }
+
+        String_ FormatHMS(int h, int m, int s) {
+            char buffer[9];
+            std::snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", h, m, s);
+            return String_(buffer);
         }
     } // namespace
 
@@ -74,11 +83,8 @@ namespace Dal {
         }
 
         String_ TimeString(const DateTime_& dt) {
-            int h, m, s;
-            FracToHMS(dt.Frac(), &h, &m, &s);
-            String_ ret_val("00:00:00");
-            sprintf(&ret_val[0], "%02d:%02d:%02d", h, m, s);
-            return ret_val;
+            const int seconds = std::min(86399, static_cast<int>(std::round(86400 * dt.Frac())));
+            return FormatHMS(seconds / 3600, seconds / 60 % 60, seconds % 60);
         }
 
         DateTime_ Minimum() { return DateTime_(Date::Minimum(), 0.); }
@@ -88,4 +94,10 @@ namespace Dal {
             return 86400000 * days + static_cast<long long>(dt.Frac() * 86400000);
         }
     } // namespace DateTime
+
+    String_ LegacyIdentity::DateTimeString(const DateTime_& value) {
+        int h, m, s;
+        FracToHMS(value.Frac(), &h, &m, &s);
+        return Date::ToString(value.Date()) + " " + FormatHMS(h, m, s);
+    }
 } // namespace Dal

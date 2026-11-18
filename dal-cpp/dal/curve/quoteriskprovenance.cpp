@@ -1,5 +1,6 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -124,7 +125,7 @@ namespace Dal {
         }
 
         Json_ StorableJson(const Storable_& value) {
-            const String_ archive = JSON::WriteString(value);
+            const String_ archive = LegacyIdentity::ObjectJson(value);
             rapidjson::Document document;
             document.Parse<rapidjson::kParseValidateEncodingFlag | rapidjson::kParseFullPrecisionFlag>(archive.data(), archive.size());
             REQUIRE(!document.HasParseError(), "QUOTE_RISK_ARCHIVE_CANONICALIZATION_FAILED");
@@ -139,7 +140,7 @@ namespace Dal {
         }
 
         Json_ DateJson(const Date_& value) { return Json_::String(Date::ToString(value)); }
-        Json_ DateTimeJson(const DateTime_& value) { return Json_::String(DateTime::ToString(value)); }
+        Json_ DateTimeJson(const DateTime_& value) { return Json_::String(LegacyIdentity::DateTimeString(value)); }
 
         Json_ DoubleVectorJson(const Vector_<>& values) {
             Json_ result = Json_::Array();

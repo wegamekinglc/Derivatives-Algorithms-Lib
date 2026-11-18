@@ -17,7 +17,14 @@ namespace Dal {
 #include <dal/auto/MG_Fixings_Read.inc>
 
         Storable_* Fixings::Reader_::Build() const {
-            return new Fixings_(name_, ZipToMap(fixing_times_, fixings_));
+            REQUIRE(fixing_times_.size() == fixings_.size(),
+                    "ARCHIVE_FIXINGS_LENGTH_MISMATCH: fixing_times=" + String_(std::to_string(fixing_times_.size())) +
+                        "; fixings=" + String_(std::to_string(fixings_.size())));
+            Fixings_::vals_t values;
+            for (size_t i = 0; i < fixing_times_.size(); ++i)
+                REQUIRE(values.emplace(fixing_times_[i], fixings_[i]).second,
+                        "ARCHIVE_FIXINGS_DUPLICATE_TIME: field=/fixing_times/" + String_(std::to_string(i)));
+            return new Fixings_(name_, values);
         }
     } // namespace
     const IndexFixHistory_& FixHistory::Empty() {

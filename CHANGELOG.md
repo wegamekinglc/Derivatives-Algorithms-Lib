@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-18
 
+- JSON DateTime values now preserve exact binary64 day fractions. New readers
+  accept legacy timestamps and reject duplicate fixing keys; old readers cannot
+  read the new time objects. Whole-second display rounds and clamps at day end,
+  while existing fingerprint domains retain their frozen legacy time bytes.
 - Market-grid local-volatility core `Init` now checks the complete request frozen
   by `Allocate` and reports structured preparation errors without changing valid
   prepared state. Independent equal copies and correct retries are accepted.

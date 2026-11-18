@@ -1,5 +1,6 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 #include <map>
 #include <mutex>
@@ -56,7 +57,7 @@ namespace Dal {
             d.measureId_ = measure;
             return d;
         }
-        Json_ ObjectData(const Storable_& object) { return Parse(JSON::WriteString(object)); }
+        Json_ ObjectData(const Storable_& object) { return Parse(LegacyIdentity::ObjectJson(object)); }
         const GSRCurveData_* GaussianCurve(const Handle_<ModelData_>& model);
         void ValidateContextModel(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
             Check(!c.model_ || GaussianCurve(c.model_) != nullptr, "UnsupportedFastEvaluator", "/context/model",

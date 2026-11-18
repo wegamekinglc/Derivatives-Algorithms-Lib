@@ -2,6 +2,7 @@
 
 #include <dal-public/src/xccymontecarlobasket.hpp>
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 namespace Dal {
     namespace {
@@ -78,7 +79,7 @@ namespace Dal {
         }
         Json_ Observation(const Script::ObservationRequest_& o) {
             return Obj({{"canonical_index", Str(o.key_.canonicalIndex_)},
-                        {"fixing_time", Str(DateTime::ToString(o.key_.fixingTime_))},
+                        {"fixing_time", Str(LegacyIdentity::DateTimeString(o.key_.fixingTime_))},
                         {"uses", Array(o.uses_, ObservationUse)},
                         {"historical", Bool(o.historical_)},
                         {"history_value_id", Optional(o.historyValueId_, Ordinal)},
@@ -92,12 +93,12 @@ namespace Dal {
             auto values = Json_::Array();
             for (const auto& [index, history] : snapshot->Values())
                 for (const auto& [time, value] : history)
-                    values.array_.push_back(Obj({{"index", Str(index)}, {"time", Str(DateTime::ToString(time))}, {"value", Num(value)}}));
+                    values.array_.push_back(Obj({{"index", Str(index)}, {"time", Str(LegacyIdentity::DateTimeString(time))}, {"value", Num(value)}}));
             return values;
         }
         Json_ Context(const CalibrationPreparationContext_& c) {
             const auto& x = *c.xccy_;
-            return Obj({{"valuation_time", Str(DateTime::ToString(x.valuationTime_))},
+            return Obj({{"valuation_time", Str(LegacyIdentity::DateTimeString(x.valuationTime_))},
                         {"pair", Str(FxIndexName(x.pair_))},
                         {"collateral_currency", Str(x.collateralCurrency_.String())},
                         {"discount_route", Str(x.discountRoute_)},

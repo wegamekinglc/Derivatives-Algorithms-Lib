@@ -7,6 +7,7 @@
 #include <dal/script/preparation.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/script/visitor/debugger.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 namespace Dal::Script {
     namespace {
@@ -31,7 +32,7 @@ namespace Dal::Script {
                 else if constexpr (std::is_same_v<T_, Date_>)
                     JsonWriteString(Date::ToString(cell), out);
                 else if constexpr (std::is_same_v<T_, DateTime_>)
-                    JsonWriteString(DateTime::ToString(cell), out);
+                    JsonWriteString(LegacyIdentity::DateTimeString(cell), out);
                 else if constexpr (std::is_same_v<T_, String_>)
                     JsonWriteString(cell, out);
                 else
@@ -76,7 +77,7 @@ namespace Dal::Script {
             out << "{\"request_id\":" << id << ",\"index_canonical\":";
             JsonWriteString(request.key_.canonicalIndex_, out);
             out << ",\"fixing_time\":";
-            JsonWriteString(DateTime::ToString(request.key_.fixingTime_), out);
+            JsonWriteString(LegacyIdentity::DateTimeString(request.key_.fixingTime_), out);
             out << ",\"source\":\"" << (request.historical_ ? "Historical" : "Model") << "\",\"resolution\":\""
                 << (allExpired ? "SkippedExpired" : "Resolved") << "\",\"uses\":";
             WriteArray(out, request.uses_, [&](const auto& use, size_t) {

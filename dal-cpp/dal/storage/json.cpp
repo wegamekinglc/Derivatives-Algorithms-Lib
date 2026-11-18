@@ -18,6 +18,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/storage/json.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/time/dateutils.hpp>
@@ -35,6 +36,10 @@ namespace Dal {
         using element_t = rapidjson::GenericValue<rapidjson::UTF8<>>;
         using allocator_t = rapidjson::GenericDocument<rapidjson::UTF8<>>::AllocatorType ;
         using rapidjson::Value;
+
+        [[noreturn]] void InvalidDateTime(const String_& field, const String_& expected, const String_& actual) {
+            THROW("ARCHIVE_DATETIME_INVALID: field=" + field + "; expected=" + expected + "; actual=" + actual);
+        }
 
         bool IsContinuation(unsigned char value) {
             return value >= 0x80 && value <= 0xBF;
@@ -184,12 +189,13 @@ namespace Dal {
             std::map<String_, std::shared_ptr<XDocStore_>> children_;
             String_ ownName_;
             bool empty_;
+            const bool legacyIdentity_;
 
             XDocStore_(std::ostream& dst,
                        std::map<const Storable_*, String_>& tags,
                        XDocStore_* parent,
-                       String_  own_name)
-                : dst_(dst), sharedTags_(tags), ownName_(std::move(own_name)), empty_(true) {}
+                       String_ own_name, bool legacyIdentity = false)
+                : dst_(dst), sharedTags_(tags), ownName_(std::move(own_name)), empty_(true), legacyIdentity_(legacyIdentity) {}
 
             // looks like tag has to be the toplevel attribute of an object node
             const char* Prep() const { return empty_ ? "{\n" : ",\n"; }
@@ -227,7 +233,7 @@ namespace Dal {
                     dst_ << Prep();
                     WriteJsonString(dst_, name);
                     dst_ << ": ";
-                    retval = std::make_shared<XDocStore_>(dst_, sharedTags_, this, name);
+                    retval = std::make_shared<XDocStore_>(dst_, sharedTags_, this, name, legacyIdentity_);
                     empty_ = false;
                 }
                 return *retval;
@@ -251,7 +257,18 @@ namespace Dal {
                 return *this;
             }
             XDocStore_& operator=(const Date_& val) override { operator=(Date::ToString(val)); return *this; }
-            XDocStore_& operator=(const DateTime_& val) override { operator=(DateTime::ToString(val)); return *this; }
+            XDocStore_& operator=(const DateTime_& val) override {
+                if (legacyIdentity_)
+                    return operator=(LegacyIdentity::DateTimeString(val));
+                if (!val.IsValid())
+                    InvalidDateTime(ownName_, "valid native date and fraction in [0,1)", "invalid datetime");
+                dst_ << "{\"~datetime\":\"dal.datetime/1\",\"date\":";
+                WriteJsonString(dst_, Date::ToString(val.Date()));
+                dst_ << ",\"fraction\":";
+                WriteJsonDouble(dst_, val.Frac());
+                dst_ << '}';
+                return *this;
+            }
             XDocStore_& operator=(const Cell_& c) {
                 if (Cell::IsBool(c))
                     operator=(Cell::ToBool(c));
@@ -335,6 +352,8 @@ namespace Dal {
             return doc.GetInt();
         }
         bool EBool(const element_t& doc) {
+            if (doc.IsNumber() && (doc.GetDouble() == 0. || doc.GetDouble() == 1.))
+                return doc.GetDouble() != 0.;
             REQUIRE(doc.IsBool(), "Can't get a boolean value");
             return doc.GetBool();
         }
@@ -349,24 +368,80 @@ namespace Dal {
                 return Date::FromString(doc.GetString());
             THROW("Can't get a date value");
         }
-        DateTime_
-        EDateTime(const element_t& doc) { // worrying about efficiency, so storing dates as Excel-compatible doubles
-            if (doc.IsDouble()) {
-                double d = doc.GetDouble();
-                int i = AsInt(d);
-                return DateTime_(Date::FromExcel(i), d - i);
+        std::map<std::string, const element_t*> DateTimeMembers(const element_t& doc, const String_& path) {
+            std::map<std::string, const element_t*> members;
+            for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it) {
+                const std::string key(it->name.GetString(), it->name.GetStringLength());
+                if (key != "~datetime" && key != "date" && key != "fraction")
+                    InvalidDateTime(path + "/" + String_(key), "~datetime, date or fraction", "unknown member");
+                if (!members.emplace(key, &it->value).second)
+                    InvalidDateTime(path + "/" + String_(key), "one member", "duplicate member");
             }
-            if (doc.IsString())
-                return DateTime::FromString(doc.GetString());
-            THROW("Can't get a datetime value");
+            for (const auto* key : {"~datetime", "date", "fraction"})
+                if (members.find(key) == members.end())
+                    InvalidDateTime(path + "/" + key, "required member", "missing");
+            return members;
         }
-        Cell_ ECell(const element_t& doc) {
+
+        Date_ DateTimeDate(const element_t& date, const String_& path) {
+            if (!date.IsString())
+                InvalidDateTime(path + "/date", "YYYY-MM-DD", "non-string");
+            Date_ day;
+            const String_ dateText(date.GetString(), date.GetString() + date.GetStringLength());
+            try {
+                day = Date::FromString(dateText);
+            } catch (const Exception_&) {
+                InvalidDateTime(path + "/date", "valid YYYY-MM-DD", dateText);
+            }
+            if (!day.IsValid() || Date::ToString(day) != dateText)
+                InvalidDateTime(path + "/date", "valid YYYY-MM-DD", dateText);
+            return day;
+        }
+
+        DateTime_ ObjectDateTime(const element_t& doc, const String_& path) {
+            const auto members = DateTimeMembers(doc, path);
+            const auto& version = *members.at("~datetime");
+            if (!version.IsString() || std::string(version.GetString(), version.GetStringLength()) != "dal.datetime/1")
+                InvalidDateTime(path + "/~datetime", "dal.datetime/1", "unknown version or type");
+            const auto day = DateTimeDate(*members.at("date"), path);
+            const auto& fraction = *members.at("fraction");
+            if (!fraction.IsNumber())
+                InvalidDateTime(path + "/fraction", "number in [0,1)", "non-number");
+            const double value = fraction.GetDouble();
+            if (!std::isfinite(value) || value < 0. || value >= 1.)
+                InvalidDateTime(path + "/fraction", "finite number in [0,1)", String_(std::to_string(value)));
+            return DateTime_(day, value == 0. ? 0. : value);
+        }
+
+        DateTime_ EDateTime(const element_t& doc, const String_& path) {
+            if (doc.IsObject())
+                return ObjectDateTime(doc, path);
+            if (doc.IsNumber()) {
+                const double value = doc.GetDouble();
+                if (!std::isfinite(value) || value < Date::ToExcel(Date::Minimum()) ||
+                    value >= static_cast<double>(Date::ToExcel(Date::Maximum())) + 1.)
+                    InvalidDateTime(path, "supported finite Excel serial", String_(std::to_string(value)));
+                const double day = std::floor(value);
+                return DateTime_(Date::FromExcel(static_cast<int>(day)), value - day);
+            }
+            if (doc.IsString()) {
+                try {
+                    return DateTime::FromString(doc.GetString());
+                } catch (const Exception_&) {
+                    InvalidDateTime(path, "valid legacy datetime string", EString(doc));
+                }
+            }
+            InvalidDateTime(path, "datetime object, legacy string or serial", "wrong type");
+        }
+        Cell_ ECell(const element_t& doc, const String_& path) {
             static const std::regex DATE_PATTERN(R"(\d{4}-\d{2}-\d{2})");
             static const std::regex DATE_TIME_PATTERN(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})");
             if (doc.IsNumber())
                 return Cell_(doc.GetDouble());
             if (doc.IsBool())
                 return Cell_(doc.GetBool());
+            if (doc.IsObject())
+                return Cell_(EDateTime(doc, path));
             if (doc.IsString()) {
                 const std::string src = doc.GetString();
                 if (std::regex_match(src, DATE_PATTERN))
@@ -384,12 +459,13 @@ namespace Dal {
         struct XDocView_ : Archive::View_ {
             element_t& doc_;
             std::map<String_, Handle_<XDocView_>> children_;
-            explicit XDocView_(element_t& doc) : doc_(doc) {
+            const String_ path_;
+            explicit XDocView_(element_t& doc, const String_& path = "") : doc_(doc), path_(path) {
                 if (doc_.IsObject()) {
                     for (auto it = doc_.MemberBegin(); it != doc_.MemberEnd(); ++it)
                         children_.emplace(
                             String_(it->name.GetString(), it->name.GetString() + it->name.GetStringLength()),
-                            Handle_<XDocView_>(new XDocView_(it->value)));
+                            Handle_<XDocView_>(new XDocView_(it->value, path + "/" + String_(it->name.GetString()))));
                 }
             }
 
@@ -420,8 +496,14 @@ namespace Dal {
             Vector_<bool> AsBoolVector() const override { return AsVector(doc_, EBool); }
             Vector_<String_> AsStringVector() const override { return AsVector(doc_, EString); }
             Vector_<Date_> AsDateVector() const override { return AsVector(doc_, EDate); }
-            Vector_<DateTime_> AsDateTimeVector() const override { return AsVector(doc_, EDateTime); }
-            Vector_<Cell_> AsCellVector() const override { return AsVector(doc_, ECell); }
+            Vector_<DateTime_> AsDateTimeVector() const override {
+                size_t index = 0;
+                return AsVector(doc_, [&](const element_t& value) { return EDateTime(value, path_ + "/" + String_(std::to_string(index++))); });
+            }
+            Vector_<Cell_> AsCellVector() const override {
+                size_t index = 0;
+                return AsVector(doc_, [&](const element_t& value) { return ECell(value, path_ + "/" + String_(std::to_string(index++))); });
+            }
 
             // Matrix stored as child "rows", "cols", and "vals" (row-major).
             Matrix_<> AsDoubleMatrix() const override {
@@ -431,7 +513,11 @@ namespace Dal {
                 return AsMatrix(EInt(doc_[ROWS_LABEL]), EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EString));
             }
             Matrix_<Cell_> AsCellMatrix() const override {
-                return AsMatrix(EInt(doc_[ROWS_LABEL]), EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], ECell));
+                size_t index = 0;
+                return AsMatrix(EInt(doc_[ROWS_LABEL]), EInt(doc_[COLS_LABEL]),
+                                AsVector(doc_[VALS_LABEL], [&](const element_t& value) {
+                                    return ECell(value, path_ + "/vals/" + String_(std::to_string(index++)));
+                                }));
             }
 
             String_ Type() const override {
@@ -498,5 +584,13 @@ namespace Dal {
         XDocStore_ task(ret_val, tags, nullptr, String_());
         object.Write(task);
         return String_(ret_val.str());
+    }
+
+    String_ LegacyIdentity::ObjectJson(const Storable_& object) {
+        std::stringstream result;
+        std::map<const Storable_*, String_> tags;
+        XDocStore_ task(result, tags, nullptr, String_(), true);
+        object.Write(task);
+        return String_(result.str());
     }
 } // namespace Dal
