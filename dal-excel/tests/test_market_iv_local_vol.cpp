@@ -3,6 +3,7 @@
 #include <iomanip>
 
 #include <dal-excel/src/__marketivlocalvol.hpp>
+#include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/__xccy_test_api.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
@@ -112,12 +113,19 @@ TEST(ExcelMarketIvLocalVolTest, TestModelHandleReportsAndPassiveValuation) {
     {
         struct RestoreThreads_ {
             size_t count_ = ThreadPool_::GetInstance()->NumThreads();
-            ~RestoreThreads_() { ThreadPool_::GetInstance()->Start(count_, true); }
+            // The XLL and test executable own separate native thread pools on Windows.
+            std::pair<size_t, bool> excelState_ = Excel::ScriptTestStartWorkers(1);
+            ~RestoreThreads_() {
+                Excel::ScriptTestRestoreWorkers(excelState_);
+                ThreadPool_::GetInstance()->Start(count_, true);
+            }
         } restore;
         ThreadPool_::GetInstance()->Start(1, true);
         const auto identityProduct = NewScriptProduct("ScriptProductData_", {Cell_(expiry)}, {"pay PAYS 1"});
         MarketIvLocalVolModelData_Get_Execution(identityProduct, model, v, {}, &table);
-        ASSERT_EQ(Cell::ToString(table(3, 1)), Dal::Test::MarketIvLocalVolRequestGolden(model->ModelIdentity(), false));
+        const auto emptyGolden = Dal::Test::MarketIvLocalVolRequestGolden(model->ModelIdentity(), false);
+        ASSERT_DOUBLE_EQ(Cell::ToDouble(table(13, 1)), 1.);
+        ASSERT_EQ(Cell::ToString(table(3, 1)), emptyGolden);
         Handle_<StorableMarketFixingSnapshot_> fixings;
         MarketFixingSnapshot_New({"EQ[A]"}, {Cell_(Date::ToExcel(today.AddDays(-1)) + .5)}, {99.}, &fixings);
         ASSERT_DOUBLE_EQ(fixings->val_->Values().at("EQ[A]").begin()->first.Frac(), .5);
