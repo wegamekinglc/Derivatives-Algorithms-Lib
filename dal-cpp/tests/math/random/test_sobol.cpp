@@ -19,6 +19,39 @@
 
 using namespace Dal;
 
+namespace {
+    void AssertExhaustedSobolRecovers(SequenceSet_& sequence, size_t maximum, const Vector_<>& last) {
+        const Vector_<> sentinel{123., 456.};
+        Vector_<> output = sentinel;
+        try {
+            sequence.FillNormal(&output);
+            FAIL() << "Sobol exhaustion accepted";
+        } catch (const Exception_& error) {
+            ASSERT_NE(String_(error.what()).find("RandomSequenceExhausted"), String_::npos);
+        }
+        ASSERT_EQ(output, sentinel);
+        ASSERT_THROW(sequence.FillUniform(&output), Exception_);
+        ASSERT_EQ(output, sentinel);
+        sequence.SkipTo(maximum - 1);
+        sequence.FillUniform(&output);
+        ASSERT_EQ(output, last);
+    }
+
+    void AssertInvalidSobolSeekPreservesState(SequenceSet_& sequence, size_t maximum) {
+        if (std::numeric_limits<size_t>::max() <= maximum)
+            return;
+        const auto invalidPosition = maximum + size_t{1};
+        sequence.SkipTo(7);
+        auto reference = sequence.Clone();
+        ASSERT_THROW(sequence.SkipTo(invalidPosition), Exception_);
+        ASSERT_THROW(sequence.SkipNormalTo(invalidPosition), Exception_);
+        Vector_<> expected, output;
+        reference->FillUniform(&expected);
+        sequence.FillUniform(&output);
+        ASSERT_EQ(output, expected);
+    }
+} // namespace
+
 TEST(RandomTest, TestSobolExhaustionAndInvalidSeekPreserveState) {
     const size_t maximum = std::numeric_limits<uint32_t>::max();
     for (bool shifted : {false, true})
@@ -30,29 +63,8 @@ TEST(RandomTest, TestSobolExhaustionAndInvalidSeekPreserveState) {
                 ASSERT_DOUBLE_EQ(last[0], std::ldexp(1., -32));
             auto exhaustedClone = sequence->Clone();
             for (auto* exhausted : {sequence.get(), dynamic_cast<SequenceSet_*>(exhaustedClone.get())}) {
-                Vector_<> output{123., 456.};
-                try {
-                    exhausted->FillNormal(&output);
-                    FAIL() << "Sobol exhaustion accepted";
-                } catch (const Exception_& error) {
-                    ASSERT_NE(String_(error.what()).find("RandomSequenceExhausted"), String_::npos);
-                }
-                ASSERT_EQ(output, (Vector_<>{123., 456.}));
-                ASSERT_THROW(exhausted->FillUniform(&output), Exception_);
-                ASSERT_EQ(output, (Vector_<>{123., 456.}));
-                exhausted->SkipTo(maximum - 1);
-                exhausted->FillUniform(&output);
-                ASSERT_EQ(output, last);
-                if (std::numeric_limits<size_t>::max() > maximum) {
-                    exhausted->SkipTo(7);
-                    auto reference = exhausted->Clone();
-                    ASSERT_THROW(exhausted->SkipTo(maximum + size_t{1}), Exception_);
-                    ASSERT_THROW(exhausted->SkipNormalTo(maximum + size_t{1}), Exception_);
-                    Vector_<> expected;
-                    reference->FillUniform(&expected);
-                    exhausted->FillUniform(&output);
-                    ASSERT_EQ(output, expected);
-                }
+                ASSERT_NO_FATAL_FAILURE(AssertExhaustedSobolRecovers(*exhausted, maximum, last));
+                ASSERT_NO_FATAL_FAILURE(AssertInvalidSobolSeekPreservesState(*exhausted, maximum));
             }
             ASSERT_NO_THROW(NewSobol(dimension, maximum));
         }

@@ -473,6 +473,7 @@ TEST(CalibrationRiskTest, TestLiveSchemeAdmissionChecksEverySourceAndAllowsCorre
     const auto result = CalibrateJointMultiCurve(spec, options);
     const auto market = JointQuoteRiskFixtures::Market(spec, result);
     const auto freeze = [&] { return Captured(spec, result, options, market, JointQuoteRiskFixtures::Config(2)); };
+    constexpr std::array sourceFields{"calibration.source", "parameters.source", "direct.source"};
     for (const String_& rejected : Vector_<String_>{"dal.quote-risk-state/1+jcs+sha256", "dal.quote-risk-state/2+jcs+sha256",
                                                     "dal.quote-risk-state/3+jcs+sha256", "unknown/99", "DAL.quote-risk-state/4+jcs+sha256"})
         for (int role = 0; role < 3; ++role) {
@@ -492,7 +493,8 @@ TEST(CalibrationRiskTest, TestLiveSchemeAdmissionChecksEverySourceAndAllowsCorre
             auto& state = const_cast<RateQuoteRiskState_&>(sources[role].State());
             const auto original = state.scheme_;
             state.scheme_ = rejected;
-            const auto& changed = role == 0 ? target : role == 1 ? parameterSource : directSource;
+            const std::array pullbacks{&target, &parameterSource, &directSource};
+            const auto& changed = *pullbacks[role];
             ASSERT_FALSE(changed.Matches(changed));
             ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { NewCalibrationPullback(sources[role]); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
             ASSERT_NO_FATAL_FAILURE(
@@ -501,7 +503,7 @@ TEST(CalibrationRiskTest, TestLiveSchemeAdmissionChecksEverySourceAndAllowsCorre
                 AssertFailure([&] { NewCalibrationDirectQuoteAdjoints(changed, directMatrix); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
             ASSERT_NO_FATAL_FAILURE(
                 AssertFailure([&] { static_cast<void>(PlanCalibrationRiskRequest(changed, {})); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
-            const std::string field = role == 0 ? "calibration.source" : role == 1 ? "parameters.source" : "direct.source";
+            const std::string field = sourceFields[role];
             ASSERT_NO_FATAL_FAILURE(AssertFailure(
                 [&] { PullbackCalibration(target, parameters, direct); },
                 "field=" + field + "; expected=dal.quote-risk-state/4+jcs+sha256; actual=" + std::string(rejected.data(), rejected.size())));

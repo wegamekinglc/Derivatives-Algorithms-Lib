@@ -26,6 +26,27 @@ namespace {
     constexpr int kLvNumKnots = 200;
     constexpr int kLvNumPaths = 100000;
     constexpr int kLvNumSteps = 200;
+
+    void RunInlineLinearCase() {
+        Vector_<> lvX(kLvNumKnots);
+        Vector_<> lvY(kLvNumKnots);
+        for (int i = 0; i < kLvNumKnots; ++i) {
+            lvX[i] = 50.0 + static_cast<double>(i);
+            lvY[i] = 0.10 + 0.001 * static_cast<double>(i) + 0.05 * std::sin(0.05 * static_cast<double>(i));
+        }
+        Vector_<> spotQueries(kLvNumPaths);
+        for (int i = 0; i < kLvNumPaths; ++i)
+            spotQueries[i] = 60.0 + 130.0 * (static_cast<double>(i) + 0.5) / static_cast<double>(kLvNumPaths);
+
+        double sink = 0.0;
+        auto r = Bench::Run("Inlined linear LV-style (1e5 paths x 200 steps, 200 knots)", [&]() {
+            for (int step = 0; step < kLvNumSteps; ++step)
+                for (int i = 0; i < kLvNumPaths; ++i)
+                    sink += InterpLinearImplX(lvX, lvY, spotQueries[i]);
+        }, 1, 3);
+        Bench::Print(r);
+        Bench::DoNotOptimize(&sink);
+    }
 } // namespace
 
 int main(int argc, char** argv) {
@@ -72,27 +93,6 @@ int main(int argc, char** argv) {
         Bench::DoNotOptimize(&sink);
     }
 
-    // LV-style load for the inline template, separate from the virtual interface above.
-    {
-        Vector_<> lvX(kLvNumKnots);
-        Vector_<> lvY(kLvNumKnots);
-        for (int i = 0; i < kLvNumKnots; ++i) {
-            lvX[i] = 50.0 + static_cast<double>(i);
-            lvY[i] = 0.10 + 0.001 * static_cast<double>(i) + 0.05 * std::sin(0.05 * static_cast<double>(i));
-        }
-        Vector_<> spotQueries(kLvNumPaths);
-        for (int i = 0; i < kLvNumPaths; ++i)
-            spotQueries[i] = 60.0 + 130.0 * (static_cast<double>(i) + 0.5) / static_cast<double>(kLvNumPaths);
-
-        double sink = 0.0;
-        auto r = Bench::Run("Inlined linear LV-style (1e5 paths x 200 steps, 200 knots)", [&]() {
-            for (int step = 0; step < kLvNumSteps; ++step)
-                for (int i = 0; i < kLvNumPaths; ++i)
-                    sink += InterpLinearImplX(lvX, lvY, spotQueries[i]);
-        }, 1, 3);
-        Bench::Print(r);
-        Bench::DoNotOptimize(&sink);
-    }
-
+    RunInlineLinearCase();
     return 0;
 }

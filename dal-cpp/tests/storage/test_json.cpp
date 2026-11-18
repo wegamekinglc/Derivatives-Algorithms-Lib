@@ -25,14 +25,18 @@
 using namespace Dal;
 
 namespace {
-    String_ LegacyFixingsJson(int count, int invalidIndex = -1, bool emptyValues = false, bool duplicateLast = false) {
-        std::ostringstream text;
-        text << "{\"~type\":\"Fixings\",\"name\":\"perf-fixings\",\"fixing_times\":[";
+    void WriteLegacyFixingTimes(std::ostream& text, int count, int invalidIndex, bool duplicateLast) {
         for (int i = 0; i < count; ++i) {
             const int day = duplicateLast && i == count - 1 ? 0 : i;
             text << (i ? "," : "") << '"'
                  << (i == invalidIndex ? String_("not-a-time") : Date::ToString(Date_(2025, 1, 1).AddDays(day)) + " 00:00:00") << '"';
         }
+    }
+
+    String_ LegacyFixingsJson(int count, int invalidIndex = -1, bool emptyValues = false, bool duplicateLast = false) {
+        std::ostringstream text;
+        text << "{\"~type\":\"Fixings\",\"name\":\"perf-fixings\",\"fixing_times\":[";
+        WriteLegacyFixingTimes(text, count, invalidIndex, duplicateLast);
         text << "],\"fixings\":[";
         if (!emptyValues)
             for (int i = 0; i < count; ++i)
