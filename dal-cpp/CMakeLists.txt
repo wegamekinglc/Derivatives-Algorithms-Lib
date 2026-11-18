@@ -266,7 +266,8 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/externals/rapidjson/include")
     dal_apply_platform_options(dal_cpp_tests)
 
-    gtest_discover_tests(dal_cpp_tests)
+    # Instrumented startup and listing can exceed CMake's five-second default.
+    gtest_discover_tests(dal_cpp_tests DISCOVERY_TIMEOUT 60)
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC AND NOT CMAKE_CROSSCOMPILING)
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
