@@ -85,6 +85,7 @@ namespace Dal {
                                 const RatePricingMarket_& market,
                                 const RateQuoteRiskProvenance_& provenance,
                                 size_t projectionCount) {
+            RequireLiveQuoteRiskState(provenance, "gsr.curve.source");
             REQUIRE(provenance.Available(), "InvalidGSRCurveRisk: curve quote provenance unavailable: " + provenance.Reason());
             REQUIRE(market.valuationTime_.Date() == snapshot.evaluationDate_ && market.resultCurrency_.String() == snapshot.currency_,
                     "InvalidGSRCurveRisk: market date or currency mismatch");
