@@ -110,7 +110,7 @@ namespace {
     }
 
     RateQuoteRiskProvenance_ RunBuildJointXccyQuoteRiskProvenance(const JointXccyCalibrationSpec_& spec,
-                                                                  const JointXccyCalibrationResult_& result,
+                                                                  JointXccyCalibrationResult_ result,
                                                                   JointXccyCalibrationOptions_ options,
                                                                   const RatePricingMarket_& boundMarket,
                                                                   const RateQuoteRiskProvenanceConfig_& config) {

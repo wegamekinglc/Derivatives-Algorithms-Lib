@@ -373,3 +373,34 @@ def test_joint_and_staged_xccy_factories_release_gil_and_expose_the_native_domai
     assert staged_provenance.component_key_by_parameter_block == {  # nosec B101
         "basis:xccy_basis_USD": "staged-basis"
     }
+
+    for factory, spec, calibrated, options, market, config, baseline, matrix in (
+        (dal.BuildJointXccyQuoteRiskProvenance, joint_spec, joint_result, joint_options, joint_market,
+         dal.RateQuoteRiskProvenanceConfig_(calibration_id="python-joint-xccy",
+                                          component_key_by_parameter_block=joint_bindings),
+         joint_provenance, joint_result.eff_jacobian_inverse),
+        (dal.BuildStagedXccyBasisQuoteRiskProvenance, staged_spec, staged_result, staged_options, staged_market,
+         dal.RateQuoteRiskProvenanceConfig_(calibration_id="python-staged-xccy",
+                                          component_key_by_parameter_block={"basis:xccy_basis_USD": "staged-basis"}),
+         staged_provenance, staged_result.diagnostics.eff_jacobian_inverse),
+    ):
+        for changed in ("options", "result_matrix"):
+            original = matrix[0, 0]
+
+            def mutate():
+                if changed == "options":
+                    options.compute_eff_jacobian_inverse = False
+                else:
+                    matrix[0, 0] = 0.
+
+            try:
+                snapshot = _run_with_gil_mutation(
+                    lambda: factory(spec=spec, result=calibrated, options=options, bound_market=market, config=config),
+                    mutate, dal._dal._QuoteRiskGilBarrier_EnableForTesting,
+                )
+            finally:
+                options.compute_eff_jacobian_inverse = True
+                matrix[0, 0] = original
+            assert snapshot.available == baseline.available  # nosec B101
+            assert snapshot.reason == baseline.reason  # nosec B101
+            assert snapshot.effective_inverse.to_rows() == baseline.effective_inverse.to_rows()  # nosec B101
