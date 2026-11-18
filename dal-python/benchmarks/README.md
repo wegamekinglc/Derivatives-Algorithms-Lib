@@ -1,6 +1,6 @@
 # DAL Python interface benchmarks
 
-This suite runs 108 workloads through `import dal`, with a coverage entry for every
+This suite runs 112 workloads through `import dal`, with a coverage entry for every
 target in [the C++ benchmark inventory](../../dal-cpp/benchmarks/CMakeLists.txt).
 It requires a current DAL Python build and Python 3.9–3.13. The runner uses the
 standard library and NumPy for the independent option integration and tree oracles;
