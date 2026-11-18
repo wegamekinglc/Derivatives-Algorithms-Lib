@@ -5,11 +5,18 @@
 // rate_risk_perf times the aggregation that consumes provenances; this suite times producing
 // them, plus the per-component state probe the aggregator uses for staleness detection.
 
+#include <cmath>
+#include <memory>
+#include <string>
+
 #include <dal/benchmarks/bench.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/quoteriskprovenance.hpp>
 #include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/storage/canonicaljson_internal.hpp>
 
+#include "../../tests/curve/jointquoteriskfixtures.hpp"
 #include "../rate_risk_perf/quoteriskbenchfixtures.hpp"
 #include "dupirecurvatureperf.hpp"
 #include "marketivperf.hpp"
@@ -50,9 +57,100 @@ namespace {
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);
     }
+
+    void CheckProfileInverse(const RateQuoteRiskProvenance_& source, const RateQuoteRiskProvenance_& retained) {
+        const auto& inverse = source.EffectiveInverse();
+        REQUIRE(inverse.Rows() == retained.EffectiveInverse().Rows() && inverse.Cols() == retained.EffectiveInverse().Cols(),
+                "State profile inverse shape mismatch");
+        for (int row = 0; row < inverse.Rows(); ++row)
+            for (int col = 0; col < inverse.Cols(); ++col)
+                REQUIRE(std::isfinite(inverse(row, col)) && inverse(row, col) == retained.EffectiveInverse()(row, col),
+                        "State profile inverse mismatch");
+    }
+
+    void CheckProfileSource(const RateQuoteRiskProvenance_& source, const RateQuoteRiskProvenance_& retained, const RatePricingMarket_& market) {
+        RequireLiveQuoteRiskState(source, "quote_risk_perf.source");
+        REQUIRE(source.Available() && retained.Available() && source.CalibrationRecord().empty() && !retained.CalibrationRecord().empty(),
+                "State profile retain or availability mismatch");
+        REQUIRE(source.Axis().fingerprint_ == retained.Axis().fingerprint_ && source.State().fingerprint_ == retained.State().fingerprint_ &&
+                    CanonicalJson::FingerprintCanonical(retained.CalibrationRecord()) == source.State().fingerprint_,
+                "State profile retained identity mismatch");
+        CheckProfileInverse(source, retained);
+        REQUIRE(!source.State().components_.empty(), "State profile has no components");
+        for (const auto& component : source.State().components_)
+            REQUIRE(CurrentRateQuoteRiskComponentState(component.componentKey_, market, source.State().scheme_).fingerprint_ ==
+                        component.fingerprint_,
+                    "State profile component mismatch");
+        std::cout << "STATE_PREFLIGHT kind=" << source.Kind() << " scheme=" << source.State().scheme_ << " quotes=" << source.Axis().quotes_.size()
+                  << " components=" << source.State().components_.size() << " components_verified=" << source.State().components_.size()
+                  << " record_bytes=" << retained.CalibrationRecord().size() << " axis=" << source.Axis().fingerprint_
+                  << " state=" << source.State().fingerprint_ << " timed_retain=false\n";
+    }
+
+    void RunBoundProbeCase(const char* name, const RateQuoteRiskProvenance_& source, const RatePricingMarket_& market) {
+        double sink = 0.;
+        Bench::Print(Bench::Run(
+            name,
+            [&] {
+                for (const auto& component : source.State().components_) {
+                    const auto state = CurrentRateQuoteRiskComponentState(component.componentKey_, market, source.State().scheme_);
+                    REQUIRE(state.fingerprint_ == component.fingerprint_, "State profile component mismatch");
+                    sink += static_cast<double>(state.fingerprint_.size());
+                }
+            },
+            kWarmup, kRepeats));
+        Bench::DoNotOptimize(&sink);
+    }
+
+    int RunStateProfile(int argc, char** argv) {
+        if (argc > 3 || (argc == 3 && std::string(argv[2]) != "--preflight")) {
+            std::cerr << "usage: quote_risk_perf --state-profile [--preflight]\n";
+            return 2;
+        }
+        try {
+            using Generic_ = RateRiskPerf::ProvenanceMaterials_<JointMultiCurveCalibrationSpec_, JointMultiCurveCalibrationOptions_,
+                                                                JointMultiCurveCalibrationResult_>;
+            Generic_ generic;
+            generic.spec_ = JointQuoteRiskFixtures::Spec(5, 3, CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, true);
+            generic.options_.computeEffJacobianInverse_ = true;
+            generic.calibration_ = std::make_shared<JointMultiCurveCalibrationResult_>(CalibrateJointMultiCurve(generic.spec_, generic.options_));
+            generic.market_ = JointQuoteRiskFixtures::Market(generic.spec_, *generic.calibration_);
+            generic.config_ = JointQuoteRiskFixtures::Config(3);
+            const auto buildGeneric = [](const auto& m) {
+                return BuildJointMultiCurveQuoteRiskProvenance(m.spec_, *m.calibration_, m.options_, m.market_, m.config_);
+            };
+            const auto genericSource = buildGeneric(generic);
+            auto retainedGeneric = generic;
+            retainedGeneric.config_.retainCalibrationRecord_ = true;
+            CheckProfileSource(genericSource, buildGeneric(retainedGeneric), generic.market_);
+            const auto staged = RateRiskPerf::MakeStagedXccyProvenanceMaterials(16, CurveJacobianMode_::Value_::ANALYTIC);
+            const auto stagedSource =
+                BuildStagedXccyBasisQuoteRiskProvenance(staged.spec_, *staged.calibration_, staged.options_, staged.market_, staged.config_);
+            auto retainedConfig = staged.config_;
+            retainedConfig.retainCalibrationRecord_ = true;
+            CheckProfileSource(
+                stagedSource,
+                BuildStagedXccyBasisQuoteRiskProvenance(staged.spec_, *staged.calibration_, staged.options_, staged.market_, retainedConfig),
+                staged.market_);
+            if (argc == 3)
+                return 0;
+            const int calibrations = CurveCalibrationInvocationCount();
+            Bench::PrintHeader();
+            RunBuildCase("Quote risk provenance generic build (N5, informational)", generic, buildGeneric);
+            RunBoundProbeCase("Quote risk state probe generic (3 components, informational)", genericSource, generic.market_);
+            RunBoundProbeCase("Quote risk state probe staged (16 quotes, informational)", stagedSource, staged.market_);
+            REQUIRE(CurveCalibrationInvocationCount() == calibrations, "State profile timer recalibrated");
+            return 0;
+        } catch (const std::exception& error) {
+            std::cerr << error.what() << '\n';
+            return 1;
+        }
+    }
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--state-profile")
+        return RunStateProfile(argc, argv);
     if (argc == 2) {
         const int script = RunScriptCurveQuoteRiskMode(argv[1]);
         if (script >= 0)

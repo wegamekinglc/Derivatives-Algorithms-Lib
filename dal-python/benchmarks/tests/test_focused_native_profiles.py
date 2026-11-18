@@ -176,3 +176,47 @@ def test_json_default_case_inventory_and_samples():
         assert len(row["samples_ns"]) == 10
         assert row["inner_loops"] in {2**i for i in range(17)}
         assert all(value > 0 for value in row["samples_ns"])
+
+
+def test_quote_state_profile_preflights_exact_schemes_and_each_component():
+    result = run(
+        driver("DAL_QUOTE_STATE_PROFILE_BINARY"), "--state-profile", "--preflight"
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = [
+        dict(item.split("=", 1) for item in line.split()[1:])
+        for line in result.stdout.splitlines()
+        if line.startswith("STATE_PREFLIGHT ")
+    ]
+    assert len(rows) == 2
+    expected = {"JOINT_MULTI_CURVE": (4, 5, 3), "STAGED_XCCY_BASIS": (3, 16, 1)}
+    for row in rows:
+        scheme, quotes, components = expected[row["kind"]]
+        assert row["scheme"] == f"dal.quote-risk-state/{scheme}+jcs+sha256"
+        assert int(row["quotes"]) == quotes
+        assert int(row["components"]) == int(row["components_verified"]) == components
+        assert int(row["record_bytes"]) > 0
+        assert row["timed_retain"] == "false"
+        assert row["state"].startswith("sha256:") and len(row["state"]) == 71
+    assert "Quote risk provenance generic build" not in result.stdout
+
+
+def test_quote_state_profile_retains_three_informational_rows():
+    result = run(driver("DAL_QUOTE_STATE_PROFILE_BINARY"), "--state-profile")
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = [
+        line for line in result.stdout.splitlines() if line.startswith("Quote risk ")
+    ]
+    assert len(rows) == 3
+    for name in (
+        "Quote risk provenance generic build (N5, informational)",
+        "Quote risk state probe generic (3 components, informational)",
+        "Quote risk state probe staged (16 quotes, informational)",
+    ):
+        row = next(line for line in rows if line.startswith(name))
+        assert row.split()[-1] == "20"
+
+
+def test_quote_state_profile_rejects_unknown_option():
+    result = run(driver("DAL_QUOTE_STATE_PROFILE_BINARY"), "--state-profile", "invalid")
+    assert result.returncode == 2
