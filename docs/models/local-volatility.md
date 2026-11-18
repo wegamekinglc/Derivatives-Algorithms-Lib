@@ -268,6 +268,9 @@ resolved simulation settings and worker count also enter the request identity.
 
 Source and model identities retain their own version domains. Compare request
 fingerprints only within the same schema and with identical native inputs.
+Source identities include fitted values and local-volatility grid nodes; native
+values that differ across numerical-library or compiler builds can therefore
+produce different model and request fingerprints.
 C++, Python and Excel expose the same core identity. Python's DateTime
 constructor accepts whole seconds; Excel serial conversion can round a day
 fraction before it reaches core. Exactly representable times such as noon allow

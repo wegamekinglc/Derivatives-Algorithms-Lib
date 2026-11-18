@@ -11,6 +11,7 @@
 #include <dal/script/marketivlocalvol.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/json.hpp>
+#include <marketivlocalvolrequestgolden.hpp>
 
 using namespace Dal;
 
@@ -40,22 +41,27 @@ TEST(PublicMarketIvLocalVolTest, TestPassiveFactoryAndExecution) {
             ~RestoreThreads_() { ThreadPool_::GetInstance()->Start(count_, true); }
         } restore;
         ThreadPool_::GetInstance()->Start(1, true);
-        const auto identityProduct = NewScriptProduct("ScriptProductData_", {Cell_(expiry)}, {"pay PAYS 1"});
-        auto frozenValuation = valuation;
-        // Independent Python hashlib over canonical JSON with fixed worker/settings and exact noon fraction.
-        ASSERT_EQ(Dal::InspectMarketIvLocalVolExecution(*identityProduct, *model, frozenValuation).requestIdentity_,
-                  "sha256:0f0aa577def22e9db4b2bab9ab3ccc4237b6fc00cec12eb2f444b85345a1b5e2");
-        frozenValuation.fixings_.reset(new MarketFixingSnapshot_({{"EQ[A]", {{DateTime_(today.AddDays(-1), .5), 99.}}}}));
-        const auto noon = Dal::InspectMarketIvLocalVolExecution(*identityProduct, *model, frozenValuation);
-        ASSERT_EQ(noon.requestIdentity_, "sha256:04f36f435aec453a561fbcd494742776ea35fa821be56291492de3eeb19d2339");
-        ASSERT_EQ(noon.requestIdentity_, Script::InspectMarketIvLocalVolExecution(*identityProduct, *model, frozenValuation).requestIdentity_);
-        ASSERT_EQ(noon.schema_, "dal.market-iv-local-vol-execution/1");
-        ASSERT_EQ(noon.sourceIdentity_, model->SourceIdentity());
-        ASSERT_EQ(noon.modelIdentity_, model->ModelIdentity());
-        size_t fields = 0;
-        MarketIvLocalVolFields::Visit(noon, [&](const auto&, const auto&) { ++fields; });
-        ASSERT_EQ(fields, 23U);
-        ASSERT_NEAR(ValueByMonteCarlo(identityProduct, Handle_<ModelData_>(model), 16, frozenValuation).at("PV"), .98, 2e-12);
+        auto alternateSettings = settings;
+        alternateSettings.factor_ = "W_EQ_ALTERNATE";
+        const auto alternate = NewMarketIvLocalVolModelData("market", grid, alternateSettings);
+        for (const auto& identityModel : {model, alternate}) {
+            const auto identityProduct = NewScriptProduct("ScriptProductData_", {Cell_(expiry)}, {"pay PAYS 1"});
+            auto frozenValuation = valuation;
+            ASSERT_EQ(Dal::InspectMarketIvLocalVolExecution(*identityProduct, *identityModel, frozenValuation).requestIdentity_,
+                      Dal::Test::MarketIvLocalVolRequestGolden(identityModel->ModelIdentity(), false));
+            frozenValuation.fixings_.reset(new MarketFixingSnapshot_({{"EQ[A]", {{DateTime_(today.AddDays(-1), .5), 99.}}}}));
+            const auto noon = Dal::InspectMarketIvLocalVolExecution(*identityProduct, *identityModel, frozenValuation);
+            ASSERT_EQ(noon.requestIdentity_, Dal::Test::MarketIvLocalVolRequestGolden(identityModel->ModelIdentity(), true));
+            ASSERT_EQ(noon.requestIdentity_,
+                      Script::InspectMarketIvLocalVolExecution(*identityProduct, *identityModel, frozenValuation).requestIdentity_);
+            ASSERT_EQ(noon.schema_, "dal.market-iv-local-vol-execution/1");
+            ASSERT_EQ(noon.sourceIdentity_, identityModel->SourceIdentity());
+            ASSERT_EQ(noon.modelIdentity_, identityModel->ModelIdentity());
+            size_t fields = 0;
+            MarketIvLocalVolFields::Visit(noon, [&](const auto&, const auto&) { ++fields; });
+            ASSERT_EQ(fields, 23U);
+            ASSERT_NEAR(ValueByMonteCarlo(identityProduct, Handle_<ModelData_>(identityModel), 16, frozenValuation).at("PV"), .98, 2e-12);
+        }
     }
     const auto vanilla = NewScriptProduct("call", {Cell_(expiry)}, {"pay PAYS MAX(FIX(EQ[A]) - 102, 0)"});
     MonteCarloSettings_ simulation;

@@ -8,6 +8,7 @@
 #include <dal-public/src/script.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/storage/json.hpp>
+#include <marketivlocalvolrequestgolden.hpp>
 
 using namespace Dal;
 
@@ -116,7 +117,7 @@ TEST(ExcelMarketIvLocalVolTest, TestModelHandleReportsAndPassiveValuation) {
         ThreadPool_::GetInstance()->Start(1, true);
         const auto identityProduct = NewScriptProduct("ScriptProductData_", {Cell_(expiry)}, {"pay PAYS 1"});
         MarketIvLocalVolModelData_Get_Execution(identityProduct, model, v, {}, &table);
-        ASSERT_EQ(Cell::ToString(table(3, 1)), "sha256:0f0aa577def22e9db4b2bab9ab3ccc4237b6fc00cec12eb2f444b85345a1b5e2");
+        ASSERT_EQ(Cell::ToString(table(3, 1)), Dal::Test::MarketIvLocalVolRequestGolden(model->ModelIdentity(), false));
         Handle_<StorableMarketFixingSnapshot_> fixings;
         MarketFixingSnapshot_New({"EQ[A]"}, {Cell_(Date::ToExcel(today.AddDays(-1)) + .5)}, {99.}, &fixings);
         ASSERT_DOUBLE_EQ(fixings->val_->Values().at("EQ[A]").begin()->first.Frac(), .5);
@@ -124,7 +125,7 @@ TEST(ExcelMarketIvLocalVolTest, TestModelHandleReportsAndPassiveValuation) {
         frozenValuation.fixings_ = fixings->val_;
         const Handle_<StorableScriptValuationSettings_> noonSettings(new StorableScriptValuationSettings_("noon", frozenValuation));
         MarketIvLocalVolModelData_Get_Execution(identityProduct, model, noonSettings, {}, &table);
-        ASSERT_EQ(Cell::ToString(table(3, 1)), "sha256:04f36f435aec453a561fbcd494742776ea35fa821be56291492de3eeb19d2339");
+        ASSERT_EQ(Cell::ToString(table(3, 1)), Dal::Test::MarketIvLocalVolRequestGolden(model->ModelIdentity(), true));
         ASSERT_EQ(table.Cols(), 2);
         ASSERT_EQ(table.Rows(), executionFields.size());
         for (int r = 0; r < table.Rows(); ++r)
