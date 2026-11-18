@@ -75,6 +75,11 @@ interface: `FwdFrom` and `BackFrom` move a date forward or backward.
   end; and
 - `&`-joined compounds that apply each sub-increment in sequence.
 
+`IMM` and `CDS` roll strictly after or before the input date to March, June,
+September or December: the third Wednesday for IMM, the twentieth for CDS.
+An input already on the target day advances to the next or previous quarter.
+`IMM1` applies the same strict rule to the third Wednesday of every month.
+
 `Date::NBusDays` and `Date::ToIMM` are factory shortcuts for business-day
 steps and IMM rolls. `IsLiborTenor` / `IsSwapTenor` classify tenor strings: a
 tenor containing `Y` (or `y`) is a swap tenor; anything else is a Libor

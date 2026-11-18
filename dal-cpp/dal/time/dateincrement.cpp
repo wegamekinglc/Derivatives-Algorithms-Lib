@@ -59,11 +59,11 @@ namespace {
         int mm = Date::Month(from);
         int dd = Date::Day(from);
 
-        if (forward ? dd >= 20 : dd <= 20) {
-            do {
-                mm += forward ? 1 : -1;
-            } while (mm % 3);
-        }
+        const int remainder = mm % 3;
+        if (remainder)
+            mm += forward ? 3 - remainder : -remainder;
+        else if (forward ? dd >= 20 : dd <= 20)
+            mm += forward ? 3 : -3;
         MonthInRange(&yy, &mm);
         return Date_(yy, mm, 20);
     }
@@ -75,11 +75,11 @@ namespace {
         int mm = Date::Month(from);
         int dd = Date::Day(from);
 
-        if (forward ? dd >= IMMDay(yy, mm) : dd <= IMMDay(yy, mm)) {
-            do {
-                mm += forward ? 1 : -1;
-            } while (mm % imm_months);
-        }
+        const int remainder = mm % imm_months;
+        if (remainder)
+            mm += forward ? imm_months - remainder : -remainder;
+        else if (forward ? dd >= IMMDay(yy, mm) : dd <= IMMDay(yy, mm))
+            mm += forward ? imm_months : -imm_months;
         MonthInRange(&yy, &mm);
         return Date_(yy, mm, IMMDay(yy, mm));
     }
