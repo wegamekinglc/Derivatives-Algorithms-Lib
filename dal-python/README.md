@@ -1125,8 +1125,11 @@ actual PV currency, `d_pv_d_decimal_quote`, and `dv01`. The former is price per
 `+1.0` decimal quote move; `dv01` is price per `+1 bp` and therefore equals the
 former times `1e-4`. Axis/state schemes are
 `dal.quote-risk-axis/1+jcs+sha256` and
-`dal.quote-risk-state/1+jcs+sha256` for the three existing domains. Generic joint
-provenance uses the corresponding `/2+jcs+sha256` schemes; fingerprint values begin with `sha256:`.
+`dal.quote-risk-state/3+jcs+sha256` for the three existing domains. Generic joint
+provenance uses axis `/2` and state `/4`; fingerprint values begin with `sha256:`.
+Read the actual domain from `provenance.state.scheme`. Historical state `/1` and
+`/2` is metadata only; rebuild from precise inputs before live use. See the
+[migration contract](../docs/public-api.md#exact-quote-risk-state-and-historical-migration).
 Aggregation verifies the current market state and performs neither quote bumps
 nor recalibration.
 

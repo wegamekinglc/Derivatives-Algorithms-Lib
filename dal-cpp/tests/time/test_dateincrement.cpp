@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/time/dateincrement.hpp>
+#include <dal/time/dateutils.hpp>
 #include <dal/time/holidays.hpp>
 
 using namespace Dal;
@@ -55,6 +56,45 @@ TEST(DateIncrementTest, TestIncrementNextSpecial) {
     ASSERT_EQ(Date_(2019, 12, 31), s2);
     s2 = ref_date - *s1;
     ASSERT_EQ(Date_(2019, 11, 30), s2);
+}
+
+TEST(DateIncrementTest, TestStrictQuarterlyRollsAndMonthlyImm) {
+    struct Case_ {
+        const char* rule_;
+        Date_ from_, next_, previous_;
+    };
+    const Vector_<Case_> cases{
+        {"IMM", {2026, 2, 1}, {2026, 3, 18}, {2025, 12, 17}},
+        {"IMM", {2026, 4, 25}, {2026, 6, 17}, {2026, 3, 18}},
+        {"IMM", {2026, 3, 18}, {2026, 6, 17}, {2025, 12, 17}},
+        {"IMM", {2026, 3, 17}, {2026, 3, 18}, {2025, 12, 17}},
+        {"IMM", {2026, 3, 19}, {2026, 6, 17}, {2026, 3, 18}},
+        {"IMM", {2026, 12, 31}, {2027, 3, 17}, {2026, 12, 16}},
+        {"CDS", {2026, 2, 1}, {2026, 3, 20}, {2025, 12, 20}},
+        {"CDS", {2026, 4, 25}, {2026, 6, 20}, {2026, 3, 20}},
+        {"CDS", {2026, 3, 20}, {2026, 6, 20}, {2025, 12, 20}},
+        {"CDS", {2026, 3, 19}, {2026, 3, 20}, {2025, 12, 20}},
+        {"CDS", {2026, 3, 21}, {2026, 6, 20}, {2026, 3, 20}},
+        {"CDS", {2026, 12, 31}, {2027, 3, 20}, {2026, 12, 20}},
+        {"IMM1", {2026, 2, 1}, {2026, 2, 18}, {2026, 1, 21}},
+        {"IMM1", {2026, 2, 18}, {2026, 3, 18}, {2026, 1, 21}},
+        {"IMM1", {2026, 4, 25}, {2026, 5, 20}, {2026, 4, 15}},
+        {"IMM1", {2026, 12, 16}, {2027, 1, 20}, {2026, 11, 18}},
+    };
+    for (const auto& row : cases) {
+        SCOPED_TRACE(row.rule_);
+        SCOPED_TRACE(Date::ToString(row.from_));
+        const auto increment = Date::ParseIncrement(row.rule_);
+        ASSERT_EQ(row.from_ + *increment, row.next_);
+        ASSERT_EQ(row.from_ - *increment, row.previous_);
+        ASSERT_LT(row.from_, row.next_);
+        ASSERT_LT(row.previous_, row.from_);
+        if (String_(row.rule_) != "CDS") {
+            const auto direct = Date::ToIMM(String_(row.rule_) == "IMM1");
+            ASSERT_EQ(row.from_ + *direct, row.next_);
+            ASSERT_EQ(row.from_ - *direct, row.previous_);
+        }
+    }
 }
 
 TEST(DateIncrementTest, TestIncrementMultistep) {

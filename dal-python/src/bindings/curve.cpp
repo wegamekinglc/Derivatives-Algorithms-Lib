@@ -102,32 +102,32 @@ namespace {
     }
 
     RateQuoteRiskProvenance_ RunBuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,
-                                                                    const CalibrationResult_& result,
-                                                                    const CurveCalibrationOptions_& options,
+                                                                    CalibrationResult_ result,
+                                                                    CurveCalibrationOptions_ options,
                                                                     const RatePricingMarket_& boundMarket,
                                                                     const RateQuoteRiskProvenanceConfig_& config) {
         return RunQuoteRiskWithReleasedGil([&]() { return BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
     RateQuoteRiskProvenance_ RunBuildJointXccyQuoteRiskProvenance(const JointXccyCalibrationSpec_& spec,
-                                                                  const JointXccyCalibrationResult_& result,
-                                                                  const JointXccyCalibrationOptions_& options,
+                                                                  JointXccyCalibrationResult_ result,
+                                                                  JointXccyCalibrationOptions_ options,
                                                                   const RatePricingMarket_& boundMarket,
                                                                   const RateQuoteRiskProvenanceConfig_& config) {
         return RunQuoteRiskWithReleasedGil([&]() { return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
-    RateQuoteRiskProvenance_ RunBuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_& spec,
+    RateQuoteRiskProvenance_ RunBuildJointMultiCurveQuoteRiskProvenance(JointMultiCurveCalibrationSpec_ spec,
                                                                         const JointMultiCurveCalibrationResult_& result,
-                                                                        const JointMultiCurveCalibrationOptions_& options,
+                                                                        JointMultiCurveCalibrationOptions_ options,
                                                                         const RatePricingMarket_& boundMarket,
                                                                         const RateQuoteRiskProvenanceConfig_& config) {
         return RunQuoteRiskWithReleasedGil([&]() { return BuildJointMultiCurveQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
     RateQuoteRiskProvenance_ RunBuildStagedXccyBasisQuoteRiskProvenance(const CrossCurrencyCalibrationSpec_& spec,
-                                                                        const CrossCurrencyCalibrationResult_& result,
-                                                                        const CrossCurrencyCalibrationOptions_& options,
+                                                                        CrossCurrencyCalibrationResult_ result,
+                                                                        CrossCurrencyCalibrationOptions_ options,
                                                                         const RatePricingMarket_& boundMarket,
                                                                         const RateQuoteRiskProvenanceConfig_& config) {
         return RunQuoteRiskWithReleasedGil([&]() { return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config); });
@@ -1564,10 +1564,24 @@ namespace {
             },
             py::arg("spec"), py::arg("jacobian_mode"));
 
-        m.def("CalibrateSingleCurve", py::overload_cast<const CurveCalibrationSpec_&, const CurveCalibrationOptions_&>(&CalibrateSingleCurve),
-              py::arg("spec"), py::arg("options"), py::call_guard<py::gil_scoped_release>());
+        // Python-mutable arguments are copied on entry, before releasing the GIL.
+        m.def(
+            "CalibrateSingleCurve",
+            [](const CurveCalibrationSpec_& spec, CurveCalibrationOptions_ options) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return CalibrateSingleCurve(spec, options);
+            },
+            py::arg("spec"), py::arg("options"));
 
-        m.def("CalibrateMultiCurveBundle", &CalibrateMultiCurveBundle, py::arg("spec"), py::call_guard<py::gil_scoped_release>());
+        m.def(
+            "CalibrateMultiCurveBundle",
+            [](MultiCurveCalibrationSpec_ spec) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return CalibrateMultiCurveBundle(spec);
+            },
+            py::arg("spec"));
     }
 
     void init_bindings_curve_xccy(py::module_& m) {
@@ -1938,14 +1952,24 @@ namespace {
 
         m.def("CalibrateXccyMarket", py::overload_cast<const CrossCurrencyCalibrationSpec_&>(&CalibrateXccyMarket), py::arg("spec"),
               py::call_guard<py::gil_scoped_release>());
-        m.def("CalibrateXccyMarket",
-              py::overload_cast<const CrossCurrencyCalibrationSpec_&, const CrossCurrencyCalibrationOptions_&>(&CalibrateXccyMarket), py::arg("spec"),
-              py::arg("options"), py::call_guard<py::gil_scoped_release>());
+        m.def(
+            "CalibrateXccyMarket",
+            [](const CrossCurrencyCalibrationSpec_& spec, CrossCurrencyCalibrationOptions_ options) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return CalibrateXccyMarket(spec, options);
+            },
+            py::arg("spec"), py::arg("options"));
         m.def("CalibrateJointXccyMarket", py::overload_cast<const JointXccyCalibrationSpec_&>(&CalibrateJointXccyMarket), py::arg("spec"),
               py::call_guard<py::gil_scoped_release>());
-        m.def("CalibrateJointXccyMarket",
-              py::overload_cast<const JointXccyCalibrationSpec_&, const JointXccyCalibrationOptions_&>(&CalibrateJointXccyMarket), py::arg("spec"),
-              py::arg("options"), py::call_guard<py::gil_scoped_release>());
+        m.def(
+            "CalibrateJointXccyMarket",
+            [](const JointXccyCalibrationSpec_& spec, JointXccyCalibrationOptions_ options) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return CalibrateJointXccyMarket(spec, options);
+            },
+            py::arg("spec"), py::arg("options"));
         m.def("ValidateCrossCurrencyAnalyticEligibility", &ValidateCrossCurrencyAnalyticEligibility, py::arg("spec"),
               py::call_guard<py::gil_scoped_release>());
         m.def("ValidateJointXccyAnalyticEligibility", &ValidateJointXccyAnalyticEligibility, py::arg("spec"),
@@ -2035,7 +2059,7 @@ namespace {
 
         m.def(
             "CalibrateJointMultiCurveBundle",
-            [](const JointMultiCurveCalibrationSpec_& input, const JointMultiCurveCalibrationOptions_& settings) {
+            [](JointMultiCurveCalibrationSpec_ input, JointMultiCurveCalibrationOptions_ settings) {
                 py::gil_scoped_release release;
                 RunCurveCalibrationGilBarrierForTesting();
                 return CalibrateJointMultiCurveBundle(input, settings);

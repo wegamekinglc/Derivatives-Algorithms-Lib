@@ -6,6 +6,35 @@
 
 #include <dal-public/src/random.hpp>
 
+TEST(RandomTest, TestRandomZeroDimensionsAndNarrowing) {
+    for (const auto& type : {"IRN", "ShuffledIRN", "MRG32", "MRG32k32a"}) {
+        const auto generator = Dal::NewPseudoRSG(type, std::numeric_limits<int>::min(), 0);
+        Dal::Matrix_<> output;
+        Dal::GetPseudoRSGUniform(generator, 2, &output);
+        ASSERT_EQ(output.Rows(), 2);
+        ASSERT_EQ(output.Cols(), 0);
+    }
+    ASSERT_THROW(Dal::NewPseudoRSG("IRN", 0, -1), Dal::Exception_);
+    ASSERT_THROW(Dal::NewSobolRSG("label", -1), Dal::Exception_);
+    const auto sobol = Dal::NewSobolRSG("label", 0, 0);
+    Dal::Matrix_<> output;
+    Dal::GetSobolRSGNormal(sobol, 2, &output);
+    ASSERT_EQ(output.Rows(), 2);
+    ASSERT_EQ(output.Cols(), 0);
+
+    struct WideGenerator_ {
+        size_t NDim() const { return static_cast<size_t>(std::numeric_limits<int>::max()) + 1; }
+        void FillUniform(Dal::Vector_<>*) const {}
+    };
+    const Dal::Handle_<WideGenerator_> wide(new WideGenerator_);
+    output.Resize(1, 1);
+    output(0, 0) = 7.;
+    ASSERT_THROW(Dal::FillRSG_(wide, 0, &WideGenerator_::FillUniform, &output), Dal::Exception_);
+    ASSERT_EQ(output.Rows(), 1);
+    ASSERT_EQ(output.Cols(), 1);
+    ASSERT_EQ(output(0, 0), 7.);
+}
+
 using Dal::Matrix_;
 using Dal::String_;
 

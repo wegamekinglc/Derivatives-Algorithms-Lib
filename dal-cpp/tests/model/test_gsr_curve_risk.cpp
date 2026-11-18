@@ -1,14 +1,15 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <string>
 
-#include <dal/platform/platform.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/model/gsrcurverisk.hpp>
-#include <dal/model/gsrslvcalibration.hpp>
 #include <dal/model/gsrmarketcalibration.hpp>
+#include <dal/model/gsrslvcalibration.hpp>
+#include <dal/platform/platform.hpp>
 
 using namespace Dal;
 
@@ -65,6 +66,45 @@ namespace {
         RateQuoteRiskProvenance_ Provenance() const { return BuildSingleCurveQuoteRiskProvenance(spec_, result_, options_, market_, config_); }
     };
 
+    template <class F_> void AssertUnsupportedSource(F_ operation, const char* expected, const String_& actual) {
+        try {
+            operation();
+            FAIL() << "Unsupported quote-risk source accepted";
+        } catch (const Exception_& error) {
+            const std::string message(error.what());
+            ASSERT_NE(message.find("QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED: field=gsr.curve.source"), std::string::npos);
+            ASSERT_NE(message.find(std::string("expected=") + expected), std::string::npos);
+            ASSERT_NE(message.find("actual=" + std::string(actual.data(), actual.size())), std::string::npos);
+        }
+    }
+
+    void AssertSameJacobian(const GSRCurveQuoteRisk_& actual, const GSRCurveQuoteRisk_& expected) {
+        const auto& lhs = actual.LogDFQuoteJacobian();
+        const auto& rhs = expected.LogDFQuoteJacobian();
+        ASSERT_EQ(lhs.Rows(), rhs.Rows());
+        ASSERT_EQ(lhs.Cols(), rhs.Cols());
+        for (int row = 0; row < lhs.Rows(); ++row)
+            for (int col = 0; col < lhs.Cols(); ++col)
+                ASSERT_EQ(lhs(row, col), rhs(row, col));
+    }
+
+    void AssertRejectedKind(const char* kind, const char* expected) {
+        const CurveInput_ input;
+        const auto snapshot = input.Snapshot();
+        const auto source = input.Provenance();
+        const auto reference = BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount");
+        const auto original = source.Kind();
+        const_cast<String_&>(source.Kind()) = kind;
+        ASSERT_NO_FATAL_FAILURE(
+            AssertUnsupportedSource([&] { BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount"); }, expected, source.State().scheme_));
+        auto missing = input.market_;
+        missing.curveComponents_.clear();
+        ASSERT_NO_FATAL_FAILURE(
+            AssertUnsupportedSource([&] { BuildGSRCurveQuoteRisk(snapshot, missing, source, "discount"); }, expected, source.State().scheme_));
+        const_cast<String_&>(source.Kind()) = original;
+        ASSERT_NO_FATAL_FAILURE(AssertSameJacobian(BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount"), reference));
+    }
+
     Handle_<GSRSLVModelData_> Smile(const GSRCurveData_& curve) {
         const Handle_<GSRCurveData_> snapshot(new GSRCurveData_(curve.name_, curve.evaluationDate_, curve.currency_, curve.nodeDates_,
                                                                 curve.discountLogDF_, curve.projectionTenors_, curve.projectionLogDF_));
@@ -81,6 +121,53 @@ namespace {
             "smile", gaussian, Handle_<GSRLeverageData_>(new GSRLeverageData_("leverage", {0.0}, {0.0}, Matrix_<>(1, 1, 1.0))), settings));
     }
 } // namespace
+
+TEST(GSRCurveRiskTest, TestRejectsCaseMismatchedKindBeforeComponentWork) {
+    AssertRejectedKind("single_curve", "UNSUPPORTED_KIND");
+}
+
+TEST(GSRCurveRiskTest, TestRejectsJointKindWithSingleCurveState) {
+    AssertRejectedKind("JOINT_MULTI_CURVE", "dal.quote-risk-state/4+jcs+sha256");
+}
+
+TEST(GSRCurveRiskTest, TestRejectsUnknownKindBeforeComponentWork) {
+    AssertRejectedKind("UNKNOWN", "UNSUPPORTED_KIND");
+}
+
+TEST(GSRCurveRiskTest, TestRejectsHistoricalOrMismatchedStateAndRecovers) {
+    const CurveInput_ input;
+    const auto snapshot = input.Snapshot();
+    const auto source = input.Provenance();
+    const auto reference = BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount");
+    auto& state = const_cast<RateQuoteRiskState_&>(source.State());
+    const auto original = state.scheme_;
+    for (const String_& scheme : Vector_<String_>{"dal.quote-risk-state/1+jcs+sha256", "dal.quote-risk-state/2+jcs+sha256",
+                                                  "dal.quote-risk-state/4+jcs+sha256", "unknown/99"}) {
+        state.scheme_ = scheme;
+        ASSERT_NO_FATAL_FAILURE(AssertUnsupportedSource([&] { BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount"); },
+                                                        "dal.quote-risk-state/3+jcs+sha256", scheme));
+        state.scheme_ = original;
+        ASSERT_NO_FATAL_FAILURE(AssertSameJacobian(BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount"), reference));
+    }
+}
+
+TEST(GSRCurveRiskTest, TestSubsecondValuationAndFixingChangesRejectStaleSourceAndRecover) {
+    CurveInput_ input;
+    const auto snapshot = input.Snapshot();
+    input.market_.valuationTime_ = DateTime_(input.spec_.today_, .1 / 86400.);
+    input.market_.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(input.spec_.today_.AddDays(-1), .1 / 86400.), 99.}}}}));
+    const auto source = input.Provenance();
+    const auto reference = BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount");
+    for (bool fixing : {false, true}) {
+        auto after = input.market_;
+        if (fixing)
+            after.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(input.spec_.today_.AddDays(-1), .2 / 86400.), 99.}}}}));
+        else
+            after.valuationTime_ = DateTime_(input.spec_.today_, .2 / 86400.);
+        ASSERT_THROW(BuildGSRCurveQuoteRisk(snapshot, after, source, "discount"), Exception_);
+        ASSERT_NO_FATAL_FAILURE(AssertSameJacobian(BuildGSRCurveQuoteRisk(snapshot, input.market_, source, "discount"), reference));
+    }
+}
 
 TEST(GSRCurveRiskTest, TestSnapshotQuoteJacobianMatchesIndependentDepositFormula) {
     const CurveInput_ input;

@@ -51,6 +51,9 @@ valuation. `EvaluationDate_Get` / `EvaluationDate_Set` also release it before
 native synchronization. A setter waits for an in-progress valuation; a getter
 can read the stable current date while valuation runs.
 
+The shared [RNG input domains and exhaustion contract](../methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion)
+defines seed, dimension and path ranges and Python/native error types.
+
 For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
 
 ```python
@@ -945,6 +948,11 @@ multi-curve calibration, or lower-level solver settings. Python enum names are:
 - `CurveJacobianMode`: `ANALYTIC`, `BUMPED`; and
 - `LogDfScheme`: `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`.
 
+Calibration and quote-risk provenance calls snapshot Python-mutable specs,
+options and exposed result matrices while holding the GIL, then release it for
+native work. Concurrent edits affect later calls. Python read-only specs and
+immutable instrument/curve handles remain shared.
+
 `ZERO_RATE` is supported by `CalibrateSingleCurve` and `dal.calibrate_curve`. Supply only
 strictly-future knots; the anchor is internal and contributes no solver or Jacobian
 column. The scalar `initialGuess_` is a decimal continuously compounded zero rate.
@@ -1018,6 +1026,16 @@ release the GIL around native construction or aggregation and return read-only
 objects. The axis/state fingerprint schemes, stable availability reasons,
 price-per-decimal and DV01 units, and `UnconvertedByActualPvCcy` policy are
 identical to C++.
+
+Read `source.state.scheme` for the actual state domain: `/3` for single-curve
+and both XCCY kinds, `/4` for generic joint calibration. The historical
+`RateQuoteRiskStateFingerprintScheme()` still returns `/1`. Exact valuation and
+fixing fractions, including unused history, participate in identity. Historical
+`/1` and `/2` sources remain inspectable metadata but cannot be matched or used
+for live aggregation/pullback. Native scheme and snapshot errors propagate as
+`RuntimeError`; a failed call permits a correct retry. No provenance archive or
+pickle interface is added. See the
+[migration contract](../public-api.md#exact-quote-risk-state-and-historical-migration).
 
 The runnable [single-curve quote-risk example](../../dal-python/examples/009.quote_risk.py)
 prints both fingerprints, the policy, and every bucket. The

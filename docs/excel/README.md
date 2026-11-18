@@ -8,6 +8,11 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+`PSEUDORSG.NEW` and `SOBOLRSG.NEW` check numeric inputs before conversion and
+publish a handle only after successful construction. See the shared
+[RNG input domains and exhaustion contract](../methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion)
+for legal seeds, zero dimensions, path positions and failure behavior.
+
 ## Explicit compounded OIS
 
 The [calling recipe](../ccy-curves/compounded-ois.md#excel-calling-recipe)
@@ -1162,6 +1167,17 @@ The quote-risk spill columns are `calibration`, `axis_fingerprint`,
 DV01 is price per `+1 bp`. Rows remain separated by actual PV currency under
 `UnconvertedByActualPvCcy`, with no FX conversion. A paste-ready worksheet
 recipe is in [dal-excel/examples/008.quote_risk.md](../../dal-excel/examples/008.quote_risk.md).
+
+New factories report state `/3` for single-curve and both XCCY kinds, and `/4`
+for generic joint provenance. `CALIBRATIONPULLBACK.GET.PROVENANCE` exposes the
+actual `state_scheme`; axis domains and spill columns are unchanged. State
+identity includes exact valuation and every fixing fraction. Historical `/1`
+and `/2` sources are metadata only: live aggregation reports
+`QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED`, and pullback constructors/execution
+report the native error without replacing the caller's output handle. Correct
+retries remain valid. No archive or workbook handle restoration protocol is
+added; rebuild from precise inputs and a paired result as described in the
+[migration contract](../public-api.md#exact-quote-risk-state-and-historical-migration).
 
 ## Common calibration pullback
 

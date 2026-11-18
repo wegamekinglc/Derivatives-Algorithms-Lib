@@ -9,6 +9,7 @@
 #include <dal/curve/quoteriskmapping.hpp>
 
 #include <dal-public/src/calibrationrisk.hpp>
+#include <dal-public/src/calibrationrisk_internal.hpp>
 
 namespace Dal {
     namespace {
@@ -52,11 +53,9 @@ namespace Dal {
         }
 
         void ValidateCurve(const RateQuoteRiskProvenance_& calibration) {
+            RequireLiveQuoteRiskState(calibration, "calibration.source");
             REQUIRE(calibration.Available(), calibration.Reason());
             REQUIRE(!calibration.CalibrationRecord().empty(), "QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED");
-            static const std::array<const char*, 4> kinds{"SINGLE_CURVE", "JOINT_XCCY", "STAGED_XCCY_BASIS", "JOINT_MULTI_CURVE"};
-            REQUIRE(std::any_of(kinds.begin(), kinds.end(), [&](const char* kind) { return calibration.Kind() == kind; }),
-                    "InvalidCalibrationPullback: unsupported curve provenance kind");
             const auto& inverse = calibration.EffectiveInverse();
             CheckShape(inverse.Rows(), inverse.Cols());
             REQUIRE(static_cast<size_t>(inverse.Rows()) == calibration.Axis().parameters_.size() &&
@@ -120,6 +119,7 @@ namespace Dal {
         }
 
         Matrix_<> CheckedSeeds(const CalibrationPullback_& calibration, const Matrix_<>& adjoints, bool parameters) {
+            CalibrationRiskInternal::RequireLiveSource(calibration, parameters ? "parameters.source" : "direct.source");
             const auto [rows, columns] = Shape(calibration.Source(), parameters);
             CheckShape(rows, columns);
             const String_ role = parameters ? "parameters" : "directQuotes";
@@ -148,7 +148,10 @@ namespace Dal {
                                                const CalibrationParameterAdjoints_& parameters,
                                                const std::optional<CalibrationDirectQuoteAdjoints_>& direct) {
             if (direct)
-                REQUIRE(calibration.Matches(direct->Calibration()), "CalibrationSnapshotMismatch: direct curve provenance does not match");
+                REQUIRE(calibration.Matches(direct->Calibration()),
+                        "CalibrationSnapshotMismatch: direct curve provenance does not match; field=direct; expected=" +
+                            CalibrationRiskInternal::SourceIdentity(calibration) +
+                            "; actual=" + CalibrationRiskInternal::SourceIdentity(direct->Calibration()));
             const int rows = calibration.QuoteRows();
             std::array<Matrix_<>, 3> result{Matrix_<>(rows, 1), direct ? direct->Adjoints() : Matrix_<>(rows, 1, 0.0), Matrix_<>(rows, 1)};
             const auto& provenance = std::get<RateQuoteRiskProvenance_>(calibration.Source());
@@ -177,6 +180,8 @@ namespace Dal {
     const String_& CalibrationPullback_::Boundary() const { return MethodInfo(Source()).boundary_; }
 
     bool CalibrationPullback_::Matches(const CalibrationPullback_& other) const {
+        if (!CalibrationRiskInternal::LiveSource(*this) || !CalibrationRiskInternal::LiveSource(other))
+            return false;
         if (source_ == other.source_)
             return true;
         if (Source().index() != other.Source().index())
@@ -236,7 +241,14 @@ namespace Dal {
     CalibrationQuoteRisk_ PullbackCalibration(const CalibrationPullback_& calibration,
                                               const CalibrationParameterAdjoints_& parameters,
                                               const std::optional<CalibrationDirectQuoteAdjoints_>& direct) {
-        REQUIRE(calibration.Matches(parameters.Calibration()), "CalibrationSnapshotMismatch: parameter calibration does not match");
+        CalibrationRiskInternal::RequireLiveSource(calibration, "calibration.source");
+        CalibrationRiskInternal::RequireLiveSource(parameters.Calibration(), "parameters.source");
+        if (direct)
+            CalibrationRiskInternal::RequireLiveSource(direct->Calibration(), "direct.source");
+        REQUIRE(calibration.Matches(parameters.Calibration()),
+                "CalibrationSnapshotMismatch: parameter calibration does not match; field=parameters; expected=" +
+                    CalibrationRiskInternal::SourceIdentity(calibration) +
+                    "; actual=" + CalibrationRiskInternal::SourceIdentity(parameters.Calibration()));
         if (direct)
             REQUIRE(calibration.Source().index() == direct->Calibration().Source().index(),
                     "CalibrationSnapshotMismatch: direct domain does not match");

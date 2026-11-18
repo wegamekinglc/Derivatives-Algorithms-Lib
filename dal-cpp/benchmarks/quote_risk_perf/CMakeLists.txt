@@ -22,3 +22,6 @@ add_test(NAME quote_risk_script_curve_perf COMMAND quote_risk_perf --script-curv
 set_tests_properties(quote_risk_script_curve_perf PROPERTIES LABELS "benchmark")
 add_test(NAME quote_risk_compounded_ois_perf COMMAND quote_risk_perf --compounded-ois-quote-risk)
 set_tests_properties(quote_risk_compounded_ois_perf PROPERTIES LABELS "benchmark")
+
+add_test(NAME quote_risk_state_profile COMMAND quote_risk_perf --state-profile)
+set_tests_properties(quote_risk_state_profile PROPERTIES LABELS "benchmark")

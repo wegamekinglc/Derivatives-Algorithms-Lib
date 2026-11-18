@@ -1,0 +1,1 @@
+{"componentKey":"discount","curve":{"ccy":"USD","knotDates":["2025-01-02","2026-01-02"],"name":"fixed","rightVals":[0.02,0.025],"~type":"DiscountPWC_v1"},"fixings":[{"fixingTime":"2025-01-01 00:00:10","indexName":"EQ[A]","value":99}],"resultCurrency":"USD","scheme":"dal.quote-risk-state/1+jcs+sha256","valuationTime":"2025-01-02 00:00:10","xccyMarket":null}

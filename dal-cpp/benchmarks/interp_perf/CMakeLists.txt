@@ -17,3 +17,7 @@ install(TARGETS interp_perf
 
 add_test(NAME interp_perf COMMAND interp_perf)
 set_tests_properties(interp_perf PROPERTIES LABELS "benchmark")
+
+add_test(NAME interp_active_interval COMMAND interp_perf --active-profile interval)
+add_test(NAME interp_active_flat COMMAND interp_perf --active-profile flat)
+set_tests_properties(interp_active_interval interp_active_flat PROPERTIES LABELS "benchmark")

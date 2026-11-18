@@ -421,10 +421,13 @@ nonnegative one-sided bumps.
 For curve market-quote risk, construct `GSRCurveQuoteRisk_New` from the exact
 `GSRCurveData_` snapshot, its bound `RatePricingMarket_`, available
 `RateQuoteRiskProvenance_`, and discount/projection component keys. The bridge
-checks source fingerprints, snapshot values and parameter coordinates, and restores
+checks exact live Kind/state admission before component recomputation, then
+source fingerprints, snapshot values and parameter coordinates, and restores
 the curve inverse's tolerance normalization. Pass it as `curve_risk` to include
 both direct curve effects and SLV recalibration. Snapshot nodes alone provide no
 curve market-quote provenance. Strikes and schedules stay fixed.
+Unsupported or historical state reports `QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED`
+with `field=gsr.curve.source`; a valid source remains usable after a rejected call.
 
 `GSRSLV_MarketQuoteRisk` instead bumps annualized volatility quotes, with units
 `NORMAL_VOL` or `LOGNORMAL_VOL`. On curve bumps, it converts the unchanged volatility

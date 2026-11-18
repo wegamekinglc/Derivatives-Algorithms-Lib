@@ -42,6 +42,42 @@ normal paths consume identical engine draws. Custom pseudo-random engines
 implement `SkipUniformDraws` to participate in the shared seek logic; its
 default throws if seeking is unsupported.
 
+### RNG input domains and exhaustion
+
+Pseudo-random seeds accept the complete signed `int` range, including zero,
+negative values and both endpoints. `IRN`/`ShuffledIRN` and
+`MRG32`/`MRG32k32a` remain aliases. The public C++, Python and Excel constructors
+accept dimensions in `[0,INT_MAX]`; Python selects MRG32. Direct `PseudoRSG_`
+and its v1 archive accept exact integer double dimensions in `[0,2^size_t_bits)`.
+The native `New(RNGType_,int,size_t)` keeps its size_t dimension domain and
+existing capacity limits. Representable dimensions do not guarantee memory
+availability.
+
+Sobol dimensions lie in `[0,21200]`. Public constructor path positions lie in
+`[0,INT_MAX]`; direct `SobolRSG_`, v1 archives, `NewSobol` and
+`NewDigitallyShiftedSobol` accept `[0,UINT32_MAX]`. Digital-shift keys keep the
+entire uint64 domain. A position identifies the current point: the next draw
+produces point `position+1`. `UINT32_MAX` is a valid exhausted position for
+construction, seeking and cloning. Drawing from `UINT32_MAX-1` produces the
+last point; another draw raises `RandomSequenceExhausted` before changing the
+position or output. Invalid seeks also preserve state, and a later legal seek
+can resume sampling. These rules include standalone zero-dimensional Sobol.
+
+Double inputs are checked for finiteness, exact integrality and range before
+conversion or allocation. Constructor/address errors use `InvalidRandomInput`
+with `/seed`, `/n_dim` or `/i_path`. Legal integer v1 archives reconstruct the
+same initial stream, including legacy boolean flags written as 0/1. Illegal
+archives that depended on truncation or wraparound are rejected. Python keeps
+its integer binding contract: unbindable arguments raise TypeError and native
+validation raises RuntimeError. Excel publishes a new handle only after a
+successful construction, preserving the old output on failure.
+
+Matrix getters keep counts in `[0,INT_MAX]` and reject dimensions that cannot
+fit the matrix's `int` size before narrowing. Simulation's `CreateRNG` checks
+Sobol dimensions before conversion; zero dimensions return no RNG and consume
+no draws. Existing bridge restrictions still apply. Batch getters do not roll
+back draws already completed before a later failure.
+
 The public C++, Python, and Excel random getters require a non-null generator
 and a nonnegative path count. A zero path count returns a zero-row matrix with
 the generator's dimension; invalid requests throw `Exception_` (a Python

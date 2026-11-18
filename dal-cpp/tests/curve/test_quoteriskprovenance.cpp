@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -32,6 +33,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/archive.hpp>
+#include <dal/storage/canonicaljson_internal.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
@@ -1210,7 +1212,7 @@ TEST(QuoteRiskProvenanceTest, TestSingleCurveAnalyticAndBumpedConstruction) {
         ASSERT_EQ(provenance.CalibrationId(), input.config_.calibrationId_);
         ASSERT_EQ(provenance.ComponentKeyByParameterBlock(), input.config_.componentKeyByParameterBlock_);
         ASSERT_EQ(provenance.Axis().scheme_, Dal::RateQuoteRiskAxisFingerprintScheme());
-        ASSERT_EQ(provenance.State().scheme_, Dal::RateQuoteRiskStateFingerprintScheme());
+        ASSERT_EQ(provenance.State().scheme_, "dal.quote-risk-state/3+jcs+sha256");
         ASSERT_TRUE(IsSha256Fingerprint(provenance.Axis().fingerprint_));
         ASSERT_TRUE(IsSha256Fingerprint(provenance.State().fingerprint_));
         ASSERT_EQ(provenance.Axis().parameterRanges_.size(), 1);
@@ -1228,6 +1230,37 @@ TEST(QuoteRiskProvenanceTest, TestSingleCurveAnalyticAndBumpedConstruction) {
             ASSERT_EQ(provenance.Axis().fingerprint_, analyticAxis);
         }
     }
+}
+
+TEST(QuoteRiskProvenanceTest, TestLegacyTimeComponentFingerprintsUseFrozenBytes) {
+    const Dal::Date_ today(2025, 1, 2);
+    const Dal::Handle_<Dal::DiscountCurve_> curve(Dal::NewDiscountPWC(
+        "fixed", "USD", Dal::PiecewiseConstant_({today, Dal::Date_(2026, 1, 2)}, {0.02, 0.025})));
+    Dal::RatePricingMarket_ market;
+    market.valuationTime_ = Dal::DateTime_(today, 0, 0, 11);
+    market.resultCurrency_ = Dal::Ccy_("USD");
+    market.curveComponents_["discount"] = curve;
+    market.fixings_.reset(new Dal::MarketFixingSnapshot_({{"EQ[A]", {{Dal::DateTime_(today.AddDays(-1), 0, 0, 11), 99.}}}}));
+    for (const auto& [scheme, expected] : Dal::Vector_<std::pair<Dal::String_, Dal::String_>>{
+             {"dal.quote-risk-state/1+jcs+sha256", "sha256:c46c37770374bb7093cebcaefa53cb9c36a4375f6dd10a1094f2d34f31720da4"},
+             {"dal.quote-risk-state/2+jcs+sha256", "sha256:535bc2c70df683273c04ef75322dc7101258ee08136dbb334359d0ca68a3a2b1"}}) {
+        SCOPED_TRACE(scheme);
+        const std::string version = scheme.find("state/1") != Dal::String_::npos ? "1" : "2";
+        const auto path = std::filesystem::path(__FILE__).parent_path() / "data" / ("quote_risk_component_state_v" + version + ".json");
+        std::ifstream file(path, std::ios::binary);
+        ASSERT_TRUE(file);
+        const std::string sealed((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        ASSERT_EQ(Dal::CanonicalJson::FingerprintCanonical(sealed), expected);
+        rapidjson::Document metadata;
+        metadata.Parse(sealed.c_str());
+        ASSERT_FALSE(metadata.HasParseError());
+        ASSERT_EQ(std::string(metadata["scheme"].GetString()), std::string(scheme.data(), scheme.size()));
+        ASSERT_THROW(Dal::CurrentRateQuoteRiskComponentState("discount", market, scheme), Dal::Exception_);
+    }
+    ASSERT_THROW(Dal::CurrentRateQuoteRiskComponentState("discount", market, "unknown/99"), Dal::Exception_);
+    ASSERT_EQ(Dal::RateQuoteRiskStateFingerprintScheme(), "dal.quote-risk-state/1+jcs+sha256");
+    ASSERT_EQ(Dal::CurrentRateQuoteRiskComponentState("discount", market).fingerprint_,
+              Dal::CurrentRateQuoteRiskComponentState("discount", market, "dal.quote-risk-state/3+jcs+sha256").fingerprint_);
 }
 
 // Fail-closed regression: when every instrument matures at or before the last knot, the last

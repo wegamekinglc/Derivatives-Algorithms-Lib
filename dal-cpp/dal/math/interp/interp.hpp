@@ -27,7 +27,7 @@ namespace Dal {
         if (pge == x.begin() || IsZero(x0 - *pge))
             return y[pge - x.begin()];
         auto plt = Previous(pge);
-        const auto gFrac = (Value(x0) - *plt) / (*pge - *plt);
+        const T_ gFrac = (x0 - *plt) / (*pge - *plt);
         auto flt = y.begin() + (plt - x.begin());
         return *flt + gFrac * (*Next(flt) - *flt);
     }

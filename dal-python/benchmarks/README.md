@@ -1,6 +1,6 @@
 # DAL Python interface benchmarks
 
-This suite runs 112 workloads through `import dal`, with a coverage entry for every
+This suite runs 114 workloads through `import dal`, with a coverage entry for every
 target in [the C++ benchmark inventory](../../dal-cpp/benchmarks/CMakeLists.txt).
 It requires a current DAL Python build and Python 3.9–3.13. The runner uses the
 standard library and NumPy for the independent option integration and tree oracles;
@@ -17,6 +17,7 @@ python benchmarks/run_benchmarks.py --smoke --output-dir ../benchmark-results/py
 python benchmarks/run_benchmarks.py --samples 10 --warmups 2 --output-dir ../benchmark-results/python
 python benchmarks/run_benchmarks.py --group script_mc_perf --group curve_calibration_perf
 python benchmarks/run_benchmarks.py --group rate_risk_perf --filter generic
+python benchmarks/run_benchmarks.py --group curve_calibration_perf --filter calibration.generic.
 ```
 
 `--coverage` does not import DAL. `--list` lists selected case names and exact
@@ -59,7 +60,7 @@ are errors, never silently skipped workloads.
 | `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation                      |
 | `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                               |
 | `script_mc_perf`         | 34           | Twelve native-aligned default/tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
-| `curve_calibration_perf` | 31           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block                           |
+| `curve_calibration_perf` | 33           | 21 native-aligned representation/Jacobian/diagnostic cases, existing multi-curve comparisons/audits, plus actual generic joint calibration at N5/N16                           |
 | `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                                     |
 | `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01                       |
 | `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                                      |
@@ -67,6 +68,21 @@ are errors, never silently skipped workloads.
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
 of full native case parity.
+
+`calibration.generic.n5` and `calibration.generic.n16` reuse the existing
+three-curve layered generic fixture (2/2/1 and 6/5/5 quotes). Typed spec/options
+are built before timing. Every timed call performs
+`CalibrateJointMultiCurveBundle`, including the binding's GIL-held input
+snapshots and Python/native conversion. Validation checks convergence, residual,
+block count and a finite available solver-scaled inverse after the timer;
+returned-result destruction is also outside timing under the existing harness.
+Provenance and portfolio construction are excluded. Existing `provenance.generic.*`
+and `quotes.generic.*` retain their previous timing boundaries.
+
+The native [active interpolation profiles](../../dal-cpp/benchmarks/interp_perf/README.md)
+and [Fixings JSON target](../../dal-cpp/benchmarks/json_perf/README.md) provide
+separate informational coverage; their kernels are not exposed as supported
+Python benchmark calls. They do not expand the nine-target native gate.
 
 The additional six `market_iv_local_vol.*` cases measure complete execution
 inspection with 0/1/365 unused noon fixings, conversion of 365 fixing inputs, and
@@ -238,9 +254,9 @@ recorded CI interpreter, platform and native CPU flags; they are diagnostic buil
 outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
-including when the base predates this benchmark suite. All 102 cases are measured
-and gated against the base library. When a base suite exists, its inventory is
-also checked: removing or renaming a case fails. New cases must run against both
+including when the base predates this benchmark suite. Every case in the complete
+head inventory is measured and gated against the base library. When a base suite
+exists, its inventory is also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,
 incorrect/ineligible result, unexpected package path, changed binary or suite hash,
 different workload/configuration, timeout, or incomplete sample set fails the gate.

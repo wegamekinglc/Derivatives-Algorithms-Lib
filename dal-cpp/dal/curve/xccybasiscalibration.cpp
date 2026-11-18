@@ -1,5 +1,6 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 #include <cmath>
 #include <memory>
@@ -589,9 +590,9 @@ namespace Dal {
         Json_ BackgroundIdentity(const CurveBlock_& block) {
             auto discounts = Json_::Array(), forwards = Json_::Array();
             for (const auto& [key, curve] : block.DiscountCurves())
-                discounts.array_.push_back(Obj({{"collateral", Str(key.String())}, {"curve", Parse(JSON::WriteString(*curve))}}));
+                discounts.array_.push_back(Obj({{"collateral", Str(key.String())}, {"curve", Parse(LegacyIdentity::ObjectJson(*curve))}}));
             for (const auto& [key, curve] : block.ForwardCurves())
-                forwards.array_.push_back(Obj({{"tenor", Str(key.String())}, {"curve", Parse(JSON::WriteString(*curve))}}));
+                forwards.array_.push_back(Obj({{"tenor", Str(key.String())}, {"curve", Parse(LegacyIdentity::ObjectJson(*curve))}}));
             return Obj({{"discounts", discounts}, {"projections", forwards}});
         }
         String_ FixingsIdentity(const Vector_<PreparedCalibrationInstrument_>& plans) {
@@ -807,7 +808,7 @@ namespace Dal {
                      {"derivative", Str(options_.jacobianMode_.String())},
                      {"step", Num(options_.differenceStep_)}});
             if (spec_.gaussianDynamics_) {
-                identity.object_["gaussian_dynamics"] = Parse(JSON::WriteString(*spec_.gaussianDynamics_));
+                identity.object_["gaussian_dynamics"] = Parse(LegacyIdentity::ObjectJson(*spec_.gaussianDynamics_));
                 identity.object_["basis_parameterization"] = Str(spec_.basisParameterization_.String());
             }
             planIdentity_ = Fingerprint(identity);

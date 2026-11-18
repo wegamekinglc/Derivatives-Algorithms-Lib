@@ -7,6 +7,7 @@
 #include <limits>
 
 #include <dal/math/random/pseudorandom.hpp>
+#include <dal/math/random/validation_internal.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/simdkernels.hpp>
 #include <dal/math/vectors.hpp>
@@ -303,6 +304,10 @@ namespace Dal {
 
 #include <dal/auto/MG_PseudoRSG_v1_Read.inc>
 #include <dal/auto/MG_PseudoRSG_v1_Write.inc>
+
+    PseudoRSG_::PseudoRSG_(const String_& name, double seed, double ndim, bool precise)
+        : Storable_("PseudoRSG", name), rsg_(New(RNGType_(name), RandomInput::Seed(seed), RandomInput::Dimension(ndim), precise)),
+          seed_(seed), ndim_(ndim), precise_(precise) {}
 
     void PseudoRSG_::Write(Archive::Store_& dst) const { PseudoRSG_v1::XWrite(dst, name_, seed_, ndim_, precise_); }
 } // namespace Dal

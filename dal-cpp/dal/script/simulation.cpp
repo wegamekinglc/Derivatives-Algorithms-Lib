@@ -5,6 +5,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/math/random/validation_internal.hpp>
 
 namespace Dal::Script {
     namespace Detail {
@@ -23,10 +24,11 @@ namespace Dal::Script {
             return nullptr;
         std::unique_ptr<Random_> rsg;
         const bool precise = normalPrecision == "Precise";
-        if (method == "sobol")
+        if (method == "sobol") {
+            REQUIRE(nDim < 21201, "InvalidRandomInput: field=/n_dim; expected=integer in [0,21200]; actual=" + String_(std::to_string(nDim)));
             rsg = scrambleKey ? NewDigitallyShiftedSobol(static_cast<int>(nDim), 2048, *scrambleKey, precise, precise)
                               : NewSobol(static_cast<int>(nDim), 2048, precise, precise);
-        else if (method == "mrg32")
+        } else if (method == "mrg32")
             rsg = New(RNGType_("MRG32"), 1024, nDim, precise);
         else if (method == "irn")
             rsg = New(RNGType_("IRN"), 1024, nDim, precise);

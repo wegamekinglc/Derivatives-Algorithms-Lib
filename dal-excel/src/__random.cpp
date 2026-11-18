@@ -98,10 +98,12 @@ y is number[][]
 
 
 namespace Dal {
-    void PseudoRSG_New(const String_& name, double seed, double ndim, Handle_<PseudoRSG_>* f) { NewPseudoRSG(name, seed, ndim).swap(*f); }
+    void PseudoRSG_New(const String_& name, double seed, double ndim, Handle_<PseudoRSG_>* f) {
+        RandomBinding::NewPseudoRSG(name, seed, ndim).swap(*f);
+    }
 
     void SobolRSG_New(const String_& name, double iPath, double ndim, bool precise, bool polish, Handle_<SobolRSG_>* f) {
-        NewSobolRSG(name, iPath, ndim, precise, polish).swap(*f);
+        RandomBinding::NewSobolRSG(name, iPath, ndim, precise, polish).swap(*f);
     }
 
     void PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& f, double numPaths, Matrix_<>* y) {

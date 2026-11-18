@@ -18,6 +18,20 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-18
 
+- Quote-risk state migrates from `/1` to `/3` for single-curve and both XCCY
+  kinds, and from `/2` to `/4` for generic joint provenance. Exact binary64
+  valuation/fixing times prevent subsecond stale-state acceptance. All new state
+  hashes change; historical state is metadata only and fails live admission.
+  Axis and market-IV request `/2` identities remain unchanged. See the
+  [migration contract](docs/public-api.md#exact-quote-risk-state-and-historical-migration).
+- JSON DateTime values now preserve exact binary64 day fractions. New readers
+  accept legacy timestamps and reject duplicate fixing keys; old readers cannot
+  read the new time objects. Whole-second display rounds and clamps at day end,
+  while existing fingerprint domains retain their frozen legacy time bytes.
+- RNG constructors validate numeric conversions before allocation. Sobol keeps
+  its 32-bit address domain and reports exhaustion before changing state or
+  output; valid seed domains and streams remain unchanged. See the
+  [sampling contract](docs/methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion).
 - Market-grid local-volatility core `Init` now checks the complete request frozen
   by `Allocate` and reports structured preparation errors without changing valid
   prepared state. Independent equal copies and correct retries are accepted.

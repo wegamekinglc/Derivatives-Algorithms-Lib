@@ -6,6 +6,7 @@
 #include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/storage/json.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 
 namespace Dal::CurveInstrumentInternal {
     using namespace CalibrationInternal;
@@ -59,7 +60,7 @@ namespace Dal::CurveInstrumentInternal {
         return spec;
     }
 
-    Json_ CurveJson(const Handle_<DiscountCurve_>& curve) { return curve ? Parse(JSON::WriteString(*curve)) : Json_(); }
+    Json_ CurveJson(const Handle_<DiscountCurve_>& curve) { return curve ? Parse(LegacyIdentity::ObjectJson(*curve)) : Json_(); }
     Json_ Dates(const Vector_<Date_>& dates) {
         return Array(dates, [](const auto& date) { return Str(Date::ToString(date)); });
     }

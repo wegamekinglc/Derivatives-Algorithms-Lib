@@ -88,10 +88,14 @@ date; its exact time and immutable fixing snapshot enter the state identity.
 
 The new kind is `JOINT_MULTI_CURVE`, with schemes
 `dal.quote-risk-axis/2+jcs+sha256` and
-`dal.quote-risk-state/2+jcs+sha256`. The records bind native coordinates, quote
+`dal.quote-risk-state/4+jcs+sha256`. The records bind native coordinates, quote
 order, inverse/mapping, spec/options/result, routing, valuation, and fixings.
-Fingerprints contain no pointer addresses. The three existing factories and
-the no-argument scheme accessors retain their v1 byte contracts.
+Fingerprints contain no pointer addresses. Valuation and all fixing times use
+exact date/binary64-fraction objects, including nested markets and unused
+history. The axis bytes and no-argument scheme accessors remain unchanged;
+the three other factories now use state `/3`. Historical state `/1` and `/2`
+records are metadata only and cannot enter live aggregation or pullback. See
+[state migration and diagnostics](../public-api.md#exact-quote-risk-state-and-historical-migration).
 
 Result/options members are appended and existing overloads remain available.
 This preserves old aggregate-prefix initialization; it does not promise binary
