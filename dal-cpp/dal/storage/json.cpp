@@ -433,6 +433,18 @@ namespace Dal {
             }
             InvalidDateTime(path, "datetime object, legacy string or serial", "wrong type");
         }
+
+        DateTime_ EIndexedDateTime(const element_t& doc, const String_& parent, size_t index) {
+            if (doc.IsString()) {
+                try {
+                    return DateTime::FromString(doc.GetString());
+                } catch (const Exception_&) {
+                    InvalidDateTime(parent + "/" + String_(std::to_string(index)), "valid legacy datetime string", EString(doc));
+                }
+            }
+            return EDateTime(doc, parent + "/" + String_(std::to_string(index)));
+        }
+
         Cell_ ECell(const element_t& doc, const String_& path) {
             static const std::regex DATE_PATTERN(R"(\d{4}-\d{2}-\d{2})");
             static const std::regex DATE_TIME_PATTERN(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})");
@@ -498,7 +510,7 @@ namespace Dal {
             Vector_<Date_> AsDateVector() const override { return AsVector(doc_, EDate); }
             Vector_<DateTime_> AsDateTimeVector() const override {
                 size_t index = 0;
-                return AsVector(doc_, [&](const element_t& value) { return EDateTime(value, path_ + "/" + String_(std::to_string(index++))); });
+                return AsVector(doc_, [&](const element_t& value) { return EIndexedDateTime(value, path_, index++); });
             }
             Vector_<Cell_> AsCellVector() const override {
                 size_t index = 0;

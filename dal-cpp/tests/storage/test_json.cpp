@@ -2,25 +2,81 @@
 // Created by wegam on 2023/1/22.
 //
 
-#include <gtest/gtest.h>
 #include <cmath>
-#include <fstream>
-#include <limits>
-#include <dal/indice/fixings.hpp>
-#include <dal/script/event.hpp>
-#include <dal/storage/box.hpp>
-#include <dal/storage/legacyidentity_internal.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/storage/json.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/ycconst.hpp>
+#include <dal/indice/fixings.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/script/event.hpp>
+#include <dal/storage/box.hpp>
+#include <dal/storage/json.hpp>
+#include <dal/storage/legacyidentity_internal.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/file.hpp>
+#include <fstream>
+#include <gtest/gtest.h>
+#include <limits>
+#include <sstream>
+#include <string>
 
 using namespace Dal;
+
+namespace {
+    String_ LegacyFixingsJson(int count, int invalidIndex = -1, bool emptyValues = false, bool duplicateLast = false) {
+        std::ostringstream text;
+        text << "{\"~type\":\"Fixings\",\"name\":\"perf-fixings\",\"fixing_times\":[";
+        for (int i = 0; i < count; ++i) {
+            const int day = duplicateLast && i == count - 1 ? 0 : i;
+            text << (i ? "," : "") << '"'
+                 << (i == invalidIndex ? String_("not-a-time") : Date::ToString(Date_(2025, 1, 1).AddDays(day)) + " 00:00:00") << '"';
+        }
+        text << "],\"fixings\":[";
+        if (!emptyValues)
+            for (int i = 0; i < count; ++i)
+                text << (i ? "," : "") << 100. + i / 8.;
+        text << "]}";
+        return String_(text.str());
+    }
+
+    void AssertExactLegacyRetry(int count) {
+        const auto restored = handle_cast<Fixings_>(JSON::ReadString(LegacyFixingsJson(count), false));
+        ASSERT_EQ(restored->vals_.size(), static_cast<size_t>(count));
+        for (int i = 0; i < count; ++i) {
+            const DateTime_ time(Date_(2025, 1, 1).AddDays(i), 0.);
+            ASSERT_EQ(restored->vals_.at(time), 100. + i / 8.);
+            ASSERT_EQ(LookupFixing(restored->vals_, time), 100. + i / 8.);
+        }
+    }
+} // namespace
+
+TEST(StorageTest, TestJSONDateTimeLegacyIndexedErrorsAndExactRetry) {
+    struct Failure_ {
+        String_ input_, code_, field_;
+    };
+    for (int count : {1, 365}) {
+        Vector_<Failure_> failures;
+        for (int index : count == 1 ? Vector_<int>{0} : Vector_<int>{0, 9, 10, 364})
+            failures.push_back({LegacyFixingsJson(count, index), "ARCHIVE_DATETIME_INVALID", "field=/fixing_times/" + String::FromInt(index)});
+        failures.push_back(
+            {LegacyFixingsJson(count, -1, true), "ARCHIVE_FIXINGS_LENGTH_MISMATCH", "fixing_times=" + String::FromInt(count) + "; fixings=0"});
+        if (count == 365)
+            failures.push_back({LegacyFixingsJson(count, -1, false, true), "ARCHIVE_FIXINGS_DUPLICATE_TIME", "field=/fixing_times/364"});
+        for (const auto& failure : failures) {
+            try {
+                JSON::ReadString(failure.input_, false);
+                FAIL() << "Malformed legacy archive accepted";
+            } catch (const Exception_& error) {
+                const String_ message(error.what());
+                ASSERT_NE(message.find(failure.code_), String_::npos);
+                ASSERT_NE(message.find(failure.field_), String_::npos);
+            }
+            ASSERT_NO_FATAL_FAILURE(AssertExactLegacyRetry(count));
+        }
+    }
+}
 
 TEST(StorageTest, TestJSONDateTimeKeepsFrozenLegacyIdentityBytes) {
     const DateTime_ time(Date_(2026, 2, 14), 0, 0, 11);
