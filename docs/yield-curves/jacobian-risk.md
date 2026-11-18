@@ -500,14 +500,18 @@ The calibration-time provenance freezes:
 - the ordered parameter and residual ranges plus coordinate metadata;
 - the effective inverse and tolerance scaling;
 - a caller-supplied calibration ID and parameter-block-to-market-component map;
-- `dal.quote-risk-axis/1+jcs+sha256` and
-  `dal.quote-risk-state/1+jcs+sha256` fingerprints.
+- axis `/1` and state `/3` fingerprints for single-curve and both XCCY kinds;
+- axis `/2` and state `/4` fingerprints for generic joint calibration.
+
+State uses exact date/binary64-fraction time keys. Historical state `/1` and
+`/2` is metadata only; see the
+[state migration contract](../public-api.md#exact-quote-risk-state-and-historical-migration).
 
 Native C++ callers can set
 `RateQuoteRiskProvenanceConfig_::retainCalibrationRecord_ = true` to retain
 the complete canonical state bytes through the const `CalibrationRecord()`
 getter. The default is false and the getter then returns an empty string.
-Capture preserves the existing v1/v2 fingerprints, axes, inverse and scaling;
+Capture preserves the factory's fingerprints, axes, inverse and scaling;
 the record owns its bytes after the calibration inputs are destroyed. It adds
 storage proportional to the canonical record only when requested. The getter
 returns `std::string` so comparison preserves case-sensitive byte identity.

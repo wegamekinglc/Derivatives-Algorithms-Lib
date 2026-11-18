@@ -144,6 +144,59 @@ namespace {
     };
 } // namespace
 
+TEST(ExcelCalibrationRiskTest, TestExactStateMetadataFailuresAndAtomicHandleRetry) {
+    using namespace Dal;
+    const auto spec = JointQuoteRiskFixtures::Spec(4, 2);
+    const auto options = JointXccyQuoteRiskFixtures::Options();
+    const auto result = CalibrateJointMultiCurve(spec, options);
+    auto before = JointQuoteRiskFixtures::Market(spec, result);
+    before.valuationTime_ = DateTime_(spec.today_, .1 / 86400.);
+    auto after = before;
+    after.valuationTime_ = DateTime_(spec.today_, .2 / 86400.);
+    const auto oldSource = CapturedCurve(spec, result, options, before);
+    const auto source = CapturedCurve(spec, result, options, after);
+    Handle_<StorableCalibrationPullback_> oldBoundary, boundary;
+    CalibrationPullback_New("before", Handle_<Storable_>(oldSource), &oldBoundary);
+    CalibrationPullback_New("after", Handle_<Storable_>(source), &boundary);
+    Matrix_<Cell_> metadata;
+    CalibrationPullback_Get_Provenance(boundary, &metadata);
+    bool found = false;
+    for (int row = 0; row < metadata.Rows(); ++row)
+        if (Cell::ToString(metadata(row, 0)) == "state_scheme") {
+            ASSERT_EQ(Cell::ToString(metadata(row, 1)), "dal.quote-risk-state/4+jcs+sha256");
+            found = true;
+        }
+    ASSERT_TRUE(found);
+    Matrix_<Cell_> failures;
+    const Vector_<Handle_<Storable_>> trades{Handle_<Storable_>(new StorableRateTradeDefinition_(JointQuoteRiskFixtures::Irs(spec)))};
+    RatePortfolioQuoteRisk_Spill(trades, Handle_<StorableRatePricingMarket_>(new StorableRatePricingMarket_(after)), {Handle_<Storable_>(oldSource)},
+                                 &failures);
+    bool rejected = false;
+    for (int row = 0; row < failures.Rows(); ++row)
+        rejected = rejected || Cell::ToString(failures(row, 9)) == "QUOTE_RISK_CALIBRATION_STATE_MISMATCH";
+    ASSERT_TRUE(rejected);
+    Handle_<StorableCalibrationParameterAdjoints_> good, stale;
+    const Matrix_<> seeds(boundary->val_.ParameterRows(), 1, .01);
+    CalibrationParameterAdjoints_New("good", boundary, seeds, &good);
+    CalibrationParameterAdjoints_New("stale", oldBoundary, seeds, &stale);
+    Handle_<StorableCalibrationQuoteRisk_> output;
+    CalibrationQuoteRisk_New("good", boundary, good, {}, &output);
+    const auto previous = output;
+    ASSERT_THROW(CalibrationQuoteRisk_New("stale", boundary, stale, {}, &output), Exception_);
+    ASSERT_EQ(output.get(), previous.get());
+    auto& state = const_cast<RateQuoteRiskState_&>(source->val_->State());
+    const auto live = state.scheme_;
+    state.scheme_ = "dal.quote-risk-state/2+jcs+sha256";
+    auto savedBoundary = oldBoundary;
+    ASSERT_THROW(CalibrationPullback_New("historical", Handle_<Storable_>(source), &oldBoundary), Exception_);
+    ASSERT_EQ(oldBoundary.get(), savedBoundary.get());
+    ASSERT_THROW(CalibrationQuoteRisk_New("historical", boundary, good, {}, &output), Exception_);
+    ASSERT_EQ(output.get(), previous.get());
+    state.scheme_ = live;
+    CalibrationQuoteRisk_New("retry", boundary, good, {}, &output);
+    ASSERT_NO_FATAL_FAILURE(AssertMatrix(output->val_.TotalAdjoints(), previous->val_.TotalAdjoints()));
+}
+
 TEST(ExcelCalibrationRiskTest, TestFrozenDupireCommonHandlesOwnSeedsAndMatchTypedRisk) {
     using namespace Dal;
     const auto frozen = FrozenCalibration();

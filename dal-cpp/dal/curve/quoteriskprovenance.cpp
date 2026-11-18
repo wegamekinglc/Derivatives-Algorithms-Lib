@@ -1,6 +1,5 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/storage/legacyidentity_internal.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -32,12 +31,25 @@
 namespace Dal {
     namespace {
         const String_ JOINT_AXIS_SCHEME("dal.quote-risk-axis/2+jcs+sha256");
-        const String_ JOINT_STATE_SCHEME("dal.quote-risk-state/2+jcs+sha256");
+        const String_ BASE_STATE_SCHEME("dal.quote-risk-state/3+jcs+sha256");
+        const String_ JOINT_STATE_SCHEME("dal.quote-risk-state/4+jcs+sha256");
         using CanonicalJson::Fingerprint;
         using CanonicalJson::FingerprintCanonical;
         using CanonicalJson::FromRapidJson;
         using CanonicalJson::Jcs;
         using CanonicalJson::Json_;
+
+        bool ExactText(const String_& lhs, const String_& rhs) { return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin()); }
+
+        const String_& LiveStateScheme(const String_& kind) {
+            if (ExactText(kind, "JOINT_MULTI_CURVE"))
+                return JOINT_STATE_SCHEME;
+            for (const char* supported : {"SINGLE_CURVE", "JOINT_XCCY", "STAGED_XCCY_BASIS"})
+                if (ExactText(kind, supported))
+                    return BASE_STATE_SCHEME;
+            static const String_ unsupported("UNSUPPORTED_KIND");
+            return unsupported;
+        }
 
         std::string ArchiveTag(const rapidjson::Value& value) {
             const auto tag = value.FindMember("$tag");
@@ -125,7 +137,7 @@ namespace Dal {
         }
 
         Json_ StorableJson(const Storable_& value) {
-            const String_ archive = LegacyIdentity::ObjectJson(value);
+            const String_ archive = JSON::WriteString(value);
             rapidjson::Document document;
             document.Parse<rapidjson::kParseValidateEncodingFlag | rapidjson::kParseFullPrecisionFlag>(archive.data(), archive.size());
             REQUIRE(!document.HasParseError(), "QUOTE_RISK_ARCHIVE_CANONICALIZATION_FAILED");
@@ -140,7 +152,13 @@ namespace Dal {
         }
 
         Json_ DateJson(const Date_& value) { return Json_::String(Date::ToString(value)); }
-        Json_ DateTimeJson(const DateTime_& value) { return Json_::String(LegacyIdentity::DateTimeString(value)); }
+        Json_ DateTimeJson(const DateTime_& value) {
+            REQUIRE(value.IsValid(), "QUOTE_RISK_DATETIME_INVALID");
+            Json_ result = Json_::Object();
+            result.object_["date"] = DateJson(value.Date());
+            result.object_["fraction"] = Json_::Number(value.Frac());
+            return result;
+        }
 
         Json_ DoubleVectorJson(const Vector_<>& values) {
             Json_ result = Json_::Array();
@@ -573,6 +591,7 @@ namespace Dal {
                 foreign.array_.push_back(JointDiagnosticsJson(diagnostics));
             value.object_["foreignBlock"] = CurveBlockJson(*result.foreignCurveBlock_);
             value.object_["foreignDiagnostics"] = std::move(foreign);
+            value.object_["fixings"] = FixingsJson(result.fixings_);
             value.object_["forwardJacobian"] = MatrixJson(result.jacobianAtSolution_);
             value.object_["fxForwardCurve"] = FxForwardJson(result.fxForwardCurve_);
             value.object_["jointMaxAbsResidual"] = Json_::Number(result.jointMaxAbsResidual_);
@@ -1418,7 +1437,8 @@ namespace Dal {
                           const String_& reason,
                           Json_ spec,
                           const Matrix_<>& effectiveInverse,
-                          double tolerance) {
+                          double tolerance,
+                          const String_& scheme) {
             Json_ state = Json_::Object();
             state.object_["axisFingerprint"] = Json_::String(axis.fingerprint_);
             state.object_["bindings"] = BindingsJson(bindings);
@@ -1431,7 +1451,7 @@ namespace Dal {
             state.object_["reason"] = Json_::String(reason);
             state.object_["residualRanges"] = RangesJson(axis.residualRanges_);
             state.object_["result"] = std::move(calibrationResult);
-            state.object_["scheme"] = Json_::String(RateQuoteRiskStateFingerprintScheme());
+            state.object_["scheme"] = Json_::String(scheme);
             state.object_["spec"] = std::move(spec);
             state.object_["tolerance"] = Json_::Number(tolerance);
             return state;
@@ -1700,11 +1720,9 @@ namespace Dal {
             return result;
         }
 
-        RateQuoteRiskComponentState_ ComponentState(const String_& componentKey,
-                                                    const DiscountCurve_& curve,
-                                                    const RatePricingMarket_& market,
-                                                    const String_& scheme = RateQuoteRiskStateFingerprintScheme()) {
-            if (scheme == JOINT_STATE_SCHEME)
+        RateQuoteRiskComponentState_
+        ComponentState(const String_& componentKey, const DiscountCurve_& curve, const RatePricingMarket_& market, const String_& scheme) {
+            if (ExactText(scheme, JOINT_STATE_SCHEME))
                 ValidateJointBaseChain(&curve);
             Json_ record = Json_::Object();
             record.object_["componentKey"] = Json_::String(componentKey);
@@ -1712,7 +1730,7 @@ namespace Dal {
             record.object_["fixings"] = FixingsJson(market.fixings_);
             record.object_["resultCurrency"] = Json_::String(market.resultCurrency_.String());
             record.object_["scheme"] = Json_::String(scheme);
-            if (scheme == JOINT_STATE_SCHEME)
+            if (ExactText(scheme, JOINT_STATE_SCHEME))
                 record.object_["jointRouting"] = JointComponentRoutingJson(componentKey, market);
             record.object_["valuationTime"] = DateTimeJson(market.valuationTime_);
             record.object_["xccyMarket"] = XccyMarketJson(market);
@@ -1770,23 +1788,33 @@ namespace Dal {
         return result;
     }
 
+    bool SupportsLiveQuoteRiskState(const RateQuoteRiskProvenance_& provenance) {
+        const auto& expected = LiveStateScheme(provenance.Kind());
+        return !ExactText(expected, "UNSUPPORTED_KIND") && ExactText(provenance.State().scheme_, expected);
+    }
+
+    void RequireLiveQuoteRiskState(const RateQuoteRiskProvenance_& provenance, const char* field) {
+        REQUIRE(SupportsLiveQuoteRiskState(provenance), String_("QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED: field=") + field + "; expected=" +
+                                                            LiveStateScheme(provenance.Kind()) + "; actual=" + provenance.State().scheme_);
+    }
+
     RateQuoteRiskComponentState_ CurrentRateQuoteRiskComponentState(const String_& componentKey, const RatePricingMarket_& market) {
-        return CurrentRateQuoteRiskComponentState(componentKey, market, RateQuoteRiskStateFingerprintScheme());
+        return CurrentRateQuoteRiskComponentState(componentKey, market, BASE_STATE_SCHEME);
     }
 
     RateQuoteRiskComponentState_
     CurrentRateQuoteRiskComponentState(const String_& componentKey, const RatePricingMarket_& market, const String_& scheme) {
-        REQUIRE(scheme == RateQuoteRiskStateFingerprintScheme() || scheme == JOINT_STATE_SCHEME, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED");
+        REQUIRE(ExactText(scheme, BASE_STATE_SCHEME) || ExactText(scheme, JOINT_STATE_SCHEME),
+                "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED: field=current.scheme; expected=state/3 or state/4; actual=" + scheme);
         const auto found = market.curveComponents_.find(componentKey);
         if (found == market.curveComponents_.end() || !found->second)
             return {componentKey, String_()};
-        if (scheme != JOINT_STATE_SCHEME)
+        if (ExactText(scheme, BASE_STATE_SCHEME))
             return ComponentState(componentKey, *found->second, market, scheme);
         try {
             return ComponentState(componentKey, *found->second, market, scheme);
         } catch (const std::exception&) {
-            // A malformed live v2 source is a provenance failure, before any trade
-            // price or sweep. Independent provenances still get their own checks.
+            // Invalid live sources fail before a price or sweep, independently per provenance.
             return {componentKey, String_("INVALID")};
         }
     }
@@ -1817,14 +1845,14 @@ namespace Dal {
         data->state_.scheme_ = JOINT_STATE_SCHEME;
         for (const auto& range : axis.parameterRanges_) {
             const auto& key = data->bindings_.at(range.blockKey_);
-            data->state_.components_.push_back(ComponentState(key, *boundMarket.curveComponents_.at(key), boundMarket, JOINT_STATE_SCHEME));
+            data->state_.components_.push_back(ComponentState(key, *boundMarket.curveComponents_.at(key), boundMarket, data->state_.scheme_));
         }
         data->tolerance_ = spec.tolerance_;
         if (data->available_)
             data->effectiveInverse_ = result.effJacobianInverse_;
-        Json_ state = StateRecord(data->kind_, axis, data->bindings_, boundMarket, GenericJointOptionsJson(options),
-                                  GenericJointResultJson(spec, result), data->reason_, specRecord, result.effJacobianInverse_, data->tolerance_);
-        state.object_["scheme"] = Json_::String(JOINT_STATE_SCHEME);
+        Json_ state =
+            StateRecord(data->kind_, axis, data->bindings_, boundMarket, GenericJointOptionsJson(options), GenericJointResultJson(spec, result),
+                        data->reason_, specRecord, result.effJacobianInverse_, data->tolerance_, data->state_.scheme_);
         state.object_["jointRouting"] = JointRoutingJson(boundMarket, data->bindings_);
         FreezeStateRecord(state, config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
@@ -1854,14 +1882,15 @@ namespace Dal {
         data->calibrationId_ = config.calibrationId_;
         data->bindings_ = config.componentKeyByParameterBlock_;
         data->axis_ = axis;
-        data->state_.scheme_ = RateQuoteRiskStateFingerprintScheme();
-        data->state_.components_.push_back(ComponentState(componentKey, *bound->second, boundMarket));
+        data->state_.scheme_ = BASE_STATE_SCHEME;
+        data->state_.components_.push_back(ComponentState(componentKey, *bound->second, boundMarket, data->state_.scheme_));
         data->tolerance_ = normalizedSpec.tolerance_;
         if (data->available_)
             data->effectiveInverse_ = result.diagnostics_.effJacobianInverse_;
 
         FreezeStateRecord(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, SingleOptionsJson(options), SingleResultJson(result),
-                                      data->reason_, SingleSpecJson(normalizedSpec), result.diagnostics_.effJacobianInverse_, data->tolerance_),
+                                      data->reason_, SingleSpecJson(normalizedSpec), result.diagnostics_.effJacobianInverse_, data->tolerance_,
+                                      data->state_.scheme_),
                           config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
@@ -1881,17 +1910,18 @@ namespace Dal {
         data->calibrationId_ = config.calibrationId_;
         data->bindings_ = config.componentKeyByParameterBlock_;
         data->axis_ = axis;
-        data->state_.scheme_ = RateQuoteRiskStateFingerprintScheme();
+        data->state_.scheme_ = BASE_STATE_SCHEME;
         for (const auto& range : axis.parameterRanges_) {
             const String_& component = data->bindings_.at(range.blockKey_);
-            data->state_.components_.push_back(ComponentState(component, *boundMarket.curveComponents_.at(component), boundMarket));
+            data->state_.components_.push_back(
+                ComponentState(component, *boundMarket.curveComponents_.at(component), boundMarket, data->state_.scheme_));
         }
         data->tolerance_ = spec.tolerance_;
         if (data->available_)
             data->effectiveInverse_ = result.effJacobianInverse_;
 
         FreezeStateRecord(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, JointOptionsJson(options), JointResultJson(result),
-                                      data->reason_, JointSpecJson(spec), result.effJacobianInverse_, data->tolerance_),
+                                      data->reason_, JointSpecJson(spec), result.effJacobianInverse_, data->tolerance_, data->state_.scheme_),
                           config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
@@ -1911,15 +1941,16 @@ namespace Dal {
         data->calibrationId_ = config.calibrationId_;
         data->bindings_ = config.componentKeyByParameterBlock_;
         data->axis_ = axis;
-        data->state_.scheme_ = RateQuoteRiskStateFingerprintScheme();
+        data->state_.scheme_ = BASE_STATE_SCHEME;
         const String_& component = data->bindings_.at(axis.parameterRanges_.front().blockKey_);
-        data->state_.components_.push_back(ComponentState(component, *boundMarket.curveComponents_.at(component), boundMarket));
+        data->state_.components_.push_back(ComponentState(component, *boundMarket.curveComponents_.at(component), boundMarket, data->state_.scheme_));
         data->tolerance_ = spec.tolerance_;
         if (data->available_)
             data->effectiveInverse_ = result.diagnostics_.effJacobianInverse_;
 
         FreezeStateRecord(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, StagedOptionsJson(options), StagedResultJson(result),
-                                      data->reason_, StagedSpecJson(spec), result.diagnostics_.effJacobianInverse_, data->tolerance_),
+                                      data->reason_, StagedSpecJson(spec), result.diagnostics_.effJacobianInverse_, data->tolerance_,
+                                      data->state_.scheme_),
                           config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }

@@ -235,7 +235,7 @@ TEST(JointQuoteRiskTest, TestV2ProvenanceKeepsDeclarationCoordinatesAndOwnsItsIn
             ASSERT_TRUE(provenance.Available()) << provenance.Reason();
             ASSERT_EQ(provenance.Kind(), "JOINT_MULTI_CURVE");
             ASSERT_EQ(provenance.Axis().scheme_, "dal.quote-risk-axis/2+jcs+sha256");
-            ASSERT_EQ(provenance.State().scheme_, "dal.quote-risk-state/2+jcs+sha256");
+            ASSERT_EQ(provenance.State().scheme_, "dal.quote-risk-state/4+jcs+sha256");
             ASSERT_EQ(provenance.Axis().quotes_.size(), 5);
             ASSERT_EQ(provenance.Axis().parameters_.size(), 5);
             ASSERT_EQ(provenance.Axis().parameterRanges_.size(), 3);

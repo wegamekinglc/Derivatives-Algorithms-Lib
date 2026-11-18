@@ -31,6 +31,49 @@ def captured_single():
     return config, captured_config, default, captured, market, trade
 
 
+@pytest.mark.parametrize("joint", [False, True])
+@pytest.mark.parametrize("fixing", [False, True])
+def test_exact_state_schemes_reject_stale_bound_seeds_and_allow_retry(joint, fixing):
+    if joint:
+        spec, options, result, _, config, _ = joint_inputs()
+        today = spec.today
+        curves = {"discount": next(iter(result.discount_curves.values())),
+                  "forward": next(iter(result.forward_curves.values()))}
+        build = dal.BuildJointMultiCurveQuoteRiskProvenance
+    else:
+        spec, options, result, _, _, config, *_ = _single_quote_risk_inputs()
+        today = dal.Date_(2025, 6, 20)
+        curves = {"discount": result.curve_}
+        build = dal.BuildSingleCurveQuoteRiskProvenance
+    captured = dal.RateQuoteRiskProvenanceConfig_(
+        calibration_id=config.calibration_id, component_key_by_parameter_block=config.component_key_by_parameter_block,
+        retain_calibration_record=True,
+    )
+
+    def freeze(second):
+        market = dal.RatePricingMarket_(
+            valuation_time=dal.DateTime_(today, 0, 0, 0 if fixing else second), result_currency="USD", curve_components=curves,
+            fixings=dal.MarketFixingSnapshot_New({"EQ[UNUSED]": {dal.DateTime_(today.AddDays(-1), 0, 0, second if fixing else 0): 99.}}),
+        )
+        return build(spec=spec, result=result, options=options, bound_market=market, config=captured)
+
+    before, after = freeze(0), freeze(1)
+    assert before.state.scheme == f"dal.quote-risk-state/{4 if joint else 3}+jcs+sha256"
+    assert before.state.fingerprint != after.state.fingerprint
+    assert before.calibration_record != after.calibration_record
+    boundary, changed = dal.CalibrationPullback_New(before), dal.CalibrationPullback_New(after)
+    assert not boundary.matches(changed)
+    parameters = dal.CalibrationParameterAdjoints_New(boundary, [[0.01]] * boundary.parameter_rows)
+    stale = dal.CalibrationParameterAdjoints_New(changed, [[0.01]] * changed.parameter_rows)
+    direct = dal.CalibrationDirectQuoteAdjoints_New(changed, [[0.02]] * changed.quote_rows)
+    reference = dal.PullbackCalibration(boundary, parameters).total_adjoints.to_rows()
+    with pytest.raises(RuntimeError, match="CalibrationSnapshotMismatch.*parameters"):
+        dal.PullbackCalibration(boundary, stale)
+    with pytest.raises(RuntimeError, match="CalibrationSnapshotMismatch.*direct"):
+        dal.PullbackCalibration(boundary, parameters, direct=direct)
+    assert dal.PullbackCalibration(boundary, parameters).total_adjoints.to_rows() == reference
+
+
 def test_curve_record_capture_is_owned_optional_and_preserves_original_identity():
     config, captured_config, default, captured, market, trade = captured_single()
     assert config.retain_calibration_record is False

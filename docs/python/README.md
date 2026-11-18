@@ -1027,6 +1027,16 @@ objects. The axis/state fingerprint schemes, stable availability reasons,
 price-per-decimal and DV01 units, and `UnconvertedByActualPvCcy` policy are
 identical to C++.
 
+Read `source.state.scheme` for the actual state domain: `/3` for single-curve
+and both XCCY kinds, `/4` for generic joint calibration. The historical
+`RateQuoteRiskStateFingerprintScheme()` still returns `/1`. Exact valuation and
+fixing fractions, including unused history, participate in identity. Historical
+`/1` and `/2` sources remain inspectable metadata but cannot be matched or used
+for live aggregation/pullback. Native scheme and snapshot errors propagate as
+`RuntimeError`; a failed call permits a correct retry. No provenance archive or
+pickle interface is added. See the
+[migration contract](../public-api.md#exact-quote-risk-state-and-historical-migration).
+
 The runnable [single-curve quote-risk example](../../dal-python/examples/009.quote_risk.py)
 prints both fingerprints, the policy, and every bucket. The
 [joint XCCY example](../../dal-python/examples/007.xccy_joint_calibration.py) also

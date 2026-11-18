@@ -7,6 +7,7 @@
 
 #include <dal/platform/platform.hpp>
 
+#include <dal-public/src/calibrationrisk_internal.hpp>
 #include <dal-public/src/calibrationriskrequest.hpp>
 
 namespace Dal {
@@ -138,6 +139,7 @@ namespace Dal {
           selectedOrdinals_(std::move(selectedOrdinals)), numericPayloadBytes_(numericPayloadBytes) {}
 
     CalibrationRiskPlan_ PlanCalibrationRiskRequest(const CalibrationPullback_& calibration, const CalibrationRiskRequest_& request) {
+        CalibrationRiskInternal::RequireLiveSource(calibration, "plan.calibration.source");
         const auto rows = static_cast<size_t>(calibration.QuoteRows());
         const auto columns = static_cast<size_t>(calibration.QuoteCols());
         const size_t bytes = CalibrationRiskPayloadBytes(rows, columns);

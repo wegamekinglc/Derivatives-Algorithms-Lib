@@ -207,7 +207,8 @@ def test_single_curve_quote_risk_exposes_immutable_provenance_and_unit_bearing_r
     assert provenance.available is True  # nosec B101
     assert provenance.reason == ""  # nosec B101
     assert provenance.axis.scheme == dal.RateQuoteRiskAxisFingerprintScheme()  # nosec B101
-    assert provenance.state.scheme == dal.RateQuoteRiskStateFingerprintScheme()  # nosec B101
+    assert provenance.state.scheme == "dal.quote-risk-state/3+jcs+sha256"  # nosec B101
+    assert dal.RateQuoteRiskStateFingerprintScheme() == "dal.quote-risk-state/1+jcs+sha256"  # nosec B101
     assert provenance.axis.fingerprint.startswith("sha256:")  # nosec B101
     assert provenance.state.fingerprint.startswith("sha256:")  # nosec B101
     assert len(provenance.axis.parameter_ranges) == 1  # nosec B101

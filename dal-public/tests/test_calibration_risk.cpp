@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <rapidjson/document.h>
 #include <string>
 #include <type_traits>
 #include <variant>
@@ -18,6 +19,7 @@
 
 #include <dal-cpp/benchmarks/rate_risk_perf/quoteriskbenchfixtures.hpp>
 #include <dal-public/src/calibrationrisk.hpp>
+#include <dal-public/src/calibrationriskrequest.hpp>
 
 #include "jointxccyquoteriskfixtures.hpp"
 
@@ -138,6 +140,253 @@ namespace {
         ASSERT_THROW(Dal::PullbackCalibration(target, good, direct), Dal::Exception_);
     }
 
+    template <class F_>
+    void AssertSubsecondConsumers(
+        const Dal::RatePricingMarket_& original, const Dal::Vector_<Dal::RateTradeDefinition_>& trades, F_ freeze, bool fixing, const char* scheme) {
+        using namespace Dal;
+        auto before = original;
+        const auto day = original.valuationTime_.Date();
+        before.valuationTime_ = DateTime_(day, .1 / 86400.);
+        before.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), .1 / 86400.), 99.}}}}));
+        auto after = before;
+        if (fixing)
+            after.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), .2 / 86400.), 99.}}}}));
+        else
+            after.valuationTime_ = DateTime_(day, .2 / 86400.);
+        for (bool retain : {false, true}) {
+            const auto oldSource = freeze(before, retain);
+            const auto newSource = freeze(after, retain);
+            ASSERT_NE(oldSource.State().fingerprint_, newSource.State().fingerprint_);
+            ASSERT_NE(oldSource.State().components_.front().fingerprint_, newSource.State().components_.front().fingerprint_);
+            ASSERT_EQ(oldSource.State().scheme_, scheme);
+            const auto rejected = AggregateRatePortfolioQuoteRisk(trades, after, {oldSource});
+            ASSERT_TRUE(rejected.buckets_.empty());
+            for (const auto& meta : rejected.meta_) {
+                ASSERT_FALSE(meta.eligible_);
+                ASSERT_FALSE(meta.structuralZero_);
+            }
+            ASSERT_EQ(rejected.provenanceFailures_.size(), 1);
+            ASSERT_EQ(rejected.provenanceFailures_.front().reason_, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH");
+            const auto accepted = AggregateRatePortfolioQuoteRisk(trades, after, {newSource});
+            ASSERT_TRUE(accepted.provenanceFailures_.empty());
+            ASSERT_FALSE(accepted.buckets_.empty());
+            if (!retain) {
+                ASSERT_TRUE(newSource.CalibrationRecord().empty());
+                ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { NewCalibrationPullback(newSource); }, "QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED"));
+                continue;
+            }
+            ASSERT_NE(oldSource.CalibrationRecord(), newSource.CalibrationRecord());
+            rapidjson::Document record;
+            record.Parse<rapidjson::kParseFullPrecisionFlag>(newSource.CalibrationRecord().c_str());
+            ASSERT_FALSE(record.HasParseError());
+            ASSERT_TRUE(record["market"]["valuationTime"].IsObject());
+            ASSERT_EQ(record["market"]["valuationTime"]["fraction"].GetDouble(), after.valuationTime_.Frac());
+            ASSERT_EQ(record["market"]["fixings"][0]["fixingTime"]["fraction"].GetDouble(),
+                      after.fixings_->Values().begin()->second.begin()->first.Frac());
+            const auto oldBoundary = NewCalibrationPullback(oldSource);
+            const auto boundary = NewCalibrationPullback(newSource);
+            ASSERT_FALSE(boundary.Matches(oldBoundary));
+            const Matrix_<> input(boundary.ParameterRows(), 1, .01);
+            const auto good = NewCalibrationParameterAdjoints(boundary, input);
+            const auto stale = NewCalibrationParameterAdjoints(oldBoundary, input);
+            const auto direct = NewCalibrationDirectQuoteAdjoints(oldBoundary, Matrix_<>(boundary.QuoteRows(), 1, .02));
+            const auto reference = PullbackCalibration(boundary, good);
+            ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { PullbackCalibration(boundary, stale); }, "CalibrationSnapshotMismatch"));
+            ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { PullbackCalibration(boundary, good, direct); }, "CalibrationSnapshotMismatch"));
+            ASSERT_NO_FATAL_FAILURE(AssertSameMatrix(PullbackCalibration(boundary, good).TotalAdjoints(), reference.TotalAdjoints()));
+            auto copy = after;
+            copy.fixings_.reset(new MarketFixingSnapshot_(after.fixings_->Values()));
+            ASSERT_TRUE(boundary.Matches(NewCalibrationPullback(freeze(copy, true))));
+        }
+        auto adjacent = before;
+        if (fixing)
+            adjacent.fixings_.reset(
+                new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), std::nextafter(.1 / 86400., 1.)), 99.}}}}));
+        else
+            adjacent.valuationTime_ = DateTime_(day, std::nextafter(.1 / 86400., 1.));
+        ASSERT_NE(freeze(before, true).State().fingerprint_, freeze(adjacent, true).State().fingerprint_);
+        auto zero = before;
+        auto negativeZero = before;
+        if (fixing) {
+            zero.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), 0.), 99.}}}}));
+            negativeZero.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), -0.), 99.}}}}));
+        } else {
+            zero.valuationTime_ = DateTime_(day, 0.);
+            negativeZero.valuationTime_ = DateTime_(day, -0.);
+        }
+        ASSERT_EQ(freeze(zero, true).State().fingerprint_, freeze(negativeZero, true).State().fingerprint_);
+        auto changedValue = before;
+        changedValue.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), .1 / 86400.), 100.}}}}));
+        ASSERT_NE(freeze(before, true).State().fingerprint_, freeze(changedValue, true).State().fingerprint_);
+        auto extra = before;
+        extra.fixings_.reset(new MarketFixingSnapshot_(
+            {{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), .1 / 86400.), 99.}}}, {"EQ[EXTRA]", {{DateTime_(day.AddDays(-2), .1 / 86400.), 98.}}}}));
+        ASSERT_NE(freeze(before, true).State().fingerprint_, freeze(extra, true).State().fingerprint_);
+        auto wholeSecond = before;
+        wholeSecond.valuationTime_ = DateTime_(day, 1.1 / 86400.);
+        ASSERT_NE(freeze(before, true).State().fingerprint_, freeze(wholeSecond, true).State().fingerprint_);
+    }
+
+    void AssertSingleSubseconds(bool fixing) {
+        using namespace Dal;
+        const auto materials = RateRiskPerf::MakeSingleCurveProvenanceMaterials(4, CurveJacobianMode_::Value_::ANALYTIC);
+        const auto example = RateRiskPerf::MakeSingleCurveQuoteRiskCase(4, CurveJacobianMode_::Value_::ANALYTIC, 1);
+        AssertSubsecondConsumers(
+            materials.market_, example.trades_,
+            [&](const RatePricingMarket_& market, bool retain) {
+                auto config = materials.config_;
+                config.retainCalibrationRecord_ = retain;
+                return BuildSingleCurveQuoteRiskProvenance(materials.spec_, *materials.calibration_, materials.options_, market, config);
+            },
+            fixing, "dal.quote-risk-state/3+jcs+sha256");
+    }
+
+    void AssertJointSubseconds(bool fixing) {
+        using namespace Dal;
+        const auto spec = JointQuoteRiskFixtures::Spec(4, 2);
+        const auto options = JointXccyQuoteRiskFixtures::Options();
+        const auto result = CalibrateJointMultiCurve(spec, options);
+        const auto market = JointQuoteRiskFixtures::Market(spec, result);
+        AssertSubsecondConsumers(
+            market, {JointQuoteRiskFixtures::Irs(spec)},
+            [&](const RatePricingMarket_& current, bool retain) {
+                auto config = JointQuoteRiskFixtures::Config(2);
+                config.retainCalibrationRecord_ = retain;
+                return BuildJointMultiCurveQuoteRiskProvenance(spec, result, options, current, config);
+            },
+            fixing, "dal.quote-risk-state/4+jcs+sha256");
+    }
+
+    template <class M_> M_ RecalibrateXccy(M_ materials, double valuationFraction, double fixingFraction) {
+        using namespace Dal;
+        const auto old = materials.calibration_;
+        const auto day = materials.spec_.valuationTime_.Date();
+        materials.spec_.valuationTime_ = DateTime_(day, valuationFraction);
+        materials.spec_.fixings_.reset(new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), fixingFraction), 99.}}}}));
+        std::map<const DiscountCurve_*, Handle_<DiscountCurve_>> replacements;
+        if constexpr (std::is_same_v<std::decay_t<decltype(*old)>, JointXccyCalibrationResult_>) {
+            materials.calibration_ = std::make_shared<JointXccyCalibrationResult_>(CalibrateJointXccyMarket(materials.spec_, materials.options_));
+            const auto& current = *materials.calibration_;
+            const auto replaceCurves = [&](const auto& before, const auto& after) {
+                for (const auto& [route, curve] : before)
+                    replacements[curve.get()] = after.at(route);
+            };
+            for (const auto& blocks : {std::make_pair(old->domesticCurveBlock_, current.domesticCurveBlock_),
+                                       std::make_pair(old->foreignCurveBlock_, current.foreignCurveBlock_)}) {
+                replaceCurves(blocks.first->DiscountCurves(), blocks.second->DiscountCurves());
+                replaceCurves(blocks.first->ForwardCurves(), blocks.second->ForwardCurves());
+            }
+            replacements[old->basisCurve_.get()] = current.basisCurve_;
+            auto xccy = std::make_shared<CrossCurrencyMarket_>(current.domesticCurveBlock_, current.foreignCurveBlock_, materials.spec_.fxSpot_,
+                                                               materials.spec_.valuationTime_, materials.spec_.collateralCurrency_, current.fixings_);
+            xccy->SetBasisCurve(current.basisCurve_);
+            materials.market_.xccyMarket_ = xccy;
+            materials.market_.fixings_ = current.fixings_;
+        } else {
+            materials.calibration_ =
+                std::make_shared<CrossCurrencyCalibrationResult_>(CalibrateCrossCurrencyMarket(materials.spec_, materials.options_));
+            replacements[old->basisCurves_.at(materials.spec_.basisPair_).get()] =
+                materials.calibration_->basisCurves_.at(materials.spec_.basisPair_);
+            materials.market_.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(materials.calibration_->market_);
+            materials.market_.fixings_ = materials.calibration_->market_.Fixings();
+        }
+        for (auto& [key, curve] : materials.market_.curveComponents_)
+            curve = replacements.at(curve.get());
+        materials.market_.valuationTime_ = materials.spec_.valuationTime_;
+        materials.config_.retainCalibrationRecord_ = true;
+        return materials;
+    }
+
+    std::shared_ptr<Dal::CrossCurrencyMarket_>
+    XccyWithTime(const Dal::RatePricingMarket_& market, const Dal::DateTime_& time, const Dal::Handle_<Dal::MarketFixingSnapshot_>& fixings) {
+        const auto& base = *market.xccyMarket_;
+        const auto copyBlock = [](const Dal::CurveBlock_& block, const Dal::Ccy_& currency) {
+            return Dal::Handle_<Dal::CurveBlock_>(
+                new Dal::CurveBlock_(block.Name(), currency.String(), block.DiscountCurves(), block.ForwardCurves(), block.LiborBasis()));
+        };
+        const auto domestic = copyBlock(base.DomesticBlock(), base.DomesticCcy());
+        const auto foreign = copyBlock(base.ForeignBlock(), base.ForeignCcy());
+        auto result = std::make_shared<Dal::CrossCurrencyMarket_>(domestic, foreign, base.FxSpot(), time, base.CollateralCurrency(), fixings);
+        result->SetBasisCurve(Dal::Handle_<Dal::DiscountCurve_>(std::shared_ptr<const Dal::DiscountCurve_>(market.xccyMarket_, base.BasisCurve())));
+        return result;
+    }
+
+    void AssertXccyTimeRecord(const Dal::RateQuoteRiskProvenance_& source) {
+        rapidjson::Document record;
+        record.Parse<rapidjson::kParseFullPrecisionFlag>(source.CalibrationRecord().c_str());
+        ASSERT_FALSE(record.HasParseError());
+        ASSERT_TRUE(record["market"].HasMember("xccy"));
+        for (const auto* time : {&record["market"]["valuationTime"], &record["market"]["xccy"]["valuationTime"],
+                                 &record["market"]["fixings"][0]["fixingTime"], &record["market"]["xccy"]["fixings"][0]["fixingTime"],
+                                 &record["spec"]["valuationTime"], &record["spec"]["fixings"][0]["fixingTime"]}) {
+            ASSERT_TRUE(time->IsObject());
+            ASSERT_EQ((*time)["fraction"].GetDouble(), .1 / 86400.);
+        }
+        if (source.Kind() == "JOINT_XCCY") {
+            ASSERT_TRUE(record["result"].HasMember("fixings"));
+            ASSERT_EQ(record["result"]["fixings"][0]["fixingTime"]["fraction"].GetDouble(), .1 / 86400.);
+        } else {
+            ASSERT_EQ(record["result"]["market"]["valuationTime"]["fraction"].GetDouble(), .1 / 86400.);
+            ASSERT_EQ(record["result"]["market"]["fixings"][0]["fixingTime"]["fraction"].GetDouble(), .1 / 86400.);
+        }
+    }
+
+    void AssertXccyLiveTimeChanges(const Dal::RatePricingMarket_& market,
+                                   const Dal::Vector_<Dal::RateTradeDefinition_>& trades,
+                                   const Dal::RateQuoteRiskProvenance_& source) {
+        using namespace Dal;
+        const auto day = market.valuationTime_.Date();
+        const DateTime_ next(day, .2 / 86400.);
+        const Handle_<MarketFixingSnapshot_> nextFixings(
+            new MarketFixingSnapshot_({{"EQ[UNUSED]", {{DateTime_(day.AddDays(-1), .2 / 86400.), 99.}}}}));
+        for (int field = 0; field < 4; ++field) {
+            auto live = market;
+            if (field == 0)
+                live.valuationTime_ = next;
+            else if (field == 1)
+                live.fixings_ = nextFixings;
+            else
+                live.xccyMarket_ =
+                    XccyWithTime(live, field == 2 ? next : live.xccyMarket_->ValuationTime(), field == 3 ? nextFixings : live.xccyMarket_->Fixings());
+            const int sweeps = RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load();
+            const auto stale = AggregateRatePortfolioQuoteRisk(trades, live, {source});
+            ASSERT_EQ(stale.provenanceFailures_.size(), 1) << field;
+            ASSERT_EQ(stale.provenanceFailures_.front().reason_, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH");
+            ASSERT_TRUE(stale.buckets_.empty());
+            ASSERT_EQ(RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), sweeps);
+        }
+    }
+
+    template <class M_, class F_>
+    void AssertXccyExactConsumers(const M_& prototype, const Dal::RateRiskPerf::QuoteRiskBenchmarkCase_& example, F_ build) {
+        using namespace Dal;
+        const auto before = RecalibrateXccy(prototype, .1 / 86400., .1 / 86400.);
+        const auto source = build(before.spec_, *before.calibration_, before.options_, before.market_, before.config_);
+        ASSERT_EQ(source.State().scheme_, "dal.quote-risk-state/3+jcs+sha256");
+        ASSERT_NO_FATAL_FAILURE(AssertXccyTimeRecord(source));
+        std::cout << "ExactTimeState," << source.Kind() << ",before," << source.CalibrationRecord() << '\n';
+        ASSERT_NO_FATAL_FAILURE(AssertLegacyMapping(example.trades_, before.market_, source));
+        const auto original = NewCalibrationPullback(source);
+        for (bool fixing : {false, true}) {
+            const auto after = RecalibrateXccy(prototype, (fixing ? .1 : .2) / 86400., (fixing ? .2 : .1) / 86400.);
+            const auto changed = build(after.spec_, *after.calibration_, after.options_, after.market_, after.config_);
+            std::cout << "ExactTimeState," << changed.Kind() << (fixing ? ",fixing," : ",valuation,") << changed.CalibrationRecord() << '\n';
+            ASSERT_NE(source.State().fingerprint_, changed.State().fingerprint_);
+            ASSERT_NE(source.CalibrationRecord(), changed.CalibrationRecord());
+            ASSERT_NO_FATAL_FAILURE(AssertCurveMismatch(original, NewCalibrationPullback(changed)));
+            ASSERT_NO_FATAL_FAILURE(AssertLegacyMapping(example.trades_, after.market_, changed));
+            if (fixing) {
+                ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { build(before.spec_, *after.calibration_, after.options_, after.market_, after.config_); },
+                                                      "QUOTE_RISK_SPEC_RESULT_MISMATCH"));
+                ASSERT_NO_FATAL_FAILURE(
+                    AssertFailure([&] { build(before.spec_, *before.calibration_, before.options_, after.market_, before.config_); },
+                                  "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH"));
+            }
+        }
+        ASSERT_NO_FATAL_FAILURE(AssertXccyLiveTimeChanges(before.market_, example.trades_, source));
+        ASSERT_NO_FATAL_FAILURE(AssertLegacyMapping(example.trades_, before.market_, source));
+    }
+
     double CurveObjective(const Dal::JointMultiCurveCalibrationSpec_& spec,
                           const Dal::JointMultiCurveCalibrationOptions_& options,
                           const Dal::Matrix_<>& seeds,
@@ -193,6 +442,123 @@ namespace {
         ASSERT_TRUE(adjacentPass);
     }
 } // namespace
+
+TEST(CalibrationRiskTest, TestSingleValuationSubsecondsRejectStaleConsumers) { AssertSingleSubseconds(false); }
+TEST(CalibrationRiskTest, TestSingleFixingSubsecondsRejectStaleConsumers) { AssertSingleSubseconds(true); }
+TEST(CalibrationRiskTest, TestJointValuationSubsecondsRejectStaleConsumers) { AssertJointSubseconds(false); }
+TEST(CalibrationRiskTest, TestJointFixingSubsecondsRejectStaleConsumers) { AssertJointSubseconds(true); }
+
+TEST(CalibrationRiskTest, TestJointXccyExactTimesReachFactoryAggregateAndPullback) {
+    using namespace Dal;
+    const auto mode = CurveJacobianMode_::Value_::ANALYTIC;
+    AssertXccyExactConsumers(RateRiskPerf::MakeJointXccyProvenanceMaterials(2, mode), RateRiskPerf::MakeJointXccyQuoteRiskCase(2, mode, 1),
+                             [](const auto& spec, const auto& result, const auto& options, const auto& market, const auto& config) {
+                                 return BuildJointXccyQuoteRiskProvenance(spec, result, options, market, config);
+                             });
+}
+
+TEST(CalibrationRiskTest, TestStagedXccyExactTimesReachFactoryAggregateAndPullback) {
+    using namespace Dal;
+    const auto mode = CurveJacobianMode_::Value_::ANALYTIC;
+    AssertXccyExactConsumers(RateRiskPerf::MakeStagedXccyProvenanceMaterials(2, mode), RateRiskPerf::MakeStagedXccyBasisQuoteRiskCase(2, mode, 1),
+                             [](const auto& spec, const auto& result, const auto& options, const auto& market, const auto& config) {
+                                 return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, market, config);
+                             });
+}
+
+TEST(CalibrationRiskTest, TestLiveSchemeAdmissionChecksEverySourceAndAllowsCorrectRetry) {
+    using namespace Dal;
+    const auto spec = JointQuoteRiskFixtures::Spec(4, 2);
+    const auto options = JointXccyQuoteRiskFixtures::Options();
+    const auto result = CalibrateJointMultiCurve(spec, options);
+    const auto market = JointQuoteRiskFixtures::Market(spec, result);
+    const auto freeze = [&] { return Captured(spec, result, options, market, JointQuoteRiskFixtures::Config(2)); };
+    for (const String_& rejected : Vector_<String_>{"dal.quote-risk-state/1+jcs+sha256", "dal.quote-risk-state/2+jcs+sha256",
+                                                    "dal.quote-risk-state/3+jcs+sha256", "unknown/99", "DAL.quote-risk-state/4+jcs+sha256"})
+        for (int role = 0; role < 3; ++role) {
+            SCOPED_TRACE(rejected);
+            SCOPED_TRACE(role);
+            const Vector_<RateQuoteRiskProvenance_> sources{freeze(), freeze(), freeze()};
+            const auto target = NewCalibrationPullback(sources[0]);
+            const auto parameterSource = NewCalibrationPullback(sources[1]);
+            const auto directSource = NewCalibrationPullback(sources[2]);
+            const Matrix_<> matrix(target.ParameterRows(), 1, .01);
+            const auto parameters = NewCalibrationParameterAdjoints(parameterSource, matrix);
+            const Matrix_<> directMatrix(target.QuoteRows(), 1, .02);
+            const auto direct = NewCalibrationDirectQuoteAdjoints(directSource, directMatrix);
+            const auto reference = PullbackCalibration(target, parameters, direct);
+            const auto plan = PlanCalibrationRiskRequest(target, {});
+            // Simulate a historical in-memory handle through the existing native fixture.
+            auto& state = const_cast<RateQuoteRiskState_&>(sources[role].State());
+            const auto original = state.scheme_;
+            state.scheme_ = rejected;
+            const auto& changed = role == 0 ? target : role == 1 ? parameterSource : directSource;
+            ASSERT_FALSE(changed.Matches(changed));
+            ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { NewCalibrationPullback(sources[role]); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+            ASSERT_NO_FATAL_FAILURE(
+                AssertFailure([&] { NewCalibrationParameterAdjoints(changed, matrix); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+            ASSERT_NO_FATAL_FAILURE(
+                AssertFailure([&] { NewCalibrationDirectQuoteAdjoints(changed, directMatrix); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+            ASSERT_NO_FATAL_FAILURE(
+                AssertFailure([&] { static_cast<void>(PlanCalibrationRiskRequest(changed, {})); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+            const std::string field = role == 0 ? "calibration.source" : role == 1 ? "parameters.source" : "direct.source";
+            ASSERT_NO_FATAL_FAILURE(AssertFailure(
+                [&] { PullbackCalibration(target, parameters, direct); },
+                "field=" + field + "; expected=dal.quote-risk-state/4+jcs+sha256; actual=" + std::string(rejected.data(), rejected.size())));
+            ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { static_cast<void>(PullbackCalibrationWithRisk(plan, parameters, direct)); },
+                                                  "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+            if (role == 0) {
+                const auto rejectedRisk = AggregateRatePortfolioQuoteRisk({JointQuoteRiskFixtures::Irs(spec)}, market, {sources[0]});
+                ASSERT_TRUE(rejectedRisk.buckets_.empty());
+                ASSERT_EQ(rejectedRisk.provenanceFailures_.size(), 1);
+                const auto& failure = rejectedRisk.provenanceFailures_.front();
+                ASSERT_EQ(failure.reason_, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED");
+                ASSERT_TRUE(failure.componentKey_.empty());
+                ASSERT_EQ(failure.expectedStateFingerprint_, sources[0].State().fingerprint_);
+                ASSERT_EQ(failure.actualStateFingerprint_, "UNSUPPORTED_SCHEME:" + rejected);
+            }
+            state.scheme_ = original;
+            ASSERT_TRUE(changed.Matches(changed));
+            ASSERT_NO_FATAL_FAILURE(AssertSameMatrix(PullbackCalibration(target, parameters, direct).TotalAdjoints(), reference.TotalAdjoints()));
+        }
+    auto historical = freeze();
+    const_cast<RateQuoteRiskState_&>(historical.State()).scheme_ = "dal.quote-risk-state/2+jcs+sha256";
+    auto config = JointQuoteRiskFixtures::Config(2);
+    config.calibrationId_ = "fresh";
+    const auto fresh = Captured(spec, result, options, market, config);
+    const auto mixed = AggregateRatePortfolioQuoteRisk({JointQuoteRiskFixtures::Irs(spec)}, market, {historical, fresh});
+    ASSERT_EQ(mixed.provenanceFailures_.size(), 1);
+    ASSERT_EQ(mixed.buckets_.size(), fresh.Axis().quotes_.size());
+    for (const auto& bucket : mixed.buckets_)
+        ASSERT_EQ(bucket.calibrationId_, "fresh");
+}
+
+TEST(CalibrationRiskTest, TestSingleSchemeAndKindRequireExactBytesBeforeSameSourceShortcut) {
+    using namespace Dal;
+    const auto materials = RateRiskPerf::MakeSingleCurveProvenanceMaterials(4, CurveJacobianMode_::Value_::ANALYTIC);
+    const auto example = RateRiskPerf::MakeSingleCurveQuoteRiskCase(4, CurveJacobianMode_::Value_::ANALYTIC, 1);
+    auto config = materials.config_;
+    config.retainCalibrationRecord_ = true;
+    const auto source = BuildSingleCurveQuoteRiskProvenance(materials.spec_, *materials.calibration_, materials.options_, materials.market_, config);
+    const auto boundary = NewCalibrationPullback(source);
+    const auto parameters = NewCalibrationParameterAdjoints(boundary, Matrix_<>(boundary.ParameterRows(), 1, .01));
+    const auto reference = PullbackCalibration(boundary, parameters);
+    for (const bool changeKind : {false, true}) {
+        // Exercise the existing native metadata fixture without a persistence API.
+        auto& field = changeKind ? const_cast<String_&>(source.Kind()) : const_cast<RateQuoteRiskState_&>(source.State()).scheme_;
+        const auto original = field;
+        field = changeKind ? "single_curve" : "dal.quote-risk-state/1+jcs+sha256";
+        ASSERT_FALSE(boundary.Matches(boundary));
+        ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { NewCalibrationPullback(source); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+        ASSERT_NO_FATAL_FAILURE(AssertFailure([&] { PullbackCalibration(boundary, parameters); }, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED"));
+        const auto rejected = AggregateRatePortfolioQuoteRisk(example.trades_, materials.market_, {source});
+        ASSERT_TRUE(rejected.buckets_.empty());
+        ASSERT_EQ(rejected.provenanceFailures_.size(), 1);
+        ASSERT_EQ(rejected.provenanceFailures_.front().reason_, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED");
+        field = original;
+        ASSERT_NO_FATAL_FAILURE(AssertSameMatrix(PullbackCalibration(boundary, parameters).TotalAdjoints(), reference.TotalAdjoints()));
+    }
+}
 
 TEST(CalibrationRiskTest, TestCommonDupireResultMatchesTypedPullbackAndOwnsSeeds) {
     const FlatIVS_ ivs;

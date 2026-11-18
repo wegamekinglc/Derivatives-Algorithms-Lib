@@ -814,12 +814,55 @@ reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
 `QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`.
 
 `RateQuoteRiskAxis_` publishes named parameter/residual ranges and ordered
-coordinates. Its scheme is `dal.quote-risk-axis/1+jcs+sha256`; the bound curve
-state uses `dal.quote-risk-state/1+jcs+sha256` for the three v1 domains.
-Generic joint provenance uses `/2+jcs+sha256` schemes; the v1 bytes and global
-scheme accessors remain unchanged. Fingerprint values begin with
-`sha256:`. Aggregation recomputes the component-state fingerprints and rejects a
-stale provenance atomically instead of mixing states.
+coordinates. Its scheme remains `dal.quote-risk-axis/1+jcs+sha256` for
+`SINGLE_CURVE`, `JOINT_XCCY` and `STAGED_XCCY_BASIS`, and
+`dal.quote-risk-axis/2+jcs+sha256` for `JOINT_MULTI_CURVE`.
+New factories use `dal.quote-risk-state/3+jcs+sha256` for the first three kinds
+and `dal.quote-risk-state/4+jcs+sha256` for generic joint provenance. `/4` retains
+the joint routing and base-chain binding. Read the actual scheme from
+`provenance.State().scheme_`: the historical no-argument
+`RateQuoteRiskStateFingerprintScheme()` still returns `/1`. Fingerprints begin
+with `sha256:`.
+
+### Exact quote-risk state and historical migration
+
+Live state records encode times as `{"date":"YYYY-MM-DD","fraction":0.5}`,
+where `fraction` is the exact binary64 day fraction formatted by JCS; both signs
+of zero canonicalize to `0`. This applies to valuation and every fixing,
+including unused history, at the top level and inside XCCY market/spec/result
+records. There is no whole-second rounding or Excel serial conversion.
+Spec/result and bound-market pairing use the same exact fixing comparison;
+their existing mismatch errors remain unchanged.
+
+All new state hashes change, including whole-second inputs and provenance
+without a retained record. Historical `/1` and `/2` canonical bytes, hashes and
+goldens remain valid for metadata inspection and verification, but cannot be
+used for live aggregation, matching or pullback, even through the same handle.
+Unknown schemes and a scheme paired with the wrong kind also fail. Kind/scheme
+admission compares exact bytes. No provenance archive reader or pickle support
+is added. To migrate, rebuild provenance with the complete original precise
+inputs and their paired calibration result. If those inputs were lost, reacquire
+them and recalibrate; a lossy historical record cannot reconstruct subsecond
+identity. Do not relabel or compare hashes across state versions.
+
+Aggregation rejects an unsupported source with
+`QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED`, an empty component key, the held full
+fingerprint as expected, and `UNSUPPORTED_SCHEME:<scheme>` as actual. That source
+produces no buckets, eligible trades or structural zeros; independent valid
+sources continue. Changed supported state retains
+`QUOTE_RISK_CALIBRATION_STATE_MISMATCH` and component expected/actual diagnostics.
+Malformed structural metadata retains its call-level exceptions.
+
+The public pullback constructor, seed constructors, request planning and execution
+check the target, parameter source and optional direct source before shortcuts
+or inverse work. Unsupported state throws `QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED`
+with field/expected/actual details; `Matches` returns false. Supported but changed
+state throws `CalibrationSnapshotMismatch` with the source field and short
+fingerprints. A failed call leaves caller state intact and permits a correct
+retry. Core aggregation accepts supported provenance without a retained record;
+public pullback still requires one and reports
+`QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED` when absent. Axis bytes and market-IV
+request `/2` identity are unchanged by this migration.
 
 Each `RateQuoteRiskBucket_` is addressed by calibration ID, axis fingerprint,
 residual block, quote ordinal/key/name, and actual PV currency.

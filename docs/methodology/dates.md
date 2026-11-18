@@ -57,8 +57,11 @@ Compatibility runs from new readers to old archives; old readers cannot read
 the new time objects. Precision already lost in a legacy file cannot be
 recovered. Fixings archives reject duplicate times with
 `ARCHIVE_FIXINGS_DUPLICATE_TIME` at the second key and reject unequal key/value
-lengths. Existing fingerprint domains retain their frozen legacy time bytes;
-their time precision does not increase with the archive protocol.
+lengths. Historical fingerprint domains retain their frozen legacy time bytes;
+their time precision does not increase with the archive protocol. Live
+quote-risk state uses the separately versioned `/3` and `/4` exact date/fraction
+encoding; historical `/1` and `/2` records cannot be used as live sources. See
+[quote-risk state migration](../public-api.md#exact-quote-risk-state-and-historical-migration).
 
 ## Holiday centers and business days
 

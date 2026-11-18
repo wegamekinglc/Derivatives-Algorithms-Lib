@@ -2311,21 +2311,23 @@ namespace Dal {
                 ++RateCashflowPricingInternal::g_quoteRiskProvenancePreparationCount;
                 REQUIRE(calibrationIds.insert(provenance.CalibrationId()).second, "QUOTE_RISK_DUPLICATE_CALIBRATION_ID");
                 PreparedQuoteRiskProvenance_ entry{index, &provenance, false, {}, 0};
+                if (provenance.Available()) {
+                    ValidateQuoteRiskShape(provenance);
+                    REQUIRE(provenance.State().components_.size() == provenance.Axis().parameterRanges_.size(),
+                            "QUOTE_RISK_PROVENANCE_STATE_INVALID");
+                }
+                if (!SupportsLiveQuoteRiskState(provenance)) {
+                    AppendProvenanceFailure(provenance, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED", String_(), provenance.State().fingerprint_,
+                                            "UNSUPPORTED_SCHEME:" + provenance.State().scheme_, result);
+                    prepared.push_back(entry);
+                    continue;
+                }
                 if (!provenance.Available()) {
                     AppendProvenanceFailure(provenance, provenance.Reason(), String_(), String_(), String_(), result);
                     prepared.push_back(entry);
                     continue;
                 }
-                if (provenance.Kind() != "SINGLE_CURVE" && provenance.Kind() != "JOINT_XCCY" && provenance.Kind() != "STAGED_XCCY_BASIS" &&
-                    provenance.Kind() != "JOINT_MULTI_CURVE") {
-                    AppendProvenanceFailure(provenance, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED", String_(), String_(), String_(), result);
-                    prepared.push_back(entry);
-                    continue;
-                }
-
-                ValidateQuoteRiskShape(provenance);
                 const auto& parameterRanges = provenance.Axis().parameterRanges_;
-                REQUIRE(provenance.State().components_.size() == parameterRanges.size(), "QUOTE_RISK_PROVENANCE_STATE_INVALID");
                 bool stateMatches = true;
                 for (int rangeIndex = 0; rangeIndex < static_cast<int>(parameterRanges.size()); ++rangeIndex) {
                     const auto& parameterRange = parameterRanges[rangeIndex];
