@@ -6,6 +6,7 @@ set(DAL_BENCHMARK_TARGETS
     pde_perf
     rng_perf
     interp_perf
+    json_perf
     krylov_perf
     banded_perf
     cholesky_perf

@@ -20,7 +20,7 @@ CPP_COVERAGE = {
     },
     "curve_calibration_perf": {
         "status": "partial",
-        "detail": "All 21 native-aligned cases, six non-flat multi-curve comparisons at 5/15 quotes per block, and four owning OIS audit projections at None-D30/Lockout-D1825.",
+        "detail": "All 21 native-aligned cases, six non-flat multi-curve comparisons at 5/15 quotes per block, four owning OIS audit projections at None-D30/Lockout-D1825, and actual generic joint calibration at N5/N16.",
     },
     "xccy_perf": {
         "status": "partial",
@@ -53,6 +53,10 @@ CPP_COVERAGE = {
     "interp_perf": {
         "status": "indirect",
         "detail": "Cubic interpolation microkernel is unbound; LOG_CUBIC_NATURAL calibration exercises interpolation.",
+    },
+    "json_perf": {
+        "status": "unavailable",
+        "detail": "Native Fixings archive write/read microbenchmark, including sealed legacy bytes; no supported public Python archive microkernel. Informational target outside the native gate.",
     },
     "krylov_perf": {
         "status": "indirect",
@@ -390,6 +394,19 @@ def _quote_cases(add, smoke, risk, xccy):
 
 
 def _generic_cases(add, smoke, risk):
+    for width in (5, 16):
+        add(
+            f"calibration.generic.n{width}",
+            "curve_calibration_perf",
+            {
+                "quotes": width,
+                "blocks": 3,
+                "layered": True,
+                "jacobian": "ANALYTIC",
+                "boundary": "calibration and Python/native conversion; typed inputs prebuilt, validation and result destruction excluded",
+            },
+            partial(risk.prepare_generic_calibration, width),
+        )
     for width in (5, 10, 16):
         factory = partial(risk.generic_fixture, width, 1)
         add(

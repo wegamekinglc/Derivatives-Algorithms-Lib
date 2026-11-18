@@ -199,7 +199,7 @@ def generic_declaration(today, width, block):
     return declaration
 
 
-def generic_fixture(width, count, mode="ANALYTIC"):
+def generic_calibration_inputs(width, mode="ANALYTIC"):
     """Three layered flat PWC curves and quotes from jointquoteriskfixtures.hpp."""
     today = dal.Date_(2025, 1, 2)
     spec = dal.JointMultiCurveCalibrationSpec_()
@@ -210,6 +210,39 @@ def generic_fixture(width, count, mode="ANALYTIC"):
     options = dal.JointMultiCurveCalibrationOptions_()
     options.compute_eff_jacobian_inverse = True
     options.jacobian_mode = getattr(dal.CurveJacobianMode, mode)
+    return spec, options
+
+
+def prepare_generic_calibration(width):
+    spec, options = generic_calibration_inputs(width)
+
+    def validate(result):
+        require(result.converged, "generic joint calibration did not converge")
+        require(
+            math.isfinite(result.joint_max_abs_residual)
+            and result.joint_max_abs_residual < 1e-9,
+            "generic joint residual is invalid",
+        )
+        require(len(result.parameter_ranges) == 3, "generic parameter blocks changed")
+        require(
+            result.eff_jacobian_inverse_availability == "available"
+            and result.eff_jacobian_inverse_scaling == "solver_scaled",
+            "generic inverse metadata changed",
+        )
+        inverse = result.eff_jacobian_inverse.to_rows()
+        require(
+            len(inverse) == width
+            and all(len(row) == width for row in inverse)
+            and all(math.isfinite(value) for row in inverse for value in row),
+            "generic inverse is invalid",
+        )
+
+    return Workload(lambda: dal.CalibrateJointMultiCurveBundle(spec, options), validate)
+
+
+def generic_fixture(width, count, mode="ANALYTIC"):
+    spec, options = generic_calibration_inputs(width, mode)
+    today = spec.today
     result = dal.CalibrateJointMultiCurveBundle(spec, options)
     require(result.converged, "generic joint calibration did not converge")
     forwards = {str(key): value for key, value in result.forward_curves.items()}

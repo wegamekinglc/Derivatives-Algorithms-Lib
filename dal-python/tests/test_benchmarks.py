@@ -238,6 +238,57 @@ def test_full_profile_preserves_native_path_and_portfolio_sizes():
         assert cases[f"quotes.generic.n{width}.t1000"]["quotes"] == width
 
 
+@pytest.mark.parametrize("width", [5, 16])
+def test_generic_calibration_times_the_native_call_with_prebuilt_inputs(
+    width, monkeypatch
+):
+    from dal_benchmarks import risk
+
+    cases = [
+        case for case in build_cases() if case.name == f"calibration.generic.n{width}"
+    ]
+    assert len(cases) == 1
+    case = cases[0]
+    assert case.cpp_target == "curve_calibration_perf"
+    assert case.workload["quotes"] == width
+    events = []
+    native = risk.dal.CalibrateJointMultiCurveBundle
+
+    def calibrate(*args, **kwargs):
+        events.append("calibrate")
+        return native(*args, **kwargs)
+
+    monkeypatch.setattr(risk.dal, "CalibrateJointMultiCurveBundle", calibrate)
+    work = case.prepare()
+    assert events == []
+    for _ in range(2):
+        work.validate(work.run())
+    assert events == ["calibrate", "calibrate"]
+    ticks = iter((10, 20))
+
+    def clock():
+        events.append("clock")
+        return next(ticks)
+
+    result = measure(case, samples=1, warmups=0, clock=clock)
+    assert result["samples_ns"] == [10]
+    assert events[2:] == ["calibrate", "clock", "calibrate", "clock"]
+
+
+def test_generic_calibration_rejects_failed_solve_before_reporting_samples(monkeypatch):
+    from types import SimpleNamespace
+    from dal_benchmarks import risk
+
+    case = next(case for case in build_cases() if case.name == "calibration.generic.n5")
+    monkeypatch.setattr(
+        risk.dal,
+        "CalibrateJointMultiCurveBundle",
+        lambda *_: SimpleNamespace(converged=False),
+    )
+    with pytest.raises(ValueError, match="did not converge"):
+        measure(case, samples=1, warmups=0)
+
+
 def test_comparable_aad_risk_is_in_the_regression_inventory():
     cases = {case.name: case for case in build_cases()}
     for size in (32, 256):

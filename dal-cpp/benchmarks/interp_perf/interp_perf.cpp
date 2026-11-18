@@ -2,17 +2,19 @@
 // Builds a cubic interpolator on 50 knots and measures the full sweep over
 // 10K monotonically-increasing query points, the dominant inner loop in
 // PDE/spline evaluation paths. Also exercises the inlined InterpLinearImplX
-// template the local-volatility model calls once per MC step (1e5 paths x 200 steps over
-// a 200-knot spot grid) -- the Interp1_ virtual interface the other cases use
-// is NOT what the LV path touches.
+// template with an LV-style load (1e5 paths x 200 steps over a 200-knot grid).
+// This load label does not establish a direct model caller.
 
 #include <memory>
-#include <dal/platform/platform.hpp>
+
+#include <dal/benchmarks/bench.hpp>
 #include <dal/math/interp/interp.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/benchmarks/bench.hpp>
+#include <dal/platform/platform.hpp>
+
+#include "activeprofile.hpp"
 
 using namespace Dal;
 
@@ -26,7 +28,9 @@ namespace {
     constexpr int kLvNumSteps = 200;
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1)
+        return RunActiveInterpolationProfile(argc, argv);
     constexpr int kRepeats = 10;
     Bench::PrintHeader();
 
@@ -68,10 +72,7 @@ int main() {
         Bench::DoNotOptimize(&sink);
     }
 
-    // Inlined linear (LV-style): the local-volatility model calls InterpLinearImplX once per MC
-    // step to pick the local vol before evolving logSpot -- N_steps x N_paths. This is
-    // the FORCE_INLINE template the model actually links against, not the Interp1_
-    // virtual interface the cases above exercise.
+    // LV-style load for the inline template, separate from the virtual interface above.
     {
         Vector_<> lvX(kLvNumKnots);
         Vector_<> lvY(kLvNumKnots);

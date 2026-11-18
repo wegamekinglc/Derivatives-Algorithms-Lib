@@ -111,3 +111,68 @@ def test_ois_selector_rejects_unsupported_boundary():
         driver("DAL_OIS_AUDIT_PROFILE_BINARY"), "--mode", "None", "--days", "365"
     )
     assert result.returncode == 1
+
+
+@pytest.mark.parametrize("profile,gradient", [("interval", 2), ("flat", 0)])
+def test_active_interpolation_preflight_and_complete_phase_samples(profile, gradient):
+    result = run(driver("DAL_INTERP_PROFILE_BINARY"), "--active-profile", profile)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (
+        f"ACTIVE_PREFLIGHT profile={profile} knots=50 queries=10000 query_gradient={gradient}"
+        in result.stdout
+    )
+    assert "ordinate_gradients=verified" in result.stdout
+    rows = [
+        json.loads(line.removeprefix("PROFILE_SAMPLES "))
+        for line in result.stdout.splitlines()
+        if line.startswith("PROFILE_SAMPLES ")
+    ]
+    assert {row["case"] for row in rows} == {"record", "reverse", "lifecycle"}
+    for row in rows:
+        assert row["profile"] == profile
+        assert row["inner_loops"] in {2**i for i in range(8)}
+        assert len(row["samples_ns"]) == len(row["per_iteration_ns"]) == 10
+        assert all(value > 0 for value in row["samples_ns"])
+
+
+@pytest.mark.parametrize("args", [["--active-profile", "diagonal"], ["--unknown"]])
+def test_active_interpolation_rejects_invalid_selectors(args):
+    result = run(driver("DAL_INTERP_PROFILE_BINARY"), *args)
+    assert result.returncode == 2
+
+
+def test_json_fixed_legacy_bytes_and_exact_key_preflight():
+    result = run(driver("DAL_JSON_PROFILE_BINARY"), "--preflight")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "FIXINGS_PREFLIGHT count=1" in result.stdout
+    assert "FIXINGS_PREFLIGHT count=365" in result.stdout
+    assert "legacy_bytes=10661" in result.stdout
+    assert (
+        "legacy_sha256=sha256:669a3e27b868e138edefa5fcfb9db5c9e56085163a9837fbf15243ae03e52ada"
+        in result.stdout
+    )
+    assert (
+        "precise_keys=6 exact_lookup=verified rewrite_stable=verified" in result.stdout
+    )
+    assert "PROFILE_SAMPLES" not in result.stdout
+
+
+def test_json_default_case_inventory_and_samples():
+    result = run(driver("DAL_JSON_PROFILE_BINARY"))
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = [
+        json.loads(line.removeprefix("PROFILE_SAMPLES "))
+        for line in result.stdout.splitlines()
+        if line.startswith("PROFILE_SAMPLES ")
+    ]
+    assert {row["case"] for row in rows} == {
+        "fixings-write-1",
+        "fixings-read-own-1",
+        "fixings-write-365",
+        "fixings-read-own-365",
+        "fixings-read-legacy-365",
+    }
+    for row in rows:
+        assert len(row["samples_ns"]) == 10
+        assert row["inner_loops"] in {2**i for i in range(17)}
+        assert all(value > 0 for value in row["samples_ns"])
