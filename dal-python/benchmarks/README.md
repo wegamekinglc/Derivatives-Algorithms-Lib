@@ -254,9 +254,9 @@ recorded CI interpreter, platform and native CPU flags; they are diagnostic buil
 outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
-including when the base predates this benchmark suite. All 102 cases are measured
-and gated against the base library. When a base suite exists, its inventory is
-also checked: removing or renaming a case fails. New cases must run against both
+including when the base predates this benchmark suite. Every case in the complete
+head inventory is measured and gated against the base library. When a base suite
+exists, its inventory is also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,
 incorrect/ineligible result, unexpected package path, changed binary or suite hash,
 different workload/configuration, timeout, or incomplete sample set fails the gate.
