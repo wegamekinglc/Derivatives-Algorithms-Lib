@@ -2,6 +2,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <utility>
 
 #include <dal-public/src/calibrationinstrument.hpp>
 #include <dal/benchmarks/bench.hpp>
@@ -112,19 +113,21 @@ namespace {
         Resources(prefix + "_prepared", count + 1, 22, prepared);
         Resources(prefix + "_evaluated", count + 1, 26, evaluated);
     }
+    std::pair<std::string, std::string> ParseSelector(int argc, char** argv) {
+        REQUIRE(argc == 1 || argc == 5, "usage: compounded_ois_audit_perf [--mode None|Lockout --days 30|1825]");
+        if (argc == 1)
+            return {};
+        REQUIRE(std::string(argv[1]) == "--mode" && std::string(argv[3]) == "--days", "Expected --mode MODE --days DAYS");
+        const std::string mode = argv[2], days = argv[4];
+        REQUIRE(mode == "None" || mode == "Lockout", "Selector mode must be None or Lockout");
+        REQUIRE(days == "30" || days == "1825", "Selector days must be 30 or 1825");
+        return {mode, days};
+    }
 } // namespace
 
 int main(int argc, char** argv) {
     try {
-        REQUIRE(argc == 1 || argc == 5, "usage: compounded_ois_audit_perf [--mode None|Lockout --days 30|1825]");
-        std::string mode, days;
-        if (argc == 5) {
-            REQUIRE(std::string(argv[1]) == "--mode" && std::string(argv[3]) == "--days", "Expected --mode MODE --days DAYS");
-            mode = argv[2];
-            days = argv[4];
-            REQUIRE(mode == "None" || mode == "Lockout", "Selector mode must be None or Lockout");
-            REQUIRE(days == "30" || days == "1825", "Selector days must be 30 or 1825");
-        }
+        const auto [mode, days] = ParseSelector(argc, argv);
         Dal::RegisterAll_::Init();
         Dal::Bench::PrintHeader();
         if (argc == 5) {
