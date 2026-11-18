@@ -8,7 +8,7 @@ from pathlib import Path
 import dal
 import pytest
 
-from test_quote_risk import _run_with_quote_risk_gil_heartbeat
+from test_quote_risk import _run_with_gil_mutation, _run_with_quote_risk_gil_heartbeat
 
 
 def joint_inputs(*, layered=False, mode=None, inverse=True, bump=None, strict=False):
@@ -243,6 +243,39 @@ def test_joint_factory_releases_gil_and_reports_default_unavailability():
     assert unavailable.reason == "QUOTE_RISK_INVERSE_NOT_REQUESTED"  # nosec B101
     with pytest.raises(TypeError):
         dal.BuildJointMultiCurveQuoteRiskProvenance(inputs[0], inputs[2], inputs[1], market, inputs[4])
+
+
+@pytest.mark.parametrize("changed", ["spec", "options"])
+@pytest.mark.parametrize("operation", ["calibrate", "provenance"])
+def test_joint_factory_snapshots_mutable_inputs_before_releasing_gil(changed, operation):
+    inputs = joint_inputs()
+    spec, options, baseline, *_ = inputs
+    baseline_provenance = provenance_from(inputs) if operation == "provenance" else None
+
+    def mutate():
+        if changed == "spec":
+            spec.curves = []
+        else:
+            options.compute_jacobian_at_solution = False
+            options.compute_eff_jacobian_inverse = False
+
+    enable = (dal._dal._CurveCalibrationGilBarrier_EnableForTesting if operation == "calibrate"
+              else dal._dal._QuoteRiskGilBarrier_EnableForTesting)
+    result = _run_with_gil_mutation(
+        lambda: (dal.CalibrateJointMultiCurveBundle(spec, options) if operation == "calibrate"
+                 else provenance_from(inputs)), mutate, enable,
+    )
+    if operation == "provenance":
+        assert result.available == baseline_provenance.available
+        assert result.reason == baseline_provenance.reason
+        assert result.axis.fingerprint == baseline_provenance.axis.fingerprint
+        assert result.state.fingerprint == baseline_provenance.state.fingerprint
+        return
+    assert result.converged
+    assert result.jacobian_mode_used == baseline.jacobian_mode_used
+    assert result.eff_jacobian_inverse_availability == baseline.eff_jacobian_inverse_availability
+    assert result.jacobian_at_solution.to_rows() == baseline.jacobian_at_solution.to_rows()
+    assert result.eff_jacobian_inverse.to_rows() == baseline.eff_jacobian_inverse.to_rows()
 
 
 def test_joint_cpp_python_excel_reference_parity():

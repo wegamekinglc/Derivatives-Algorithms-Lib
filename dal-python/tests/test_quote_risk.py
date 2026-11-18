@@ -116,6 +116,64 @@ def _run_with_quote_risk_gil_heartbeat(operation, *, barrier=None):
     return result
 
 
+def _run_with_gil_mutation(operation, mutation, barrier):
+    import sys
+    import threading
+
+    ready, started, mutated = threading.Event(), threading.Event(), threading.Event()
+    errors = []
+
+    def mutate():
+        ready.set()
+        try:
+            assert started.wait(5.)
+            mutation()
+            mutated.set()
+        except BaseException as error:
+            errors.append(error)
+
+    previous = sys.getswitchinterval()
+    sys.setswitchinterval(1.)
+    worker = threading.Thread(target=mutate)
+    worker.start()
+    try:
+        assert ready.wait(5.)
+        barrier(250)
+        started.set()
+        result = operation()
+        assert mutated.is_set()
+    finally:
+        started.set()
+        sys.setswitchinterval(previous)
+        worker.join(5.)
+    assert not worker.is_alive()
+    if errors:
+        raise errors[0]
+    return result
+
+
+@pytest.mark.parametrize("changed", ["options", "result_matrix"])
+def test_single_provenance_snapshots_mutable_inputs(changed):
+    spec, options, calibrated, _, market, config, baseline, _ = _single_quote_risk_inputs()
+
+    def mutate():
+        if changed == "options":
+            options.compute_eff_jacobian_inverse = False
+        else:
+            calibrated.diagnostics_.eff_jacobian_inverse[0, 0] = 0.
+
+    result = _run_with_gil_mutation(
+        lambda: dal.BuildSingleCurveQuoteRiskProvenance(
+            spec=spec, result=calibrated, options=options, bound_market=market, config=config,
+        ), mutate, dal._dal._QuoteRiskGilBarrier_EnableForTesting,
+    )
+    assert result.available == baseline.available
+    assert result.reason == baseline.reason
+    assert result.effective_inverse.to_rows() == baseline.effective_inverse.to_rows()
+    assert result.axis.fingerprint == baseline.axis.fingerprint
+    assert result.state.fingerprint == baseline.state.fingerprint
+
+
 def test_quote_risk_factories_and_aggregate_are_keyword_only():
     signatures = {
         "BuildSingleCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),

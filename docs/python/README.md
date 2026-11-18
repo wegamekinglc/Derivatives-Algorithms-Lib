@@ -945,6 +945,11 @@ multi-curve calibration, or lower-level solver settings. Python enum names are:
 - `CurveJacobianMode`: `ANALYTIC`, `BUMPED`; and
 - `LogDfScheme`: `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`.
 
+Calibration and quote-risk provenance calls snapshot Python-mutable specs,
+options and exposed result matrices while holding the GIL, then release it for
+native work. Concurrent edits affect later calls. Python read-only specs and
+immutable instrument/curve handles remain shared.
+
 `ZERO_RATE` is supported by `CalibrateSingleCurve` and `dal.calibrate_curve`. Supply only
 strictly-future knots; the anchor is internal and contributes no solver or Jacobian
 column. The scalar `initialGuess_` is a decimal continuously compounded zero rate.
