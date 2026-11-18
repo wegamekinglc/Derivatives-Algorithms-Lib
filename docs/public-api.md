@@ -232,6 +232,9 @@ Neither interface adds local volatility. See the
 
 ### Sobol normal-draw policy
 
+Constructors and getters follow the shared [RNG input domains and exhaustion
+contract](methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion).
+
 The public constructor is:
 
 ```cpp

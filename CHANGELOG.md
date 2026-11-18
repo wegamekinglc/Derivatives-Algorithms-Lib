@@ -22,6 +22,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   accept legacy timestamps and reject duplicate fixing keys; old readers cannot
   read the new time objects. Whole-second display rounds and clamps at day end,
   while existing fingerprint domains retain their frozen legacy time bytes.
+- RNG constructors validate numeric conversions before allocation. Sobol keeps
+  its 32-bit address domain and reports exhaustion before changing state or
+  output; valid seed domains and streams remain unchanged. See the
+  [sampling contract](docs/methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion).
 - Market-grid local-volatility core `Init` now checks the complete request frozen
   by `Allocate` and reports structured preparation errors without changing valid
   prepared state. Independent equal copies and correct retries are accepted.

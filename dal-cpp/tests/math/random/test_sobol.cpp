@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
@@ -13,8 +14,73 @@
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/storage/json.hpp>
+#include <dal/script/simulation.hpp>
 
 using namespace Dal;
+
+TEST(RandomTest, TestSobolExhaustionAndInvalidSeekPreserveState) {
+    const size_t maximum = std::numeric_limits<uint32_t>::max();
+    for (bool shifted : {false, true})
+        for (int dimension : {0, 1}) {
+            auto sequence = shifted ? NewDigitallyShiftedSobol(dimension, maximum - 1, UINT64_MAX) : NewSobol(dimension, maximum - 1);
+            Vector_<> last;
+            sequence->FillUniform(&last);
+            if (!shifted && dimension == 1)
+                ASSERT_DOUBLE_EQ(last[0], std::ldexp(1., -32));
+            auto exhaustedClone = sequence->Clone();
+            for (auto* exhausted : {sequence.get(), dynamic_cast<SequenceSet_*>(exhaustedClone.get())}) {
+                Vector_<> output{123., 456.};
+                try {
+                    exhausted->FillNormal(&output);
+                    FAIL() << "Sobol exhaustion accepted";
+                } catch (const Exception_& error) {
+                    ASSERT_NE(String_(error.what()).find("RandomSequenceExhausted"), String_::npos);
+                }
+                ASSERT_EQ(output, (Vector_<>{123., 456.}));
+                ASSERT_THROW(exhausted->FillUniform(&output), Exception_);
+                ASSERT_EQ(output, (Vector_<>{123., 456.}));
+                exhausted->SkipTo(maximum - 1);
+                exhausted->FillUniform(&output);
+                ASSERT_EQ(output, last);
+                if (std::numeric_limits<size_t>::max() > maximum) {
+                    exhausted->SkipTo(7);
+                    auto reference = exhausted->Clone();
+                    ASSERT_THROW(exhausted->SkipTo(maximum + size_t{1}), Exception_);
+                    ASSERT_THROW(exhausted->SkipNormalTo(maximum + size_t{1}), Exception_);
+                    Vector_<> expected;
+                    reference->FillUniform(&expected);
+                    exhausted->FillUniform(&output);
+                    ASSERT_EQ(output, expected);
+                }
+            }
+            ASSERT_NO_THROW(NewSobol(dimension, maximum));
+        }
+    if (std::numeric_limits<size_t>::max() > maximum) {
+        ASSERT_THROW(NewSobol(1, maximum + size_t{1}), Exception_);
+        ASSERT_THROW(NewDigitallyShiftedSobol(1, maximum + size_t{1}, 0), Exception_);
+    }
+}
+
+TEST(RandomTest, TestSobolWrapperNumericBoundsAndArchiveCompatibility) {
+    for (const auto& [position, dimension] : Vector_<std::pair<double, double>>{
+             {.5, 1.}, {-1., 1.}, {4294967296., 1.}, {1e100, 1.},
+             {std::numeric_limits<double>::quiet_NaN(), 1.}, {std::numeric_limits<double>::infinity(), 1.},
+             {0., -.5}, {0., -1.}, {0., .5}, {0., 21201.}, {0., 1e100}})
+        ASSERT_THROW(SobolRSG_("label", position, dimension), Exception_);
+    ASSERT_THROW(NewSobol(-1, 0), Exception_);
+    ASSERT_THROW(NewSobol(21201, 0), Exception_);
+    ASSERT_EQ(Script::CreateRNG("sobol", 0, false), nullptr);
+    ASSERT_THROW(Script::CreateRNG("sobol", std::numeric_limits<size_t>::max(), false), Exception_);
+    ASSERT_EQ(NewSobol(21200, 0)->NDim(), 21200U);
+    const SobolRSG_ original("label", 0., 1., true, true);
+    const auto copy = handle_cast<SobolRSG_>(JSON::ReadString(JSON::WriteString(original), false));
+    Vector_<> expected, actual;
+    original.FillNormal(&expected);
+    copy->FillNormal(&actual);
+    ASSERT_EQ(actual, expected);
+    ASSERT_THROW(JSON::ReadString(R"({"~type":"SobolRSG_v1","name":"label","i_path":-1,"n_dim":1,"precise":false,"polish":false})", false), Exception_);
+}
 
 TEST(RandomTest, TestNewSobol) {
     int dim = 443;

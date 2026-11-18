@@ -73,9 +73,7 @@ namespace Dal {
         bool precise_;
 
     public:
-        PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = true)
-            : Storable_("PseudoRSG", name), rsg_(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise)), seed_(seed),
-              ndim_(ndim), precise_(precise) {}
+        PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = true);
         void Write(Archive::Store_& dst) const override;
         void FillUniform(Vector_<>* deviates) const { rsg_->FillUniform(deviates); }
         void FillNormal(Vector_<>* deviates) const { rsg_->FillNormal(deviates); }

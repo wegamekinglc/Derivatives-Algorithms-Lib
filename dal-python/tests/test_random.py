@@ -4,6 +4,29 @@ import dal
 import pytest
 
 
+@pytest.mark.parametrize("seed", [0, -1, -(2 ** 31), 2 ** 31 - 1])
+def test_pseudo_seed_domain_and_zero_dimension(seed):
+    generator = dal.PseudoRSG_New(seed, 0)
+    assert dal.PseudoRSG_Get_Uniform(generator, 2).to_rows() == [[], []]
+
+
+@pytest.mark.parametrize("factory", [dal.PseudoRSG_New, dal.SobolRSG_New])
+def test_random_factory_preserves_integer_binding_contract(factory):
+    for value in (float("nan"), float("inf"), -float("inf"), .5, 1e100, 2 ** 31):
+        with pytest.raises(TypeError):
+            factory(value, 1)
+    with pytest.raises(RuntimeError, match="InvalidRandomInput.*n_dim"):
+        factory(0, -1)
+
+
+def test_sobol_public_domain_and_zero_dimension():
+    with pytest.raises(RuntimeError, match="InvalidRandomInput.*i_path"):
+        dal.SobolRSG_New(-1)
+    with pytest.raises(RuntimeError, match="InvalidRandomInput.*n_dim"):
+        dal.SobolRSG_New(0, 21201)
+    assert dal.SobolRSG_Get_Normal(dal.SobolRSG_New(2 ** 31 - 1, 0), 2).to_rows() == [[], []]
+
+
 @pytest.mark.parametrize("getter", [dal.PseudoRSG_Get_Uniform, dal.PseudoRSG_Get_Normal,
                                     dal.SobolRSG_Get_Uniform, dal.SobolRSG_Get_Normal])
 def test_random_getter_rejects_none(getter):

@@ -8,6 +8,11 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+`PSEUDORSG.NEW` and `SOBOLRSG.NEW` check numeric inputs before conversion and
+publish a handle only after successful construction. See the shared
+[RNG input domains and exhaustion contract](../methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion)
+for legal seeds, zero dimensions, path positions and failure behavior.
+
 ## Explicit compounded OIS
 
 The [calling recipe](../ccy-curves/compounded-ois.md#excel-calling-recipe)

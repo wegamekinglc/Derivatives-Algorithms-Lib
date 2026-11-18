@@ -51,6 +51,9 @@ valuation. `EvaluationDate_Get` / `EvaluationDate_Set` also release it before
 native synchronization. A setter waits for an in-progress valuation; a getter
 can read the stable current date while valuation runs.
 
+The shared [RNG input domains and exhaustion contract](../methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion)
+defines seed, dimension and path ranges and Python/native error types.
+
 For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
 
 ```python

@@ -15,8 +15,35 @@
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/storage/json.hpp>
 
 using namespace Dal;
+
+TEST(PseudoRandomTest, TestWrapperRejectsInvalidNumericInputs) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    for (const auto& row : Vector_<std::pair<double, double>>{
+             {.5, 1.}, {nan, 1.}, {inf, 1.}, {-inf, 1.}, {1e100, 1.},
+             {static_cast<double>(std::numeric_limits<int>::max()) + 1., 1.},
+             {static_cast<double>(std::numeric_limits<int>::min()) - 1., 1.},
+             {1., -.5}, {1., -1.}, {1., .5}, {1., nan}, {1., inf}, {1., 1e100},
+             {1., std::ldexp(1., std::numeric_limits<size_t>::digits)}}) {
+        try {
+            PseudoRSG_("IRN", row.first, row.second);
+            FAIL() << "invalid numeric RNG input accepted";
+        } catch (const Exception_& error) {
+            const String_ message(error.what());
+            ASSERT_NE(message.find("InvalidRandomInput"), String_::npos);
+            ASSERT_NE(message.find(row.second == 1. ? "/seed" : "/n_dim"), String_::npos);
+        }
+    }
+    ASSERT_THROW(JSON::ReadString(R"({"~type":"PseudoRSG_v1","name":"IRN","seed":0.5,"n_dim":1,"precise":true})", false), Exception_);
+    const PseudoRSG_ original("MRG32", -1., 0.);
+    const auto copy = handle_cast<PseudoRSG_>(JSON::ReadString(JSON::WriteString(original), false));
+    Vector_<> output;
+    copy->FillUniform(&output);
+    ASSERT_TRUE(output.empty());
+}
 
 namespace {
     struct LegacyIRN_ {

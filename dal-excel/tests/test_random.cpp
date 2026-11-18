@@ -6,6 +6,33 @@
 
 using namespace Dal;
 
+TEST(ExcelRandomTest, TestFactoriesRejectInvalidNumbersWithoutReplacingHandles) {
+    Handle_<PseudoRSG_> pseudo;
+    Handle_<SobolRSG_> sobol;
+    PseudoRSG_New("IRN", -1., 1., &pseudo);
+    SobolRSG_New("label", 0., 1., false, false, &sobol);
+    const auto originalPseudo = pseudo;
+    const auto originalSobol = sobol;
+    for (double value : {.5, -1., std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+                         -std::numeric_limits<double>::infinity(), 1e100,
+                         static_cast<double>(std::numeric_limits<int>::max()) + 1.}) {
+        if (value != -1.) {
+            ASSERT_THROW(PseudoRSG_New("IRN", value, 1., &pseudo), Exception_);
+            ASSERT_EQ(pseudo.get(), originalPseudo.get());
+        }
+        ASSERT_THROW(PseudoRSG_New("IRN", 1., value, &pseudo), Exception_);
+        ASSERT_EQ(pseudo.get(), originalPseudo.get());
+        ASSERT_THROW(SobolRSG_New("label", value, 1., false, false, &sobol), Exception_);
+        ASSERT_EQ(sobol.get(), originalSobol.get());
+        ASSERT_THROW(SobolRSG_New("label", 0., value, false, false, &sobol), Exception_);
+        ASSERT_EQ(sobol.get(), originalSobol.get());
+    }
+    for (int seed : {0, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()})
+        ASSERT_NO_THROW(PseudoRSG_New("MRG32k32a", seed, 0., &pseudo));
+    ASSERT_NO_THROW(SobolRSG_New("label", std::numeric_limits<int>::max(), 0., true, true, &sobol));
+    ASSERT_THROW(SobolRSG_New("label", 0., 21201., false, false, &sobol), Exception_);
+}
+
 namespace {
     template <class T_> void AssertRandomGetterInputs(const Handle_<T_>& generator, void (*get)(const Handle_<T_>&, double, Matrix_<>*)) {
         Matrix_<> output(1, 1, 7.0);
