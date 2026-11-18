@@ -70,6 +70,14 @@ sufficiently smooth scalar function. `IsInBounds` returns true for every query;
 outside $[x_1, x_N]$ the kernel clamps to the nearest endpoint value (flat
 extrapolation via the `LowerBound` edge cases).
 
+`InterpLinearImplX<T_>` also accepts an active query. Within a segment its query
+derivative is the segment slope, and its ordinate derivatives are the linear
+weights. Segment selection uses the passive query value. Exact knots (including
+repeated knots) return the first matching ordinate, with zero query derivative;
+flat extrapolation also has zero query derivative. This branch convention does
+not assert differentiability at a knot. The separate passive weight geometry
+above differentiates only the ordinates.
+
 Factory: `Interp::NewLinear(name, x, f)` (`dal-cpp/dal/math/interp/interplinear.hpp`).
 
 ## Log-Linear

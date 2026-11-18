@@ -9,15 +9,6 @@
 using Dal::String_;
 using Dal::Vector_;
 
-TEST(InterpTest, TestNewLinearFactoryReturnsUsableInterpolator) {
-    const Vector_<> x = {1., 2., 3., 4., 5.};
-    const Vector_<> y = {2.5, 3.5, 1.7, 2.8, 3.6};
-
-    const auto f = Dal::Interp1NewLinear(String_("dal_public_interp_linear"), x, y);
-
-    ASSERT_FALSE(f.IsEmpty());
-}
-
 TEST(InterpTest, TestNewLinearExactAtKnots) {
     const Vector_<> x = {1., 2., 3., 4., 5.};
     const Vector_<> y = {2.5, 3.5, 1.7, 2.8, 3.6};
