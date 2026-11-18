@@ -1,6 +1,12 @@
 import copy
+import hashlib
+import json
+import os
 import pickle
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 import dal
@@ -18,6 +24,17 @@ def grid():
 
 def settings(**kwargs):
     return dal.MarketIvLocalVolModelSettings_("EQ[A]", "USD", "W_EQ", 1.25, **kwargs)
+
+
+def request_identity_golden(model_identity, noon):
+    path = Path(__file__).resolve().parents[2] / "dal-cpp/test-support/marketivlocalvolrequestgolden.json"
+    fixture = json.loads(path.read_text())["noon" if noon else "empty"]
+    canonical = fixture["canonical"]
+    assert "sha256:" + hashlib.sha256(canonical.encode()).hexdigest() == fixture["fingerprint"]
+    request = json.loads(canonical)
+    request["model_identity"] = model_identity
+    canonical = json.dumps(request, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def test_owning_factory_and_detached_reports():
@@ -90,6 +107,37 @@ def test_passive_pricing_inspection_and_capability_errors():
 def test_strict_settings(key, value, error):
     with pytest.raises(error, match="InvalidMarketIvLocalVolRequest"):
         settings(**{key: value})
+
+
+def test_request_identity_v2_matches_native_noon_golden():
+    code = """
+import dal
+from test_market_iv_local_vol import grid, settings, request_identity_golden
+
+today = dal.Date_(2026, 11, 16)
+model = dal.MarketIvLocalVolModelData_New("market", grid(), settings())
+product = dal.Product_New([today.AddDays(365)], ["pay PAYS 1"])
+snapshot = dal.MarketFixingSnapshot_New({"EQ[A]": {dal.DateTime_(today.AddDays(-1), 12): 99.}})
+for fixings in (None, snapshot):
+    valuation = dal.ScriptValuationSettings_(evaluation_date=today, fixings=fixings)
+    report = dal.MarketIvLocalVolModelData_Get_Execution(product, model, valuation=valuation)
+    assert report["workers"] == 1
+    assert report["request_identity"] == request_identity_golden(model.model_identity, fixings is not None)
+    assert report["schema"] == "dal.market-iv-local-vol-execution/1"
+    assert len(report) == 23
+    assert report["source_identity"] == model.source_identity
+    assert report["model_identity"] == model.model_identity
+    pv = dal.MonteCarlo_ValueWithSettings(product, model, 16, valuation=valuation)["PV"]
+    assert abs(pv - 0.98) <= 2e-12, pv
+"""
+    package = str(Path(dal.__file__).resolve().parent.parent)
+    tests = str(Path(__file__).resolve().parent)
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "DAL_NUM_THREADS": "1", "PYTHONPATH": os.pathsep.join((package, tests))},
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_factory_releases_gil():

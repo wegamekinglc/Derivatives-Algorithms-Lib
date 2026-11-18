@@ -16,6 +16,9 @@ binding-specific examples live in [Python](../../python/README.md) and
 4. [Special techniques](special-techniques.md) — randomized QMC replicates,
    variance and sensitivity interpretation, held-out selection, and
    performance choices.
+5. [Market-grid local-volatility qualification](market-iv-local-vol-validation.md)
+   — independent Black/smile references, canonical grids, error/SE gates,
+   Brownian coordinate allocation and bounded evidence reuse.
 
 The [models index](../../models/README.md) covers Black-Scholes, Dupire surface
 calibration, correlated equity Black-Scholes, and hybrid simulation. The

@@ -56,6 +56,43 @@ def test_invalid_results_cannot_be_reported_as_timings():
         measure(case, samples=1, warmups=0)
 
 
+@pytest.mark.parametrize(
+    "prefix,names",
+    [
+        (
+            "market_iv_local_vol.",
+            {
+                "execution_fixings_0",
+                "execution_fixings_1",
+                "execution_fixings_365",
+                "fixing_input_365",
+                "carry_output_3_rows",
+                "carry_output_258_rows",
+            },
+        ),
+        (
+            "compounded_ois.audit.",
+            {
+                "None_D30.prepared_22",
+                "None_D30.evaluated_26",
+                "Lockout_D1825.prepared_22",
+                "Lockout_D1825.evaluated_26",
+            },
+        ),
+    ],
+)
+def test_focused_audit_cases_validate_detached_native_results(prefix, names):
+    cases = [case for case in build_cases() if case.name.startswith(prefix)]
+    assert {case.name.removeprefix(prefix) for case in cases} == names
+    for case in cases:
+        work = case.prepare()
+        first = work.run()
+        work.validate(first)
+        if isinstance(first, (list, dict)):
+            first.clear()
+        work.validate(work.run())
+
+
 def test_invalid_measured_sample_cannot_follow_a_passing_preflight():
     outputs = iter([7, 0])
 
@@ -230,7 +267,7 @@ def test_comparison_gate_needs_no_third_party_packages(monkeypatch):
 
 def test_mc_and_calibration_comparisons_are_gated_without_removing_cases():
     inventory = build_cases()
-    assert len(inventory) == 102
+    assert len(inventory) == 112
     assert len([c for c in inventory if c.name.startswith("comparison.")]) == 26
 
 

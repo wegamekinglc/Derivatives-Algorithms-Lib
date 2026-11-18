@@ -117,13 +117,39 @@ copies and retain the existing fit/grid envelopes; these ledgers exclude dynamic
 strings and are not process-memory limits.
 
 The source records JCS/SHA-256 identities for the full market/fit/grid content
-and resolved model settings. Its carry uses endpoint differences of
+and resolved model settings. Source admission requires matching request/surface
+axes, successful spot-major nodes and identical node/surface volatilities,
+with a certified successful snapshot. `SUCCESS_WITH_WARNINGS` retains its fit
+warnings. A standalone grid archive does not supply this provenance.
+
+The `dal.market-iv-local-vol-source/1` identity covers the full ordered quotes,
+market/date/F/D, fit settings and selected fitted state/certificate, grid request,
+volatilities and interpolation policy. The `dal.market-iv-local-vol-model/1`
+identity adds normalized model settings, budgets, time/step/carry/timeline
+policies and capabilities. Display names, addresses, allocator capacities and
+execution timings are excluded. Equal complete content has equal identity;
+refits or changed carry, grid or settings require new preparation. Canonical
+objects use sorted JCS keys, arrays retain order, signed zero is zero and
+missing optionals are null. Count/budget fields use decimal strings internally
+to preserve integers beyond binary64's exact range. Public getters retain
+their integer types. Stored data remains authoritative; hashes do not validate
+untrusted input.
+
+Carry uses endpoint differences of
 `L=log(F/S0)` and `H=log(D)`: `R=H(a)-H(b)` and
 `Q=R-(L(b)-L(a))`. Knot derivatives use the right segment; the tail keeps the
 last log slope. An internal passive equity component prepares `R-Q` and reuses
 the existing local-vol evolution with zero scalar dividend. Its timeline knots
 include both carry terms and surface times. Domestic discounting uses the same
 `H` with `HybridLogDfRateData_` and `LOG_LINEAR`.
+
+For an interval `[a,b]`, the log-spot drift is
+`L(b)-L(a)-.5*sigma(a,S_a)^2*(b-a)`, with diffusion
+`sigma(a,S_a)*sqrt(b-a)*Z`. Thus `E[S_b|S_a]=S_a*F(b)/F(a)`, `N(t)=1/D(t)`
+and `DF(t,u)=D(u)/D(t)`. The normalized asset `S_t/F(t)` has unit mean;
+with nonzero dividend carry, `D(t)*S_t` itself is not a martingale. Negative
+rates/yields, D>1 and nonmonotone positive F/D are allowed when representable.
+`FLAT_CARRY` remains an explicit market mode rather than an inferred special case.
 
 ## Owning market model in core C++
 
@@ -146,12 +172,39 @@ The wrapper keeps sample definitions alive, shares immutable source data and
 prepares private delegate state when cloned. It merges carry, surface, product
 and discount-maturity anchors and simulates only to the request's required
 time. All requested event, observation, payment and DF maturity times must fit
-within `horizon_`. `CreateModel<AAD::Number_>`, `enableAad_`, native/quote risk
+within `horizon_`, and DF maturities must not precede their sample times.
+Anchors are sorted and deduplicated by exact numeric value; each interval is
+subdivided using `ceil(interval_length/maxStep_)` with the original endpoints
+retained and representability checked. No tolerance merges nearby knots.
+The actual step count and `SimDim()` include these unions and subdivisions.
+An all-today request without future maturities may have zero steps.
+`CreateModel<AAD::Number_>`, `enableAad_`, native/quote risk
 and weighted/Jacobian replay are rejected before sampling or tape recording;
 curvature and segmented risk are unavailable. EXERCISE is rejected before
 training or sampling. The new model rejects archives; a standalone grid archive
 cannot restore its source. Existing Hybrid native AAD and archives retain their
 own contracts.
+
+Direct `AAD::MarketIvLocalVolModel_` callers must pass `Init` the complete values
+frozen by the most recent successful `Allocate`: timeline, numeraire flags,
+ordered index names, discount maturities, Libor definitions and nested forward
+maturities. Independent copies are accepted. Order, duplicates and empty rows
+matter; numbers compare exactly with signed zeros equivalent, and strings use
+DAL's existing case-insensitive value comparison. A changed request requires
+another `Allocate`. A mismatch raises `InvalidMarketIvLocalVolRequest` at
+`Prepare`, identifying the first differing field. Failed `Init` preserves the
+entering state: an initialized model retains its original paths and execution
+report; a model that was only allocated still requires a successful `Init`.
+Retrying with the original values is supported.
+
+Calling `Init` before `Allocate` raises the same code/stage at
+`/product/definitions`, with `expected=successful Allocate before Init` and
+`actual=unallocated`. Length mismatches name the collection; content mismatches
+name the first leaf, such as `/product/definitions/0/discount_maturities/0`.
+Expected/actual values are short field values or lengths. The current model
+accepts no Libor or forward requests at Allocate, so Init cannot add them,
+including an empty nested forward row. Successful Init publishes initialization
+only after all comparisons; it does not repeat planning or delegate preparation.
 
 `Configuration()`, `Summary()`, `CarryTerms()`, `Warnings()` and
 `ConstructionExecution()` return detached records. Warnings retain fit
@@ -177,6 +230,11 @@ The workspace ledger includes vector metadata, mappings, prepared columns,
 carry, numeraires and discounts; strings, payoff evaluators and RNG internals
 are excluded. It is not an RSS limit. Preparation query counts describe the
 fixed curve evaluations; path generation makes no market-curve queries.
+The report separates shared preparation from worker-private normal/path storage,
+planned admission from retained capacity, and preparation peaks from steady
+storage. Prepared volatility columns have one column per internal left endpoint.
+Counts, capacities, clones and simultaneous old/new preparation use checked
+arithmetic and are admitted before allocation; zero is a limit, never infinity.
 
 The public facade in `dal-public/src/marketivlocalvol.hpp` exposes
 `NewMarketIvLocalVolModelData` and `Dal::InspectMarketIvLocalVolExecution`
@@ -184,13 +242,54 @@ with the same settings and records. Convert the factory result explicitly to
 `Handle_<ModelData_>` for `ValueByMonteCarlo`. The model owns its source;
 passing a standalone surface or a second market is not supported.
 
+### Request identity and execution reports
+
+The execution report uses `dal.market-iv-local-vol-execution/1` with 23 fields.
+Their fixed order is `schema`, `source_identity`, `model_identity`,
+`request_identity`, `evaluation_date`, `requested_max_step`, `resolved_max_step`,
+`required_time`, `carry_knots`, `grid_time_knots`, `anchor_count`,
+`internal_steps`, `simulation_dimension`, `workers`, `shared_numeric_bytes`,
+`per_worker_numeric_bytes`, `planned_numeric_payload_bytes`,
+`numeric_payload_bytes`, `planned_workspace_bytes`, `peak_workspace_bytes`,
+`prepared_columns`, `prepared_market_queries`, `per_path_market_queries`.
+`resolved_max_step` is the largest actual step, zero when there are no steps;
+knot counts cover distinct times in `(0,required_time]`. Inspection prepares a
+fresh request and includes its hashing cost; it does not read a last-valuation
+cache. Existing script diagnostic schemas remain separate.
+
+Its `request_identity` is a `sha256:<64 lower hex>` fingerprint in the
+`dal.market-iv-local-vol-request/2` domain, including requests without fixings.
+It includes the complete supplied fixing snapshot, even unused history. Each
+record is encoded as `[name, ISO date, binary64 day fraction, value]` in snapshot
+name/time order. Fractions use the existing JCS shortest round-trip number
+encoding, with signed zeros equivalent. This distinguishes subsecond and
+adjacent representable timestamps. Product/preparation, model identity,
+resolved simulation settings and worker count also enter the request identity.
+
+Source and model identities retain their own version domains. Compare request
+fingerprints only within the same schema and with identical native inputs.
+Source identities include fitted values and local-volatility grid nodes; native
+values that differ across numerical-library or compiler builds can therefore
+produce different model and request fingerprints.
+C++, Python and Excel expose the same core identity. Python's DateTime
+constructor accepts whole seconds; Excel serial conversion can round a day
+fraction before it reaches core. Exactly representable times such as noon allow
+direct cross-interface comparison. The report remains detached from the model.
+Older `/1` request hashes and numerical manifests retain their original
+producers. A domain change changes every request hash, including empty fixing
+snapshots; it does not itself establish a price or path change, or a new numerical
+execution. No cross-version fingerprint, binary ABI or pickle compatibility is
+promised; C++ consumers and bindings require matching rebuilds.
+
 [Python](../python/README.md#market-grid-local-volatility-monte-carlo) and
 [Excel](../excel/README.md#market-grid-local-volatility-monte-carlo) expose
 the same factories, passive valuation and detached diagnostics. Copying these
 handles preserves identity; model and typed settings pickle/archive are
 unsupported. The independent Black/smile/grid/MC qualification applies to its
-frozen fixtures and sampling configurations; fast interface checks do not extend
-that numerical scope. The [core example](../../dal-cpp/examples/models/market_iv_local_vol/)
+frozen fixtures and sampling configurations; the
+[qualification method](../methodology/monte-carlo/market-iv-local-vol-validation.md)
+defines the separate gates and evidence reuse. Fast interface checks do not
+extend that numerical scope. The [core example](../../dal-cpp/examples/models/market_iv_local_vol/)
 and [public example](../../dal-public/examples/market_iv_local_vol/) print fit
 residuals, identities and explicit smoke tolerances. The
 [focused benchmark](../../dal-cpp/benchmarks/script_mc_perf/README.md#market-grid-local-volatility)

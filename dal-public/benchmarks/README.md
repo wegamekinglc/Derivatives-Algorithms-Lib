@@ -10,6 +10,8 @@ From the repository root:
 cmake --preset core-dev -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_BENCHMARKS=ON
 cmake --build build/core-dev --target compounded_ois_audit_perf --parallel
 ctest --test-dir build/core-dev -R '^compounded_ois_audit_perf$' --output-on-failure
+DAL_NUM_THREADS=1 build/core-dev/dal-public/benchmarks/compounded_ois_audit_perf/compounded_ois_audit_perf --mode None --days 30
+DAL_NUM_THREADS=1 build/core-dev/dal-public/benchmarks/compounded_ois_audit_perf/compounded_ois_audit_perf --mode Lockout --days 1825
 ```
 
 The audit workload uses D=30/365/1825, all four `/2` modes, one native
@@ -24,6 +26,10 @@ include allocation and destruction. They retain identical 22-column prefixes
 and the documented zero-based row/statement and one-based source row.
 These Cell conversions do not time Python-list or Excel-OPER marshaling,
 native XLL registration or Office COM/spill.
+The no-argument smoke retains all twelve inputs. Optional selectors accept only
+`--mode None|Lockout --days 30|1825`; representative focused comparisons use
+None-D30 and Lockout-D1825. Preparation, table-prefix and coordinate preflights
+remain active for the selected input.
 
 Each process keeps three warmups and ten samples per case. The executable
 prints per-process median/min/max; comparisons require the repository's

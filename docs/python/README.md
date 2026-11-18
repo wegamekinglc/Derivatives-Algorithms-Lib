@@ -528,6 +528,8 @@ detached dicts; `carry_terms` and `warnings` return lists of dicts.
 Carry rows include the origin, every market term and the horizon; a fractional-day
 horizon has `date=None`. Factory and execution preparation release the GIL;
 getters never expose native arrays or a mutable last-request report.
+The execution report's `/2` request identity includes the complete fixing
+snapshot. See [identity encoding and cross-interface comparison](../models/local-volatility.md#request-identity-and-execution-reports).
 
 Pass the snapshot's evaluation date explicitly. The single declared EQ and
 domestic currency, horizon and passive-only capability checks apply to normal

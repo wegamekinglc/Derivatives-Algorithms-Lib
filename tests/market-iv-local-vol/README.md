@@ -2,7 +2,7 @@
 
 DAL-542 / S3 has **480/480 PASS**: 160 reused F1 rows and 320 new F2 rows.
 The numerical execution used source `39338e26de8ab11ca1e3a9e24e0630d215e38421`
-and control `.codex/artifacts/specs/dal-542-n5-resolution-a.md` A/3,
+and the frozen A/3 control,
 SHA-256 `acf410567786916601584b71a954991b0a2c81f180aab734cd4be0091ed96ec7`.
 The original 320-row history remains 184 PASS / 76 FAIL /
 60 REFERENCE_UNAVAILABLE. Publication cleanup preserves the completed results;
@@ -13,6 +13,12 @@ binary/build identities, references and the cumulative ledger are attached to
 DAL-542 as `dal-542-a3-evidence.tar.xz`. Its sealed A/2 dependency is
 `dal-542-a2-evidence.tar.xz`. Old execution/recovery controllers and generated
 run snapshots are retained in those archives and Git history.
+
+The current [qualification method](../../docs/methodology/monte-carlo/market-iv-local-vol-validation.md)
+describes the gates, canonical grids, fixed Brownian coordinates and evidence
+reuse. Model admission and request `/2` compatibility are documented in the
+[model guide](../../docs/models/local-volatility.md#request-identity-and-execution-reports).
+These guides do not replace or rehash the executed control in the sealed evidence.
 
 Two families each used 16,777,216 fine fields, seed 1024, MRG32 Precise,
 16 blocks and no bridge. Both used the five fixed SE-only tiers. Final maximum

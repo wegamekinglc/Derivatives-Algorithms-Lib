@@ -4,12 +4,14 @@
 #include <iostream>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <dal/platform/platform.hpp>
 
 #include <dal/benchmarks/bench.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/model/factory.hpp>
+#include <dal/model/marketivlocalvolmodel.hpp>
 #include <dal/script/marketivlocalvol.hpp>
 #include <dal/script/simulation.hpp>
 
@@ -26,7 +28,7 @@ namespace {
         return std::chrono::duration<double, std::milli>(Clock_::now() - start).count();
     }
 
-    template <class F_> void Measure(const std::string& label, F_ action) {
+    template <class F_> int CalibratedLoops(F_ action) {
         int loops = 1;
         while (Milliseconds([&] {
                    for (int i = 0; i < loops; ++i)
@@ -34,8 +36,41 @@ namespace {
                }) < 10. &&
                loops < 16384)
             loops *= 2;
+        return loops;
+    }
+
+    template <class F_> void Measure(const std::string& label, F_ action) {
+        const int loops = CalibratedLoops(action);
         std::cout << "CALIBRATION case=" << label << " inner_loops=" << loops << " repeats=10\n";
         Bench::Print(Bench::Run(label, action, 1, 10, loops));
+    }
+
+    template <class F_> void MeasureSamples(const std::string& label, size_t dimension, F_ action) {
+        const int loops = CalibratedLoops(action);
+        action();
+        std::vector<int64_t> totals, perCall;
+        for (int repeat = 0; repeat < 10; ++repeat) {
+            const auto start = Clock_::now();
+            for (int i = 0; i < loops; ++i)
+                action();
+            const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock_::now() - start).count();
+            REQUIRE(ns > 0, "Nonpositive benchmark sample");
+            totals.push_back(ns);
+            perCall.push_back(ns / loops);
+        }
+        auto sorted = perCall;
+        std::sort(sorted.begin(), sorted.end());
+        Bench::Print({label, sorted[5], sorted.front(), sorted.back(), 10});
+        std::cout << "PROFILE_SAMPLES {\"case\":\"" << label << "\",\"inner_loops\":" << loops << ",\"dimension\":" << dimension;
+        const auto write = [](const char* name, const auto& values) {
+            std::cout << ",\"" << name << "\":[";
+            for (size_t i = 0; i < values.size(); ++i)
+                std::cout << (i ? "," : "") << values[i];
+            std::cout << ']';
+        };
+        write("samples_ns", totals);
+        write("per_iteration_ns", perCall);
+        std::cout << "}\n";
     }
 
     Script::ScriptProductData_ Asian() {
@@ -80,6 +115,155 @@ namespace {
                   << " per_worker_bytes=" << x.perWorkerNumericBytes_ << " payload=" << x.numericPayloadBytes_
                   << " payload_plan=" << x.plannedNumericPayloadBytes_ << " workspace_peak=" << x.peakWorkspaceBytes_
                   << " workspace_plan=" << x.plannedWorkspaceBytes_ << '\n';
+    }
+
+    void VerifyPath(const AAD::Scenario_<>& actual, const AAD::Scenario_<>& expected) {
+        REQUIRE(actual.size() == expected.size(), "Stage path size mismatch");
+        for (size_t i = 0; i < actual.size(); ++i)
+            REQUIRE(actual[i].spot_ == expected[i].spot_ && actual[i].numeraire_ == expected[i].numeraire_ &&
+                        actual[i].observations_ == expected[i].observations_ && actual[i].discounts_ == expected[i].discounts_,
+                    "Stage fixed-normal path mismatch");
+    }
+
+    class StorageAccount_ final : public Detail::OwnedBufferAccount_ {
+    public:
+        size_t bytes_ = 0, peak_ = 0;
+        void Reserve(size_t bytes) override {
+            bytes_ += bytes;
+            peak_ = std::max(peak_, bytes_);
+        }
+        void Release(size_t bytes) noexcept override {
+            if (bytes > bytes_)
+                std::terminate();
+            bytes_ -= bytes;
+        }
+    };
+
+    void StageResources(const MarketIvLocalVolModelData_& data, const Vector_<>& timeline, const Vector_<AAD::SampleDef_>& definitions) {
+        StorageAccount_ account;
+        const Detail::OwnedBufferScope_ ownership(&account);
+        size_t before = 0, after = 0, initAfter = 0, peak = 0, oldShared = 0;
+        MarketIvLocalVolExecution_ execution;
+        {
+            AAD::MarketIvLocalVolModel_ model(data);
+            model.Allocate(timeline, definitions);
+            model.Init(timeline, definitions);
+            before = account.bytes_;
+            oldShared = model.Execution().sharedNumericBytes_;
+            account.peak_ = before;
+            model.Allocate(timeline, definitions);
+            after = account.bytes_;
+            peak = account.peak_;
+            model.Init(timeline, definitions);
+            initAfter = account.bytes_;
+            execution = model.Execution();
+        }
+        REQUIRE(account.bytes_ == 0, "Stage resource cleanup retained tracked storage");
+        REQUIRE(before == after && after == initAfter && peak >= after, "Stage resource capacity changed");
+        std::cout << "STAGE_RESOURCE scope=tracked_buffer_storage before_bytes=" << before << " after_allocate_bytes=" << after
+                  << " peak_coexisting_bytes=" << peak << " old_shared_numeric_bytes=" << oldShared
+                  << " new_shared_numeric_bytes=" << execution.sharedNumericBytes_ << " init_after_bytes=" << initAfter
+                  << " after_cleanup_bytes=" << account.bytes_ << " workspace_peak=" << execution.peakWorkspaceBytes_
+                  << " heap_string_allocations=unmeasured\n";
+    }
+
+    void Stages(const Script::ScriptProductData_& product,
+                const Handle_<MarketIvLocalVolModelData_>& data,
+                const Script::ScriptValuationSettings_& valuation,
+                const Script::MonteCarloSettings_& simulation,
+                size_t paths) {
+        AAD::MarketIvLocalVolModel_ reference(*data), model(*data);
+        const auto prepared = Script::PrepareScript(product, &reference, valuation, simulation);
+        const auto timeline = prepared.TimeLine();
+        const auto definitions = prepared.DefLine();
+        model.Allocate(timeline, definitions);
+        model.Init(timeline, definitions);
+        REQUIRE(model.SimDim() == reference.SimDim(), "Stage simulation dimension mismatch");
+        const Vector_<> normals(model.SimDim(), .37);
+        AAD::Scenario_<> expected, actual;
+        AAD::AllocatePath(definitions, expected);
+        AAD::AllocatePath(definitions, actual);
+        AAD::InitializePath(expected);
+        AAD::InitializePath(actual);
+        reference.GeneratePath(normals, &expected);
+        model.GeneratePath(normals, &actual);
+        VerifyPath(actual, expected);
+        const double direct = Script::MCDoubleSimulation(prepared, &model, paths, "mrg32", false, true, true).aggregated_ / paths;
+        const double whole = Script::MCSimulation<double>(product, Handle_<ModelData_>(data), paths, valuation, simulation).aggregated_ / paths;
+        REQUIRE(std::fabs(direct - whole) <= 2e-12, "Stage prepared/whole price mismatch");
+        size_t numeraires = 0, indices = 0, discounts = 0, libors = 0, forwardRows = 0, forwards = 0;
+        for (const auto& definition : definitions) {
+            numeraires += definition.numeraire_;
+            indices += definition.indexNames_.size();
+            discounts += definition.discountMats_.size();
+            libors += definition.liborDefs_.size();
+            forwardRows += definition.forwardMats_.size();
+            for (const auto& row : definition.forwardMats_)
+                forwards += row.size();
+        }
+        std::cout << "STAGE_INPUT timeline=" << timeline.size() << " definitions=" << definitions.size() << " numeraires=" << numeraires
+                  << " index_names=" << indices << " discount_maturities=" << discounts << " libor_definitions=" << libors
+                  << " forward_rows=" << forwardRows << " forward_maturities=" << forwards << " dimension=" << model.SimDim()
+                  << " fixed_normals=verified prepared_price=" << direct << " whole_price=" << whole << '\n';
+        MeasureSamples("reallocate_only", model.SimDim(), [&] { model.Allocate(timeline, definitions); });
+        model.Init(timeline, definitions);
+        model.GeneratePath(normals, &actual);
+        VerifyPath(actual, expected);
+        const auto before = model.Execution();
+        MeasureSamples("init_frozen_values", model.SimDim(), [&] { model.Init(timeline, definitions); });
+        model.GeneratePath(normals, &actual);
+        VerifyPath(actual, expected);
+        const auto after = model.Execution();
+        REQUIRE(before.sharedNumericBytes_ == after.sharedNumericBytes_ && before.peakWorkspaceBytes_ == after.peakWorkspaceBytes_ &&
+                    before.preparedColumns_ == after.preparedColumns_ && before.preparedMarketQueries_ == after.preparedMarketQueries_,
+                "Init changed preparation ledger");
+        StageResources(*data, timeline, definitions);
+    }
+
+    Script::ScriptValuationSettings_ IdentityValuation(size_t count) {
+        Script::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = MarketIvExample::Today();
+        if (count) {
+            MarketFixingSnapshot_::values_t values;
+            for (size_t i = 1; i <= count; ++i)
+                values["EQ[A]"].emplace(DateTime_(MarketIvExample::Today().AddDays(-static_cast<int>(i)), .5), 99.);
+            valuation.fixings_.reset(new MarketFixingSnapshot_(values));
+        }
+        return valuation;
+    }
+
+    void Inspection(size_t history) {
+        const auto today = MarketIvExample::Today();
+        const auto expiry = today.AddDays(365);
+        const MarketIvMarket_ market(today, 100., {{expiry, 102., .98}});
+        const MarketIvFitRequest_ request{market, {{"atm", expiry, 102., OptionType_("CALL"), MarketIvQuoteType_("DECIMAL_IV"), .2}}, {}};
+        const auto fit = FitMarketIvSurface(request);
+        REQUIRE(fit.IsSuccess(), fit.Failure());
+        const auto grid = CalibrateMarketIvDupire(fit.Snapshot(), {{80., 100., 120.}, {.1, 1.}, {}});
+        REQUIRE(grid.IsSuccess(), grid.Failure());
+        const auto data = BuildMarketIvLocalVolModelData("market", grid, MarketIvExample::Settings());
+        const auto product = MarketIvExample::Product("ScriptProductData_", "pay PAYS 1");
+        Script::MonteCarloSettings_ simulation;
+        simulation.rsg_ = "mrg32";
+        const auto valuation = IdentityValuation(history);
+        const auto inspect = [&](const auto& settings) { return Script::InspectMarketIvLocalVolExecution(product, *data, settings, simulation); };
+        const auto execution = inspect(valuation);
+        REQUIRE(execution.schema_ == "dal.market-iv-local-vol-execution/1", "Inspection report schema");
+        REQUIRE(execution.requestIdentity_ == inspect(IdentityValuation(history)).requestIdentity_, "Independent fixing copy changed identity");
+        for (const size_t other : {0U, 1U, 365U})
+            if (other != history)
+                REQUIRE(execution.requestIdentity_ != inspect(IdentityValuation(other)).requestIdentity_, "History missing from identity");
+        const double pv = Script::MCSimulation<double>(product, Handle_<ModelData_>(data), 16, valuation, simulation).aggregated_ / 16.;
+        REQUIRE(std::fabs(pv - .98) <= 2e-12, "Inspection unit payment preflight");
+        std::cout << std::setprecision(17) << "MARKET_IV case=identity mode=inspection history_rows=" << history << " unit_payment=verified pv=" << pv
+                  << "\nsource=" << data->SourceIdentity() << "\nmodel=" << data->ModelIdentity() << "\nrequest=" << execution.requestIdentity_
+                  << '\n';
+        PrintExecution(execution);
+        MeasureSamples("inspection_fixings_" + std::to_string(history), execution.simulationDimension_, [&] {
+            const auto value = inspect(valuation);
+            Bench::DoNotOptimize(&value);
+        });
+        REQUIRE(execution.requestIdentity_ == inspect(valuation).requestIdentity_, "Inspection changed frozen state");
     }
 
     void FlatPair(const MarketIvDupireResult_& grid, const Handle_<MarketIvLocalVolModelData_>& data, size_t paths, bool oldFirst) {
@@ -168,6 +352,8 @@ namespace {
         std::cout << "FIRST_PREPARE diagnostic_ms=" << firstPrepare << '\n';
         if (name == "flat-pair" && mode == "steady") {
             FlatPair(grid, data, paths, std::getenv("DAL_MARKET_IV_OLD_FIRST") != nullptr);
+        } else if (mode == "stages") {
+            Stages(product, data, valuation, simulation, paths);
         } else if (mode == "prepare") {
             Measure("market constructor", [&] {
                 const auto value = BuildMarketIvLocalVolModelData("market", grid, settings);
@@ -193,15 +379,25 @@ namespace {
 
 int RunMarketIvLocalVolProfile(int argc, char** argv) {
     using namespace Dal;
-    if (argc != 5) {
-        std::cerr << "usage: script_mc_perf --market-iv-local-vol small|medium|large|flat-pair|monthly-asian cold|steady|prepare PATHS\n";
+    if (argc != 5 && argc != 6) {
+        std::cerr << "usage: script_mc_perf --market-iv-local-vol CASE cold|steady|prepare|stages PATHS; identity inspection PATHS HISTORY_ROWS\n";
         return 2;
     }
     try {
         const std::string name = argv[2], mode = argv[3];
-        const std::set<std::string> cases{"small", "medium", "large", "flat-pair", "monthly-asian"}, modes{"cold", "steady", "prepare"};
+        if (name == "identity") {
+            REQUIRE(argc == 6 && mode == "inspection", "identity requires inspection PATHS HISTORY_ROWS");
+            static_cast<void>(ParsePaths(argv[4]));
+            const std::string count = argv[5];
+            REQUIRE(count == "0" || count == "1" || count == "365", "Invalid HISTORY_ROWS");
+            Inspection(static_cast<size_t>(std::stoul(count)));
+            return 0;
+        }
+        REQUIRE(argc == 5, "Unexpected arguments for CASE");
+        const std::set<std::string> cases{"small", "medium", "large", "flat-pair", "monthly-asian"}, modes{"cold", "steady", "prepare", "stages"};
         REQUIRE(cases.count(name) != 0, "Invalid CASE");
         REQUIRE(modes.count(mode) != 0, "Invalid MODE");
+        REQUIRE(mode != "stages" || name == "small" || name == "monthly-asian", "stages supports small or monthly-asian");
         Profile(name, mode, ParsePaths(argv[4]));
         return 0;
     } catch (const std::exception& error) {
