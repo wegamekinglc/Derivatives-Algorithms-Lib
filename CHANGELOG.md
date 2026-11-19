@@ -16,6 +16,17 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-20
+
+- `random`: Sobol uniform and normal batch getters in C++, Python, and Excel
+  report `RandomSequenceExhausted` when a request exceeds the remaining
+  capacity, before consuming points or changing the native output matrix.
+  Callers can retry with fewer paths on the same handle. Zero-path requests
+  succeed even at exhaustion, and positive zero-dimensional batches advance
+  one point per row. C++ consumers must rebuild with updated DAL headers and
+  link against the matching core library to pick up the inline getter changes.
+  See [sampling](docs/methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion).
+
 ## 2026-11-19
 
 - Invalid legacy Fixings JSON timestamps now raise `ARCHIVE_DATETIME_INVALID`
@@ -38,8 +49,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   read the new time objects. Whole-second display rounds and clamps at day end,
   while existing fingerprint domains retain their frozen legacy time bytes.
 - RNG constructors validate numeric conversions before allocation. Sobol keeps
-  its 32-bit address domain and reports exhaustion before changing state or
-  output; valid seed domains and streams remain unchanged. See the
+  its 32-bit address domain. Single draws report exhaustion before changing
+  state or output. Valid seeds reproduce their original streams. See the
   [sampling contract](docs/methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion).
 - Market-grid local-volatility core `Init` now checks the complete request frozen
   by `Allocate` and reports structured preparation errors without changing valid

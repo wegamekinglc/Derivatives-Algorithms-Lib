@@ -73,17 +73,41 @@ validation raises RuntimeError. Excel publishes a new handle only after a
 successful construction, preserving the old output on failure.
 
 Matrix getters keep counts in `[0,INT_MAX]` and reject dimensions that cannot
-fit the matrix's `int` size before narrowing. Simulation's `CreateRNG` checks
-Sobol dimensions before conversion; zero dimensions return no RNG and consume
-no draws. Existing bridge restrictions still apply. Batch getters do not roll
-back draws already completed before a later failure.
+fit the matrix's `int` size before narrowing. The shared native getters check
+the generator handle, output pointer, nonnegative count, and matrix dimension
+in that order. These validation errors raise `Dal::Exception_` in C++ and
+surface as `RuntimeError` in Python. Python first binds the count as an `int`.
+Excel validates that the worksheet count is finite, exactly integral, and
+within `[0, INT_MAX]` before converting it to a native integer.
+A successful matrix getter produces one row per requested path, including
+zero rows for a zero count, and one column per generator dimension.
 
-The public C++, Python, and Excel random getters require a non-null generator
-and a nonnegative path count. A zero path count returns a zero-row matrix with
-the generator's dimension; invalid requests throw `Exception_` (a Python
-`RuntimeError`).
-Excel getters validate that the worksheet path count is finite, exactly
-integral, and within `[0, INT_MAX]` before converting it to a native integer.
+After input validation, the public Sobol uniform and normal matrix getters in
+C++, Python, and Excel check the requested path count against the remaining
+capacity, `UINT32_MAX - current position`. Both getters share the same sequence
+position. An oversized request fails with `RandomSequenceExhausted` before
+resizing the output matrix or drawing any points. The diagnostic reports the
+current position and the maximum of `4294967295`. The handle retains its
+position and sampling state, so the caller can retry on the same handle with a
+count that fits. On this rejection, the C++ and native Excel getters also
+preserve the supplied matrix's shape and contents. Python raises `RuntimeError`
+without returning a matrix. Failures after sampling begins may leave the
+generator or output partially updated.
+
+For Sobol, a valid zero count produces a $0 \times D$ matrix, including at
+exhaustion, without consuming points or allocating a sampling buffer. A
+positive count $n$ within the remaining capacity produces an $n \times D$
+matrix and advances the position by $n$, even when the dimension $D$ is zero.
+Drawing exactly the remaining points exhausts the sequence.
+
+Simulation's `CreateRNG` checks Sobol dimensions before conversion. In zero
+dimensions it returns no RNG and consumes no draws. Bridge restrictions still
+apply.
+
+To get the Sobol batch preflight in C++, recompile callers of the inline
+getters with the updated facade and core headers and link against the matching
+DAL core library. `DAL::public` links `DAL::cpp` transitively.
+
 `FillUniform` writes variates in $(0,1)$; `FillNormal` writes standard normal
 variates, obtained either by inverse-CDF inversion of the uniform variates or
 by a direct transformation, depending on the generator.
@@ -211,16 +235,13 @@ deterministic low-discrepancy sequence in `NDim()` dimensions.
 
 ### Direction Numbers
 
-For each dimension $d = 1, \ldots, 21201$, the generator holds 32 *direction
+For each tabulated dimension $d = 1, \ldots, 21201$, there are 32 *direction
 numbers* $v_{d,1}, \ldots, v_{d,32}$, each a 32-bit integer. Direction number
 $v_{d,k}$ contributes to coordinate $d$ when bit $k-1$ of the point index's
-Gray code is set. The library ships pre-computed direction
-numbers for up to 21201 dimensions and 32 bits (`N_KNOWN` and `N_BITS`
-constants); requesting more dimensions than `N_KNOWN` throws, since no
-primitive polynomial is tabulated beyond that count. The `Directions(size)`
-helper transposes the per-dimension arrays into a $32 \times \text{size}$
-matrix whose row $k$ holds, across all dimensions, the $k$-th direction
-number.
+Gray code is set. After the constructor validates the requested dimension,
+`Directions(size)` transposes that many entries from the direction
+table into a $32 \times \text{size}$ matrix. Row $k$ holds the $k$-th direction
+number across all selected dimensions.
 
 ### Gray-Code Recurrence
 
@@ -251,9 +272,7 @@ $$
 $$
 
 then scales each state word by $2^{-32}$ to map it into $(0,1)$. The
-trailing-zero count is obtained by shifting until the lowest bit is set; if
-$k$ reaches `directions_.Rows()` (i.e. the index has exceeded $2^{32}$
-points), the generator throws.
+trailing-zero count is obtained by shifting until the lowest bit is set.
 
 ### Normal-Draw Inverse-CDF Modes
 

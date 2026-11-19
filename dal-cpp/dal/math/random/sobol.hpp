@@ -22,11 +22,18 @@ polish is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
+    class SobolRSG_;
+    namespace Detail {
+        BASE_EXPORT void CheckSobolCapacity(const SobolRSG_& generator, size_t numPaths);
+    } // namespace Detail
+
     std::unique_ptr<SequenceSet_> NewSobol(int size, size_t iPath, bool precise = false, bool polish = false);
     //  A reproducible random digital shift (one 32-bit XOR mask per coordinate).
     std::unique_ptr<SequenceSet_> NewDigitallyShiftedSobol(int size, size_t iPath, uint64_t key, bool precise = false, bool polish = false);
 
     class BASE_EXPORT SobolRSG_: public Storable_ {
+        friend void Detail::CheckSobolCapacity(const SobolRSG_& generator, size_t numPaths);
+
         std::unique_ptr<SequenceSet_> rsg_;
         double i_path_;
         double ndim_;

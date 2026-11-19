@@ -4,7 +4,27 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <limits>
+#include <string_view>
+
 #include <dal-public/src/random.hpp>
+#include <dal/math/buffercapacity.hpp>
+
+namespace {
+    constexpr auto SOBOL_MAX = std::numeric_limits<uint32_t>::max();
+    constexpr auto SOBOL_LAST_DRAW = "RandomSequenceExhausted: current=4294967294; maximum=4294967295";
+    constexpr auto SOBOL_EXHAUSTED = "RandomSequenceExhausted: current=4294967295; maximum=4294967295";
+
+    template <class F_> void AssertRandomError(F_ call, std::string_view message) {
+        try {
+            call();
+            FAIL() << "Expected Dal::Exception_ containing " << message;
+        } catch (const Dal::Exception_& error) {
+            ASSERT_NE(std::string_view(error.what()).find(message), std::string_view::npos) << error.what();
+        }
+    }
+} // namespace
 
 TEST(RandomTest, TestRandomZeroDimensionsAndNarrowing) {
     for (const auto& type : {"IRN", "ShuffledIRN", "MRG32", "MRG32k32a"}) {
@@ -29,7 +49,8 @@ TEST(RandomTest, TestRandomZeroDimensionsAndNarrowing) {
     const Dal::Handle_<WideGenerator_> wide(new WideGenerator_);
     output.Resize(1, 1);
     output(0, 0) = 7.;
-    ASSERT_THROW(Dal::FillRSG_(wide, 0, &WideGenerator_::FillUniform, &output), Dal::Exception_);
+    AssertRandomError([&] { Dal::FillRSG_(wide, -1, &WideGenerator_::FillUniform, &output); }, "Random path count must be nonnegative");
+    AssertRandomError([&] { Dal::FillRSG_(wide, 0, &WideGenerator_::FillUniform, &output); }, "InvalidRandomInput: field=/n_dim");
     ASSERT_EQ(output.Rows(), 1);
     ASSERT_EQ(output.Cols(), 1);
     ASSERT_EQ(output(0, 0), 7.);
@@ -37,6 +58,105 @@ TEST(RandomTest, TestRandomZeroDimensionsAndNarrowing) {
 
 using Dal::Matrix_;
 using Dal::String_;
+
+namespace {
+    void AssertSobolBatchExhaustionAllowsRetry(decltype(&Dal::GetSobolRSGUniform) get) {
+        const Dal::Handle_<Dal::SobolRSG_> generator(new Dal::SobolRSG_("retry", SOBOL_MAX - 1, 3, true, true));
+        const Dal::Handle_<Dal::SobolRSG_> direct(new Dal::SobolRSG_("direct", SOBOL_MAX - 1, 3, true, true));
+        Matrix_<> output(1, 1, 123.);
+        AssertRandomError([&] { get(generator, 2, &output); }, SOBOL_LAST_DRAW);
+        EXPECT_EQ(output.Rows(), 1);
+        EXPECT_EQ(output.Cols(), 1);
+        if (output.Rows() == 1 && output.Cols() == 1)
+            EXPECT_EQ(output(0, 0), 123.);
+
+        get(generator, 0, &output);
+        ASSERT_EQ(output.Rows(), 0);
+        ASSERT_EQ(output.Cols(), 3);
+        Matrix_<> expected;
+        get(direct, 1, &expected);
+        ASSERT_NO_THROW(get(generator, 1, &output));
+        ASSERT_EQ(output.Rows(), 1);
+        ASSERT_EQ(output.Cols(), 3);
+        for (int col = 0; col < output.Cols(); ++col)
+            ASSERT_EQ(output(0, col), expected(0, col));
+
+        AssertRandomError([&] { get(generator, 1, &output); }, SOBOL_EXHAUSTED);
+        ASSERT_EQ(output.Rows(), 1);
+        ASSERT_EQ(output.Cols(), 3);
+        for (int col = 0; col < output.Cols(); ++col)
+            ASSERT_EQ(output(0, col), expected(0, col));
+        get(generator, 0, &output);
+        ASSERT_EQ(output.Rows(), 0);
+        ASSERT_EQ(output.Cols(), 3);
+    }
+} // namespace
+
+TEST(RandomTest, TestSobolUniformBatchExhaustionAllowsRetry) { AssertSobolBatchExhaustionAllowsRetry(Dal::GetSobolRSGUniform); }
+
+TEST(RandomTest, TestSobolNormalBatchExhaustionAllowsRetry) { AssertSobolBatchExhaustionAllowsRetry(Dal::GetSobolRSGNormal); }
+
+TEST(RandomTest, TestSobolBatchChecksLiveCursorAcrossGetters) {
+    const Dal::Handle_<Dal::SobolRSG_> generator(new Dal::SobolRSG_("mixed", SOBOL_MAX - 2, 3));
+    Matrix_<> output;
+    Dal::GetSobolRSGUniform(generator, 1, &output);
+    AssertRandomError([&] { Dal::GetSobolRSGNormal(generator, 2, &output); }, SOBOL_LAST_DRAW);
+    ASSERT_NO_THROW(Dal::GetSobolRSGNormal(generator, 1, &output));
+    AssertRandomError([&] { Dal::GetSobolRSGUniform(generator, 1, &output); }, SOBOL_EXHAUSTED);
+}
+
+TEST(RandomTest, TestSobolBatchCanConsumeExactlyTheRemainingPaths) {
+    for (int dimensions : {0, 3}) {
+        SCOPED_TRACE(dimensions);
+        const Dal::Handle_<Dal::SobolRSG_> generator(new Dal::SobolRSG_("exact count", SOBOL_MAX - 2, dimensions));
+        Matrix_<> output;
+        Dal::GetSobolRSGNormal(generator, 2, &output);
+        ASSERT_EQ(output.Rows(), 2);
+        ASSERT_EQ(output.Cols(), dimensions);
+        AssertRandomError([&] { Dal::GetSobolRSGUniform(generator, 1, &output); }, SOBOL_EXHAUSTED);
+        Dal::GetSobolRSGUniform(generator, 0, &output);
+        ASSERT_EQ(output.Rows(), 0);
+        ASSERT_EQ(output.Cols(), dimensions);
+    }
+}
+
+TEST(RandomTest, TestSobolBatchValidatesArgumentsBeforeExhaustion) {
+    const Dal::Handle_<Dal::SobolRSG_> exhausted(new Dal::SobolRSG_("exhausted", SOBOL_MAX, 3));
+    Matrix_<> output(1, 1, 123.);
+    for (const auto get : {Dal::GetSobolRSGUniform, Dal::GetSobolRSGNormal}) {
+        AssertRandomError([&] { get({}, -1, nullptr); }, "Random generator handle must not be null");
+        AssertRandomError([&] { get(exhausted, -1, nullptr); }, "Random generation requires an output matrix");
+        AssertRandomError([&] { get(exhausted, 0, nullptr); }, "Random generation requires an output matrix");
+        AssertRandomError([&] { get(exhausted, -1, &output); }, "Random path count must be nonnegative");
+    }
+    ASSERT_EQ(output.Rows(), 1);
+    ASSERT_EQ(output.Cols(), 1);
+    ASSERT_EQ(output(0, 0), 123.);
+}
+
+TEST(RandomTest, TestSobolBatchExhaustionPrecedesBufferBudget) {
+    Matrix_<> output(1, 1, 123.);
+    const Dal::Handle_<Dal::SobolRSG_> generator(new Dal::SobolRSG_("over capacity", SOBOL_MAX - 1, 3));
+    Dal::BufferCapacityBudget_ budget(0);
+    const Dal::BufferCapacityScope_ scope(&budget);
+    AssertRandomError([&] { Dal::GetSobolRSGUniform(generator, 2, &output); }, SOBOL_LAST_DRAW);
+    ASSERT_EQ(output.Rows(), 1);
+    ASSERT_EQ(output.Cols(), 1);
+    ASSERT_EQ(output(0, 0), 123.);
+}
+
+TEST(RandomTest, TestSobolZeroBatchSkipsScratchAllocation) {
+    const Dal::Handle_<Dal::SobolRSG_> exhausted(new Dal::SobolRSG_("exhausted", SOBOL_MAX, 3));
+    Dal::BufferCapacityBudget_ budget(0);
+    const Dal::BufferCapacityScope_ scope(&budget);
+    for (const auto get : {Dal::GetSobolRSGUniform, Dal::GetSobolRSGNormal}) {
+        Matrix_<> output;
+        ASSERT_NO_THROW(get(exhausted, 0, &output));
+        ASSERT_EQ(output.Rows(), 0);
+        ASSERT_EQ(output.Cols(), 3);
+    }
+    ASSERT_EQ(budget.PeakCapacityBytes(), 0);
+}
 
 TEST(RandomTest, TestGetRandomRejectsNullHandleAndNegativePaths) {
     Matrix_<> output;
