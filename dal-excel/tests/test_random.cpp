@@ -81,8 +81,8 @@ TEST(ExcelRandomTest, TestSobolGettersValidateWorksheetCountsBeforeConversion) {
 
 namespace {
     void AssertSobolBatchExhaustionAllowsRetry(decltype(&SobolRSG_Get_Uniform) get) {
-        const Handle_<SobolRSG_> generator(new SobolRSG_("retry", SOBOL_MAX - 1, 3, true, true));
-        const Handle_<SobolRSG_> direct(new SobolRSG_("direct", SOBOL_MAX - 1, 3, true, true));
+        const auto generator = NewSobolRSGForTest("retry", SOBOL_MAX - 1, 3, true, true);
+        const auto direct = NewSobolRSGForTest("direct", SOBOL_MAX - 1, 3, true, true);
         Matrix_<> output(1, 1, 123.);
         AssertRandomError([&] { get(generator, 2., &output); }, "RandomSequenceExhausted: current=4294967294; maximum=4294967295");
         EXPECT_EQ(output.Rows(), 1);
@@ -117,7 +117,7 @@ TEST(ExcelRandomTest, TestSobolUniformBatchExhaustionAllowsRetry) { AssertSobolB
 TEST(ExcelRandomTest, TestSobolNormalBatchExhaustionAllowsRetry) { AssertSobolBatchExhaustionAllowsRetry(SobolRSG_Get_Normal); }
 
 TEST(ExcelRandomTest, TestSobolBatchValidatesWorksheetCountBeforeHandleAndExhaustion) {
-    const Handle_<SobolRSG_> exhausted(new SobolRSG_("exhausted", SOBOL_MAX, 3));
+    const auto exhausted = NewSobolRSGForTest("exhausted", SOBOL_MAX, 3);
     const auto aboveIntMax = static_cast<double>(std::numeric_limits<int>::max()) + 1.;
     Matrix_<> output(1, 1, 123.);
     for (const auto get : {SobolRSG_Get_Uniform, SobolRSG_Get_Normal}) {
