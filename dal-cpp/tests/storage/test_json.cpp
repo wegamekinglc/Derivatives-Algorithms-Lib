@@ -25,18 +25,19 @@
 using namespace Dal;
 
 namespace {
-    void WriteLegacyFixingTimes(std::ostream& text, int count, int invalidIndex, bool duplicateLast) {
+    void WriteLegacyFixingTimes(std::ostream& text, int count, int invalidIndex, bool duplicateLast, const String_& invalidTime) {
         for (int i = 0; i < count; ++i) {
             const int day = duplicateLast && i == count - 1 ? 0 : i;
-            text << (i ? "," : "") << '"'
-                 << (i == invalidIndex ? String_("not-a-time") : Date::ToString(Date_(2025, 1, 1).AddDays(day)) + " 00:00:00") << '"';
+            const String_ time = Date::ToString(Date_(2025, 1, 1).AddDays(day)) + " 11:22:00";
+            text << (i ? "," : "") << '"' << (i == invalidIndex ? invalidTime : time) << '"';
         }
     }
 
-    String_ LegacyFixingsJson(int count, int invalidIndex = -1, bool emptyValues = false, bool duplicateLast = false) {
+    String_ LegacyFixingsJson(int count, int invalidIndex = -1, bool emptyValues = false, bool duplicateLast = false,
+                              const String_& invalidTime = "not-a-time") {
         std::ostringstream text;
         text << "{\"~type\":\"Fixings\",\"name\":\"perf-fixings\",\"fixing_times\":[";
-        WriteLegacyFixingTimes(text, count, invalidIndex, duplicateLast);
+        WriteLegacyFixingTimes(text, count, invalidIndex, duplicateLast, invalidTime);
         text << "],\"fixings\":[";
         if (!emptyValues)
             for (int i = 0; i < count; ++i)
@@ -45,13 +46,35 @@ namespace {
         return String_(text.str());
     }
 
-    void AssertExactLegacyRetry(int count) {
-        const auto restored = handle_cast<Fixings_>(JSON::ReadString(LegacyFixingsJson(count), false));
+    void AssertExactLegacyFixings(const Handle_<Fixings_>& restored, int count) {
+        ASSERT_TRUE(restored);
+        ASSERT_EQ(restored->Type(), "Fixings");
+        ASSERT_EQ(restored->Name(), "perf-fixings");
         ASSERT_EQ(restored->vals_.size(), static_cast<size_t>(count));
         for (int i = 0; i < count; ++i) {
-            const DateTime_ time(Date_(2025, 1, 1).AddDays(i), 0.);
+            const DateTime_ time(Date_(2025, 1, 1).AddDays(i), 11, 22, 0);
             ASSERT_EQ(restored->vals_.at(time), 100. + i / 8.);
             ASSERT_EQ(LookupFixing(restored->vals_, time), 100. + i / 8.);
+        }
+    }
+
+    void AssertInvalidLegacyFixing(const String_& payload, int index, std::string* actual) {
+        try {
+            JSON::ReadString(payload, false);
+            FAIL() << "Malformed legacy archive accepted";
+        } catch (const Exception_& error) {
+            const std::string message(error.what());
+            const std::string code = "ARCHIVE_DATETIME_INVALID:";
+            const std::string prefix = code + " field=/fixing_times/" + std::to_string(index) + "; expected=";
+            const auto start = message.find(code);
+            ASSERT_NE(start, std::string::npos);
+            ASSERT_EQ(message.compare(start, prefix.size(), prefix), 0);
+            const auto end = message.find('\n', start);
+            const auto actualField = message.find("; actual=", start + prefix.size());
+            ASSERT_LT(actualField, end);
+            const auto value = actualField + std::string("; actual=").size();
+            *actual = message.substr(value, end - value);
+            ASSERT_EQ(message.find(code, start + code.size()), std::string::npos);
         }
     }
 } // namespace
@@ -77,8 +100,49 @@ TEST(StorageTest, TestJSONDateTimeLegacyIndexedErrorsAndExactRetry) {
                 ASSERT_NE(message.find(failure.code_), String_::npos);
                 ASSERT_NE(message.find(failure.field_), String_::npos);
             }
-            ASSERT_NO_FATAL_FAILURE(AssertExactLegacyRetry(count));
+            const auto restored = handle_cast<Fixings_>(JSON::ReadString(LegacyFixingsJson(count), false));
+            ASSERT_NO_FATAL_FAILURE(AssertExactLegacyFixings(restored, count));
         }
+    }
+}
+
+TEST(StorageTest, TestJSONDateTimeLegacyConversionErrors) {
+    for (const int count : {1, 11}) {
+        const auto valid = LegacyFixingsJson(count);
+        const auto original = handle_cast<Fixings_>(JSON::ReadString(valid, false));
+        ASSERT_NO_FATAL_FAILURE(AssertExactLegacyFixings(original, count));
+        for (const String_& bad : Vector_<String_>{"2026-02-14 11:xx:00", "2026-02-14 11:2147483648:00", "2026-02-14 25:00:00"}) {
+            for (const int index : count == 1 ? Vector_<int>{0} : Vector_<int>{10, 0}) {
+                SCOPED_TRACE(bad.c_str());
+                SCOPED_TRACE(index);
+                std::string actual;
+                ASSERT_NO_FATAL_FAILURE(AssertInvalidLegacyFixing(LegacyFixingsJson(count, index, false, false, bad), index, &actual));
+                ASSERT_NO_FATAL_FAILURE(AssertExactLegacyFixings(original, count));
+                const auto retry = handle_cast<Fixings_>(JSON::ReadString(valid, false));
+                ASSERT_NO_FATAL_FAILURE(AssertExactLegacyFixings(retry, count));
+            }
+        }
+    }
+}
+
+TEST(StorageTest, TestJSONDateTimeLegacyActualPreview) {
+    const std::string escaped = R"(bad\u003B\u000A\u000D\u0009\\\u003D\u007F\u0085\u2028\u2029ARCHIVE_DATETIME_INVALID\u003A field\u003D/fixing_times/10)";
+    const std::string longInput =
+        R"(bad;\n\r\t\\=\u007f\u0085\u2028\u2029ARCHIVE_DATETIME_INVALID: field=/fixing_times/10)" + std::string(65536, 'x');
+    const std::string beforeRocket(252, 'x');
+    const std::string rocketJson = beforeRocket + R"(\ud83d\ude80)";
+    const std::string beforeEscape(250, 'x');
+    for (const auto& [input, expected] : std::vector<std::pair<std::string, std::string>>{
+             {longInput, escaped + std::string(253 - escaped.size(), 'x') + "..."},
+             {rocketJson, beforeRocket + u8"\U0001F680"},
+             {rocketJson + "x", beforeRocket + "..."},
+             {beforeEscape + ";", beforeEscape + R"(\u003B)"},
+             {beforeEscape + ";x", beforeEscape + "..."}}) {
+        SCOPED_TRACE(input.size());
+        std::string actual;
+        ASSERT_NO_FATAL_FAILURE(AssertInvalidLegacyFixing(LegacyFixingsJson(1, 0, false, false, String_(input)), 0, &actual));
+        ASSERT_LE(actual.size(), 256u);
+        ASSERT_EQ(actual, expected);
     }
 }
 
