@@ -436,6 +436,11 @@ namespace Dal {
             InvalidDateTime(path, "datetime object, legacy string or serial", "wrong type");
         }
 
+        bool NeedsPreviewHexEscape(unsigned codePoint) {
+            return codePoint < 0x20 || (codePoint >= 0x7F && codePoint <= 0x9F) || codePoint == 0x2028 || codePoint == 0x2029 ||
+                   codePoint == ';' || codePoint == '=' || codePoint == ':';
+        }
+
         String_ LegacyDateTimePreview(const char* text, size_t length) {
             constexpr size_t MAX_BYTES = 256;
             constexpr std::string_view TRUNCATION = "...";
@@ -453,8 +458,7 @@ namespace Dal {
                 char escape[] = "\\u0000";
                 if (codePoint == '\\') {
                     token = "\\\\";
-                } else if (codePoint < 0x20 || (codePoint >= 0x7F && codePoint <= 0x9F) || codePoint == 0x2028 || codePoint == 0x2029 ||
-                           codePoint == ';' || codePoint == '=' || codePoint == ':') {
+                } else if (NeedsPreviewHexEscape(codePoint)) {
                     for (int i = 5; i >= 2; --i, codePoint >>= 4)
                         escape[i] = HEX[codePoint & 0xF];
                     token = escape;

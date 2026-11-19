@@ -43,17 +43,17 @@ namespace {
 } // namespace
 
 TEST(PublicStorageTest, TestReadObjectJsonLegacyFixingsDiagnosticsAndRetry) {
-    const auto read = [](const std::string& payload) { return handle_cast<Fixings_>(ReadObjectJson(payload.data(), payload.size())); };
+    const auto parseFixings = [](const std::string& payload) { return handle_cast<Fixings_>(ReadObjectJson(payload.data(), payload.size())); };
     for (const int count : {1, 11}) {
         const auto valid = LegacyFixingsPayload(count);
-        const auto original = read(valid);
+        const auto original = parseFixings(valid);
         ASSERT_NO_FATAL_FAILURE(AssertLegacyFixings(original, count));
         for (const char* bad : {"2026-02-14 11:xx:00", "2026-02-14 11:2147483648:00", "2026-02-14 25:00:00"}) {
             for (const int index : count == 1 ? Vector_<int>{0} : Vector_<int>{10, 0}) {
                 SCOPED_TRACE(bad);
                 SCOPED_TRACE(index);
                 try {
-                    read(LegacyFixingsPayload(count, index, bad));
+                    parseFixings(LegacyFixingsPayload(count, index, bad));
                     FAIL() << "Malformed legacy archive accepted";
                 } catch (const Exception_& error) {
                     const std::string message(error.what());
@@ -64,7 +64,7 @@ TEST(PublicStorageTest, TestReadObjectJsonLegacyFixingsDiagnosticsAndRetry) {
                     ASSERT_EQ(message.compare(start, expected.size(), expected), 0);
                 }
                 ASSERT_NO_FATAL_FAILURE(AssertLegacyFixings(original, count));
-                ASSERT_NO_FATAL_FAILURE(AssertLegacyFixings(read(valid), count));
+                ASSERT_NO_FATAL_FAILURE(AssertLegacyFixings(parseFixings(valid), count));
             }
         }
     }
