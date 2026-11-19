@@ -5,6 +5,7 @@
 #pragma once
 
 #include <limits>
+#include <type_traits>
 
 #include <dal/string/strings.hpp>
 #include <dal/math/random/pseudorandom.hpp>
@@ -35,7 +36,13 @@ namespace Dal {
         REQUIRE(f->NDim() <= static_cast<size_t>(std::numeric_limits<int>::max()),
                 "InvalidRandomInput: field=/n_dim; expected=dimension fitting matrix int range; actual=" + String_(std::to_string(f->NDim())));
         int n_dim = static_cast<int>(f->NDim());
+        if constexpr (std::is_same_v<RSG_, SobolRSG_>)
+            Detail::CheckSobolCapacity(*f, static_cast<size_t>(numPath));
         y->Resize(numPath, n_dim);
+        if constexpr (std::is_same_v<RSG_, SobolRSG_>) {
+            if (numPath == 0)
+                return;
+        }
         Vector_<> deviates(n_dim);
         for(int i = 0; i < numPath; ++i) {
             (f.get()->*fill)(&deviates);

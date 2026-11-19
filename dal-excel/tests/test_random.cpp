@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <limits>
+#include <string_view>
 
 #include <dal-excel/src/__random_test_api.hpp>
 
@@ -34,6 +36,17 @@ TEST(ExcelRandomTest, TestFactoriesRejectInvalidNumbersWithoutReplacingHandles) 
 }
 
 namespace {
+    constexpr auto SOBOL_MAX = std::numeric_limits<uint32_t>::max();
+
+    template <class F_> void AssertRandomError(F_ call, std::string_view message) {
+        try {
+            call();
+            FAIL() << "Expected Dal::Exception_ containing " << message;
+        } catch (const Exception_& error) {
+            ASSERT_NE(std::string_view(error.what()).find(message), std::string_view::npos) << error.what();
+        }
+    }
+
     template <class T_> void AssertRandomGetterInputs(const Handle_<T_>& generator, void (*get)(const Handle_<T_>&, double, Matrix_<>*)) {
         Matrix_<> output(1, 1, 7.0);
         for (const double count : {-0.5, -1.0, 1.5, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
@@ -64,4 +77,60 @@ TEST(ExcelRandomTest, TestSobolGettersValidateWorksheetCountsBeforeConversion) {
     SobolRSG_New("Sobol", 0, 3, false, false, &generator);
     for (const auto get : {SobolRSG_Get_Uniform, SobolRSG_Get_Normal})
         AssertRandomGetterInputs(generator, get);
+}
+
+namespace {
+    void AssertSobolBatchExhaustionAllowsRetry(decltype(&SobolRSG_Get_Uniform) get) {
+        const auto generator = NewSobolRSGForTest("retry", SOBOL_MAX - 1, 3, true, true);
+        const auto direct = NewSobolRSGForTest("direct", SOBOL_MAX - 1, 3, true, true);
+        Matrix_<> output(1, 1, 123.);
+        AssertRandomError([&] { get(generator, 2., &output); }, "RandomSequenceExhausted: current=4294967294; maximum=4294967295");
+        EXPECT_EQ(output.Rows(), 1);
+        EXPECT_EQ(output.Cols(), 1);
+        if (output.Rows() == 1 && output.Cols() == 1)
+            EXPECT_EQ(output(0, 0), 123.);
+
+        get(generator, 0., &output);
+        ASSERT_EQ(output.Rows(), 0);
+        ASSERT_EQ(output.Cols(), 3);
+        Matrix_<> expected;
+        get(direct, 1., &expected);
+        ASSERT_NO_THROW(get(generator, 1., &output));
+        ASSERT_EQ(output.Rows(), 1);
+        ASSERT_EQ(output.Cols(), 3);
+        for (int col = 0; col < output.Cols(); ++col)
+            ASSERT_EQ(output(0, col), expected(0, col));
+
+        AssertRandomError([&] { get(generator, 1., &output); }, "RandomSequenceExhausted: current=4294967295; maximum=4294967295");
+        ASSERT_EQ(output.Rows(), 1);
+        ASSERT_EQ(output.Cols(), 3);
+        for (int col = 0; col < output.Cols(); ++col)
+            ASSERT_EQ(output(0, col), expected(0, col));
+        get(generator, 0., &output);
+        ASSERT_EQ(output.Rows(), 0);
+        ASSERT_EQ(output.Cols(), 3);
+    }
+} // namespace
+
+TEST(ExcelRandomTest, TestSobolUniformBatchExhaustionAllowsRetry) { AssertSobolBatchExhaustionAllowsRetry(SobolRSG_Get_Uniform); }
+
+TEST(ExcelRandomTest, TestSobolNormalBatchExhaustionAllowsRetry) { AssertSobolBatchExhaustionAllowsRetry(SobolRSG_Get_Normal); }
+
+TEST(ExcelRandomTest, TestSobolBatchValidatesWorksheetCountBeforeHandleAndExhaustion) {
+    const auto exhausted = NewSobolRSGForTest("exhausted", SOBOL_MAX, 3);
+    const auto aboveIntMax = static_cast<double>(std::numeric_limits<int>::max()) + 1.;
+    Matrix_<> output(1, 1, 123.);
+    for (const auto get : {SobolRSG_Get_Uniform, SobolRSG_Get_Normal}) {
+        for (double count : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()})
+            AssertRandomError([&] { get({}, count, nullptr); }, "number of paths must be finite");
+        AssertRandomError([&] { get({}, -0.5, nullptr); }, "number of paths must be exactly integral");
+        AssertRandomError([&] { get({}, -1., nullptr); }, "number of paths is outside the supported integer range");
+        AssertRandomError([&] { get(exhausted, aboveIntMax, nullptr); }, "number of paths is outside the supported integer range");
+        AssertRandomError([&] { get(exhausted, -1., &output); }, "number of paths is outside the supported integer range");
+        AssertRandomError([&] { get({}, 0., nullptr); }, "Random generator handle must not be null");
+        AssertRandomError([&] { get(exhausted, 0., nullptr); }, "Random generation requires an output matrix");
+    }
+    ASSERT_EQ(output.Rows(), 1);
+    ASSERT_EQ(output.Cols(), 1);
+    ASSERT_EQ(output(0, 0), 123.);
 }

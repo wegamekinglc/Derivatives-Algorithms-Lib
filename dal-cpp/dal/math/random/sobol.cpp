@@ -21262,6 +21262,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         public:
 
             [[nodiscard]] size_t NDim() const override { return static_cast<size_t>(state_.size()); }
+            void CheckCapacity(size_t numPaths) const;
             void FillUniform(Vector_<>* dst) override;
             void FillNormal(Vector_<>* dst) override;
             std::unique_ptr<Random_> Clone() const override {
@@ -21279,9 +21280,13 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             std::unique_ptr<SequenceSet_> TakeAway(int subSize) override;
         };
 
-        void SobolSet_::FillUniform(Vector_<>* dst) {
-            REQUIRE(iPath_ < std::numeric_limits<uint32_t>::max(),
+        void SobolSet_::CheckCapacity(size_t numPaths) const {
+            REQUIRE(numPaths <= std::numeric_limits<uint32_t>::max() - iPath_,
                     "RandomSequenceExhausted: current=" + String_(std::to_string(iPath_)) + "; maximum=4294967295");
+        }
+
+        void SobolSet_::FillUniform(Vector_<>* dst) {
+            CheckCapacity(1);
             dst->Resize(NDim());
             ++iPath_;
             int k = 0;
@@ -21362,6 +21367,10 @@ const uint_least32_t* const DIRECTIONS[21201] = {
     SobolRSG_::SobolRSG_(const String_& name, double iPath, double nDim, bool precise, bool polish)
         : Storable_("SobolRSG", name), rsg_(NewSobol(RandomInput::SobolDimension(nDim), RandomInput::SobolPosition(iPath), precise, polish)),
           i_path_(iPath), ndim_(nDim), precise_(precise), polish_(polish) {}
+
+    void Detail::CheckSobolCapacity(const SobolRSG_& generator, size_t numPaths) {
+        static_cast<const SobolSet_&>(*generator.rsg_).CheckCapacity(numPaths);
+    }
 
     void SobolRSG_::Write(Archive::Store_& dst) const {
         SobolRSG_v1::XWrite(dst, name_, i_path_, ndim_, precise_, polish_);

@@ -59,6 +59,7 @@ add_test(NAME dal_installed_public_benchmark_runtime COMMAND ${benchmark_runtime
 add_executable(dal_installed_consumer main.cpp)
 add_executable(dal_installed_aad_consumer native.cpp)
 add_executable(dal_installed_buffer_consumer buffers.cpp)
+add_executable(dal_installed_sobol_consumer sobol.cpp)
 add_executable(dal_installed_core_pde_risk pderisk.cpp)
 add_executable(dal_installed_public_pde_risk pderisk.cpp)
 target_compile_definitions(dal_installed_public_pde_risk PRIVATE DAL_TEST_PUBLIC_PDE_RISK)
@@ -70,7 +71,7 @@ target_compile_definitions(dal_installed_aad_consumer PRIVATE
     EXPECT_DIAGNOSTICS=$<BOOL:${DAL_CPP_AAD_LIFETIME_DIAGNOSTICS}>
     EXPECT_PROFILING=$<BOOL:${DAL_CPP_AAD_PROFILING}>)
 
-foreach(consumer IN ITEMS dal_installed_consumer dal_installed_aad_consumer dal_installed_buffer_consumer)
+foreach(consumer IN ITEMS dal_installed_consumer dal_installed_aad_consumer dal_installed_buffer_consumer dal_installed_sobol_consumer)
     dal_cpp_apply_msvc_runtime(${consumer})
     target_link_libraries(${consumer} PRIVATE DAL::public)
     if(MSVC)
@@ -86,5 +87,6 @@ enable_testing()
 add_test(NAME dal_installed_consumer COMMAND dal_installed_consumer)
 add_test(NAME dal_installed_aad_consumer COMMAND dal_installed_aad_consumer)
 add_test(NAME dal_installed_buffer_consumer COMMAND dal_installed_buffer_consumer)
+add_test(NAME dal_installed_sobol_consumer COMMAND dal_installed_sobol_consumer)
 add_test(NAME dal_installed_core_pde_risk COMMAND dal_installed_core_pde_risk)
 add_test(NAME dal_installed_public_pde_risk COMMAND dal_installed_public_pde_risk)

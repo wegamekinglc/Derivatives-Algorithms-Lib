@@ -122,6 +122,13 @@ namespace Dal {
         GetSobolRSGNormal(f, Excel::CheckedPathCount(numPaths, 0), y);
     }
 
+#if defined(DAL_EXCEL_TEST_API_EXPORTS) || defined(DAL_EXCEL_API_TESTS_PORTABLE)
+    // Construct boundary fixtures in the same module as the Excel getters.
+    Handle_<SobolRSG_> NewSobolRSGForTest(const String_& name, double iPath, double ndim, bool precise, bool polish) {
+        return Handle_<SobolRSG_>(new SobolRSG_(name, iPath, ndim, precise, polish));
+    }
+#endif
+
 #ifdef _WIN32
 #include <dal-excel/auto/MG_PseudoRSG_New_public.inc>
 #include <dal-excel/auto/MG_PseudoRSG_Get_Uniform_public.inc>
