@@ -1,5 +1,7 @@
 """Tests for PseudoRSG_ and SobolRSG_ random sequence generators."""
 
+import json
+
 import dal
 import pytest
 
@@ -129,6 +131,60 @@ def test_pseudo_different_seeds_differ():
 
 
 # ---- SobolRSG ---------------------------------------------------------------
+
+SOBOL_MAX = 2 ** 32 - 1
+SOBOL_GETTERS = (dal.SobolRSG_Get_Uniform, dal.SobolRSG_Get_Normal)
+
+
+def _restore_sobol(position, dimensions=3):
+    return dal._dal._StorableFromJson(json.dumps({
+        "~type": "SobolRSG_v1",
+        "name": "boundary",
+        "i_path": position,
+        "n_dim": dimensions,
+        "precise": True,
+        "polish": True,
+    }).encode("utf-8"))
+
+
+@pytest.mark.parametrize("getter", SOBOL_GETTERS)
+def test_sobol_batch_exhaustion_allows_retry(getter):
+    generator = _restore_sobol(SOBOL_MAX - 1)
+    with pytest.raises(RuntimeError, match=f"RandomSequenceExhausted: current={SOBOL_MAX - 1}; maximum={SOBOL_MAX}"):
+        getter(generator, 2)
+    empty = getter(generator, 0)
+    assert (empty.Rows(), empty.Cols()) == (0, 3)
+
+    expected = getter(_restore_sobol(SOBOL_MAX - 1), 1)
+    retried = getter(generator, 1)
+    assert (retried.Rows(), retried.Cols()) == (1, 3)
+    assert retried.to_rows() == expected.to_rows()
+    with pytest.raises(RuntimeError, match=f"RandomSequenceExhausted: current={SOBOL_MAX}; maximum={SOBOL_MAX}"):
+        getter(generator, 1)
+    empty = getter(generator, 0)
+    assert (empty.Rows(), empty.Cols()) == (0, 3)
+
+
+@pytest.mark.parametrize("getter", SOBOL_GETTERS)
+def test_sobol_batch_validates_binding_and_count_before_exhaustion(getter):
+    for count in (-0.5, 2 ** 31):
+        with pytest.raises(TypeError):
+            getter(None, count)
+    with pytest.raises(RuntimeError, match="handle must not be null"):
+        getter(None, -1)
+    with pytest.raises(RuntimeError, match="path count must be nonnegative"):
+        getter(_restore_sobol(SOBOL_MAX), -1)
+
+
+@pytest.mark.parametrize("getter", SOBOL_GETTERS)
+def test_sobol_batch_counts_zero_dimension_rows(getter):
+    generator = _restore_sobol(SOBOL_MAX - 2, 0)
+    samples = getter(generator, 2)
+    assert (samples.Rows(), samples.Cols()) == (2, 0)
+    with pytest.raises(RuntimeError, match=f"RandomSequenceExhausted: current={SOBOL_MAX}; maximum={SOBOL_MAX}"):
+        getter(generator, 1)
+    empty = getter(generator, 0)
+    assert (empty.Rows(), empty.Cols()) == (0, 0)
 
 
 def test_sobol_rsg_new():
