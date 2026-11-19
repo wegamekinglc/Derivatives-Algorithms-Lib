@@ -11,6 +11,8 @@
 #include <memory>
 #include <sstream>
 #include <regex>
+#include <stdexcept>
+#include <string_view>
 #include <rapidjson/document.h>
 #include <rapidjson/error/error.h>
 #include <rapidjson/writer.h>
@@ -434,13 +436,56 @@ namespace Dal {
             InvalidDateTime(path, "datetime object, legacy string or serial", "wrong type");
         }
 
+        bool NeedsPreviewHexEscape(unsigned codePoint) {
+            return codePoint < 0x20 || (codePoint >= 0x7F && codePoint <= 0x9F) || codePoint == 0x2028 || codePoint == 0x2029 ||
+                   codePoint == ';' || codePoint == '=' || codePoint == ':';
+        }
+
+        String_ LegacyDateTimePreview(const char* text, size_t length) {
+            constexpr size_t MAX_BYTES = 256;
+            constexpr std::string_view TRUNCATION = "...";
+            constexpr char HEX[] = "0123456789ABCDEF";
+            String_ preview;
+            preview.reserve(std::min(length, MAX_BYTES));
+            size_t truncationPoint = 0;
+            // The decoded string has already passed UTF-8 validation.
+            rapidjson::StringStream cursor(text);
+            while (cursor.Tell() < length) {
+                const auto start = cursor.Tell();
+                unsigned codePoint;
+                rapidjson::UTF8<>::Decode(cursor, &codePoint);
+                std::string_view token(text + start, cursor.Tell() - start);
+                char escape[] = "\\u0000";
+                if (codePoint == '\\') {
+                    token = "\\\\";
+                } else if (NeedsPreviewHexEscape(codePoint)) {
+                    for (int i = 5; i >= 2; --i, codePoint >>= 4)
+                        escape[i] = HEX[codePoint & 0xF];
+                    token = escape;
+                }
+                if (preview.size() + token.size() > MAX_BYTES) {
+                    preview.resize(truncationPoint);
+                    preview.append(TRUNCATION.data(), TRUNCATION.size());
+                    break;
+                }
+                preview.append(token.data(), token.size());
+                if (preview.size() <= MAX_BYTES - TRUNCATION.size())
+                    truncationPoint = preview.size();
+            }
+            return preview;
+        }
+
         DateTime_ EIndexedDateTime(const element_t& doc, const String_& parent, size_t index) {
             if (doc.IsString()) {
+                const String_ text(doc.GetString());
                 try {
-                    return DateTime::FromString(doc.GetString());
+                    return DateTime::FromString(text);
                 } catch (const Exception_&) {
-                    InvalidDateTime(parent + "/" + String_(std::to_string(index)), "valid legacy datetime string", EString(doc));
+                } catch (const std::invalid_argument&) {
+                } catch (const std::out_of_range&) {
                 }
+                InvalidDateTime(parent + "/" + String_(std::to_string(index)), "valid legacy datetime string",
+                                LegacyDateTimePreview(doc.GetString(), doc.GetStringLength()));
             }
             return EDateTime(doc, parent + "/" + String_(std::to_string(index)));
         }

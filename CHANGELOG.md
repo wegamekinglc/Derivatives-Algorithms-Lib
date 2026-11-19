@@ -27,6 +27,15 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   link against the matching core library to pick up the inline getter changes.
   See [sampling](docs/methodology/monte-carlo/sampling.md#rng-input-domains-and-exhaustion).
 
+## 2026-11-19
+
+- Invalid legacy Fixings JSON timestamps now raise `ARCHIVE_DATETIME_INVALID`
+  with the exact `/fixing_times/<index>` path. Migrate C++ catches for
+  `std::invalid_argument` and `std::out_of_range` to `Dal::Exception_` or
+  `std::runtime_error`. Migrate Python catches for `ValueError` and `IndexError`
+  to `RuntimeError`. Use the error code and field path to identify this diagnostic.
+  The `actual` field is an escaped single-line preview of at most 256 bytes.
+
 ## 2026-11-18
 
 - Quote-risk state migrates from `/1` to `/3` for single-curve and both XCCY

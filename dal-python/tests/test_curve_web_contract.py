@@ -1,5 +1,7 @@
 """Additive native surfaces required by the Web curve workbench."""
 
+import json
+
 import dal
 import pytest
 
@@ -110,6 +112,56 @@ def test_archive_bridge_requires_exact_bytes_and_rejects_embedded_nul():
         dal._dal._StorableFromJson(payload.decode("utf-8"))
     with pytest.raises(RuntimeError, match="ARCHIVE_PAYLOAD_NUL"):
         dal._dal._StorableFromJson(payload + b"\0{}")
+
+
+@pytest.mark.parametrize("bad_time", ["2026-02-14 11:xx:00", "2026-02-14 11:2147483648:00", "2026-02-14 25:00:00"])
+@pytest.mark.parametrize("count", [1, 11])
+def test_archive_bridge_legacy_fixings_diagnostics_and_retry(bad_time, count):
+    minutes = range(22, 22 + count)
+    times = [f"2026-02-14 11:{minute:02}:00" for minute in minutes]
+    values = list(range(1, count + 1))
+    expected_times = [
+        {"~datetime": "dal.datetime/1", "date": "2026-02-14", "fraction": (11 * 3600 + minute * 60) / 86400}
+        for minute in minutes
+    ]
+
+    def payload(fixing_times):
+        return json.dumps(
+            {"~type": "Fixings", "name": "legacy", "fixing_times": fixing_times, "fixings": values}
+        ).encode("utf-8")
+
+    def check(value):
+        assert (value.type, value.name) == ("Fixings", "legacy")  # nosec B101
+        restored = json.loads(dal._dal._StorableToJson(value))
+        assert restored["fixing_times"] == expected_times  # nosec B101
+        assert restored["fixings"] == values  # nosec B101
+
+    read = dal._dal._StorableFromJson
+    original = read(payload(times))
+    check(original)
+    for index in (0,) if count == 1 else (10, 0):
+        malformed = times.copy()
+        malformed[index] = bad_time
+        with pytest.raises(RuntimeError, match=rf"(?m)^ARCHIVE_DATETIME_INVALID: field=/fixing_times/{index}; expected="):
+            read(payload(malformed))
+        check(original)
+        check(read(payload(times)))
+
+
+def test_archive_bridge_legacy_fixings_preview_escapes_decoded_text():
+    bad_time = "bad; field=/fixing_times/10\nARCHIVE_DATETIME_INVALID: " + "x" * 65536
+    payload = json.dumps({"~type": "Fixings", "name": "legacy", "fixing_times": [bad_time], "fixings": [1]}).encode("utf-8")
+    with pytest.raises(RuntimeError) as caught:
+        dal._dal._StorableFromJson(payload)
+    message = str(caught.value)
+    code = "ARCHIVE_DATETIME_INVALID:"
+    assert message.count(code) == 1  # nosec B101
+    diagnostic = message[message.index(code):].splitlines()[0]
+    assert diagnostic.startswith(code + " field=/fixing_times/0; expected=")  # nosec B101
+    preview = diagnostic.split("; actual=", maxsplit=1)[1]
+    assert preview.startswith(r"bad\u003B field\u003D/fixing_times/10\u000AARCHIVE_DATETIME_INVALID\u003A ")  # nosec B101
+    assert len(preview.encode("utf-8")) == 256  # nosec B101
+    assert preview.endswith("...")  # nosec B101
 
 
 def test_archive_bridge_rejects_decoded_nul_and_lone_surrogates():
