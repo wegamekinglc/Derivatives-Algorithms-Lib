@@ -1,5 +1,6 @@
 add_executable(json_perf json_perf.cpp)
 target_link_libraries(json_perf PRIVATE DAL::cpp)
+target_include_directories(json_perf PRIVATE "${PROJECT_SOURCE_DIR}/externals/rapidjson/include")
 if(NOT MSVC)
     target_link_libraries(json_perf PRIVATE pthread)
 endif()
