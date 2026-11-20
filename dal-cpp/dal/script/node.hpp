@@ -42,8 +42,12 @@ namespace Dal::Script {
     struct NodeMulti_ : public Visitable_<ExprNode_, NodeMulti_, VISITORS> {};
     struct NodeDiv_ : public Visitable_<ExprNode_, NodeDiv_, VISITORS> {};
     struct NodePow_ : public Visitable_<ExprNode_, NodePow_, VISITORS> {};
-    struct NodeMax_ : public Visitable_<ExprNode_, NodeMax_, VISITORS> {};
-    struct NodeMin_ : public Visitable_<ExprNode_, NodeMin_, VISITORS> {};
+    struct NodeMax_ : public Visitable_<ExprNode_, NodeMax_, VISITORS> {
+        ~NodeMax_() override;
+    };
+    struct NodeMin_ : public Visitable_<ExprNode_, NodeMin_, VISITORS> {
+        ~NodeMin_() override;
+    };
 
     //  Unary expressions
     struct NodeUPlus_ : public Visitable_<ExprNode_, NodeUPlus_, VISITORS> {};

@@ -40,6 +40,11 @@ get_filename_component(DAL_WORKSPACE_ROOT "${PROJECT_SOURCE_DIR}/.." ABSOLUTE)
 #
 # Compiles only public/src/* files. Links against DAL::cpp for core symbols.
 # ---------------------------------------------------------------------------
+if(MSVC)
+    # Template-heavy debug objects can exceed the default COFF section limit.
+    add_compile_options("$<$<CONFIG:Debug>:/bigobj>")
+endif()
+
 file(GLOB_RECURSE PUBLIC_SRC_FILES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/src/*.hpp"
     "${PROJECT_SOURCE_DIR}/src/*.cpp"

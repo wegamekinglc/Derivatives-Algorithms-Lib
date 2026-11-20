@@ -8,7 +8,7 @@
 #include <dal-excel/src/__xccymontecarlobasket.hpp>
 #include <dal-public/src/global.hpp>
 
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 #include <dal-excel/src/_xlcall.hpp>
 
 using namespace Dal;
@@ -33,7 +33,7 @@ namespace {
         return result;
     }
     template <class... T_> String_ Call(const char* name, T_... arguments) {
-        const auto module = GetModuleHandleA("dal_excel.xll");
+        const auto module = Dal::Excel::ModuleForTest();
         const auto address = GetProcAddress(module, name);
         REQUIRE(address, "missing generated basket export");
         const auto output = reinterpret_cast<OPER_* (*)(T_...)>(address)(arguments...);

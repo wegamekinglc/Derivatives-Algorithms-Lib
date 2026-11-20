@@ -12,7 +12,6 @@
 
 #if defined(DAL_EXCEL_TEST_API_EXPORTS) || defined(DAL_EXCEL_API_TESTS_PORTABLE)
 namespace Dal::Excel {
-    // Windows tests and the statically linked XLL own distinct native runtime state.
     void ScriptTestInitialize(int threads) { InitGlobalData(threads); }
     std::pair<size_t, bool> ScriptTestStartWorkers(size_t threads) {
         auto* pool = ThreadPool_::GetInstance();

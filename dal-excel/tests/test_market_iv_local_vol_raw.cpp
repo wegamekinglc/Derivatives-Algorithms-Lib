@@ -7,13 +7,13 @@
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
 
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 
 using namespace Dal;
 
 TEST(MarketIvLocalVolNativeExcelTest, TestGeneratedExportsAndStrictSettings) {
     Excel::ScriptTestInitialize(1);
-    const auto module = GetModuleHandleA("dal_excel.xll");
+    const auto module = Dal::Excel::ModuleForTest();
     ASSERT_NE(module, nullptr);
     const auto registrations = RegisteredFunctionsForTest();
     for (const auto* suffix : {"ModelSettings_New", "ModelSettings_Get_Configuration", "ModelData_New", "ModelData_Get_Summary",
