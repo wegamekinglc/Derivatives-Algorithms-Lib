@@ -8,9 +8,12 @@
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/quoteriskmapping.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yczerorate.hpp>
+#include <dal/math/aad/statistics.hpp>
+#include <dal/math/aad/tapecapacity.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/archive.hpp>
 
@@ -99,6 +102,17 @@ namespace {
             }
             spec.stages_.push_back(stage);
         }
+        return spec;
+    }
+
+    MultiCurveCalibrationSpec_ MakeStagedSwapRiskSpec() {
+        auto spec = MakeStagedRiskSpec();
+        auto& forward = spec.stages_[1];
+        const auto today = forward.today_;
+        RateLegConvention_ leg;
+        leg.paymentFrequency_ = PeriodLength_("6M");
+        const auto index = dynamic_cast<const Deposit_&>(*forward.instruments_[0]).FloatConvention();
+        forward.instruments_.emplace_back(new Swap_(today, today, Date::AddMonths(today, 360), 0.033, leg, index, leg));
         return spec;
     }
 
@@ -198,6 +212,181 @@ TEST(CalibrationTest, TestBuildCurveCalibrationWeightsExpandsParametersPerKnot) 
 
     ASSERT_EQ(weights->Size(), 6);
     ASSERT_TRUE(weights->IsSymmetric());
+}
+
+TEST(CalibrationTest, TestStagedQuoteAdjointsSubtractForwardBaseResponse) {
+    StagedMultiCurveCalibrationRecord_ record;
+    record.stages_.Resize(2);
+    const Vector_<int> rows{0};
+    record.stages_[0].quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(SquareMatrix::M1x1(2.), Matrix_<>(1, 0), rows);
+    record.stages_[1].quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(SquareMatrix::M1x1(5.), Matrix_<>(1, 1, 3.), rows);
+    const auto response = MapStagedQuoteRisk(record, {7., 10.});
+    ASSERT_TRUE(response.unavailableReason_.empty()) << response.unavailableReason_;
+    ASSERT_EQ(response.sensitivities_, (Vector_<>{0.5, 2.}));
+    record.stages_[1].quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(SquareMatrix::M1x1(5.), Matrix_<>(1, 1, 0.), rows);
+    ASSERT_EQ(MapStagedQuoteRisk(record, {7., 10.}).sensitivities_, (Vector_<>{3.5, 2.}));
+}
+
+TEST(CalibrationTest, TestStagedQuoteAdjointsCheckWidthsAndNonfiniteSeedsBeforePublishingBuckets) {
+    StagedMultiCurveCalibrationRecord_ record;
+    record.stages_.Resize(2);
+    auto& discount = record.stages_[0];
+    auto& forward = record.stages_[1];
+    discount.spec_.curveName_ = "ESTR";
+    forward.spec_.curveName_ = "Euribor 6M";
+    SquareMatrix_<> a(2);
+    a(0, 0) = 2.;
+    a(0, 1) = 1.;
+    a(1, 1) = 4.;
+    Matrix_<> b(1, 2);
+    b(0, 0) = 3.;
+    b(0, 1) = -2.;
+    discount.quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(a, Matrix_<>(2, 0), Vector_<int>{1, 0});
+    forward.quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(SquareMatrix::M1x1(5.), b, Vector_<int>{0});
+    ASSERT_EQ(MapStagedQuoteRisk(record, {8., 13., 10.}).sensitivities_, (Vector_<>{4., 1., 2.}));
+    const auto check = [&](const Vector_<>& seed, const char* reason) {
+        const auto response = MapStagedQuoteRisk(record, seed);
+        ASSERT_NE(response.unavailableReason_.find(reason), String_::npos) << response.unavailableReason_;
+        ASSERT_TRUE(response.sensitivities_.empty());
+        ASSERT_TRUE(response.transposeBackwardErrors_.empty());
+    };
+    check({1., 2.}, "width");
+    check({std::numeric_limits<double>::infinity(), 2., 3.}, "ESTR");
+    check({1., 2., std::numeric_limits<double>::quiet_NaN()}, "Euribor 6M");
+    forward.quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(SquareMatrix::M1x1(5.), Matrix_<>(1, 1), Vector_<int>{0});
+    check({1., 2., 3.}, "width");
+}
+
+TEST(CalibrationTest, TestStagedQuoteAdjointsMatchLayeredDepositDerivativesInInputOrder) {
+    auto spec = MakeStagedRiskSpec();
+    for (auto& stage : spec.stages_)
+        std::swap(stage.instruments_[0], stage.instruments_[1]);
+    const Vector_<> gradient{1., -3., 2., 4.};
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto fitted = CalibrateMultiCurve(spec, &record);
+    const auto response = MapStagedQuoteRisk(record, gradient);
+    ASSERT_TRUE(response.unavailableReason_.empty()) << response.unavailableReason_;
+    ASSERT_EQ(response.sensitivities_.size(), 4u);
+    ASSERT_EQ(response.transposeBackwardErrors_.size(), 2u);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).occupiedBytes_, 0u);
+    for (int stage = 0; stage < 2; ++stage) {
+        const auto& diagnostics = fitted.diagnostics_[stage];
+        const auto& block = *record.stages_[stage].quoteRiskBlock_;
+        const double rcond = block.factor_.Diagnostics().reciprocalConditionInfinity_;
+        ASSERT_LE(diagnostics.maxAbsResidual_, 1.e-12);
+        ASSERT_GE(rcond, 1.e-10);
+        ASSERT_LE(response.transposeBackwardErrors_[stage], 1.e-12);
+        const std::string label = stage == 0 ? "discount_" : "forward_";
+        RecordProperty(label + "max_residual", testing::PrintToString(diagnostics.maxAbsResidual_));
+        RecordProperty(label + "rcond", testing::PrintToString(rcond));
+        RecordProperty(label + "backward_error", testing::PrintToString(response.transposeBackwardErrors_[stage]));
+        for (int input = 0; input < 2; ++input) {
+            const auto& deposit = *spec.stages_[stage].instruments_[input];
+            const auto dates = deposit.TimeSpan();
+            const double t = spec.liborBasis_(dates.first, dates.second, nullptr);
+            const int node = 1 - input;
+            // q1=(exp(tx)-1)/t and q2=(exp(t(x+y))-1)/t at a deposit knot.
+            const double seed = stage == 0 ? gradient[node] - gradient[2 + node] : gradient[2 + node];
+            ASSERT_NEAR(response.sensitivities_[2 * stage + input], seed / (1. + t * deposit.MarketRate()), 1.e-12);
+        }
+    }
+}
+
+TEST(CalibrationTest, TestStagedQuoteRiskReportsSingularForwardFactorAndKeepsBothFits) {
+    auto spec = MakeStagedRiskSpec();
+    auto& forward = spec.stages_[1];
+    forward.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+    forward.knotDates_ = {forward.instruments_[0]->TimeSpan().second, forward.instruments_[1]->TimeSpan().second};
+    forward.instruments_[1] = forward.instruments_[0];
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto fitted = CalibrateMultiCurve(spec, &record);
+    ASSERT_EQ(fitted.diagnostics_.size(), 2u);
+    ASSERT_TRUE(record.stages_[0].quoteRiskBlock_);
+    ASSERT_FALSE(record.stages_[1].quoteRiskBlock_);
+    ASSERT_EQ(record.unavailableStage_, forward.curveName_);
+    ASSERT_NE(record.unavailableReason_.find("pivot"), String_::npos) << record.unavailableReason_;
+    ASSERT_TRUE(MapStagedQuoteRisk(record, {1., 1., 1., 1.}).sensitivities_.empty());
+}
+
+TEST(CalibrationTest, TestStagedQuoteRiskRejectsNonfiniteCalibrationTolerance) {
+    auto spec = MakeStagedRiskSpec();
+    spec.stages_[1].tolerance_ = std::numeric_limits<double>::infinity();
+    StagedMultiCurveCalibrationRecord_ record;
+    CalibrateMultiCurve(spec, &record);
+    ASSERT_EQ(record.unavailableStage_, spec.stages_[1].curveName_);
+    ASSERT_NE(record.unavailableReason_.find("finite"), String_::npos) << record.unavailableReason_;
+    ASSERT_FALSE(MapStagedQuoteRisk(record, {1., 2., 3., 4.}).unavailableReason_.empty());
+}
+
+TEST(CalibrationTest, TestStagedQuoteRiskRestoresTapeAfterForwardCaptureBudgetFailureAndVectorTail) {
+    const auto spec = MakeStagedSwapRiskSpec();
+    const Vector_<> gradient{7., -2., 10., -4., 3.};
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto scalarFit = CalibrateMultiCurve(spec, &record);
+    const auto scalar = MapStagedQuoteRisk(record, gradient);
+    ASSERT_TRUE(scalar.unavailableReason_.empty()) << scalar.unavailableReason_;
+    auto* tape = AAD::Tape();
+    AAD::Clear(*tape);
+    const auto limit = AAD::MeasureTape(*tape).capacityBytes_;
+    AAD::TapeCapacityBudget_ budget(limit);
+    const AAD::TapeCapacityScope_ capacity(&budget);
+    {
+        const auto mode = AAD::SetNumResultsForAAD(true, 128);
+        const auto fitted = CalibrateMultiCurve(spec, &record);
+        ASSERT_EQ(record.unavailableStage_, spec.stages_[1].curveName_) << record.unavailableReason_;
+        ASSERT_NE(record.unavailableReason_.find("Tape capacity budget exceeded"), String_::npos) << record.unavailableReason_;
+        ASSERT_EQ(fitted.diagnostics_.size(), 2u);
+        ASSERT_EQ(fitted.diagnostics_[1].residuals_, scalarFit.diagnostics_[1].residuals_);
+        ASSERT_EQ(AAD::MeasureTape(*tape).occupiedBytes_, 0u);
+        ASSERT_EQ(tape->numAdj_, 128u);
+    }
+    {
+        const auto mode = AAD::SetNumResultsForAAD(true, 2);
+        CalibrateMultiCurve(spec, &record);
+        const auto recovered = MapStagedQuoteRisk(record, gradient);
+        ASSERT_TRUE(recovered.unavailableReason_.empty()) << recovered.unavailableReason_;
+        ASSERT_EQ(recovered.sensitivities_.size(), scalar.sensitivities_.size());
+        for (size_t i = 0; i < scalar.sensitivities_.size(); ++i)
+            ASSERT_NEAR(recovered.sensitivities_[i], scalar.sensitivities_[i], 1.e-12);
+        ASSERT_EQ(AAD::MeasureTape(*tape).occupiedBytes_, 0u);
+        ASSERT_EQ(tape->numAdj_, 2u);
+    }
+    ASSERT_LE(budget.PeakCapacityBytes(), limit);
+}
+
+TEST(CalibrationTest, TestStagedSwapCrossJacobianMatchesRepricingAtFixedForwardSpread) {
+    StagedMultiCurveCalibrationRecord_ record;
+    CalibrateMultiCurve(MakeStagedSwapRiskSpec(), &record);
+    ASSERT_TRUE(record.unavailableReason_.empty()) << record.unavailableReason_;
+    const auto& discount = record.stages_[0];
+    const auto& forward = record.stages_[1];
+    const auto& spec = forward.spec_;
+    const auto rate = spec.instruments_.back()->Precompute({});
+    const int row = forward.residualRowByInput_.back();
+    const auto rebuild = [](const CurveCalibrationSpec_& stage, const Vector_<>& parameters, const Handle_<DiscountCurve_>& base) {
+        const auto definition = MakeCurveDefinition(stage.curveName_, stage.ccy_, stage.parameterization_, stage.logDfScheme_, stage.knotDates_,
+                                                    stage.today_, stage.liborBasis_);
+        return Handle_<DiscountCurve_>(BuildDiscountCurveUniqueT<double>(definition, parameters, base));
+    };
+    const auto reprice = [&](const Vector_<>& x, bool varyDiscountRoute) {
+        const auto bumped = rebuild(discount.spec_, x, {});
+        const auto projection = rebuild(spec, forward.solution_, bumped);
+        const CurveBlock_ market("bumped", spec.ccy_, {{spec.targetCollateral_, varyDiscountRoute ? bumped : discount.curve_}},
+                                 {{spec.targetTenor_, projection}}, spec.liborBasis_);
+        return (*rate)(market);
+    };
+    double maxDiscountEffect = 0.;
+    for (int node = 0; node < static_cast<int>(discount.solution_.size()); ++node) {
+        auto up = discount.solution_, down = discount.solution_;
+        up[node] += 1.e-6;
+        down[node] -= 1.e-6;
+        const double width = up[node] - down[node];
+        const double full = (reprice(up, true) - reprice(down, true)) / width;
+        const double baseOnly = (reprice(up, false) - reprice(down, false)) / width;
+        ASSERT_NEAR(forward.quoteRiskBlock_->baseJacobian_(row, node), full, 1.e-8);
+        maxDiscountEffect = std::max(maxDiscountEffect, std::abs(full - baseOnly));
+    }
+    ASSERT_GT(maxDiscountEffect, 1.e-5);
 }
 
 TEST(CalibrationTest, TestStagedRiskRecordOwnsEffectiveRoutesSolutionAndQuoteRows) {
