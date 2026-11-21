@@ -30,9 +30,13 @@ namespace {
     };
 
     class ThrowingDeposit_ : public Deposit_ {
+        std::domain_error error_;
+
     public:
-        using Deposit_::Deposit_;
-        Handle_<Rate_> Precompute(const Handle_<YieldCurve_>&) const override { throw std::domain_error("Deposit fixing outside pricing domain"); }
+        ThrowingDeposit_(const Deposit_& input, const char* message)
+            : Deposit_(input.TradeDate(), input.TimeSpan().first, input.TimeSpan().second, input.MarketRate(), input.FloatConvention()),
+              error_(message) {}
+        Handle_<Rate_> Precompute(const Handle_<YieldCurve_>&) const override { throw error_; }
     };
 
     class ConstantDiscountCurve_ : public DiscountCurve_ {
@@ -157,6 +161,7 @@ namespace {
         ASSERT_EQ(partial.diagnostics_.size(), 1u);
         ASSERT_EQ(partial.diagnostics_[0].residuals_, plain.diagnostics_[0].residuals_);
         ASSERT_EQ(partial.discountCurves_.size(), 1u);
+        ASSERT_TRUE(record.stages_[0].curve_);
         ASSERT_EQ(partial.discountCurves_.at(forward.targetCollateral_).get(), record.stages_[0].curve_.get());
         ASSERT_TRUE(partial.forwardCurves_.empty());
     }
@@ -334,13 +339,37 @@ TEST(CalibrationTest, TestStagedRiskReturnsCompletedFitOnPricingDomainError) {
     const auto plain = CalibrateMultiCurve(spec);
     auto& forward = spec.stages_[1];
     const auto& input = dynamic_cast<const Deposit_&>(*forward.instruments_[1]);
-    forward.instruments_[1].reset(
-        new ThrowingDeposit_(forward.today_, input.TimeSpan().first, input.TimeSpan().second, input.MarketRate(), input.FloatConvention()));
+    forward.instruments_[1].reset(new ThrowingDeposit_(input, "Deposit fixing outside pricing domain"));
     ASSERT_THROW(CalibrateMultiCurve(spec), std::domain_error);
     StagedMultiCurveCalibrationRecord_ record;
     const auto partial = CalibrateMultiCurve(spec, &record);
     AssertOnlyDiscountFit(partial, record, plain, forward);
     ASSERT_NE(record.unavailableReason_.find("Deposit fixing outside pricing domain"), String_::npos) << record.unavailableReason_;
+}
+
+TEST(CalibrationTest, TestStagedRiskReportsPricingFailureAfterApproximateDiscountFit) {
+    auto valid = MakeStagedRiskSpec();
+    valid.stages_[0].solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    const auto plain = CalibrateMultiCurve(valid);
+    for (const char* message : {"", "Deposit fixing outside pricing domain"}) {
+        auto spec = valid;
+        auto& forward = spec.stages_[1];
+        const auto& input = dynamic_cast<const Deposit_&>(*forward.instruments_[1]);
+        forward.instruments_[1].reset(new ThrowingDeposit_(input, message));
+
+        try {
+            CalibrateMultiCurve(spec);
+            FAIL() << "Expected the original pricing exception";
+        } catch (const std::domain_error& error) {
+            ASSERT_STREQ(error.what(), message);
+        }
+
+        StagedMultiCurveCalibrationRecord_ record;
+        const auto partial = CalibrateMultiCurve(spec, &record);
+        ASSERT_NO_FATAL_FAILURE(AssertOnlyDiscountFit(partial, record, plain, forward));
+        ASSERT_TRUE(partial.diagnostics_[0].usedApproximateFit_);
+        ASSERT_STREQ(record.unavailableReason_.c_str(), *message ? message : "Calibration stage failed without an exception message");
+    }
 }
 
 TEST(CalibrationTest, TestStagedRiskRecordExplainsUnavailableStageAndKeepsValuation) {

@@ -760,11 +760,14 @@ namespace Dal {
 
         void
         StoreStageFailure(StagedMultiCurveCalibrationRecord_* record, const String_& name, const std::exception& error, bool previouslyUnavailable) {
+            const char* message = error.what();
+            if (*message == '\0')
+                message = "Calibration stage failed without an exception message";
             if (previouslyUnavailable || record->unavailableReason_.empty()) {
                 record->unavailableStage_ = name;
-                record->unavailableReason_ = error.what();
+                record->unavailableReason_ = message;
             } else {
-                record->unavailableReason_ += String_("; ") + error.what();
+                record->unavailableReason_ += String_("; ") + message;
             }
         }
     } // namespace
