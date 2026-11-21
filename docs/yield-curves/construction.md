@@ -709,6 +709,34 @@ const auto fraRate = fra3x6->Precompute(Handle_<YieldCurve_>());
 const double modelFra = (*fraRate)(bundle);
 ```
 
+To retain the inputs for same-currency staged quote risk, pass a
+`StagedMultiCurveCalibrationRecord_` to the core overload.
+
+```cpp
+StagedMultiCurveCalibrationRecord_ record;
+const auto fitted = CalibrateMultiCurve(multi, &record);
+```
+
+An empty `record.unavailableReason_` after the call identifies two square,
+full-rank EXACT stages. The forward stage uses the fitted discount curve for
+discounting and as its base. Each stage owns its fitted curve, effective spec
+with resolved knots, free-parameter descriptors and solution. For input quote
+`i` in stage `s`, `record.stages_[s].residualRowByInput_[i]` indexes
+`fitted.diagnostics_[s].residuals_`. Both indices are zero-based and local
+to that stage.
+
+Read `unavailableStage_` and `unavailableReason_` when a record cannot
+support risk. A stage-count error identifies the bundle. A successful ordinary
+fit, including an approximate fit, still contributes its curve and diagnostics.
+Staged risk accepts the built-in deposit, FRA, STIR, future, swap and OIS swap
+pricing implementations. A custom subclass can override ordinary pricing, so
+its fitted curve is retained with a risk rejection.
+
+An empty instrument handle identifies its original input index. If a stage
+raises a calibration or pricing exception, the recording overload returns the
+completed stages and the error text. The one-argument call propagates the
+exception.
+
 API citations:
 
 - `OISSwap_` and `FRA_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp`.
