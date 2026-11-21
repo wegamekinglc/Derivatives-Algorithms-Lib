@@ -32,6 +32,16 @@ namespace Dal {
         CalibrationValueUnit_ unit_;
         CalibrationQuoteConvention_ convention_;
     };
+    struct CompoundedOisParRateRequest_ {
+        Vector_<String_> quoteIds_;
+        bool liveQuotePayoff_ = false;
+    };
+    struct CompoundedOisParRateResolution_ {
+        std::optional<PreparedCalibrationInstrument_> plan_;
+        Vector_<ScriptCurveQuoteRiskQuote_> quotes_;
+        Vector_<CalibrationDiagnostic_> diagnostics_;
+        [[nodiscard]] bool Available() const { return plan_.has_value(); }
+    };
     struct ScriptCurveQuoteRiskObservation_ {
         int ordinal_ = 0, quoteOrdinal_ = 0;
         String_ id_, instrumentId_, measureId_, sourceIdentity_, definitionIdentity_, bindingIdentity_;
@@ -147,6 +157,10 @@ namespace Dal {
         [[nodiscard]] const String_& Identity() const;
         [[nodiscard]] ScriptCurveQuoteRiskValidation_ ValidateContext(const CurveInstrumentCalibrationSpec_& context) const;
         [[nodiscard]] ScriptCurveQuoteMapping_ ParameterQuoteMapping(const CurveInstrumentCalibrationSpec_& context) const;
+        [[nodiscard]] CompoundedOisParRateResolution_ ResolveCompoundedOisParRate(const Handle_<CalibrationInstrument_>& instrument,
+                                                                                  const Handle_<PreparedCompoundedOis_>& tables,
+                                                                                  const CurveInstrumentCalibrationSpec_& context,
+                                                                                  const CompoundedOisParRateRequest_& request = {}) const;
     };
     ScriptCurveQuoteRiskSnapshot_ NewScriptCurveQuoteRiskSnapshot(const CurveInstrumentCalibrationResult_& fit,
                                                                   const ScriptCurveQuoteRiskAccuracy_& accuracy);
