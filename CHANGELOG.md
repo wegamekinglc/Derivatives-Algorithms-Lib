@@ -16,6 +16,12 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-21
+
+- `curve` — Core C++ callers can retain the fitted components, native parameters
+  and input-quote to residual-row mapping from a sequential discount and
+  forward calibration. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
+
 ## 2026-11-20
 
 - `random`: Sobol uniform and normal batch getters in C++, Python, and Excel
