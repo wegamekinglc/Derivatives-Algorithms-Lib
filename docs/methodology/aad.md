@@ -183,6 +183,15 @@ Seeding the $j$-th output adjoint to $1$ (others $0$) and propagating recovers t
 $j$-th row of the Jacobian; doing all $m$ together in one sweep recovers the whole
 Jacobian at the cost of one reverse pass with vector arithmetic.
 
+Core C++ curve calibrations that use `HarvestCurveJacobian` can select a fixed
+width with `AAD::SetNumResultsForAAD(true, width)` before the recording starts.
+The harvester seeds one output per channel, writes each block in row order and
+clears all input channels before the next block. Short rows and a partial last
+block retain the same matrix dimensions as scalar harvesting. The default width
+is one. To bound retained tape capacity, enclose the calibration in a caller-owned
+`AAD::TapeCapacityScope_` with a byte limit that admits the selected width.
+The returned matrix uses separate storage.
+
 An owning [structural Jacobian plan](aad-sparsity.md) colors caller-proven
 conservative row supports and recovers the full matrix from supplied compressed
 directions. Numerical zeros do not establish structural independence.
