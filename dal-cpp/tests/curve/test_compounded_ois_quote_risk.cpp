@@ -3,6 +3,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 
 #include <dal/curve/calibration_internal.hpp>
@@ -87,6 +88,32 @@ namespace {
         ASSERT_THROW(static_cast<void>(result.NativeGradient()), Exception_);
         ASSERT_THROW(static_cast<void>(result.SensitivityBpPerBp()), Exception_);
         ASSERT_THROW(static_cast<void>(result.TransposeBackwardErrors()), Exception_);
+    }
+    void AssertUnserializableParRateContext(bool pvOnly) {
+        auto spec = RiskSpec("None", "Overnight");
+        const auto nodes = CompoundedOisTest::BackgroundParameters();
+        const auto background = std::make_shared<DiscountLogDF_>("passive", "USD", spec.geometry_.knotDates_, Vector_<>{0., nodes[0], nodes[1]},
+                                                                 DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR"));
+        spec.market_.discountCurves_[CollateralType_("OIS")] = Handle_<DiscountCurve_>(background);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, Options()), Accuracy(pvOnly));
+        const auto& tables = spec.compoundedOis_.back();
+        const auto instrument = NewCompoundedOisScriptInstrument(tables);
+        const auto good = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+        ASSERT_TRUE(good.Available());
+        ASSERT_EQ(good.SnapshotIdentity(), snapshot.Identity());
+
+        const Vector_<> bump{std::numeric_limits<double>::infinity(), 0.};
+        background->ApplyDX(bump.begin(), 1.);
+        const auto bad = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+        ASSERT_NO_FATAL_FAILURE(AssertParRateUnavailable(bad, "ScriptCurveQuoteRiskUnavailable"));
+        ASSERT_EQ(bad.SnapshotIdentity(), good.SnapshotIdentity());
+        const auto& diagnostic = bad.Diagnostics().front();
+        ASSERT_EQ(diagnostic.field_, "/context");
+        ASSERT_EQ(diagnostic.stage_, CalibrationStage_::Value_::Validate);
+        ASSERT_EQ(diagnostic.instrumentId_, instrument->Id());
+        ASSERT_TRUE(diagnostic.actual_);
+        ASSERT_NE(diagnostic.actual_->find("ARCHIVE_NUMBER_NON_FINITE"), String_::npos);
+        ASSERT_THROW(ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec), Exception_);
     }
     void AssertUnavailable(const ScriptCurveQuoteRiskResult_& result) {
         ASSERT_FALSE(result.Available());
@@ -256,7 +283,7 @@ TEST(CompoundedOisQuoteRiskTest, TestQuoteSelectionSignedDv01AndActualNotionalSc
     ASSERT_DOUBLE_EQ(subset.RawSensitivity()[0], base.RawSensitivity()[1]);
 }
 
-TEST(CompoundedOisQuoteRiskTest, TestNegativeParRateUsesOneResponseForSelectedBuckets) {
+TEST(CompoundedOisQuoteRiskTest, TestNegativeParRateUsesOneTransposeRhsForSelectedBuckets) {
     const auto spec = NegativeParRateSpec();
     const auto& tables = spec.compoundedOis_[2];
     const auto instrument = NewCompoundedOisScriptInstrument(tables);
@@ -298,11 +325,20 @@ TEST(CompoundedOisQuoteRiskTest, TestNegativeParRateUsesOneResponseForSelectedBu
                 std::ostringstream row;
                 row << std::setprecision(15) << "par-rate pv_only=" << snapshot.Accuracy().pvOnly_ << " buckets=" << ids.size()
                     << " rate=" << result.ParRate() << " quote=" << ids[j] << " bp/bp=" << result.SensitivityBpPerBp()[j]
-                    << " transpose=" << result.TransposeBackwardErrors().size() << " recalibrations=" << CurveCalibrationInvocationCount() - before;
+                    << " transpose_rhs=" << result.TransposeBackwardErrors().size()
+                    << " recalibrations=" << CurveCalibrationInvocationCount() - before;
                 std::cout << row.str() << '\n';
             }
         }
     }
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestFullParRateOwnsUnserializableContextDiagnostic) {
+    ASSERT_NO_FATAL_FAILURE(AssertUnserializableParRateContext(false));
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestPvOnlyParRateOwnsUnserializableContextDiagnostic) {
+    ASSERT_NO_FATAL_FAILURE(AssertUnserializableParRateContext(true));
 }
 
 TEST(CompoundedOisQuoteRiskTest, TestParRateRejectsSettledAndInsufficientAnnuitiesAndRestoresTape) {

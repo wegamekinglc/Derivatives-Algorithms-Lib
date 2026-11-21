@@ -16,6 +16,12 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-22
+
+- Core C++ quote-risk snapshots return the decimal par rate of a registered
+  compounded OIS and its signed sensitivity to each selected calibration quote
+  in bp/bp. See [compounded OIS](docs/ccy-curves/compounded-ois.md).
+
 ## 2026-11-20
 
 - `random`: Sobol uniform and normal batch getters in C++, Python, and Excel

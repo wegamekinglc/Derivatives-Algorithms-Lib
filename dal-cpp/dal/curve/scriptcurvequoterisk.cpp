@@ -572,10 +572,22 @@ namespace Dal {
                                                                                                const Handle_<PreparedCompoundedOis_>& tables,
                                                                                                const CurveInstrumentCalibrationSpec_& context,
                                                                                                const CompoundedOisParRateRequest_& request) const {
+        const auto rejected = [&](CalibrationDiagnostic_ diagnostic) -> CompoundedOisParRateResolution_ {
+            if (instrument)
+                diagnostic.instrumentId_ = instrument->Id();
+            diagnostic.measureId_ = "ParRate";
+            return {{}, {}, {std::move(diagnostic)}};
+        };
         try {
             const auto validation = ValidateContext(context);
             if (!validation.Passed())
                 return {{}, {}, validation.Diagnostics()};
+        } catch (const CalibrationError_& error) {
+            return rejected(error.Failure().diagnostic_);
+        } catch (const std::exception& error) {
+            return rejected(Diagnostic("ScriptCurveQuoteRiskUnavailable", "/context", "serializable calibration context", error.what()));
+        }
+        try {
             if (!RiskAvailable())
                 return {{}, {}, Diagnostics()};
             Check(bool(instrument) && bool(tables), INPUT_ERROR, "/instrument", "bound OIS instrument and prepared tables");
@@ -588,11 +600,7 @@ namespace Dal {
                 selected.push_back(QuoteAxis()[i]);
             return {std::move(plan), std::move(selected), {}};
         } catch (const CalibrationError_& error) {
-            auto d = error.Failure().diagnostic_;
-            if (instrument)
-                d.instrumentId_ = instrument->Id();
-            d.measureId_ = "ParRate";
-            return {{}, {}, {std::move(d)}};
+            return rejected(error.Failure().diagnostic_);
         }
     }
 
