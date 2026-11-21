@@ -116,7 +116,6 @@ if(DAL_CPP_BUILD_TESTS OR (DAL_BUILD_PUBLIC AND DAL_PUBLIC_BUILD_TESTS))
             "-DDAL_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
             "-DDAL_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/native-aad/run.cmake")
-    set_tests_properties(dal_native_aad_configuration PROPERTIES TIMEOUT 300)
     add_test(NAME dal_aad_profiling_configuration
         COMMAND ${CMAKE_COMMAND}
             "-DDAL_AAD_PROFILING_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -125,7 +124,6 @@ if(DAL_CPP_BUILD_TESTS OR (DAL_BUILD_PUBLIC AND DAL_PUBLIC_BUILD_TESTS))
             "-DDAL_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
             "-DDAL_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/aad-profiling/run.cmake")
-    set_tests_properties(dal_aad_profiling_configuration PROPERTIES TIMEOUT 300)
     add_test(NAME dal_optional_excel_configuration
         COMMAND ${CMAKE_COMMAND}
             "-DDAL_OPTIONAL_EXCEL_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -134,5 +132,23 @@ if(DAL_CPP_BUILD_TESTS OR (DAL_BUILD_PUBLIC AND DAL_PUBLIC_BUILD_TESTS))
             "-DDAL_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
             "-DDAL_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/optional-excel/run.cmake")
-    set_tests_properties(dal_optional_excel_configuration PROPERTIES TIMEOUT 300)
+    set(configuration_tests
+        dal_native_aad_configuration
+        dal_aad_profiling_configuration
+        dal_optional_excel_configuration)
+    set_tests_properties(${configuration_tests} PROPERTIES TIMEOUT 300)
+
+    if(MSVC AND CMAKE_GENERATOR MATCHES "^Ninja")
+        # Nested configurations need the same MSVC and Windows SDK environment as the workspace.
+        if(NOT "$ENV{INCLUDE}" STREQUAL "" AND NOT "$ENV{LIB}" STREQUAL "")
+            set(msvc_test_environment)
+            foreach(variable IN ITEMS PATH INCLUDE LIB LIBPATH)
+                string(REPLACE ";" "\\;" value "$ENV{${variable}}")
+                list(APPEND msvc_test_environment "${variable}=${value}")
+            endforeach()
+            set(DAL_MSVC_TEST_ENVIRONMENT "${msvc_test_environment}" CACHE INTERNAL
+                "MSVC toolchain environment for nested configuration tests")
+        endif()
+        set_tests_properties(${configuration_tests} PROPERTIES ENVIRONMENT "${DAL_MSVC_TEST_ENVIRONMENT}")
+    endif()
 endif()

@@ -134,7 +134,7 @@ TEST(XccyAcceptanceExtendedTest, TestThreeMaturityIndependentQuotesAndNativeBasi
         ASSERT_EQ(result.quoteJacobian_.Cols(), 3);
         for (size_t i = 0; i < 3; ++i) {
             ASSERT_EQ(result.freeParameters_[i].date_, Dal::TestXccyAcceptance::StagedKnots()[i]);
-            ASSERT_EQ(result.freeParameters_[i].component_.String(), "LOG_DISCOUNT_FACTOR");
+            ASSERT_STREQ(result.freeParameters_[i].component_.String(), "LOG_DISCOUNT_FACTOR");
             ASSERT_EQ(result.axes_.observations_[i]->Id(), spec.observations_[i]->Id());
             ASSERT_DOUBLE_EQ(result.axes_.observations_[i]->ErrorScale(), 1e-4);
             ASSERT_NEAR(result.modelMeasures_[i], quotes[i], 1e-4);

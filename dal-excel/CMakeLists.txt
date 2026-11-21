@@ -130,15 +130,19 @@ file(GLOB_RECURSE EXCEL_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/auto/*.inc")
 
-add_library(dal_excel SHARED ${EXCEL_FILES})
+add_library(dal_excel_bindings OBJECT ${EXCEL_FILES})
+set_target_properties(dal_excel_bindings PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(dal_excel SHARED $<TARGET_OBJECTS:dal_excel_bindings>)
 add_library(DAL::excel ALIAS dal_excel)
 target_include_directories(dal_excel PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_include_directories(dal_excel_bindings PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
     if(NOT COMMAND dal_cpp_apply_msvc_runtime)
         message(FATAL_ERROR "installed dal-cpp package did not publish dal_cpp_apply_msvc_runtime")
     endif()
     dal_cpp_apply_msvc_runtime(dal_excel)
+    dal_cpp_apply_msvc_runtime(dal_excel_bindings)
     if(MSVC)
         get_target_property(DAL_EXCEL_MSVC_RUNTIME dal_excel MSVC_RUNTIME_LIBRARY)
         if(NOT "${DAL_EXCEL_MSVC_RUNTIME}" STREQUAL "${DAL_CPP_MSVC_RUNTIME_LIBRARY}")
@@ -150,8 +154,8 @@ if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
 endif()
 
 if(MSVC)
-    target_compile_options(dal_excel PRIVATE /utf-8)
-    target_compile_definitions(dal_excel PRIVATE
+    target_compile_options(dal_excel_bindings PRIVATE /utf-8)
+    target_compile_definitions(dal_excel_bindings PRIVATE
         IS_BASE
         # Keep Windows min/max macros out of standard and AAD headers.
         NOMINMAX
@@ -159,7 +163,7 @@ if(MSVC)
 endif()
 
 # Excel COM compile definitions (mirrors original)
-target_compile_definitions(dal_excel PRIVATE
+target_compile_definitions(dal_excel_bindings PRIVATE
     USE_EXCEL_REPORT
     OFFICE_MSO_PATH="${OFFICE_MSO_DLL}"
     OFFICE_VBE_PATH="${OFFICE_VBE_OLB}"
@@ -167,6 +171,7 @@ target_compile_definitions(dal_excel PRIVATE
 )
 
 # Link against the public library
+target_link_libraries(dal_excel_bindings PRIVATE ${DAL_PUBLIC_TARGET})
 target_link_libraries(dal_excel PUBLIC ${DAL_PUBLIC_TARGET})
 dal_public_check_binding(dal_excel "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -188,8 +193,8 @@ install(TARGETS dal_excel
 # Test target: dal_excel_tests (Windows only)
 # ---------------------------------------------------------------------------
 if(DAL_EXCEL_BUILD_TESTS)
-    target_compile_definitions(dal_excel PRIVATE DAL_EXCEL_TEST_API_EXPORTS)
-    target_sources(dal_excel PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests/support/scripttestruntime.cpp")
+    target_compile_definitions(dal_excel_bindings PRIVATE DAL_EXCEL_TEST_API_EXPORTS)
+    target_sources(dal_excel_bindings PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests/support/scripttestruntime.cpp")
     enable_testing()
 
     if(NOT TARGET GTest::gtest_main)
@@ -210,7 +215,11 @@ if(DAL_EXCEL_BUILD_TESTS)
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/test-support")
-        target_compile_definitions(dal_excel_tests PRIVATE DAL_EXCEL_TEST_API_IMPORTS)
+        # Keep test-only C++ allocations in one static Debug CRT.
+        set(in_process_tests "$<AND:$<BOOL:${MSVC}>,$<CONFIG:Debug>>")
+        target_compile_definitions(dal_excel_tests PRIVATE
+            "$<${in_process_tests}:DAL_EXCEL_TESTS_IN_PROCESS>"
+            "$<$<NOT:${in_process_tests}>:DAL_EXCEL_TEST_API_IMPORTS>")
         if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
             dal_cpp_apply_msvc_runtime(dal_excel_tests)
             if(MSVC)
@@ -222,8 +231,10 @@ if(DAL_EXCEL_BUILD_TESTS)
                 endif()
             endif()
         endif()
-        target_link_libraries(dal_excel_tests PRIVATE dal_excel ${DAL_PUBLIC_TARGET})
-        target_link_libraries(dal_excel_tests PRIVATE GTest::gtest_main)
+        target_link_libraries(dal_excel_tests PRIVATE
+            "$<${in_process_tests}:dal_excel_bindings>"
+            "$<$<NOT:${in_process_tests}>:dal_excel>"
+            ${DAL_PUBLIC_TARGET} GTest::gtest_main)
         gtest_discover_tests(dal_excel_tests)
     else()
         message(STATUS "dal-excel: no tests found (tests/ directory is empty)")

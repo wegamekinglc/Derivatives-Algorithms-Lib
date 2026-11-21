@@ -129,6 +129,11 @@ endif()
 # ---------------------------------------------------------------------------
 # Library target: dal_cpp (alias DAL::cpp)
 # ---------------------------------------------------------------------------
+if(MSVC)
+    # Template-heavy debug objects can exceed the default COFF section limit.
+    add_compile_options("$<$<CONFIG:Debug>:/bigobj>")
+endif()
+
 file(GLOB_RECURSE DAL_CPP_SOURCES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/dal/*.h"
     "${PROJECT_SOURCE_DIR}/dal/*.hpp"
@@ -268,6 +273,8 @@ if(DAL_CPP_BUILD_TESTS)
 
     # Instrumented startup and listing can exceed CMake's five-second default.
     gtest_discover_tests(dal_cpp_tests DISCOVERY_TIMEOUT 60)
+    set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/label-qualification-tests.cmake")
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC AND NOT CMAKE_CROSSCOMPILING)
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")

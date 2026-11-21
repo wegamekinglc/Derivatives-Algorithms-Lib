@@ -9,7 +9,7 @@ here instead of maintaining separate build recipes.
 |----------|-----------------------------------------------------------------------------|
 | Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool        |
 | Linux    | GCC 13+ or Clang 18+; Make or Ninja                                         |
-| Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                |
+| Windows  | Visual Studio 2022 or 2026 C++ toolchain and Ninja                         |
 | Python   | CPython 3.9-3.14 with development headers (`>=3.9,<3.15`); `uv` recommended |
 | Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`        |
 
@@ -226,18 +226,34 @@ facade even with `DAL_EXCEL_BUILD_TESTS=OFF`.
 
 ## Windows C++ and Excel
 
-From a Visual Studio 2022 developer shell with Ninja available:
+From an x64 Visual Studio 2022 or 2026 developer shell with Ninja available:
 
 ```powershell
 cmake --preset Release-windows
 cmake --build build/Release-windows --parallel
-ctest --test-dir build/Release-windows --output-on-failure
+ctest --test-dir build/Release-windows --output-on-failure --parallel 4 -LE "benchmark|examples|slow_qualification"
 cmake --install build/Release-windows
 ```
 
 `Release-windows` enables the Excel add-in. Use `Debug-windows` for a Debug
 configuration. The staged prefix is `build/stage/Release-windows` or
 `build/stage/Debug-windows`.
+
+Run `build_windows.bat` from the repository root to regenerate sources, build,
+install, and run tests. The script uses the active x64 developer shell's
+toolchain. From a regular terminal, it selects the latest stable installation
+with C++ build tools and falls back to Insiders if needed. Use a fresh CMake
+build directory when switching toolchains. Set `CMAKE_BUILD_PARALLEL_LEVEL`
+to limit concurrent jobs if Debug linking runs out of memory.
+
+The script runs four CTest jobs by default. Set `CTEST_PARALLEL_LEVEL` to
+override that limit. Run `build_windows.bat --full-tests` to include examples
+and long-running qualification cases, including the 10-million-path simulations
+and the fine-grid PDE risk cases.
+
+Use Release to run the heap-allocation probes for schedules, script evaluation,
+and allocation-failure recovery. These probes skip when MSVC checked iterators
+are enabled because their bookkeeping adds allocations inside the STL.
 
 Both Windows presets set `MSVC_RUNTIME=static`, so every workspace target
 links the static C++ runtime (`/MT`, or `/MTd` in Debug). `MSVC_RUNTIME` is a
@@ -246,6 +262,10 @@ only under MSVC, defaults to `dynamic` (`/MD`, or `/MDd` in Debug), and any
 value other than `static` selects the dynamic runtime. The installed package
 republishes the linked runtime as `DAL_CPP_MSVC_RUNTIME_LIBRARY` — see
 [Installed CMake Packages](#installed-cmake-packages).
+
+MSVC Debug tests link the Excel bindings into the test executable so all
+C++ allocations use one static debug CRT. Release tests exercise the exports
+through the loaded XLL.
 
 ## Installed CMake Packages
 

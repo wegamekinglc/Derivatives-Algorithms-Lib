@@ -9,6 +9,8 @@
 #include <string>
 #include <type_traits>
 
+#include <dal/math/allocatortraits.hpp>
+
 namespace Dal {
     class String_;
     class BufferCapacityBudget_;
@@ -162,14 +164,18 @@ namespace Dal {
             [[nodiscard]] T_* allocate(size_t count) {
                 if (count > static_cast<size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(T_))
                     throw std::bad_array_new_length();
-                if constexpr (alignof(T_) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+                if constexpr (IS_ITERATOR_DEBUG_ALLOCATION<T_>)
+                    return std::allocator<T_>{}.allocate(count);
+                else if constexpr (alignof(T_) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
                     return static_cast<T_*>(AllocateBufferStorage(count * sizeof(T_), std::align_val_t(alignof(T_))));
                 else
                     return static_cast<T_*>(AllocateBufferStorage(count * sizeof(T_)));
             }
 
             void deallocate(T_* allocation, size_t count) noexcept {
-                if constexpr (alignof(T_) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+                if constexpr (IS_ITERATOR_DEBUG_ALLOCATION<T_>)
+                    std::allocator<T_>{}.deallocate(allocation, count);
+                else if constexpr (alignof(T_) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
                     DeallocateBufferStorage(allocation, count * sizeof(T_), std::align_val_t(alignof(T_)));
                 else
                     DeallocateBufferStorage(allocation, count * sizeof(T_));

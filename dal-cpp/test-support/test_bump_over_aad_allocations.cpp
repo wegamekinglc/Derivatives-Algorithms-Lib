@@ -10,6 +10,9 @@ using namespace Dal::AAD;
 using namespace Dal::BcgAllocationProbePrivate_;
 
 TEST(AADBumpOverAADAllocationTest, TestEveryRequestAllocationFailureRestoresModeAndRecovers) {
+    if (MSVC_CHECKED_ITERATORS)
+        GTEST_SKIP() << "MSVC checked iterators can allocate in noexcept STL operations";
+
     BumpOverAADRequest_ request;
     request.directions_ = Matrix_<>(1, 1, 1.0);
     request.steps_ = {0.1};

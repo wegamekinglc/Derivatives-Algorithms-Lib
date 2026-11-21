@@ -27,6 +27,9 @@ namespace {
 } // namespace
 
 TEST(MonteCarloCurvatureAllocationTest, TestEveryCallerAllocationFailureRestoresModeAndRecovers) {
+    if (Probe::MSVC_CHECKED_ITERATORS)
+        GTEST_SKIP() << "MSVC checked iterators can allocate in noexcept STL operations";
+
     const ScopedThreads_ threads;
     Script::ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Dal::Date_(2026, 10, 1);

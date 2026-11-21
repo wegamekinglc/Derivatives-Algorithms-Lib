@@ -11,7 +11,7 @@
 #include <dal/storage/json.hpp>
 
 #ifdef _WIN32
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 #include <dal-excel/src/__script_test_api.hpp>
 #endif
 
@@ -34,12 +34,12 @@ namespace {
         return NativeRiskText_(std::wstring(tag.begin(), tag.end()));
     }
     template <class... A_> OPER_* NativeRiskCall(const char* name, A_... args) {
-        const auto address = GetProcAddress(GetModuleHandleA("dal_excel.xll"), name);
+        const auto address = GetProcAddress(Dal::Excel::ModuleForTest(), name);
         REQUIRE(address, "missing generated risk export");
         return reinterpret_cast<OPER_* (*)(A_...)>(address)(args...);
     }
     std::string NativeRiskOutput(OPER_* value) {
-        const auto release = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xlAutoFree12"));
+        const auto release = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(Dal::Excel::ModuleForTest(), "xlAutoFree12"));
         REQUIRE(value && release, "missing native result/release");
         const std::unique_ptr<OPER_, decltype(release)> owned(value, release);
         REQUIRE((value->xltype & xltypeMulti) && value->val.array.rows == 1 && value->val.array.columns == 1, "expected scalar");
