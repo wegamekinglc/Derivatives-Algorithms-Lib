@@ -156,11 +156,33 @@ namespace Dal::Script {
         }
     } // namespace Detail::CompiledSoa
 
+    // Own the sealed script and decode its lane-independent instructions once for repeated valuations.
+    class PreparedSoaScript_ {
+        PreparedScript_ product_;
+        std::optional<Detail::CompiledSoa::Plan_> decoded_;
+
+    public:
+        explicit PreparedSoaScript_(PreparedScript_ product) : product_(std::move(product)) {
+            product_.RequireExecutable();
+            if (!product_.AllExpired())
+                decoded_.emplace(Detail::CompiledSoa::BuildPlan(product_));
+        }
+        [[nodiscard]] const PreparedScript_& Product() const { return product_; }
+        [[nodiscard]] const Detail::CompiledSoa::Plan_& DecodedPlan() const { return decoded_.value(); }
+    };
+
     template <size_t L_ = 32, class P_>
     SimResults_
-    MCDoubleSimulationSoa(const P_& product, AAD::Model_<double>* model, size_t nPaths, const String_& rsg = "sobol", bool useBb = false) {
+    MCDoubleSimulationSoa(const P_& input, AAD::Model_<double>* model, size_t nPaths, const String_& rsg = "sobol", bool useBb = false) {
         static_assert(L_ == 8 || L_ == 16 || L_ == 32 || L_ == 64, "SoA supports 8, 16, 32 or 64 lanes");
-        static_assert(std::is_same_v<P_, ScriptProduct_> || std::is_same_v<P_, PreparedScript_>, "SoA requires a core script product");
+        static_assert(std::is_same_v<P_, ScriptProduct_> || std::is_same_v<P_, PreparedScript_> || std::is_same_v<P_, PreparedSoaScript_>,
+                      "SoA requires a core script product");
+        const auto& product = [&]() -> const auto& {
+            if constexpr (std::is_same_v<P_, PreparedSoaScript_>)
+                return input.Product();
+            else
+                return input;
+        }();
         product.RequireExecutable();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(rsg);
@@ -171,7 +193,9 @@ namespace Dal::Script {
         if (nPaths < 16)
             return MCDoubleSimulation(product, model, nPaths, rsg, useBb, true);
         Detail::InitializeDoubleSimulation(product, model, true, false);
-        const auto plan = Detail::CompiledSoa::BuildPlan(product);
-        return Detail::CompiledSoa::Run<L_>(product, *model, plan, nPaths, rsg, useBb);
+        if constexpr (std::is_same_v<P_, PreparedSoaScript_>)
+            return Detail::CompiledSoa::Run<L_>(product, *model, input.DecodedPlan(), nPaths, rsg, useBb);
+        else
+            return Detail::CompiledSoa::Run<L_>(product, *model, Detail::CompiledSoa::BuildPlan(product), nPaths, rsg, useBb);
     }
 } // namespace Dal::Script
