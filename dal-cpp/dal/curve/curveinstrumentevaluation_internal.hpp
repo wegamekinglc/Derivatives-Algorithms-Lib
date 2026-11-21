@@ -27,6 +27,10 @@ namespace Dal::CurveInstrumentInternal {
     PreparedCurvePrice_
     PrepareCurvePrice(const PreparedCurvePriceContext_&, const Handle_<CalibrationInstrument_>& instrument, const String_& measureId);
 
+    PreparedCalibrationInstrument_ PrepareCompoundedOisParRate(const PreparedCurvePriceContext_& context,
+                                                               const Handle_<CalibrationInstrument_>& instrument,
+                                                               const PreparedCompoundedOis_& tables);
+
     template <class T_>
     T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan,
                        const CandidateCurveProvider_<T_>& provider,

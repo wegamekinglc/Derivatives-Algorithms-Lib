@@ -623,9 +623,28 @@ namespace Dal {
             Check(!CompoundedOisInternal::ContainsOvernight(*instrument), "CompoundedOisUnregisteredInstrument", "/instrument",
                   "OIS PV registered before calibration");
         PreparationSettings(*data.spec_, *data.options_);
-        const auto diagnostic = Diagnostic(*instrument, measureId);
-        return {PrepareInstrument(instrument, measureId, *data.spec_, data.structural_, *data.options_, nullptr, diagnostic, data.identities_.get()),
+        const auto& source = registered != data.compoundedPrices_->end() ? registered->second.Instrument() : instrument;
+        const auto diagnostic = Diagnostic(*source, measureId);
+        return {PrepareInstrument(source, measureId, *data.spec_, data.structural_, *data.options_, nullptr, diagnostic, data.identities_.get()),
                 data.geometry_};
+    }
+    PreparedCalibrationInstrument_ CurveInstrumentInternal::PrepareCompoundedOisParRate(const PreparedCurvePriceContext_& context,
+                                                                                        const Handle_<CalibrationInstrument_>& instrument,
+                                                                                        const PreparedCompoundedOis_& tables) {
+        Check(bool(instrument) && bool(context.data_), "InvalidCalibrationPlan", "/instrument", "bound instrument and frozen OIS context");
+        const auto& registry = context.data_->spec_->compoundedOis_;
+        const auto id = Bytes(instrument->Id());
+        const auto registered =
+            std::find_if(registry.begin(), registry.end(), [&](const auto& entry) { return Bytes(entry->Spec().instrumentId_) == id; });
+        Check(registered != registry.end(), "CompoundedOisUnregisteredInstrument", "/instrument", "OIS registered before calibration",
+              instrument->Id());
+        // Distinct frozen schedules can emit identical payment scripts.
+        Check((*registered)->PreparationIdentity() == tables.PreparationIdentity(), "CompoundedOisSourceMismatch",
+              "/instrument/tables/preparation_identity", (*registered)->PreparationIdentity(), tables.PreparationIdentity());
+        auto prepared = PrepareCurvePrice(context, instrument, "ParRate");
+        Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::ParAffineRate, "ScriptCurveQuoteRiskUnsupportedMeasure",
+              "/instrument/measure", "ParAffineRate");
+        return std::move(prepared.plan_);
     }
 
     PreparedCurveInstruments_::PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec,
