@@ -129,6 +129,29 @@ namespace {
             ASSERT_GT(df, 0.0);
         }
     }
+    void AssertStagedDepositReplay(const CurveCalibrationStageRecord_& stage) {
+        ASSERT_EQ(stage.spec_.knotPolicy_, CurveKnotPolicy_::Value_::INPUT);
+        ASSERT_EQ(stage.freeParameters_.size(), 2u);
+        ASSERT_EQ(stage.solution_, dynamic_cast<const DiscountZeroRate_&>(*stage.curve_).NodeZeroRates());
+        for (int i = 0; i < 2; ++i) {
+            ASSERT_EQ(stage.freeParameters_[i].date_, Date::AddMonths(stage.spec_.today_, 6 * (i + 1)));
+            ASSERT_EQ(stage.spec_.knotDates_[i], stage.freeParameters_[i].date_);
+            ASSERT_EQ(stage.freeParameters_[i].component_, CurveFreeParameterComponent_::Value_::ZERO_RATE);
+        }
+        const auto& spec = stage.spec_;
+        const auto definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, spec.knotDates_,
+                                                    spec.today_, spec.liborBasis_);
+        const Handle_<DiscountCurve_> rebuilt(BuildDiscountCurveUniqueT<double>(definition, stage.solution_, spec.baseCurve_));
+        auto discounts = spec.discountCurves_;
+        auto forwards = spec.forwardCurves_;
+        if (spec.calibrateDiscountCurve_)
+            discounts[spec.targetCollateral_] = rebuilt;
+        else
+            forwards[spec.targetTenor_] = rebuilt;
+        const CurveBlock_ replay(spec.curveName_, spec.ccy_, discounts, forwards, spec.liborBasis_);
+        for (const auto& instrument : spec.instruments_)
+            ASSERT_NEAR((*instrument->Precompute({}))(replay), instrument->MarketRate(), 1e-12);
+    }
 } // namespace
 
 TEST(CalibrationTest, TestBuildCurveCalibrationWeightsExpandsParametersPerKnot) {
@@ -171,29 +194,8 @@ TEST(CalibrationTest, TestStagedRiskRecordOwnsEffectiveRoutesSolutionAndQuoteRow
         const auto& forward = record.stages_[1];
         ASSERT_EQ(forward.spec_.baseCurve_.get(), discount.curve_.get());
         ASSERT_EQ(forward.spec_.discountCurves_.at(forward.spec_.targetCollateral_).get(), discount.curve_.get());
-        for (const auto& stage : record.stages_) {
-            ASSERT_EQ(stage.spec_.knotPolicy_, CurveKnotPolicy_::Value_::INPUT);
-            ASSERT_EQ(stage.freeParameters_.size(), 2u);
-            ASSERT_EQ(stage.solution_, dynamic_cast<const DiscountZeroRate_&>(*stage.curve_).NodeZeroRates());
-            for (int i = 0; i < 2; ++i) {
-                ASSERT_EQ(stage.freeParameters_[i].date_, Date::AddMonths(stage.spec_.today_, 6 * (i + 1)));
-                ASSERT_EQ(stage.spec_.knotDates_[i], stage.freeParameters_[i].date_);
-                ASSERT_EQ(stage.freeParameters_[i].component_, CurveFreeParameterComponent_::Value_::ZERO_RATE);
-            }
-            const auto& spec = stage.spec_;
-            const auto definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, spec.knotDates_,
-                                                        spec.today_, spec.liborBasis_);
-            const Handle_<DiscountCurve_> rebuilt(BuildDiscountCurveUniqueT<double>(definition, stage.solution_, spec.baseCurve_));
-            auto discounts = spec.discountCurves_;
-            auto forwards = spec.forwardCurves_;
-            if (spec.calibrateDiscountCurve_)
-                discounts[spec.targetCollateral_] = rebuilt;
-            else
-                forwards[spec.targetTenor_] = rebuilt;
-            const CurveBlock_ replay(spec.curveName_, spec.ccy_, discounts, forwards, spec.liborBasis_);
-            for (const auto& instrument : spec.instruments_)
-                ASSERT_NEAR((*instrument->Precompute({}))(replay), instrument->MarketRate(), 1e-12);
-        }
+        for (const auto& stage : record.stages_)
+            AssertStagedDepositReplay(stage);
     }
 }
 

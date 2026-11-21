@@ -638,14 +638,7 @@ namespace Dal {
             }
         }
 
-        String_ StageRiskRejection(const MultiCurveCalibrationSpec_& bundle,
-                                   const CurveCalibrationSpec_& stage,
-                                   const StagedMultiCurveCalibrationRecord_& record) {
-            if (stage.ccy_.empty() || (!bundle.ccy_.empty() && bundle.ccy_ != stage.ccy_) ||
-                (!record.stages_.empty() && stage.ccy_ != record.stages_.front().spec_.ccy_))
-                return "Stages must share the same currency";
-            if (stage.solveMode_ != CurveSolveMode_::Value_::EXACT)
-                return "Staged quote risk requires EXACT calibration";
+        String_ StageComponentRejection(const CurveCalibrationSpec_& stage, const StagedMultiCurveCalibrationRecord_& record) {
             if (stage.calibrateDiscountCurve_) {
                 if (stage.baseCurve_)
                     return "The discount stage must not depend on an external base curve";
@@ -657,6 +650,10 @@ namespace Dal {
                 if (stage.baseCurve_.get() != discount.curve_.get())
                     return "The forward stage base must reference the fitted discount curve";
             }
+            return {};
+        }
+
+        String_ InstrumentRouteRejection(const CurveCalibrationSpec_& stage) {
             for (const auto& instrument : stage.instruments_) {
                 const auto* index = FloatConventionOf(*instrument);
                 if (!index)
@@ -668,6 +665,18 @@ namespace Dal {
                     return "Instrument forecast route does not match the stage target";
             }
             return {};
+        }
+
+        String_ StageRiskRejection(const MultiCurveCalibrationSpec_& bundle,
+                                   const CurveCalibrationSpec_& stage,
+                                   const StagedMultiCurveCalibrationRecord_& record) {
+            if (stage.ccy_.empty() || (!bundle.ccy_.empty() && bundle.ccy_ != stage.ccy_) ||
+                (!record.stages_.empty() && stage.ccy_ != record.stages_.front().spec_.ccy_))
+                return "Stages must share the same currency";
+            if (stage.solveMode_ != CurveSolveMode_::Value_::EXACT)
+                return "Staged quote risk requires EXACT calibration";
+            const auto reason = StageComponentRejection(stage, record);
+            return reason.empty() ? InstrumentRouteRejection(stage) : reason;
         }
 
         CurveCalibrationResult_
@@ -686,14 +695,8 @@ namespace Dal {
 
             const Vector_<> guess = BuildCalibrationGuess(spec, definition, layout);
             const Vector_<> tol(instruments.size(), spec.tolerance_);
-            Vector_<Date_> weightKnots;
-            if (layout.pinnedAnchor_) {
-                // Pinned representations store an internal anchor but expose only the free future nodes.
-                for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i)
-                    weightKnots.push_back(definition.nodeDates_[i]);
-            } else {
-                weightKnots = definition.nodeDates_;
-            }
+            const auto firstFreeKnot = definition.nodeDates_.begin() + (layout.pinnedAnchor_ ? 1 : 0);
+            const Vector_<Date_> weightKnots(firstFreeKnot, definition.nodeDates_.end());
             std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 
             AnalyticRates_ analyticRates;
@@ -702,9 +705,8 @@ namespace Dal {
                                             spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_,
                                             &analyticRates);
 
-            // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; not requested so the solver leaves the output empty.
-            const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC &&
-                                         spec.solveMode_ == CurveSolveMode_::Value_::EXACT && func.Eligible();
+            // Eligibility is cached for ANALYTIC mode. RunCurveCalibration gates the diagnostic on EXACT.
+            const bool wantFwdJacobian = options.computeForwardJacobian_ && func.Eligible();
             CurveSolveOutput_ solved =
                 RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
                                     wantFwdJacobian, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
@@ -724,6 +726,15 @@ namespace Dal {
                 record.residualRowByInput_ = ResidualRowsByInput(spec.instruments_, instruments);
             }
             return retval;
+        }
+
+        void StoreStageFailure(StagedMultiCurveCalibrationRecord_* record, const String_& name, const Exception_& error, bool previouslyUnavailable) {
+            if (previouslyUnavailable || record->unavailableReason_.empty()) {
+                record->unavailableStage_ = name;
+                record->unavailableReason_ = error.what();
+            } else {
+                record->unavailableReason_ += String_("; ") + error.what();
+            }
         }
     } // namespace
 
@@ -761,12 +772,7 @@ namespace Dal {
                 auto stageResult = CalibrateStage(stageSpec, CurveCalibrationOptions_(), riskRecord);
                 riskRecord->stages_.back().curve_ = StoreStageResult(stageSpec, &stageResult, &retval);
             } catch (const Exception_& e) {
-                if (previouslyUnavailable || riskRecord->unavailableReason_.empty()) {
-                    riskRecord->unavailableStage_ = stageSpec.curveName_;
-                    riskRecord->unavailableReason_ = e.what();
-                } else {
-                    riskRecord->unavailableReason_ += String_("; ") + e.what();
-                }
+                StoreStageFailure(riskRecord, stageSpec.curveName_, e, previouslyUnavailable);
                 break;
             }
         }
