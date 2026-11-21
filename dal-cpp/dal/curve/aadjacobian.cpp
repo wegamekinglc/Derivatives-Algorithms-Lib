@@ -1,6 +1,9 @@
 #include <dal/platform/strict.hpp>
 
+#include <algorithm>
+
 #include <dal/curve/aadjacobian.hpp>
+#include <dal/math/aad/native.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
@@ -25,6 +28,42 @@ namespace Dal {
                 result(row, column) = AAD::AdjointValue(independents[column]);
             ClearIndependentAdjoints(independents);
         }
+        void ValidateVectorAxes(const Vector_<AAD::Number_>& inputs, const Vector_<AAD::Number_>& outputs, const Vector_<int>& widths) {
+            for (int row = 0; row < static_cast<int>(outputs.size()); ++row) {
+                RowWidth(widths, row, static_cast<int>(inputs.size()));
+                static_cast<void>(AAD::NativeOperations_::ReadAdjoint(outputs[row]));
+            }
+            for (const auto& input : inputs)
+                static_cast<void>(AAD::NativeOperations_::ReadAdjoint(input));
+        }
+
+        void CopyVectorRows(const Vector_<AAD::Number_>& inputs, const Vector_<int>& widths, size_t first, size_t count, Matrix_<>* result) {
+            for (size_t lane = 0; lane < count; ++lane) {
+                const int row = static_cast<int>(first + lane);
+                const int columns = widths.empty() ? result->Cols() : widths[row];
+                for (int column = 0; column < columns; ++column)
+                    (*result)(row, column) = AAD::NativeOperations_::ReadAdjoint(inputs[column], lane);
+            }
+        }
+
+        Matrix_<> HarvestVectorRows(AAD::Tape_& tape, Vector_<AAD::Number_>& inputs, Vector_<AAD::Number_>& outputs, const Vector_<int>& widths) {
+            REQUIRE(&tape == AAD::Tape(), "HarvestCurveJacobian: vector adjoints require the current tape");
+            ValidateVectorAxes(inputs, outputs, widths);
+            Matrix_<> result(static_cast<int>(outputs.size()), static_cast<int>(inputs.size()), 0.);
+            for (size_t first = 0; first < outputs.size(); first += tape.numAdj_) {
+                const size_t count = std::min(tape.numAdj_, outputs.size() - first);
+                for (size_t lane = 0; lane < count; ++lane)
+                    AAD::NativeOperations_::SetSeed(outputs[first + lane], 1., lane);
+                AAD::PropagateToStart(tape);
+                CopyVectorRows(inputs, widths, first, count, &result);
+                // An output may alias a leaf, and several columns may name the same input.
+                for (size_t lane = 0; lane < count; ++lane)
+                    AAD::NativeOperations_::ClearSeeds(outputs[first + lane]);
+                for (auto& input : inputs)
+                    AAD::NativeOperations_::ClearSeeds(input);
+            }
+            return result;
+        }
     } // namespace
 
     Matrix_<>
@@ -34,6 +73,8 @@ namespace Dal {
         REQUIRE(rowWidths.empty() || static_cast<int>(rowWidths.size()) == rows,
                 "HarvestCurveJacobian: row-width count must equal the residual count");
 
+        if (tape.multi_)
+            return HarvestVectorRows(tape, independents, residuals, rowWidths);
         Matrix_<> result(rows, columns, 0.0);
         for (int row = 0; row < rows; ++row) {
             const int width = RowWidth(rowWidths, row, columns);
