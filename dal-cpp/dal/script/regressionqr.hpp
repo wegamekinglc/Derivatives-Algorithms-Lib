@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <utility>
@@ -19,9 +20,21 @@ namespace Dal::Script::RegressionQR {
     };
 
     inline bool NormalizeColumn(Vector_<double>* column, bool allowZeroColumn, double* scale) {
-        double norm = 0.0;
-        for (double value : *column)
-            norm = std::hypot(norm, value);
+        double largest = 0.;
+        for (double value : *column) {
+            if (!std::isfinite(value))
+                return false;
+            largest = std::max(largest, std::abs(value));
+        }
+        // Scale before squaring to retain both subnormal and near-overflow columns.
+        double sum = 0.;
+        if (largest > 0.) {
+            for (double value : *column) {
+                const double scaled = value / largest;
+                sum += scaled * scaled;
+            }
+        }
+        const double norm = largest * std::sqrt(sum);
         if (!std::isfinite(norm) || (norm == 0.0 && !allowZeroColumn))
             return false;
         *scale = norm == 0.0 ? 1.0 : norm;

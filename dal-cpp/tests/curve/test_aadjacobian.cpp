@@ -3,6 +3,8 @@
 #include <dal/curve/aadjacobian.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/tapeguard.hpp>
+#include <dal/math/aad/statistics.hpp>
+#include <dal/math/aad/tapecapacity.hpp>
 
 using namespace Dal;
 
@@ -54,6 +56,55 @@ TEST(AadJacobianTest, TestShortenedRowsStillCleanUnharvestedLeaves) {
     ASSERT_DOUBLE_EQ(full(0, 2), 1.0);
     ASSERT_DOUBLE_EQ(full(1, 2), 2.0);
     AAD::Clear(*tape);
+}
+
+TEST(AadJacobianTest, TestVectorHarvestHandlesAliasesShortRowsAndTail) {
+    auto* tape = AAD::Tape();
+    AAD::Clear(*tape);
+    const auto mode = AAD::SetNumResultsForAAD(true, 2);
+    auto inputs = RegisterCurveParameters(Vector_<>{2., 3.});
+    AAD::NewRecording(*tape);
+    const AAD::Number_ product = inputs[0] * inputs[1];
+    Vector_<AAD::Number_> outputs{product, inputs[1], product};
+    Vector_<AAD::Number_> columns{inputs[0], inputs[1], inputs[0]};
+    ASSERT_THROW(HarvestCurveJacobian(*tape, columns, outputs, {3, 1, 4}), Exception_);
+    const auto shortRows = HarvestCurveJacobian(*tape, columns, outputs, {0, 2, 3});
+    ASSERT_DOUBLE_EQ(shortRows(0, 0), 0.);
+    ASSERT_DOUBLE_EQ(shortRows(1, 1), 1.);
+    ASSERT_DOUBLE_EQ(shortRows(2, 2), 3.);
+    const auto full = HarvestCurveJacobian(*tape, columns, outputs);
+    for (const auto row : {0, 2}) {
+        ASSERT_DOUBLE_EQ(full(row, 0), 3.);
+        ASSERT_DOUBLE_EQ(full(row, 1), 2.);
+        ASSERT_DOUBLE_EQ(full(row, 2), 3.);
+    }
+    ASSERT_DOUBLE_EQ(full(1, 0), 0.);
+    ASSERT_DOUBLE_EQ(full(1, 1), 1.);
+    AAD::Clear(*tape);
+}
+
+TEST(AadJacobianTest, TestVectorBudgetRejectsGrowthAndAllowsAnotherRecording) {
+    auto* tape = AAD::Tape();
+    AAD::Clear(*tape);
+    const auto limit = AAD::MeasureTape(*tape).capacityBytes_;
+    AAD::TapeCapacityBudget_ budget(limit);
+    AAD::TapeCapacityScope_ capacity(&budget);
+    const auto mode = AAD::SetNumResultsForAAD(true, 8);
+    const auto record = [&](size_t steps) {
+        TapeGuard_ guard(tape);
+        auto inputs = RegisterCurveParameters({1.});
+        guard.recording_.StartRecording();
+        auto value = inputs.front();
+        for (size_t i = 0; i < steps; ++i)
+            value = value + inputs.front();
+        Vector_<AAD::Number_> outputs{value};
+        guard.recording_.FinishRecording();
+        return HarvestCurveJacobian(*tape, inputs, outputs);
+    };
+    ASSERT_THROW(record(AAD::ADJ_SIZE / 8), Exception_);
+    ASSERT_LE(budget.PeakCapacityBytes(), limit);
+    ASSERT_DOUBLE_EQ(record(3)(0, 0), 4.);
+    capacity.Close();
 }
 
 TEST(AadJacobianTest, TestTapeGuardRewindsDirtyRecordingAfterException) {
