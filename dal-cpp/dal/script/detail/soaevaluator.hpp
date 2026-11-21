@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <initializer_list>
 #include <vector>
+#if defined(_MSC_VER) && defined(_M_X64)
+#include <intrin.h>
+#endif
 
 #include <dal/script/event.hpp>
 #include <dal/script/observationplan.hpp>
@@ -207,9 +210,21 @@ namespace Dal::Script::Detail::CompiledSoa {
                 for (size_t lane = 0; lane < limit; ++lane)
                     f(lane);
             } else {
+#if defined(__GNUC__) || defined(__clang__) || (defined(_MSC_VER) && defined(_M_X64))
+                for (; mask; mask &= mask - 1) {
+#if defined(_MSC_VER) && defined(_M_X64)
+                    unsigned long lane;
+                    _BitScanForward64(&lane, mask);
+#else
+                    const auto lane = static_cast<size_t>(__builtin_ctzll(mask));
+#endif
+                    f(lane);
+                }
+#else
                 for (size_t lane = 0; lane < limit; ++lane)
                     if (mask & (uint64_t(1) << lane))
                         f(lane);
+#endif
             }
         }
 
