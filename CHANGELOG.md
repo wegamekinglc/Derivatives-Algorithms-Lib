@@ -18,6 +18,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-22
 
+- `curve` — Sequential discount and forward calibration records map native
+  PV gradients to input-quote derivatives using the forward curve's dependence
+  on the fitted discount curve. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
 - Core C++ quote-risk snapshots return the decimal par rate of a registered
   compounded OIS and its signed sensitivity to each selected calibration quote
   in bp/bp. See [compounded OIS](docs/ccy-curves/compounded-ois.md).

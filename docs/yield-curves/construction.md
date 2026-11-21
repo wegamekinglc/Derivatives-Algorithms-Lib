@@ -725,6 +725,23 @@ with resolved knots, free-parameter descriptors and solution. For input quote
 `fitted.diagnostics_[s].residuals_`. Both indices are zero-based and local
 to that stage.
 
+For a trade with native PV gradients on the discount and forward parameters,
+concatenate the gradients in stage order and call `MapStagedQuoteRisk` from
+`dal/curve/quoteriskmapping.hpp`. For the unscaled model-rate residuals,
+let $A$ and $C$ be the two own-stage Jacobians and $B$ the forward residual
+Jacobian with respect to discount parameters. The capture of $B$ holds the
+native forward parameters fixed and varies the discount curve on both its
+discounting and forward-base routes.
+
+The mapping solves $C^T v=g_y$ followed by $A^T u=g_x-B^T v$ using the
+recorded factors. On success, `sensitivities_` lists the discount then
+forward quote derivatives in each stage's original input order, in PV
+currency per unit decimal quote. Each stage retains its calibration tolerance
+in `spec_.tolerance_`. The factor diagnostics expose the reciprocal infinity-norm
+condition number. `transposeBackwardErrors_` reports the componentwise backward
+error of each solve in stage order, with a limit of $10^{-12}$. A failed
+mapping returns `unavailableReason_` and empty numeric vectors.
+
 Read `unavailableStage_` and `unavailableReason_` when a record cannot
 support risk. A stage-count error identifies the bundle. A successful ordinary
 fit, including an approximate fit, still contributes its curve and diagnostics.

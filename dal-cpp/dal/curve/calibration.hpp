@@ -282,6 +282,8 @@ namespace Dal {
         Vector_<CurveCalibrationDiagnostics_> diagnostics_;
     };
 
+    struct StagedQuoteRiskBlock_;
+
     struct CurveCalibrationStageRecord_ {
         // Effective routes and resolved INPUT knots, with instruments in original input order.
         CurveCalibrationSpec_ spec_;
@@ -289,6 +291,7 @@ namespace Dal {
         Vector_<CurveFreeParameter_> freeParameters_;
         Vector_<> solution_;
         Vector_<int> residualRowByInput_;
+        std::shared_ptr<const StagedQuoteRiskBlock_> quoteRiskBlock_;
     };
 
     struct StagedMultiCurveCalibrationRecord_ {

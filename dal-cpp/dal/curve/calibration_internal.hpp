@@ -30,6 +30,11 @@ namespace Dal {
     BASE_EXPORT void ResetCurveCalibrationInvocationCount();
     BASE_EXPORT int CurveCalibrationInvocationCount();
 
+    Matrix_<> RecordStagedResidualJacobian(const CurveDefinition_& definition,
+                                           const CurveCalibrationStageRecord_& stage,
+                                           const Vector_<Handle_<YCInstrument_>>& ordered,
+                                           const CurveCalibrationStageRecord_* discount);
+
     // Shared internal helpers for single- and joint-curve calibration and leg-period construction.
     // inline so the header-only definitions do not violate the ODR across translation units.
 
@@ -391,7 +396,7 @@ namespace Dal {
     // parameters, start a recording, evaluate the caller's templated residuals, and harvest
     // the dense Jacobian. Callers keep only their residual lambda.
     template <class ComputeResiduals_>
-    std::unique_ptr<Underdetermined::Jacobian_> TapeResidualJacobian(const Vector_<>& x, ComputeResiduals_&& computeResiduals) {
+    std::unique_ptr<XCurveJacobian_> TapeResidualJacobian(const Vector_<>& x, ComputeResiduals_&& computeResiduals) {
         auto* tape = AAD::Tape();
         TapeGuard_ guard(tape);
         Vector_<AAD::Number_> parameters = RegisterCurveParameters(x);

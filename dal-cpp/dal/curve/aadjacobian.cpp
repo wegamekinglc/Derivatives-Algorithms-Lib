@@ -3,6 +3,8 @@
 #include <algorithm>
 
 #include <dal/curve/aadjacobian.hpp>
+#include <dal/curve/calibration_internal.hpp>
+#include <dal/curve/jointrate.hpp>
 #include <dal/math/aad/native.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -65,6 +67,40 @@ namespace Dal {
             return result;
         }
     } // namespace
+
+    Matrix_<> RecordStagedResidualJacobian(const CurveDefinition_& definition,
+                                           const CurveCalibrationStageRecord_& stage,
+                                           const Vector_<Handle_<YCInstrument_>>& ordered,
+                                           const CurveCalibrationStageRecord_* discount) {
+        Vector_<> parameters;
+        if (discount)
+            parameters = discount->solution_;
+        const size_t baseWidth = parameters.size();
+        parameters.Append(stage.solution_);
+        const auto jacobian = TapeResidualJacobian(parameters, [&](const Vector_<AAD::Number_>& active) {
+            using ActiveCurve_ = Tape::DiscountCurve_<AAD::Number_>;
+            Handle_<ActiveCurve_> base;
+            if (discount) {
+                const auto& spec = discount->spec_;
+                const auto baseDefinition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_,
+                                                                spec.knotDates_, spec.today_, spec.liborBasis_);
+                base = Handle_<ActiveCurve_>(BuildDiscountCurveUniqueT<AAD::Number_>(baseDefinition, {active.begin(), active.begin() + baseWidth}));
+            }
+            const auto curve = BuildDiscountCurveUniqueT<AAD::Number_, ActiveCurve_>(definition, {active.begin() + baseWidth, active.end()}, base);
+            Tape::JointCurveBlock_<AAD::Number_> block;
+            block.discountCurves[stage.spec_.targetCollateral_] = discount ? base.get() : curve.get();
+            if (discount)
+                block.forwardCurves[stage.spec_.targetTenor_] = curve.get();
+            Vector_<AAD::Number_> residuals;
+            residuals.reserve(ordered.size());
+            for (const auto& instrument : ordered) {
+                const auto rate = Tape::ProjectionRateAt<AAD::Number_>(*instrument);
+                residuals.push_back((*rate)(block)-instrument->MarketRate());
+            }
+            return residuals;
+        });
+        return std::move(jacobian->j_);
+    }
 
     Matrix_<>
     HarvestCurveJacobian(AAD::Tape_& tape, Vector_<AAD::Number_>& independents, Vector_<AAD::Number_>& residuals, const Vector_<int>& rowWidths) {
