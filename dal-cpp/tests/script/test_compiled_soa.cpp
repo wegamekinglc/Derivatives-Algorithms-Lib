@@ -61,6 +61,23 @@ TEST(CompiledSoaTest, TestRequestsLanesTailsAndSmallScalarBypass) {
     CheckRequests<64>();
 }
 
+TEST(CompiledSoaTest, TestPreparedSoaOwnsItsProgramAcrossRepeatedValuations) {
+    const SingleWorker_ worker;
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    const ScriptProductData_ data("", {Cell_(Date_(2025, 1, 1))}, {"pay pays MAX(spot() - 100, 0)"});
+    AAD::BlackScholes_<double> model(100., .2, .05, .02);
+    MonteCarloSettings_ settings;
+    settings.compiled_ = true;
+    settings.rsg_ = "sobol";
+    settings.useBb_ = false;
+    auto prepared = PrepareScript(data, &model, {}, settings);
+    const auto expected = MCDoubleSimulationSoa(prepared, &model, 65).aggregated_;
+    const PreparedSoaScript_ owned(std::move(prepared));
+    ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa(owned, &model, 65).aggregated_, expected);
+    ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa<16>(owned, &model, 65).aggregated_, expected);
+    ASSERT_THROW(MCDoubleSimulationSoa(owned, &model, 65, "mrg32"), ScriptError_);
+}
+
 TEST(CompiledSoaTest, TestMultiplyAddFusionMatchesScalar) {
     const SingleWorker_ worker;
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
