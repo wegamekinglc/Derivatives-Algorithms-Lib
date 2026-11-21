@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-22
 
+- `curve` — Core rate portfolios can aggregate signed quote DV01 by PV
+  currency from sequential discount and forward fits, including the forward
+  base dependency. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
+
 - `curve` — Sequential discount and forward calibration records map native
   PV gradients to input-quote derivatives using the forward curve's dependence
   on the fitted discount curve. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
