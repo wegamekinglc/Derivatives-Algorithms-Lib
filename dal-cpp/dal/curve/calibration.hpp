@@ -282,6 +282,21 @@ namespace Dal {
         Vector_<CurveCalibrationDiagnostics_> diagnostics_;
     };
 
+    struct CurveCalibrationStageRecord_ {
+        // Effective routes and resolved INPUT knots, with instruments in original input order.
+        CurveCalibrationSpec_ spec_;
+        Handle_<DiscountCurve_> curve_;
+        Vector_<CurveFreeParameter_> freeParameters_;
+        Vector_<> solution_;
+        Vector_<int> residualRowByInput_;
+    };
+
+    struct StagedMultiCurveCalibrationRecord_ {
+        Vector_<CurveCalibrationStageRecord_> stages_;
+        String_ unavailableStage_;
+        String_ unavailableReason_;
+    };
+
     std::unique_ptr<Sparse::TriDiagonal_> BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight);
     Vector_<Date_> BuildCurveCalibrationKnots(const Date_& today,
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
@@ -300,5 +315,6 @@ namespace Dal {
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options);
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec);
+    MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec, StagedMultiCurveCalibrationRecord_* riskRecord);
 
 } // namespace Dal
