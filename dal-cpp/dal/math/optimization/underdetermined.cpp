@@ -43,11 +43,11 @@ namespace Dal {
     } // namespace Underdetermined
 
     namespace {
-        struct XJDense_ : Underdetermined::Jacobian_ {
+        struct XJDense_ : Underdetermined::DenseJacobian_ {
             Matrix_<>& j_;
             explicit XJDense_(Matrix_<>& j) : j_(j) {}
 
-            [[nodiscard]] const Matrix_<>* DenseMatrix() const override { return &j_; }
+            [[nodiscard]] const Matrix_<>& DenseMatrix() const override { return j_; }
             [[nodiscard]] int Rows() const override { return j_.Rows(); }
             [[nodiscard]] int Columns() const override { return j_.Cols(); }
 
@@ -153,8 +153,8 @@ namespace Dal {
         }
 
         void StoreForwardJacobianAtSolution(const Underdetermined::Jacobian_& jac, Matrix_<>* out) {
-            if (const auto* dense = jac.DenseMatrix()) {
-                *out = *dense;
+            if (const auto* dense = dynamic_cast<const Underdetermined::DenseJacobian_*>(&jac)) {
+                *out = dense->DenseMatrix();
                 return;
             }
             out->Resize(jac.Rows(), jac.Columns());

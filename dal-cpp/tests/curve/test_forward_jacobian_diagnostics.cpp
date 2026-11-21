@@ -23,10 +23,10 @@ TEST(ForwardJacobianDiagnosticsTest, TestDenseJacobianExposesItsCurrentStorage) 
     Matrix_<> values(2, 3, 0.);
     values(1, 2) = 6.;
     XCurveJacobian_ jacobian(std::move(values));
-    const Underdetermined::Jacobian_& view = jacobian;
-    ASSERT_EQ(view.DenseMatrix(), &jacobian.j_);
+    const Underdetermined::DenseJacobian_& view = jacobian;
+    ASSERT_EQ(&view.DenseMatrix(), &jacobian.j_);
     jacobian.DivideRows({1., 2.});
-    ASSERT_DOUBLE_EQ((*view.DenseMatrix())(1, 2), 3.);
+    ASSERT_DOUBLE_EQ(view.DenseMatrix()(1, 2), 3.);
 }
 
 // Tests for the public forward-Jacobian diagnostics field CurveCalibrationDiagnostics_::jacobian_.
