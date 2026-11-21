@@ -16,6 +16,12 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-22
+
+- `curve` — Sequential discount and forward calibration records map native
+  PV gradients to input-quote derivatives using the forward curve's dependence
+  on the fitted discount curve. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
+
 ## 2026-11-21
 
 - `curve` — Core C++ callers can retain the fitted components, native parameters
