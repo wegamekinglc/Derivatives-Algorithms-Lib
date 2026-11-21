@@ -8,7 +8,7 @@
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
 
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 
 using namespace Dal;
 
@@ -40,10 +40,10 @@ namespace {
         }
     };
     std::string OisRawCall(const char* function, OPER_* input) {
-        const auto address = GetProcAddress(GetModuleHandleA("dal_excel.xll"), function);
+        const auto address = GetProcAddress(Dal::Excel::ModuleForTest(), function);
         REQUIRE(address, "missing generated OIS export");
         auto* output = reinterpret_cast<OPER_* (*)(const OPER_*)>(address)(input);
-        const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xlAutoFree12"));
+        const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(Dal::Excel::ModuleForTest(), "xlAutoFree12"));
         REQUIRE(output && free, "missing native result or release export");
         const std::unique_ptr<OPER_, decltype(free)> owned(output, free);
         REQUIRE((output->xltype & xltypeMulti) && output->val.array.rows == 1 && output->val.array.columns == 1, "expected scalar output");
@@ -80,7 +80,7 @@ TEST(CompoundedOisNativeExcelTest, TestGeneratedExportsAndRequiredReorderedTable
                                  "CalibrationOvernightCurves_New", "CurveScriptOvernightRoutes_New", "CalibrationStrings_New",
                                  "CompoundedOisObservationConvention_New", "CompoundedOis_Get_ObservationSchedule"}) {
         const auto name = std::string("xl_") + function;
-        ASSERT_NE(GetProcAddress(GetModuleHandleA("dal_excel.xll"), name.c_str()), nullptr) << name;
+        ASSERT_NE(GetProcAddress(Dal::Excel::ModuleForTest(), name.c_str()), nullptr) << name;
         const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& item) { return item.cName_ == String_(name); });
         ASSERT_NE(found, registrations.end()) << name;
         ASSERT_FALSE(found->volatile_);

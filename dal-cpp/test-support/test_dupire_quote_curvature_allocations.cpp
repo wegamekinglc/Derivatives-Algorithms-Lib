@@ -11,6 +11,9 @@ namespace AAD = Dal::AAD;
 namespace Probe = Dal::BcgAllocationProbePrivate_;
 
 TEST(DupireQuoteCurvatureAllocationTest, TestEveryRequestAllocationFailureRestoresWideModeAndRecovers) {
+    if (Probe::MSVC_CHECKED_ITERATORS)
+        GTEST_SKIP() << "MSVC checked iterators can allocate in noexcept STL operations";
+
     const AAD::FlatIVS_ base(100.0, 0.05, 0.02, 0.2);
     const auto calibration = Dal::CalibrateDupireWithRisk(base, Dal::Test::SmallRiskInputs());
     AAD::BumpOverAADRequest_ request;

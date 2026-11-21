@@ -48,6 +48,9 @@ TEST(ScriptObservationAllocationTest, TestProbeCountsTemporaryAllocations) {
 }
 
 TEST(ScriptObservationAllocationTest, TestExactAndFuzzyRepeatedPathsAllocateNothing) {
+    if (Probe::MSVC_CHECKED_ITERATORS)
+        GTEST_SKIP() << "MSVC checked iterators add STL bookkeeping allocations";
+
     const auto date = Dal::XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const Handle_<MarketFixingSnapshot_> history(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
     const Dal::Script::ScriptProductData_ product(

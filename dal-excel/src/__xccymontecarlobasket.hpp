@@ -56,7 +56,8 @@ namespace Dal {
                                                                   Vector_<String_>* json);
     DAL_XCCY_BASKET_API void XccyMonteCarloBasketPartial_Get_Json(const Handle_<StorableXccyMonteCarloBasketPartial_>& partial,
                                                                   Vector_<String_>* json);
-#if defined(DAL_EXCEL_TEST_API_EXPORTS) || defined(DAL_EXCEL_TEST_API_IMPORTS) || defined(DAL_EXCEL_API_TESTS_PORTABLE)
+#if defined(DAL_EXCEL_TEST_API_EXPORTS) || defined(DAL_EXCEL_TEST_API_IMPORTS) || defined(DAL_EXCEL_API_TESTS_PORTABLE) ||                         \
+    defined(DAL_EXCEL_TESTS_IN_PROCESS)
     DAL_XCCY_BASKET_API void XccyBasketFailureForTesting(const XccyMcBasketError_& error, Handle_<StorableXccyMonteCarloBasketOutcome_>* outcome);
 #endif
 } // namespace Dal

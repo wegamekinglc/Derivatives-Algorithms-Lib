@@ -6,6 +6,12 @@
 
 namespace Dal {
     namespace BcgAllocationProbePrivate_ {
+#if defined(_MSVC_STL_VERSION) && _ITERATOR_DEBUG_LEVEL != 0
+        inline constexpr bool MSVC_CHECKED_ITERATORS = true;
+#else
+        inline constexpr bool MSVC_CHECKED_ITERATORS = false;
+#endif
+
         struct Snapshot_ {
             std::uint64_t allocationRequests_;
             std::uint64_t beginCalls_;

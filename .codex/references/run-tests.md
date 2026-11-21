@@ -9,7 +9,7 @@
 - In a Windows terminal, run the following command to execute the full build-and-test workflow:
 
 ```bash
-$ ./build_windows.bat > 'test_output.txt' 2>&1
+$ ./build_windows.bat --full-tests > 'test_output.txt' 2>&1
 ```
 
 - Review the output captured in the root-level `test_output.txt`. The build

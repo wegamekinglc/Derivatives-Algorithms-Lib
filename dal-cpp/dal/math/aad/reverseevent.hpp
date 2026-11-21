@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include <dal/math/allocatortraits.hpp>
+
 namespace Dal::AAD {
     class Number_;
     class Tape_;
@@ -79,14 +81,19 @@ namespace Dal::AAD {
         [[nodiscard]] T_* allocate(size_t count) {
             if (count > static_cast<size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(T_))
                 throw std::bad_array_new_length();
-            EventStorageTicket_ ticket(tape_, count * sizeof(T_));
-            auto* result = std::allocator<T_>().allocate(count);
-            ticket.Commit();
-            return result;
+            if constexpr (Dal::Detail::IS_ITERATOR_DEBUG_ALLOCATION<T_>) {
+                return std::allocator<T_>().allocate(count);
+            } else {
+                EventStorageTicket_ ticket(tape_, count * sizeof(T_));
+                auto* result = std::allocator<T_>().allocate(count);
+                ticket.Commit();
+                return result;
+            }
         }
         void deallocate(T_* allocation, size_t count) noexcept {
             std::allocator<T_>().deallocate(allocation, count);
-            NativeRecordedOperation_::ReleaseStorage(tape_, count * sizeof(T_));
+            if constexpr (!Dal::Detail::IS_ITERATOR_DEBUG_ALLOCATION<T_>)
+                NativeRecordedOperation_::ReleaseStorage(tape_, count * sizeof(T_));
         }
         template <class U_> bool operator==(const ReverseEventAllocator_<U_>& other) const noexcept { return tape_ == other.tape_; }
         template <class U_> bool operator!=(const ReverseEventAllocator_<U_>& other) const noexcept { return !(*this == other); }

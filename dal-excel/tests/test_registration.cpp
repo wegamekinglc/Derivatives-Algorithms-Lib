@@ -37,7 +37,7 @@ TEST(ExcelRegistrationPortableTest, TestGeneratedFormatHelpPreservesExplicitMeta
 #ifdef _WIN32
 
 #define NOMINMAX
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -426,7 +426,7 @@ TEST(ExcelRegistrationTest, TestCalibrationAndAutomaticRequestContracts) {
 }
 
 TEST(ExcelRegistrationTest, TestEveryRegisteredFunctionResolvesToAnEntryPoint) {
-    const HMODULE dll = ::GetModuleHandleA("dal_excel.xll");
+    const HMODULE dll = Dal::Excel::ModuleForTest();
     ASSERT_TRUE(dll != nullptr);
     for (const auto& reg : RegisteredFunctionsForTest())
         ASSERT_TRUE(::GetProcAddress(dll, reg.cName_.c_str()) != nullptr) << reg.cName_.c_str();

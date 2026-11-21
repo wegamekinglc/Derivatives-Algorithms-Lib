@@ -7,7 +7,7 @@
 #include <dal-excel/src/_xlcall.hpp>
 
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 
 using namespace Dal;
 
@@ -25,7 +25,7 @@ namespace {
         OPER_* value_;
         explicit RawOutput_(OPER_* value) : value_(value) {}
         ~RawOutput_() {
-            const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xlAutoFree12"));
+            const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(Dal::Excel::ModuleForTest(), "xlAutoFree12"));
             if (free && value_)
                 free(value_);
         }
@@ -34,7 +34,7 @@ namespace {
 
 TEST(ExcelXccyAcceptanceRawTest, TestGeneratedEntryChecksEntireSelectedRange) {
     Excel::ScriptTestInitialize(1);
-    const auto address = GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xl_XccyMonteCarloPrecision_New");
+    const auto address = GetProcAddress(Dal::Excel::ModuleForTest(), "xl_XccyMonteCarloPrecision_New");
     ASSERT_TRUE(address);
     const auto call = reinterpret_cast<OPER_* (*)(const OPER_*)>(address);
     RawText_ scale(L"error_scale"), sigma(L"sigma");

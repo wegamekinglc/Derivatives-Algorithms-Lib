@@ -24,7 +24,7 @@
 #include "scriptbudgetjson.hpp"
 
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 
 using namespace Dal;
 
@@ -58,7 +58,7 @@ namespace {
         return result;
     }
     template <class... A_> OPER_* Call(const char* name, A_... args) {
-        const auto address = GetProcAddress(GetModuleHandleA("dal_excel.xll"), name);
+        const auto address = GetProcAddress(Dal::Excel::ModuleForTest(), name);
         REQUIRE(address, "missing generated export " + String_(name));
         return reinterpret_cast<OPER_* (*)(A_...)>(address)(args...);
     }
@@ -66,7 +66,7 @@ namespace {
         OPER_* value_;
         explicit Output_(OPER_* value) : value_(value) {}
         ~Output_() {
-            const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xlAutoFree12"));
+            const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(Dal::Excel::ModuleForTest(), "xlAutoFree12"));
             free(value_);
         }
         const OPER_* Scalar() const {

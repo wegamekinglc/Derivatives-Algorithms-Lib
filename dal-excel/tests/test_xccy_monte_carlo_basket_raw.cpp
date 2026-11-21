@@ -10,7 +10,7 @@
 
 #include "../../dal-cpp/tests/curve/xccygaussianmomentfixture.hpp"
 
-#include <Windows.h>
+#include "support/excelmodule.hpp"
 #include <dal-excel/src/_xlcall.hpp>
 
 using namespace Dal;
@@ -35,7 +35,7 @@ namespace {
         return result;
     }
     template <class... T_> OPER_* Call(const char* name, T_... arguments) {
-        const auto address = GetProcAddress(GetModuleHandleA("dal_excel.xll"), name);
+        const auto address = GetProcAddress(Dal::Excel::ModuleForTest(), name);
         REQUIRE(address, "missing basket generated export " + String_(name));
         return reinterpret_cast<OPER_* (*)(T_...)>(address)(arguments...);
     }
@@ -43,7 +43,7 @@ namespace {
         OPER_* value_;
         explicit Output_(OPER_* value) : value_(value) {}
         ~Output_() {
-            const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xlAutoFree12"));
+            const auto free = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(Dal::Excel::ModuleForTest(), "xlAutoFree12"));
             free(value_);
         }
         String_ Text() const {

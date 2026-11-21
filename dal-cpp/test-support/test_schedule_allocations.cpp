@@ -4,6 +4,9 @@
 #include "bcg_allocation_probe.hpp"
 
 TEST(SchedulesTest, TestContextAllocationCountDoesNotGrowPerPeriod) {
+    if (Dal::BcgAllocationProbePrivate_::MSVC_CHECKED_ITERATORS)
+        GTEST_SKIP() << "MSVC checked iterators add STL bookkeeping allocations";
+
     const Dal::Date_ start(2025, 1, 15);
     const Dal::Date_ end(2045, 1, 15);
     const Dal::PeriodLength_ tenor("1M");
