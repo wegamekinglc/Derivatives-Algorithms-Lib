@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <memory>
+#include <stdexcept>
 
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
@@ -16,6 +17,24 @@
 using namespace Dal;
 
 namespace {
+    class ConstantRateDeposit_ : public Deposit_ {
+        struct ConstantRate_ : YCInstrument_::Rate_ {
+            double value_;
+            explicit ConstantRate_(double value) : value_(value) {}
+            double operator()(const YieldCurve_&) const override { return value_; }
+        };
+
+    public:
+        using Deposit_::Deposit_;
+        Handle_<Rate_> Precompute(const Handle_<YieldCurve_>&) const override { return Handle_<Rate_>(new ConstantRate_(MarketRate())); }
+    };
+
+    class ThrowingDeposit_ : public Deposit_ {
+    public:
+        using Deposit_::Deposit_;
+        Handle_<Rate_> Precompute(const Handle_<YieldCurve_>&) const override { throw std::domain_error("Deposit fixing outside pricing domain"); }
+    };
+
     class ConstantDiscountCurve_ : public DiscountCurve_ {
         double value_;
 
@@ -129,6 +148,19 @@ namespace {
             ASSERT_GT(df, 0.0);
         }
     }
+    void AssertOnlyDiscountFit(const MultiCurveCalibrationResult_& partial,
+                               const StagedMultiCurveCalibrationRecord_& record,
+                               const MultiCurveCalibrationResult_& plain,
+                               const CurveCalibrationSpec_& forward) {
+        ASSERT_EQ(record.unavailableStage_, forward.curveName_);
+        ASSERT_EQ(record.stages_.size(), 1u);
+        ASSERT_EQ(partial.diagnostics_.size(), 1u);
+        ASSERT_EQ(partial.diagnostics_[0].residuals_, plain.diagnostics_[0].residuals_);
+        ASSERT_EQ(partial.discountCurves_.size(), 1u);
+        ASSERT_EQ(partial.discountCurves_.at(forward.targetCollateral_).get(), record.stages_[0].curve_.get());
+        ASSERT_TRUE(partial.forwardCurves_.empty());
+    }
+
     void AssertStagedDepositReplay(const CurveCalibrationStageRecord_& stage) {
         ASSERT_EQ(stage.spec_.knotPolicy_, CurveKnotPolicy_::Value_::INPUT);
         ASSERT_EQ(stage.freeParameters_.size(), 2u);
@@ -236,6 +268,79 @@ TEST(CalibrationTest, TestStagedRiskRecordPreservesCurvesResidualsAndFraPv) {
         for (const auto& date : stage.spec_.knotDates_)
             ASSERT_EQ((*stage.curve_)(today, date), (*plainCurve)(today, date));
     }
+}
+
+TEST(CalibrationTest, TestStagedRiskRejectsDerivedDepositWithConstantRate) {
+    auto spec = MakeStagedRiskSpec();
+    auto& discount = spec.stages_[0];
+    for (auto& input : discount.instruments_)
+        input.reset(new ConstantRateDeposit_(discount.today_, input->TimeSpan().second, input->MarketRate(), spec.liborBasis_));
+    const auto plain = CalibrateMultiCurve(spec);
+    ASSERT_EQ(plain.diagnostics_.size(), 2u);
+    ASSERT_EQ(plain.diagnostics_[0].maxAbsResidual_, 0.);
+
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto recorded = CalibrateMultiCurve(spec, &record);
+    ASSERT_EQ(recorded.diagnostics_.size(), 2u);
+    ASSERT_EQ(recorded.discountCurves_.size(), 1u);
+    ASSERT_EQ(recorded.forwardCurves_.size(), 1u);
+    for (int s = 0; s < 2; ++s)
+        ASSERT_EQ(recorded.diagnostics_[s].residuals_, plain.diagnostics_[s].residuals_);
+    ASSERT_EQ(record.unavailableStage_, discount.curveName_);
+    ASSERT_NE(record.unavailableReason_.find("pricing implementation"), String_::npos) << record.unavailableReason_;
+}
+
+TEST(CalibrationTest, TestStagedRiskAcceptsNativeOisSwapAndStir) {
+    auto spec = MakeStagedRiskSpec();
+    const auto today = spec.stages_[0].today_;
+    const auto maturity = Date::AddMonths(today, 12);
+    RateLegConvention_ leg;
+    leg.paymentFrequency_ = PeriodLength_("6M");
+    spec.stages_[0].instruments_[1].reset(new OISSwap_(today, today, maturity, 0.0212, leg, RateIndexConvention_(), leg));
+    auto& forward = spec.stages_[1];
+    RateIndexConvention_ index;
+    index.useProjectionCurve_ = true;
+    index.forecastTenor_ = forward.targetTenor_;
+    forward.instruments_[1].reset(new STIR_(today, Date::AddMonths(today, 6), maturity, 0.0312, index));
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto result = CalibrateMultiCurve(spec, &record);
+    ASSERT_TRUE(record.unavailableReason_.empty()) << record.unavailableReason_;
+    ASSERT_EQ(record.stages_.size(), 2u);
+    ASSERT_EQ(result.diagnostics_.size(), 2u);
+    for (const auto& diagnostics : result.diagnostics_)
+        ASSERT_LE(diagnostics.maxAbsResidual_, 1e-12);
+}
+
+TEST(CalibrationTest, TestStagedRiskRejectsEmptyInstrumentAtOriginalInputIndex) {
+    auto spec = MakeStagedRiskSpec();
+    const auto plain = CalibrateMultiCurve(spec);
+    auto& forward = spec.stages_[1];
+    forward.instruments_[1].reset();
+
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto partial = CalibrateMultiCurve(spec, &record);
+    AssertOnlyDiscountFit(partial, record, plain, forward);
+    ASSERT_NE(record.unavailableReason_.find("empty instrument at input index 1"), String_::npos) << record.unavailableReason_;
+    try {
+        CalibrateMultiCurve(spec);
+        FAIL() << "Expected the empty instrument to be rejected";
+    } catch (const Exception_& error) {
+        ASSERT_NE(std::string(error.what()).find("empty instrument at input index 1"), std::string::npos) << error.what();
+    }
+}
+
+TEST(CalibrationTest, TestStagedRiskReturnsCompletedFitOnPricingDomainError) {
+    auto spec = MakeStagedRiskSpec();
+    const auto plain = CalibrateMultiCurve(spec);
+    auto& forward = spec.stages_[1];
+    const auto& input = dynamic_cast<const Deposit_&>(*forward.instruments_[1]);
+    forward.instruments_[1].reset(
+        new ThrowingDeposit_(forward.today_, input.TimeSpan().first, input.TimeSpan().second, input.MarketRate(), input.FloatConvention()));
+    ASSERT_THROW(CalibrateMultiCurve(spec), std::domain_error);
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto partial = CalibrateMultiCurve(spec, &record);
+    AssertOnlyDiscountFit(partial, record, plain, forward);
+    ASSERT_NE(record.unavailableReason_.find("Deposit fixing outside pricing domain"), String_::npos) << record.unavailableReason_;
 }
 
 TEST(CalibrationTest, TestStagedRiskRecordExplainsUnavailableStageAndKeepsValuation) {

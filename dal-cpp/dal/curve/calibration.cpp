@@ -27,7 +27,10 @@
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <exception>
 #include <memory>
+#include <new>
+#include <typeinfo>
 #include <utility>
 
 namespace Dal {
@@ -49,6 +52,12 @@ namespace Dal {
         // purpose -- a header-inline counter would split into one instance per module on Windows.
         // The count is process-global, so observing it requires a quiescent process.
         std::atomic<int> calibrationInvocationCount{0};
+
+        void ValidateInstrumentHandles(const CurveCalibrationSpec_& spec) {
+            REQUIRE(!spec.instruments_.empty(), "Curve calibration requires at least one instrument");
+            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
+                REQUIRE(spec.instruments_[i], spec.curveName_ + " has an empty instrument at input index " + String::FromInt(i));
+        }
 
         bool HasTemplatedSingleRate(const YCInstrument_& instrument) {
             return dynamic_cast<const Deposit_*>(&instrument) || dynamic_cast<const FRA_*>(&instrument) ||
@@ -502,7 +511,7 @@ namespace Dal {
     }
 
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec) {
-        REQUIRE(!spec.instruments_.empty(), "Curve calibration requires at least one instrument");
+        ValidateInstrumentHandles(spec);
         REQUIRE(spec.smoothingWeight_ > 0.0, "Curve calibration smoothing weight must be positive");
         REQUIRE(spec.tolerance_ > 0.0, "Curve calibration tolerance must be positive");
         REQUIRE(spec.fitTolerance_ > 0.0, "Curve calibration fit tolerance must be positive");
@@ -653,17 +662,27 @@ namespace Dal {
             return {};
         }
 
-        String_ InstrumentRouteRejection(const CurveCalibrationSpec_& stage) {
-            for (const auto& instrument : stage.instruments_) {
-                const auto* index = FloatConventionOf(*instrument);
-                if (!index)
-                    return "Unsupported calibration instrument routing";
+        bool HasStagedRiskPricingImplementation(const YCInstrument_& instrument) {
+            // Subclasses can override passive Precompute while inheriting a different, nonvirtual templated rate.
+            const auto& type = typeid(instrument);
+            return type == typeid(Deposit_) || type == typeid(FRA_) || type == typeid(STIR_) || type == typeid(Future_) || type == typeid(Swap_) ||
+                   type == typeid(OISSwap_);
+        }
+
+        String_ InstrumentRiskRejection(const CurveCalibrationSpec_& stage, int parameterCount) {
+            for (int i = 0; i < static_cast<int>(stage.instruments_.size()); ++i) {
+                const auto& instrument = *stage.instruments_[i];
+                if (!HasStagedRiskPricingImplementation(instrument))
+                    return String_("Staged risk cannot verify the pricing implementation at input index ") + String::FromInt(i);
+                const auto* index = FloatConventionOf(instrument);
                 if (index->collateral_ != stage.targetCollateral_)
                     return "Instrument collateral does not match the discount route";
                 if (index->useProjectionCurve_ == stage.calibrateDiscountCurve_ ||
                     (index->useProjectionCurve_ && index->forecastTenor_ != stage.targetTenor_))
                     return "Instrument forecast route does not match the stage target";
             }
+            if (parameterCount != static_cast<int>(stage.instruments_.size()))
+                return "Staged quote risk requires a square quote-by-parameter system";
             return {};
         }
 
@@ -675,8 +694,7 @@ namespace Dal {
                 return "Stages must share the same currency";
             if (stage.solveMode_ != CurveSolveMode_::Value_::EXACT)
                 return "Staged quote risk requires EXACT calibration";
-            const auto reason = StageComponentRejection(stage, record);
-            return reason.empty() ? InstrumentRouteRejection(stage) : reason;
+            return StageComponentRejection(stage, record);
         }
 
         CurveCalibrationResult_
@@ -690,8 +708,8 @@ namespace Dal {
                 MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_);
             const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
             const int paramsPerKnot = layout.paramsPerDeclaredKnot_;
-            if (riskRecord && layout.parameterCount_ != static_cast<int>(instruments.size()))
-                SetUnavailable(riskRecord, spec.curveName_, "Staged quote risk requires a square quote-by-parameter system");
+            if (riskRecord && riskRecord->unavailableReason_.empty())
+                SetUnavailable(riskRecord, spec.curveName_, InstrumentRiskRejection(spec, layout.parameterCount_));
 
             const Vector_<> guess = BuildCalibrationGuess(spec, definition, layout);
             const Vector_<> tol(instruments.size(), spec.tolerance_);
@@ -728,7 +746,20 @@ namespace Dal {
             return retval;
         }
 
-        void StoreStageFailure(StagedMultiCurveCalibrationRecord_* record, const String_& name, const Exception_& error, bool previouslyUnavailable) {
+        void PrepareRecordedStage(const MultiCurveCalibrationSpec_& bundle,
+                                  const MultiCurveCalibrationResult_& fitted,
+                                  CurveCalibrationSpec_* stage,
+                                  StagedMultiCurveCalibrationRecord_* record) {
+            if (stage->calibrateDiscountCurve_ != fitted.diagnostics_.empty())
+                SetUnavailable(record, stage->curveName_.empty() ? bundle.name_ : stage->curveName_,
+                               "Staged quote risk requires a discount stage followed by a forward stage");
+            ApplyStageDefaults(bundle, fitted, stage);
+            if (record->unavailableReason_.empty())
+                SetUnavailable(record, stage->curveName_, StageRiskRejection(bundle, *stage, *record));
+        }
+
+        void
+        StoreStageFailure(StagedMultiCurveCalibrationRecord_* record, const String_& name, const std::exception& error, bool previouslyUnavailable) {
             if (previouslyUnavailable || record->unavailableReason_.empty()) {
                 record->unavailableStage_ = name;
                 record->unavailableReason_ = error.what();
@@ -762,16 +793,13 @@ namespace Dal {
             SetUnavailable(riskRecord, spec.name_, "Staged quote risk requires exactly two stages");
         for (auto stageSpec : spec.stages_) {
             const bool previouslyUnavailable = !riskRecord->unavailableReason_.empty();
-            if (stageSpec.calibrateDiscountCurve_ != retval.diagnostics_.empty())
-                SetUnavailable(riskRecord, stageSpec.curveName_.empty() ? spec.name_ : stageSpec.curveName_,
-                               "Staged quote risk requires a discount stage followed by a forward stage");
             try {
-                ApplyStageDefaults(spec, retval, &stageSpec);
-                if (riskRecord->unavailableReason_.empty())
-                    SetUnavailable(riskRecord, stageSpec.curveName_, StageRiskRejection(spec, stageSpec, *riskRecord));
+                PrepareRecordedStage(spec, retval, &stageSpec, riskRecord);
                 auto stageResult = CalibrateStage(stageSpec, CurveCalibrationOptions_(), riskRecord);
                 riskRecord->stages_.back().curve_ = StoreStageResult(stageSpec, &stageResult, &retval);
-            } catch (const Exception_& e) {
+            } catch (const std::bad_alloc&) {
+                throw;
+            } catch (const std::exception& e) {
                 StoreStageFailure(riskRecord, stageSpec.curveName_, e, previouslyUnavailable);
                 break;
             }

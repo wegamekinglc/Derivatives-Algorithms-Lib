@@ -728,8 +728,14 @@ to that stage.
 Read `unavailableStage_` and `unavailableReason_` when a record cannot
 support risk. A stage-count error identifies the bundle. A successful ordinary
 fit, including an approximate fit, still contributes its curve and diagnostics.
-If a stage raises a calibration error, the recording overload returns the
-completed stages. The one-argument call propagates calibration errors.
+Staged risk accepts the built-in deposit, FRA, STIR, future, swap and OIS swap
+pricing implementations. A custom subclass can override ordinary pricing, so
+its fitted curve is retained with a risk rejection.
+
+An empty instrument handle identifies its original input index. If a stage
+raises a calibration or pricing exception, the recording overload returns the
+completed stages and the error text. The one-argument call propagates the
+exception.
 
 API citations:
 
