@@ -11,6 +11,7 @@
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/quoteriskmapping.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycimp.hpp>
@@ -694,7 +695,44 @@ namespace Dal {
                 return "Stages must share the same currency";
             if (stage.solveMode_ != CurveSolveMode_::Value_::EXACT)
                 return "Staged quote risk requires EXACT calibration";
+            if (!std::isfinite(stage.tolerance_))
+                return "Staged quote risk requires a finite calibration tolerance";
             return StageComponentRejection(stage, record);
+        }
+
+        void CaptureStageBlock(const CurveDefinition_& definition,
+                               const Vector_<Handle_<YCInstrument_>>& ordered,
+                               const CurveCalibrationDiagnostics_& diagnostics,
+                               StagedMultiCurveCalibrationRecord_* record) {
+            if (!record->unavailableReason_.empty())
+                return;
+            auto& stage = record->stages_.back();
+            const auto* discount = stage.spec_.calibrateDiscountCurve_ ? nullptr : &record->stages_.front();
+            try {
+                for (double residual : diagnostics.residuals_)
+                    REQUIRE(std::isfinite(residual) && std::abs(residual) <= stage.spec_.tolerance_,
+                            "Staged raw residual exceeds calibration tolerance");
+                Matrix_<> recorded;
+                if (discount || diagnostics.jacobian_.Empty())
+                    recorded = RecordStagedResidualJacobian(definition, stage, ordered, discount);
+                const auto& matrix = recorded.Empty() ? diagnostics.jacobian_ : recorded;
+                const int size = static_cast<int>(stage.solution_.size());
+                const int nx = discount ? static_cast<int>(discount->solution_.size()) : 0;
+                REQUIRE(matrix.Rows() == size && matrix.Cols() == nx + size, "Staged residual Jacobian width mismatch");
+                SquareMatrix_<> diagonal(size);
+                Matrix_<> cross(size, nx);
+                for (int row = 0; row < size; ++row) {
+                    const auto entries = matrix.Row(row);
+                    if (nx)
+                        std::copy_n(entries.begin(), nx, cross.Row(row).begin());
+                    std::copy_n(entries.begin() + nx, size, diagonal.Row(row).begin());
+                }
+                stage.quoteRiskBlock_ = std::make_shared<StagedQuoteRiskBlock_>(diagonal, std::move(cross), stage.residualRowByInput_);
+            } catch (const std::bad_alloc&) {
+                throw;
+            } catch (const std::exception& e) {
+                SetUnavailable(record, stage.spec_.curveName_, e.what());
+            }
         }
 
         CurveCalibrationResult_
@@ -732,8 +770,6 @@ namespace Dal {
                                                                        solved.hasEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
             retval.diagnostics_.jacobian_ = std::move(solved.forwardJacobian_);
             if (riskRecord) {
-                if (retval.diagnostics_.effJacobianInverse_.Empty())
-                    SetUnavailable(riskRecord, spec.curveName_, "Full rank could not be verified from the solution Jacobian");
                 riskRecord->stages_.emplace_back();
                 auto& record = riskRecord->stages_.back();
                 record.spec_ = spec;
@@ -742,6 +778,7 @@ namespace Dal {
                 record.freeParameters_ = DescribeCurveFreeParameters(definition);
                 record.solution_ = std::move(solved.parameters_);
                 record.residualRowByInput_ = ResidualRowsByInput(spec.instruments_, instruments);
+                CaptureStageBlock(definition, instruments, retval.diagnostics_, riskRecord);
             }
             return retval;
         }

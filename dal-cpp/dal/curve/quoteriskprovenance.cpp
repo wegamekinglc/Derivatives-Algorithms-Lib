@@ -15,6 +15,7 @@
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointcalibration_internal.hpp>
+#include <dal/curve/quoteriskmapping.hpp>
 #include <dal/curve/quoteriskprovenance.hpp>
 #include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
@@ -29,6 +30,65 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+    namespace {
+        CheckedLinearSolve_ FactorStageJacobian(const SquareMatrix_<>& jacobian) {
+            try {
+                return CheckedLinearSolve_(jacobian, Matrix_<>(jacobian.Rows(), 1, 0.), {0., 1.e-12});
+            } catch (const Exception_& e) {
+                THROW(String_("Cannot certify a full-rank staged residual Jacobian: ") + e.what());
+            }
+        }
+    } // namespace
+
+    StagedQuoteRiskBlock_::StagedQuoteRiskBlock_(const SquareMatrix_<>& jacobian, Matrix_<> baseJacobian, const Vector_<int>& residualRowByInput)
+        : factor_(FactorStageJacobian(jacobian)), baseJacobian_(std::move(baseJacobian)), residualRowByInput_(residualRowByInput) {
+        REQUIRE(baseJacobian_.Rows() == jacobian.Rows() && residualRowByInput_.size() == static_cast<size_t>(jacobian.Rows()),
+                "Staged quote risk requires one residual row per quote");
+        Vector_<int> seen(jacobian.Rows(), 0);
+        for (int row : residualRowByInput_) {
+            REQUIRE(row >= 0 && row < jacobian.Rows() && !seen[row], "Staged quote risk requires a permutation of residual rows");
+            seen[row] = 1;
+        }
+        for (double entry : baseJacobian_)
+            REQUIRE(std::isfinite(entry), "Staged quote risk base Jacobian must be finite");
+    }
+
+    StagedQuoteRiskResponse_ MapStagedQuoteRisk(const StagedMultiCurveCalibrationRecord_& record, const Vector_<>& gradient) {
+        if (!record.unavailableReason_.empty())
+            return {{}, {}, record.unavailableStage_ + " " + record.unavailableReason_};
+        String_ stageName;
+        try {
+            REQUIRE(record.stages_.size() == 2 && record.stages_[0].quoteRiskBlock_ && record.stages_[1].quoteRiskBlock_,
+                    "Staged quote risk requires both stage factors");
+            const auto& discount = *record.stages_[0].quoteRiskBlock_;
+            const auto& forward = *record.stages_[1].quoteRiskBlock_;
+            const int nx = discount.factor_.Solution().Rows(), ny = forward.factor_.Solution().Rows();
+            REQUIRE(discount.baseJacobian_.Cols() == 0 && forward.baseJacobian_.Cols() == nx, "Staged quote risk base Jacobian width mismatch");
+            REQUIRE(gradient.size() == static_cast<size_t>(nx) + ny, "Staged quote risk gradient width mismatch");
+            Matrix_<> gy(ny, 1);
+            std::copy(gradient.begin() + nx, gradient.end(), gy.Data());
+            stageName = record.stages_[1].spec_.curveName_;
+            const auto v = forward.factor_.ReverseRhs(gy);
+            stageName = record.stages_[0].spec_.curveName_;
+            Matrix_<> gx(nx, 1);
+            std::copy_n(gradient.begin(), nx, gx.Data());
+            for (int row = 0; row < ny; ++row)
+                for (int col = 0; col < nx; ++col)
+                    gx(col, 0) = std::fma(-forward.baseJacobian_(row, col), v.adjoints_.rhs_(row, 0), gx(col, 0));
+            const auto u = discount.factor_.ReverseRhs(gx);
+            StagedQuoteRiskResponse_ result;
+            result.sensitivities_.reserve(gradient.size());
+            for (int row : discount.residualRowByInput_)
+                result.sensitivities_.push_back(u.adjoints_.rhs_(row, 0));
+            for (int row : forward.residualRowByInput_)
+                result.sensitivities_.push_back(v.adjoints_.rhs_(row, 0));
+            result.transposeBackwardErrors_ = {u.transposeBackwardErrors_[0], v.transposeBackwardErrors_[0]};
+            return result;
+        } catch (const Exception_& error) {
+            return {{}, {}, stageName + " " + error.what()};
+        }
+    }
+
     namespace {
         const String_ JOINT_AXIS_SCHEME("dal.quote-risk-axis/2+jcs+sha256");
         const String_ BASE_STATE_SCHEME("dal.quote-risk-state/3+jcs+sha256");

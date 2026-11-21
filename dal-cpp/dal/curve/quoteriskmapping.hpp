@@ -3,7 +3,26 @@
 #include <cmath>
 
 #include <dal/curve/quoteriskprovenance.hpp>
+#include <dal/math/matrix/linearsolveaccuracy.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
+
+namespace Dal {
+    struct StagedQuoteRiskBlock_ {
+        const CheckedLinearSolve_ factor_;
+        const Matrix_<> baseJacobian_;
+        const Vector_<int> residualRowByInput_;
+
+        StagedQuoteRiskBlock_(const SquareMatrix_<>& jacobian, Matrix_<> baseJacobian, const Vector_<int>& residualRowByInput);
+    };
+
+    struct StagedQuoteRiskResponse_ {
+        Vector_<> sensitivities_;
+        Vector_<> transposeBackwardErrors_;
+        String_ unavailableReason_;
+    };
+
+    [[nodiscard]] StagedQuoteRiskResponse_ MapStagedQuoteRisk(const StagedMultiCurveCalibrationRecord_& record, const Vector_<>& gradient);
+} // namespace Dal
 
 namespace Dal::RateQuoteRiskInternal {
     template <class C_>
