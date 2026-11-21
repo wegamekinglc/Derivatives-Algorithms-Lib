@@ -505,6 +505,19 @@ TEST(UnderdeterminedTest, TestFindInitialFitRetainsSolutionDiagnostics) {
     ASSERT_NEAR(forward(0, 1), 1., 1e-12);
 }
 
+TEST(UnderdeterminedTest, TestBothDiagnosticsEvaluateOneGradientAtTheInitialSolution) {
+    NonlinearSquareGradientState_ calls;
+    NonlinearSquareAnalyticFunc_ function(&calls);
+    TriDiagonal_ weights(1);
+    weights.Set(0, 0, 1.);
+    std::unique_ptr<SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+    Matrix_<> inverse, forward;
+    Underdetermined::Find(function, {2.}, {1e-5}, *decomposition, MakeControls(), &inverse, &forward);
+    ASSERT_EQ(calls.xs_.size(), 1u);
+    ASSERT_DOUBLE_EQ(forward(0, 0), 4.);
+    ASSERT_NEAR(inverse(0, 0), 2.5e-6, 1e-16);
+}
+
 TEST(UnderdeterminedTest, TestFindCannotAcceptAnInitialNanResidual) {
     class NonfiniteFunction_ final : public Underdetermined::Function_ {
     public:
