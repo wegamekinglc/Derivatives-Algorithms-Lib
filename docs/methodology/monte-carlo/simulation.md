@@ -68,6 +68,14 @@ settings; their frozen history, dates, normal precision and observation grid
 remain authoritative. This opt-in does not change the default engine or expose
 new Python/Excel settings.
 
+For repeated valuations of the same eligible script, construct
+`PreparedSoaScript_ batched(std::move(prepared))` once and pass `batched` to
+`MCDoubleSimulationSoa` on each call. The wrapper owns the prepared script and
+builds its decoded instructions on the first batched call. It can be used at
+any supported lane width. Each call draws its own paths and allocates its own
+evaluation state. For a single valuation, the ordinary prepared entry avoids
+the persistent plan allocation.
+
 Immediate PAYS, scalar variables, ordinary arithmetic other than powers,
 extrema, sqrt/log/exp and hard IF/ELSE with nested masks are supported, including
 prepared named equity observations on different sample dates. Vectors, delayed

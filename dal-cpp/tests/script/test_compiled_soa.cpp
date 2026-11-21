@@ -78,6 +78,22 @@ TEST(CompiledSoaTest, TestPreparedSoaOwnsItsProgramAcrossRepeatedValuations) {
     ASSERT_THROW(MCDoubleSimulationSoa(owned, &model, 65, "mrg32"), ScriptError_);
 }
 
+TEST(CompiledSoaTest, TestPreparedBatchPreservesSmallScalarFallbackAfterRejectedDecode) {
+    const SingleWorker_ worker;
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    const ScriptProductData_ data("", {Cell_(Date_(2025, 1, 1))}, {"pay pays spot() ^ 2"});
+    AAD::BlackScholes_<double> model(100., .2, .05, .02);
+    MonteCarloSettings_ settings;
+    settings.compiled_ = true;
+    settings.useBb_ = false;
+    settings.rsg_ = "sobol";
+    auto prepared = PrepareScript(data, &model, {}, settings);
+    const auto expected = MCDoubleSimulationSoa(prepared, &model, 15).aggregated_;
+    const PreparedSoaScript_ script(std::move(prepared));
+    ASSERT_THROW(MCDoubleSimulationSoa(script, &model, 16), ScriptError_);
+    ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa(script, &model, 15).aggregated_, expected);
+}
+
 TEST(CompiledSoaTest, TestMultiplyAddFusionMatchesScalar) {
     const SingleWorker_ worker;
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
