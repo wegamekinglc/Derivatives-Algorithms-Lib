@@ -168,18 +168,33 @@ TEST(CompoundedOisCalibrationTest, TestCacheReusesOnlyMatchingRegisteredPvSource
     auto spec = Spec("ObservationShift", "Overnight");
     CurveInstrumentCalibrationOptions_ options;
     options.preparationCache_ = std::make_shared<CalibrationPreparationCache_>();
-    const auto source = [&] {
+    const auto resolve = [&] {
         const PreparedCurveInstruments_ prepared(spec, options);
         const auto context = CurveInstrumentInternal::PrepareCurvePriceContext(prepared);
-        const auto instrument = NewCompoundedOisScriptInstrument(spec.compoundedOis_.back());
-        return CurveInstrumentInternal::PrepareCurvePrice(context, instrument, "Price").plan_.Instrument();
+        const auto& tables = spec.compoundedOis_.back();
+        const auto instrument = NewCompoundedOisScriptInstrument(tables);
+        const auto price = CurveInstrumentInternal::PrepareCurvePrice(context, instrument, "Price");
+        const auto par = CurveInstrumentInternal::PrepareCompoundedOisParRate(context, instrument, *tables);
+        auto other = tables->Spec();
+        other.coupons_.front().couponId_ = "other";
+        const auto different = PrepareCompoundedOis(other, spec.valuation_);
+        AssertFailure([&] { CurveInstrumentInternal::PrepareCompoundedOisParRate(context, instrument, *different); }, "CompoundedOisSourceMismatch");
+        return std::make_pair(price.plan_, par);
     };
-    const auto first = source();
-    ASSERT_EQ(first.get(), source().get());
+    const auto [price, par] = resolve();
+    const auto [warmPrice, warmPar] = resolve();
+    ASSERT_EQ(price.Instrument().get(), warmPrice.Instrument().get());
+    ASSERT_EQ(price.Instrument().get(), par.Instrument().get());
+    ASSERT_EQ(warmPrice.Instrument().get(), warmPar.Instrument().get());
+    ASSERT_NE(price.PlanIdentity(), par.PlanIdentity());
+    ASSERT_EQ(price.PlanIdentity(), warmPrice.PlanIdentity());
+    ASSERT_EQ(par.PlanIdentity(), warmPar.PlanIdentity());
     auto changed = spec.compoundedOis_.back()->Spec();
     changed.coupon_ += .001;
     spec.compoundedOis_.back() = PrepareCompoundedOis(changed, spec.valuation_);
-    ASSERT_NE(first->InstrumentIdentity(), source()->InstrumentIdentity());
+    const auto [changedPrice, changedPar] = resolve();
+    ASSERT_NE(price.Instrument()->InstrumentIdentity(), changedPrice.Instrument()->InstrumentIdentity());
+    ASSERT_NE(par.PlanIdentity(), changedPar.PlanIdentity());
 }
 
 TEST(CompoundedOisCalibrationTest, TestEveryPvUsesItsOwnRegisteredSourceBindingAndTable) {
