@@ -138,6 +138,14 @@ namespace Dal {
                       "ScriptCurveQuoteRiskUnsupportedUnit", field + "/unit", "decimal Rate or BasisSpread", row.Quote()->Unit().Token(), d);
             }
         }
+        void AdmitCompoundedQuoteRiskPlan(const PreparedCalibrationInstrument_& plan, const PreparedCompoundedOis_& tables, const String_& field) {
+            const auto& capability = plan.Capability();
+            const auto rule = Bytes(capability.ruleId_);
+            Check((rule == "dal.compounded-ois-cashflows/1" || rule == "dal.compounded-ois-cashflows/2") && rule == Bytes(tables.RuleId()),
+                  "ScriptCurveQuoteRiskUnsupportedCapability", field, "matching verified /1 or /2 capability and tables");
+            Check(capability.backend_ == CalibrationBackend_::Value_::FastDeterministic && capability.affine_ && capability.sharedPrice_,
+                  "ScriptCurveQuoteRiskUnsupportedCapability", field, "shared affine deterministic native Price");
+        }
         void AdmitQuoteRiskPlan(const PreparedCalibrationInstrument_& plan, const CurveInstrumentCalibrationSpec_& spec, const String_& field) {
             const auto* family = std::get_if<CalibrationCurveFamily_>(&plan.Descriptor());
             if (!family || !(*family)->compounded_) {
@@ -148,12 +156,7 @@ namespace Dal {
             const auto tables = std::find_if(spec.compoundedOis_.begin(), spec.compoundedOis_.end(),
                                              [&](const auto& table) { return Bytes(table->Spec().instrumentId_) == Bytes(plan.Instrument()->Id()); });
             Check(tables != spec.compoundedOis_.end(), "ScriptCurveQuoteRiskUnsupportedCapability", field, "own registered frozen OIS tables");
-            const auto& capability = plan.Capability();
-            const auto rule = Bytes(capability.ruleId_);
-            Check((rule == "dal.compounded-ois-cashflows/1" || rule == "dal.compounded-ois-cashflows/2") && rule == Bytes((*tables)->RuleId()),
-                  "ScriptCurveQuoteRiskUnsupportedCapability", field, "matching verified /1 or /2 capability and tables");
-            Check(capability.backend_ == CalibrationBackend_::Value_::FastDeterministic && capability.affine_ && capability.sharedPrice_,
-                  "ScriptCurveQuoteRiskUnsupportedCapability", field, "shared affine deterministic native Price");
+            AdmitCompoundedQuoteRiskPlan(plan, **tables, field);
         }
         void ValidateFitAxes(const CalibrationObservationAxes_& actual, const CalibrationObservationAxes_& expected) {
             const auto rows = expected.observations_.size(), quotes = expected.quotes_.size();
@@ -440,16 +443,19 @@ namespace Dal {
         return dv01_;
     }
     namespace {
-        Vector_<int> SelectedQuotes(const ScriptCurveQuoteRiskRequest_& request, const ScriptCurveQuoteRiskAxes_& axes) {
+        void RequireFixedContract(bool liveQuotePayoff) {
+            Check(!liveQuotePayoff, "ScriptCurveQuoteRiskLiveQuoteUnsupported", "/request/live_quote_payoff", "fixed contract; V_q=0", "true");
+        }
+        Vector_<int> SelectedQuotes(const Vector_<String_>& quoteIds, const ScriptCurveQuoteRiskAxes_& axes) {
             Vector_<int> result;
-            if (request.quoteIds_.empty()) {
+            if (quoteIds.empty()) {
                 for (size_t i = 0; i < axes.quotes_.size(); ++i)
                     result.push_back(static_cast<int>(i));
                 return result;
             }
             std::set<std::string> seen;
-            for (size_t i = 0; i < request.quoteIds_.size(); ++i) {
-                const auto& id = request.quoteIds_[i];
+            for (size_t i = 0; i < quoteIds.size(); ++i) {
+                const auto& id = quoteIds[i];
                 const auto field = "/request/quote_ids/" + OrdinalText(i);
                 Check(seen.insert(Bytes(id)).second, "ScriptCurveQuoteRiskDuplicateSelection", field, "unique quote ID", id);
                 const auto quote = std::find_if(axes.quotes_.begin(), axes.quotes_.end(), [&](const auto& q) { return Bytes(q.id_) == Bytes(id); });
@@ -528,10 +534,9 @@ namespace Dal {
                 result.diagnostics_ = data.diagnostics_;
                 return result;
             }
-            Check(!request.liveQuotePayoff_, "ScriptCurveQuoteRiskLiveQuoteUnsupported", "/request/live_quote_payoff", "fixed contract; V_q=0",
-                  "true");
+            RequireFixedContract(request.liveQuotePayoff_);
             Check(Bytes(request.measureId_) == "Price", "ScriptCurveQuoteRiskUnsupportedMeasure", "/request/measure_id", "Price", request.measureId_);
-            const auto selected = SelectedQuotes(request, *data.axes_);
+            const auto selected = SelectedQuotes(request.quoteIds_, *data.axes_);
             const auto prepared = PrepareCurvePrice(data.priceContext_, instrument, request.measureId_);
             AdmitQuoteRiskPlan(prepared.plan_, *data.spec_, "/instrument");
             Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price, "ScriptCurveQuoteRiskUnsupportedMeasure",
@@ -563,6 +568,34 @@ namespace Dal {
         }
         return result;
     }
+    CompoundedOisParRateResolution_ ScriptCurveQuoteRiskSnapshot_::ResolveCompoundedOisParRate(const Handle_<CalibrationInstrument_>& instrument,
+                                                                                               const Handle_<PreparedCompoundedOis_>& tables,
+                                                                                               const CurveInstrumentCalibrationSpec_& context,
+                                                                                               const CompoundedOisParRateRequest_& request) const {
+        try {
+            const auto validation = ValidateContext(context);
+            if (!validation.Passed())
+                return {{}, {}, validation.Diagnostics()};
+            if (!RiskAvailable())
+                return {{}, {}, Diagnostics()};
+            Check(bool(instrument) && bool(tables), INPUT_ERROR, "/instrument", "bound OIS instrument and prepared tables");
+            RequireFixedContract(request.liveQuotePayoff_);
+            const auto ordinals = SelectedQuotes(request.quoteIds_, *data_->axes_);
+            auto plan = PrepareCompoundedOisParRate(data_->priceContext_, instrument, *tables);
+            AdmitCompoundedQuoteRiskPlan(plan, *tables, "/instrument");
+            Vector_<ScriptCurveQuoteRiskQuote_> selected;
+            for (const int i : ordinals)
+                selected.push_back(QuoteAxis()[i]);
+            return {std::move(plan), std::move(selected), {}};
+        } catch (const CalibrationError_& error) {
+            auto d = error.Failure().diagnostic_;
+            if (instrument)
+                d.instrumentId_ = instrument->Id();
+            d.measureId_ = "ParRate";
+            return {{}, {}, {std::move(d)}};
+        }
+    }
+
     bool ScriptCurveQuoteRiskSnapshot_::StructureValid() const { return data_->structureValid_; }
     bool ScriptCurveQuoteRiskSnapshot_::RiskAvailable() const { return data_->structureValid_ && data_->diagnostics_.empty(); }
     bool ScriptCurveQuoteRiskSnapshot_::MappingAvailable() const { return RiskAvailable() && data_->response_.has_value(); }

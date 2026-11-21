@@ -56,6 +56,12 @@ namespace {
         for (size_t i = 0; i < spec->compoundedOis_.size(); ++i)
             ReplaceTable(spec, i, spec->compoundedOis_[i]->Spec());
     }
+    void AssertParRateRejected(const CompoundedOisParRateResolution_& result, const String_& code) {
+        ASSERT_FALSE(result.Available());
+        ASSERT_TRUE(result.quotes_.empty());
+        ASSERT_EQ(result.diagnostics_.size(), 1u);
+        ASSERT_EQ(result.diagnostics_.front().code_, code);
+    }
     void AssertUnavailable(const ScriptCurveQuoteRiskResult_& result) {
         ASSERT_FALSE(result.Available());
         ASSERT_FALSE(result.Diagnostics().empty());
@@ -224,6 +230,120 @@ TEST(CompoundedOisQuoteRiskTest, TestQuoteSelectionSignedDv01AndActualNotionalSc
     ASSERT_DOUBLE_EQ(subset.RawSensitivity()[0], base.RawSensitivity()[1]);
 }
 
+TEST(CompoundedOisQuoteRiskTest, TestResolveRegisteredParRateOnBothSnapshotModes) {
+    auto spec = RiskSpec("ObservationShift", "Shared", true);
+    auto receiving = spec.compoundedOis_.back()->Spec();
+    receiving.direction_ = "ReceiveFixed";
+    receiving.minAbsAnnuity_ = .002;
+    spec.compoundedOis_.back() = PrepareCompoundedOis(receiving, spec.valuation_);
+    const auto fit = CalibrateCurveInstruments(spec, Options());
+    for (const auto& tables : {spec.compoundedOis_.front(), spec.compoundedOis_.back()}) {
+        const auto instrument = NewCompoundedOisScriptInstrument(tables);
+        String_ planIdentity;
+        for (const bool pvOnly : {false, true}) {
+            const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(pvOnly));
+            const auto result = snapshot.ResolveCompoundedOisParRate(instrument, tables, spec);
+            ASSERT_TRUE(result.Available());
+            ASSERT_TRUE(result.diagnostics_.empty());
+            const auto& plan = *result.plan_;
+            ASSERT_EQ(plan.Measure().id_, "ParRate");
+            ASSERT_EQ(plan.Measure().kind_, CalibrationMeasureKind_::Value_::ParAffineRate);
+            ASSERT_EQ(plan.Measure().annuitySign_, tables->Spec().direction_ == "PayFixed" ? -1 : 1);
+            ASSERT_EQ(plan.Measure().minAbsAnnuity_, tables->Spec().minAbsAnnuity_);
+            ASSERT_EQ(plan.Capability().ruleId_, tables->RuleId());
+            ASSERT_EQ(plan.Instrument()->InstrumentIdentity(), instrument->InstrumentIdentity());
+            if (pvOnly)
+                ASSERT_EQ(plan.PlanIdentity(), planIdentity);
+            planIdentity = plan.PlanIdentity();
+            ASSERT_EQ(result.quotes_.size(), 2u);
+            ASSERT_EQ(result.quotes_[0].id_, "short");
+            ASSERT_EQ(result.quotes_[0].ordinal_, 0);
+            ASSERT_EQ(result.quotes_[1].id_, "long");
+            ASSERT_EQ(result.quotes_[1].ordinal_, 1);
+        }
+    }
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateChecksTableIdentityWithColdAndWarmPreparationCache) {
+    const auto spec = RiskSpec("Lookback", "Shared");
+    const auto& tables = spec.compoundedOis_.back();
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    auto other = tables->Spec();
+    other.coupons_.front().couponId_ = "renamed-coupon";
+    const auto different = PrepareCompoundedOis(other, spec.valuation_);
+    const auto sameScript = NewCompoundedOisScriptInstrument(different);
+    ASSERT_EQ(sameScript->InstrumentIdentity(), instrument->InstrumentIdentity());
+    ASSERT_NE(different->ObservationScheduleIdentity(), tables->ObservationScheduleIdentity());
+    auto options = Options();
+    options.preparationCache_ = std::make_shared<CalibrationPreparationCache_>();
+    String_ planIdentity;
+    for (const auto* cache : {"cold", "warm"}) {
+        SCOPED_TRACE(cache);
+        const auto fit = CalibrateCurveInstruments(spec, options);
+        for (const bool pvOnly : {false, true}) {
+            SCOPED_TRACE(pvOnly);
+            const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(pvOnly));
+            const auto accepted = snapshot.ResolveCompoundedOisParRate(instrument, tables, spec);
+            ASSERT_TRUE(accepted.Available());
+            if (!planIdentity.empty())
+                ASSERT_EQ(accepted.plan_->PlanIdentity(), planIdentity);
+            planIdentity = accepted.plan_->PlanIdentity();
+            ASSERT_NO_FATAL_FAILURE(
+                AssertParRateRejected(snapshot.ResolveCompoundedOisParRate(sameScript, different, spec), "CompoundedOisSourceMismatch"));
+        }
+    }
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateSelectsSnapshotQuotesAndRejectsInvalidRequests) {
+    const auto spec = RiskSpec("ObservationShift", "Shared");
+    const auto fit = CalibrateCurveInstruments(spec, Options());
+    const auto& tables = spec.compoundedOis_.back();
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    auto unknown = tables->Spec();
+    unknown.instrumentId_ = "unregistered";
+    const auto other = PrepareCompoundedOis(unknown, spec.valuation_);
+    auto source = instrument->Definition()->Spec();
+    source.source_.rows_.back().text_ += " ";
+    const auto differentSource = NewScriptCalibrationInstrument({instrument->Id(), NewScriptInstrumentDefinition(source), {}, instrument->Pillar()});
+    const auto rebound = BindCalibrationInstrumentParameters(instrument, {{{"K", .045, CalibrationValueUnit_::Parse("Rate")}}, {}});
+    auto stale = spec;
+    auto values = stale.valuation_.fixings_->Values();
+    values["USD-SOFR"][DateTime_(Date_(2024, 2, 29))] += .001;
+    stale.valuation_.fixings_.reset(new MarketFixingSnapshot_(values));
+    for (const bool pvOnly : {false, true}) {
+        SCOPED_TRACE(pvOnly);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(pvOnly));
+        const auto resolve = [&](const CompoundedOisParRateRequest_& request) {
+            return snapshot.ResolveCompoundedOisParRate(instrument, tables, spec, request);
+        };
+        const auto reversed = resolve({{"long", "short"}});
+        ASSERT_TRUE(reversed.Available());
+        ASSERT_EQ(reversed.quotes_.size(), 2u);
+        ASSERT_EQ(reversed.quotes_[0].id_, "long");
+        ASSERT_EQ(reversed.quotes_[0].ordinal_, 1);
+        ASSERT_EQ(reversed.quotes_[1].id_, "short");
+        ASSERT_EQ(reversed.quotes_[1].ordinal_, 0);
+        const auto subset = resolve({{"long"}});
+        ASSERT_TRUE(subset.Available());
+        ASSERT_EQ(subset.quotes_.size(), 1u);
+        ASSERT_EQ(subset.quotes_.front().ordinal_, 1);
+        ASSERT_NO_FATAL_FAILURE(AssertParRateRejected(resolve({{"long", "long"}}), "ScriptCurveQuoteRiskDuplicateSelection"));
+        ASSERT_NO_FATAL_FAILURE(AssertParRateRejected(resolve({{"short", "LONG"}}), "ScriptCurveQuoteRiskUnknownSelection"));
+        ASSERT_NO_FATAL_FAILURE(AssertParRateRejected(resolve({{}, true}), "ScriptCurveQuoteRiskLiveQuoteUnsupported"));
+        ASSERT_NO_FATAL_FAILURE(AssertParRateRejected(snapshot.ResolveCompoundedOisParRate(NewCompoundedOisScriptInstrument(other), other, spec),
+                                                      "CompoundedOisUnregisteredInstrument"));
+        for (const auto& changed : {differentSource, rebound})
+            ASSERT_NO_FATAL_FAILURE(
+                AssertParRateRejected(snapshot.ResolveCompoundedOisParRate(changed, tables, spec), "CompoundedOisSourceMismatch"));
+        ASSERT_NO_FATAL_FAILURE(
+            AssertParRateRejected(snapshot.ResolveCompoundedOisParRate(instrument, tables, stale), "ScriptCurveQuoteRiskIdentityMismatch"));
+        const auto price = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec, {{}, "ParRate"});
+        ASSERT_FALSE(price.Available());
+        ASSERT_EQ(price.Diagnostics().size(), 1u);
+        ASSERT_EQ(price.Diagnostics().front().code_, "ScriptCurveQuoteRiskUnsupportedMeasure");
+    }
+}
+
 TEST(CompoundedOisQuoteRiskTest, TestFixedContractRequestsAndIdentityMismatchesStayUnavailable) {
     const auto spec = RiskSpec("ObservationShift", "Shared");
     const auto fit = CalibrateCurveInstruments(spec, Options());
@@ -387,15 +507,26 @@ TEST(CompoundedOisQuoteRiskTest, TestRootConditionAndApproximateModeCannotUseFit
         row = NewCalibrationObservation(row->Id(), row->Instrument(), row->MeasureId(), row->Quote(), .1);
     const auto looseFit = CalibrateCurveInstruments(spec, Options());
     ASSERT_TRUE(looseFit.fitWithinTolerance_);
-    const auto loose = NewScriptCurveQuoteRiskSnapshot(looseFit, Accuracy());
-    ASSERT_FALSE(loose.RiskAvailable());
-    ASSERT_EQ(loose.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+    const auto& tables = spec.compoundedOis_.back();
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    for (const bool pvOnly : {false, true}) {
+        const auto loose = NewScriptCurveQuoteRiskSnapshot(looseFit, Accuracy(pvOnly));
+        ASSERT_FALSE(loose.RiskAvailable());
+        ASSERT_EQ(loose.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+        ASSERT_NO_FATAL_FAILURE(
+            AssertParRateRejected(loose.ResolveCompoundedOisParRate(instrument, tables, spec), "ScriptCurveQuoteRiskRootResidual"));
+    }
     spec.solver_.solveMode_ = CurveSolveMode_("APPROXIMATE");
     spec.solver_.fitWeight_ = 1.;
     spec.solver_.fitNormTolerance_ = .01;
-    const auto approximate = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, Options()), Accuracy());
-    ASSERT_FALSE(approximate.RiskAvailable());
-    ASSERT_EQ(approximate.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedMode");
+    const auto approximateFit = CalibrateCurveInstruments(spec, Options());
+    for (const bool pvOnly : {false, true}) {
+        const auto approximate = NewScriptCurveQuoteRiskSnapshot(approximateFit, Accuracy(pvOnly));
+        ASSERT_FALSE(approximate.RiskAvailable());
+        ASSERT_EQ(approximate.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedMode");
+        ASSERT_NO_FATAL_FAILURE(
+            AssertParRateRejected(approximate.ResolveCompoundedOisParRate(instrument, tables, spec), "ScriptCurveQuoteRiskUnsupportedMode"));
+    }
 }
 
 TEST(CompoundedOisQuoteRiskTest, TestTodayHistoryAndModelFutureIsolationUseFrozenFixings) {
