@@ -20,6 +20,7 @@
 #include <dal/model/blackscholes.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/lsmc.hpp>
+#include <dal/script/regressionqr.hpp>
 #include <dal/script/preparation.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/_repository.hpp>
@@ -510,6 +511,23 @@ TEST(ScriptExerciseLSMCTest, TestThreeStateRegressionRecoversCubicInteraction) {
     ASSERT_EQ(fit.effectiveRank_, 20u);
     ASSERT_EQ(fit.basisDegree_, 3);
     ASSERT_NEAR(RegressionPredict(fit, std::array<double, 3>{1.25, -2.5, 3.0}), 7.0 + 0.2 * 1.25 + 0.25 + 0.9 - 0.1875, 1e-9);
+}
+
+TEST(ScriptExerciseLSMCTest, TestQrNormPreservesVerySmallAndVeryLargeColumns) {
+    for (double magnitude : {std::numeric_limits<double>::denorm_min(), std::numeric_limits<double>::max() / 4.}) {
+        Vector_<> column(4, magnitude);
+        double scale = 0.;
+        ASSERT_TRUE(RegressionQR::NormalizeColumn(&column, false, &scale));
+        ASSERT_EQ(scale, 2. * magnitude);
+        for (double value : column)
+            ASSERT_DOUBLE_EQ(value, .5);
+    }
+    for (const double value : {std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN(),
+                               std::numeric_limits<double>::max()}) {
+        Vector_<> column(4, value);
+        double scale = 0.;
+        ASSERT_FALSE(RegressionQR::NormalizeColumn(&column, true, &scale));
+    }
 }
 
 TEST(ScriptExerciseLSMCTest, TestConstantRegressionAvoidsNormalizationOverflow) {
