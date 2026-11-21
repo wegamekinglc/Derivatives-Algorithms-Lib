@@ -824,6 +824,32 @@ namespace Dal {
         return result;
     }
 
+    struct StagedMultiCurveCalibrationRecord_::Capture_ {
+        struct Stage_ {
+            Handle_<DiscountCurve_> curve_;
+            std::shared_ptr<const StagedQuoteRiskBlock_> block_;
+            Vector_<> solution_;
+            Vector_<Handle_<YCInstrument_>> inputQuotes_;
+        };
+        Vector_<Stage_> stages_;
+
+        explicit Capture_(const Vector_<CurveCalibrationStageRecord_>& fitted) {
+            for (const auto& stage : fitted)
+                stages_.push_back({stage.curve_, stage.quoteRiskBlock_, stage.solution_, stage.spec_.instruments_});
+        }
+    };
+
+    void StagedMultiCurveCalibrationRecord_::RequireMatchingCapture() const {
+        REQUIRE(capture_ && capture_->stages_.size() == stages_.size(), "QUOTE_RISK_STAGED_CAPTURE_MISMATCH");
+        for (size_t i = 0; i < stages_.size(); ++i) {
+            const auto& fitted = capture_->stages_[i];
+            const auto& stage = stages_[i];
+            REQUIRE(stage.quoteRiskBlock_ == fitted.block_ && stage.curve_ == fitted.curve_ && stage.solution_ == fitted.solution_ &&
+                        stage.spec_.instruments_ == fitted.inputQuotes_ && stage.residualRowByInput_ == fitted.block_->residualRowByInput_,
+                    "QUOTE_RISK_STAGED_CAPTURE_MISMATCH: " + stage.spec_.curveName_);
+        }
+    }
+
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec, StagedMultiCurveCalibrationRecord_* riskRecord) {
         if (!riskRecord)
             return CalibrateMultiCurve(spec);
@@ -844,6 +870,8 @@ namespace Dal {
                 break;
             }
         }
+        if (riskRecord->unavailableReason_.empty())
+            riskRecord->capture_ = std::make_shared<const StagedMultiCurveCalibrationRecord_::Capture_>(riskRecord->stages_);
         return retval;
     }
 

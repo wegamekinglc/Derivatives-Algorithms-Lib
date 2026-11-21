@@ -5,7 +5,9 @@
 #include <sstream>
 
 #include <dal/curve/calibration_internal.hpp>
+#include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/quoteriskaggregation.hpp>
+#include <dal/curve/quoteriskmapping.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
 #include <dal/curve/ycinstrument.hpp>
 
@@ -79,7 +81,94 @@ namespace {
                 Ccy_("EUR"),
                 terms};
     }
+
+    RateTradeDefinition_ XccyTrade() {
+        const auto swap = std::get<IrsTradeTerms_>(SwapTrade(true).terms_).value_;
+        XccyTradeTerms_ terms;
+        terms.positionCount_ = 1.;
+        auto& config = terms.config_;
+        config.pair_ = CurrencyPair_(Ccy_("EUR"), Ccy_("USD"));
+        config.domesticNotional_ = 900000.;
+        config.foreignNotional_ = NOTIONAL;
+        config.convention_.domesticLeg_ = config.convention_.foreignLeg_ = swap.floatLeg_;
+        config.convention_.domesticIndex_ = config.convention_.foreignIndex_ = swap.floatIndex_;
+        config.domesticRateFixing_ = {"Euribor6M", 10, 0};
+        config.foreignRateFixing_ = {"USD6M", 11, 0};
+        return {"EUR-USD", RateInstrumentType_::Value_::XCCY, TODAY, TODAY, Date::AddMonths(TODAY, 18), Ccy_("EUR"), terms};
+    }
+
+    RatePricingMarket_ XccyMarket(const MultiCurveCalibrationResult_& fitted,
+                                  const Handle_<DiscountCurve_>& routedForward,
+                                  const Handle_<MarketFixingSnapshot_>& fixings = {}) {
+        auto market = Market(fitted);
+        const auto tenor = PeriodLength_("6M");
+        const Handle_<CurveBlock_> eur(new CurveBlock_("EUR", "EUR", fitted.discountCurves_, {{tenor, routedForward}}, DayBasis::Act365F()));
+        const Handle_<DiscountCurve_> usd(NewDiscountPWC("USD", "USD", PiecewiseConstant_({TODAY}, {0.04})));
+        const Handle_<CurveBlock_> dollar(new CurveBlock_("USD", "USD", {{CollateralType_("OIS"), usd}}, {{tenor, usd}}, DayBasis::Act365F()));
+        market.curveComponents_["USD"] = usd;
+        market.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(eur, dollar, 0.9, market.valuationTime_, Ccy_("EUR"), fixings);
+        return market;
+    }
+
+    void AssertXccyTradeIsolated(const RatePricingMarket_& market, const RateQuoteRiskProvenance_& source) {
+        const auto xccy = XccyTrade(), healthy = SwapTrade(true);
+        const auto price = PriceRateTrade(xccy, market);
+        ASSERT_TRUE(price.succeeded_) << price.error_;
+        const int before = RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load();
+        const auto single = AggregateRatePortfolioQuoteRisk({xccy}, market, {source});
+        ASSERT_EQ(RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), before);
+        ASSERT_EQ(single.meta_.size(), 1u);
+        const auto& rejection = single.meta_[0];
+        ASSERT_EQ(rejection.instrumentId_, xccy.instrumentId_);
+        ASSERT_EQ(rejection.calibrationId_, source.CalibrationId());
+        ASSERT_FALSE(rejection.eligible_);
+        ASSERT_FALSE(rejection.structuralZero_);
+        ASSERT_EQ(rejection.originalNodeRiskReason_, "STAGED_MULTI_CURVE_XCCY_TRADE_UNSUPPORTED");
+        ASSERT_EQ(rejection.pv_, price.pv_);
+        ASSERT_TRUE(single.buckets_.empty());
+        ASSERT_TRUE(single.provenanceFailures_.empty());
+        const auto expected = AggregateRatePortfolioQuoteRisk({healthy}, market, {source});
+        const auto mixed = AggregateRatePortfolioQuoteRisk({xccy, healthy}, market, {source});
+        ASSERT_EQ(mixed.meta_.size(), 2u);
+        ASSERT_EQ(mixed.meta_[0].originalNodeRiskReason_, rejection.originalNodeRiskReason_);
+        ASSERT_TRUE(mixed.meta_[1].eligible_);
+        ASSERT_TRUE(mixed.provenanceFailures_.empty());
+        ASSERT_EQ(expected.buckets_.size(), 4u);
+        ASSERT_EQ(mixed.buckets_.size(), expected.buckets_.size());
+        for (size_t i = 0; i < expected.buckets_.size(); ++i) {
+            ASSERT_EQ(mixed.buckets_[i].quoteKey_, expected.buckets_[i].quoteKey_);
+            ASSERT_EQ(mixed.buckets_[i].dPvDDecimalQuote_, expected.buckets_[i].dPvDDecimalQuote_);
+            ASSERT_EQ(mixed.buckets_[i].dv01_, expected.buckets_[i].dv01_);
+        }
+    }
 } // namespace
+
+TEST(StagedPortfolioQuoteRiskTest, TestXccyForwardSlotCanDifferFromRegisteredComponent) {
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto fitted = CalibrateMultiCurve(Spec(), &record);
+    const auto other = CalibrateMultiCurve(Spec());
+    const auto market = XccyMarket(fitted, other.forwardCurves_.at(PeriodLength_("6M")));
+    const auto source = BuildStagedMultiCurveQuoteRiskProvenance(record, market, CONFIG);
+    ASSERT_NO_FATAL_FAILURE(AssertXccyTradeIsolated(market, source));
+}
+
+TEST(StagedPortfolioQuoteRiskTest, TestXccyFixingFallbackAndExplicitEmptyBothExcludeOnlyXccy) {
+    StagedMultiCurveCalibrationRecord_ record;
+    const auto fitted = CalibrateMultiCurve(Spec(), &record);
+    MarketFixingSnapshot_::values_t values;
+    values["Euribor6M"][DateTime_(TODAY, 10, 0)] = 0.06;
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_(values));
+    const auto fallback = XccyMarket(fitted, record.stages_[1].curve_, snapshot);
+    const auto source = BuildStagedMultiCurveQuoteRiskProvenance(record, fallback, CONFIG);
+    auto empty = fallback;
+    empty.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
+    const auto fixed = PriceRateTrade(XccyTrade(), fallback), projected = PriceRateTrade(XccyTrade(), empty);
+    ASSERT_TRUE(fixed.succeeded_) << fixed.error_;
+    ASSERT_TRUE(projected.succeeded_) << projected.error_;
+    ASSERT_NE(fixed.pv_, projected.pv_);
+    ASSERT_NO_FATAL_FAILURE(AssertXccyTradeIsolated(empty, source));
+    ASSERT_NO_FATAL_FAILURE(AssertXccyTradeIsolated(fallback, source));
+}
 
 TEST(StagedPortfolioQuoteRiskTest, TestSwapBucketsUseInputOrderAndPhysicalUnits) {
     StagedMultiCurveCalibrationRecord_ record;
@@ -154,6 +243,40 @@ TEST(StagedPortfolioQuoteRiskTest, TestStageMustDescribeTheBoundSolutionAndForwa
             stage.spec_.discountCurves_.clear();
         ASSERT_THROW(BuildStagedMultiCurveQuoteRiskProvenance(record, market, CONFIG), Exception_);
     }
+}
+
+TEST(StagedPortfolioQuoteRiskTest, TestSameWidthFactorMustBelongToOriginalCapture) {
+    const auto spec = Spec();
+    StagedMultiCurveCalibrationRecord_ original;
+    const auto market = Market(CalibrateMultiCurve(spec, &original));
+    for (const auto& input : {Spec(1, 0, 0.01), spec}) {
+        StagedMultiCurveCalibrationRecord_ other;
+        CalibrateMultiCurve(input, &other);
+        ASSERT_TRUE(other.unavailableReason_.empty()) << other.unavailableReason_;
+        for (size_t s = 0; s < 2; ++s) {
+            auto mixed = original;
+            auto& stage = mixed.stages_[s];
+            ASSERT_EQ(stage.solution_.size(), other.stages_[s].solution_.size());
+            ASSERT_EQ(stage.residualRowByInput_, other.stages_[s].residualRowByInput_);
+            stage.quoteRiskBlock_ = other.stages_[s].quoteRiskBlock_;
+            ASSERT_THROW(BuildStagedMultiCurveQuoteRiskProvenance(mixed, market, CONFIG), Exception_);
+            const auto response = MapStagedQuoteRisk(mixed, {1., 0., 1., 0.});
+            ASSERT_TRUE(response.sensitivities_.empty());
+            ASSERT_NE(response.unavailableReason_.find("QUOTE_RISK_STAGED_CAPTURE_MISMATCH"), String_::npos);
+        }
+    }
+}
+
+TEST(StagedPortfolioQuoteRiskTest, TestOriginalQuoteHandlesAndInputOrdinalsBelongToCapture) {
+    StagedMultiCurveCalibrationRecord_ original;
+    const auto market = Market(CalibrateMultiCurve(Spec(), &original));
+    auto reordered = original;
+    auto& quotes = reordered.stages_[1].spec_.instruments_;
+    std::swap(quotes[0], quotes[1]);
+    ASSERT_THROW(BuildStagedMultiCurveQuoteRiskProvenance(reordered, market, CONFIG), Exception_);
+    auto replaced = original;
+    replaced.stages_[1].spec_.instruments_ = Spec(1, 0, 0.01).stages_[1].instruments_;
+    ASSERT_THROW(BuildStagedMultiCurveQuoteRiskProvenance(replaced, market, CONFIG), Exception_);
 }
 
 TEST(StagedPortfolioQuoteRiskTest, TestMissingForwardGradientDiscardsOnlyAffectedTrade) {

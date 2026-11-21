@@ -2475,10 +2475,15 @@ namespace Dal {
                                              RatePortfolioQuoteRisk_* result) {
             if (!item.active_)
                 return;
+            const auto* staged = item.provenance_->StagedMapping();
+            if (staged && trade.instrumentType_ == RateInstrumentType_::Value_::XCCY) {
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, false, {}, "STAGED_MULTI_CURVE_XCCY_TRADE_UNSUPPORTED", result);
+                return;
+            }
             const bool dependencyPlanAvailable = passive.succeeded_ || !passive.dependencyComponentKeys_.empty();
             Vector_<> gradient(item.parameterCount_, 0.0);
             bool structuralZero = true;
-            const bool jointCoordinates = item.provenance_->StagedMapping() || item.provenance_->Kind() == "JOINT_MULTI_CURVE";
+            const bool jointCoordinates = staged || item.provenance_->Kind() == "JOINT_MULTI_CURVE";
             for (const auto& block : item.blocks_) {
                 const bool consumesComponent =
                     sweeper->ConsumesComponent(trade, passive.dependencyComponentKeys_, block.componentKey_, jointCoordinates);

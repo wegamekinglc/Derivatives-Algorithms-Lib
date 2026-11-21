@@ -60,6 +60,8 @@ namespace Dal {
         try {
             REQUIRE(record.stages_.size() == 2 && record.stages_[0].quoteRiskBlock_ && record.stages_[1].quoteRiskBlock_,
                     "Staged quote risk requires both stage factors");
+            if (record.capture_ || record.stages_[0].curve_ || record.stages_[1].curve_)
+                record.RequireMatchingCapture();
             const auto& discount = *record.stages_[0].quoteRiskBlock_;
             const auto& forward = *record.stages_[1].quoteRiskBlock_;
             const int nx = discount.factor_.Solution().Rows(), ny = forward.factor_.Solution().Rows();
@@ -1977,6 +1979,7 @@ namespace Dal {
             state.object_["reason"] = Json_::String(data->reason_);
         } else {
             REQUIRE(record.stages_.size() == 2, "QUOTE_RISK_STAGED_MAPPING_REQUIRES_TWO_STAGES");
+            record.RequireMatchingCapture();
             data->axis_ = StagedMultiCurveAxis(record);
             ValidateConfig(config, data->axis_.parameterRanges_);
             Json_ stages = Json_::Array();

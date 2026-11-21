@@ -751,6 +751,9 @@ auto source = BuildStagedMultiCurveQuoteRiskProvenance(record, market, config);
 auto risk = AggregateRatePortfolioQuoteRisk(trades, market, {source});
 ```
 
+The factory checks that both stage factors, fitted handles, solutions and
+input quote sequences belong to the same calibration. A mixed record raises
+`QUOTE_RISK_STAGED_CAPTURE_MISMATCH` before portfolio pricing.
 The factory captures the valuation time and fixing snapshot. Aggregation
 checks both and the fitted handles before collecting trade gradients. The
 discount gradient includes direct discounting and the forward curve's base
@@ -759,6 +762,9 @@ currency total. Bucket keys have the form `stage:s:i`, where `i` is the
 zero-based input quote ordinal within stage `s`. Buckets carry the signed
 PV derivative per unit decimal quote and its product with $10^{-4}$ as DV01.
 `StagedMapping()` exposes the two stages and their individual tolerances.
+For an XCCY trade, this same-currency source produces a trade metadata row
+with `STAGED_MULTI_CURVE_XCCY_TRADE_UNSUPPORTED` in `originalNodeRiskReason_`.
+Eligible same-currency trades in the portfolio still contribute their full buckets.
 
 Read `unavailableStage_` and `unavailableReason_` when a record cannot
 support risk. A stage-count error identifies the bundle. A successful ordinary
