@@ -5,6 +5,7 @@
 #include <limits>
 
 #include <dal/model/surface/marketivsurface.hpp>
+#include <dal/utilities/detail/scopedthreadobserver.hpp>
 
 namespace Dal::MarketIvDetail {
     static_assert(sizeof(MarketIvRefitResponse_) <= 128, "Refit response exceeds its per-output payload envelope");
@@ -21,6 +22,16 @@ namespace Dal::MarketIvDetail {
         double forward_, discount_, rate_, yield_;
         bool knot_;
     };
+    struct RefitQuoteSelection_ {
+        size_t quoteIndex_;
+        double step_, forward_, discount_;
+    };
+    void ValidateRefitQuotes(const Vector_<String_>& ids, const Vector_<>& steps);
+    void BumpRefitQuote(MarketIvQuote_* quote, double step);
+    Vector_<RefitQuoteSelection_> SelectRefitQuotes(const MarketIvCalibrationSnapshot_& base, const Vector_<String_>& ids, const Vector_<>& steps);
+    inline String_ RefitInputUnit(const MarketIvQuote_& quote) {
+        return quote.quoteType_ == MarketIvQuoteType_::Value_::PRICE ? "premium" : "decimal_iv";
+    }
     struct Smile_ {
         double w_, wk_, wkk_, wTheta_, wRho_, wEta_;
         bool derivativeRange_ = false;
@@ -77,6 +88,8 @@ namespace Dal::MarketIvDetail {
     size_t EvaluationWorkspaceBytes();
     size_t FitPayload(const FitData_&);
     int SelectStart(const Vector_<MarketIvStart_>& starts, double tieTolerance);
+    size_t*& FitStartCounter();
+    using ScopedFitStartCounter_ = Detail::ScopedThreadObserver_<size_t, &FitStartCounter>;
     std::shared_ptr<const FitData_> Fit(const MarketIvFitRequest_&, std::optional<size_t> aggregateRemaining = std::nullopt);
     struct Access_ {
         static MarketIvFitResult_ Result(std::shared_ptr<const FitData_> data) { return MarketIvFitResult_(std::move(data)); }

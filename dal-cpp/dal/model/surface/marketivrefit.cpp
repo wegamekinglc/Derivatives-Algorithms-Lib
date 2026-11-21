@@ -14,28 +14,12 @@ namespace Dal {
             std::iota(order.begin(), order.end(), 0);
             std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return ids[a] < ids[b]; });
             for (size_t i = 1; i < order.size(); ++i)
-                REQUIRE(ids[order[i]] != ids[order[i - 1]], "InvalidMarketIvRequest: duplicate refit quote ID=" + ids[order[i]]);
+                REQUIRE(ids[order[i]] != ids[order[i - 1]], "InvalidMarketIvRequest: /quote_ids duplicate refit quote ID=" + ids[order[i]]);
         }
-        struct Selection_ {
-            size_t quote_, requested_;
-            double step_;
-        };
         std::optional<double> Slope(double high, double low, double h) {
             const long double value = (static_cast<long double>(high) - low) / h;
             const double result = static_cast<double>(value);
             return std::isfinite(result) && (value == 0. || result != 0.) ? std::optional<double>(result) : std::nullopt;
-        }
-        void Bump(MarketIvQuote_* q, double step) {
-            auto change = [step](double* value) {
-                const double next = *value + step;
-                REQUIRE(std::isfinite(next) && next != *value, "BUMP_INVALID: bump is nonfinite or not representable in original quote units");
-                *value = next;
-            };
-            change(&q->mid_);
-            if (q->bid_) {
-                change(&*q->bid_);
-                change(&*q->ask_);
-            }
         }
         void DirectionOutputs(const MarketIvCalibrationSnapshot_& snapshot,
                               const MarketIvRefitRiskRequest_& request,
@@ -84,7 +68,7 @@ namespace Dal {
             }
             auto fitRequest = base.Request();
             try {
-                Bump(&fitRequest.quotes_[a.quoteIndex_], plus ? a.step_ : -a.step_);
+                BumpRefitQuote(&fitRequest.quotes_[a.quoteIndex_], plus ? a.step_ : -a.step_);
                 ValidateMarketIvFitRequest(fitRequest);
             } catch (const Exception_& error) {
                 status = "BUMP_INVALID";
@@ -103,26 +87,6 @@ namespace Dal {
                 return;
             SuccessfulDirection(base, fit, request, axis, plus, data);
         }
-        Vector_<Selection_> Select(const MarketIvCalibrationSnapshot_& base, const MarketIvRefitRiskRequest_& request) {
-            using namespace MarketIvDetail;
-            const size_t a = request.quoteIds_.size();
-            Vector_<Selection_> selected;
-            selected.reserve(a);
-            for (size_t i = 0; i < a; ++i) {
-                const auto& quotes = base.Request().quotes_;
-                const auto it = std::find_if(quotes.begin(), quotes.end(), [&](const auto& q) { return q.id_ == request.quoteIds_[i]; });
-                REQUIRE(it != quotes.end(), "InvalidMarketIvRequest: unknown refit quote ID=" + request.quoteIds_[i]);
-                const auto carry = CarryAt(base.Request().market_, (it->expiry_ - base.Request().market_.EvaluationDate()) / 365.);
-                const double step =
-                    request.steps_.empty()
-                        ? (it->quoteType_ == MarketIvQuoteType_::Value_::DECIMAL_IV ? 1e-4 : (carry.discount_ * carry.forward_) * 1e-4)
-                        : request.steps_[i];
-                REQUIRE(std::isfinite(step) && step > 0., "InvalidMarketIvRequest: refit step must be finite positive; ID=" + it->id_);
-                selected.push_back({static_cast<size_t>(it - quotes.begin()), i, step});
-            }
-            std::sort(selected.begin(), selected.end(), [](const auto& x, const auto& y) { return x.quote_ < y.quote_; });
-            return selected;
-        }
         void Slopes(MarketIvDetail::RiskData_* data, size_t i, size_t o) {
             for (size_t j = 0; j < o; ++j) {
                 auto& row = data->responses_[i * o + j];
@@ -135,9 +99,6 @@ namespace Dal {
                     data->complete_ = false;
             }
         }
-        void ValidateRefitStepCount(const Vector_<>& steps, size_t count) {
-            REQUIRE(steps.empty() || steps.size() == count, "InvalidMarketIvRequest: refit steps must match quote_ids");
-        }
         void ValidateRefitOutputs(const Vector_<MarketIvRefitOutput_>& outputs) {
             for (const auto& output : outputs) {
                 MarketIvDetail::ValidateQuery(output.query_);
@@ -148,17 +109,54 @@ namespace Dal {
         }
     } // namespace
 
+    namespace MarketIvDetail {
+        void BumpRefitQuote(MarketIvQuote_* q, double step) {
+            auto change = [q, step](double* value) {
+                const double next = *value + step;
+                REQUIRE(std::isfinite(next) && next != *value, "BUMP_INVALID: /steps not representable in original quote units; ID=" + q->id_);
+                *value = next;
+            };
+            change(&q->mid_);
+            if (q->bid_) {
+                change(&*q->bid_);
+                change(&*q->ask_);
+            }
+        }
+
+        Vector_<RefitQuoteSelection_>
+        SelectRefitQuotes(const MarketIvCalibrationSnapshot_& base, const Vector_<String_>& ids, const Vector_<>& steps) {
+            Vector_<RefitQuoteSelection_> selected;
+            selected.reserve(ids.size());
+            for (size_t i = 0; i < ids.size(); ++i) {
+                const auto& quotes = base.Request().quotes_;
+                const auto it = std::find_if(quotes.begin(), quotes.end(), [&](const auto& q) { return q.id_ == ids[i]; });
+                REQUIRE(it != quotes.end(), "InvalidMarketIvRequest: /quote_ids unknown refit quote ID=" + ids[i]);
+                const auto carry = CarryAt(base.Request().market_, (it->expiry_ - base.Request().market_.EvaluationDate()) / 365.);
+                const double step =
+                    steps.empty() ? (it->quoteType_ == MarketIvQuoteType_::Value_::DECIMAL_IV ? 1e-4 : (carry.discount_ * carry.forward_) * 1e-4)
+                                  : steps[i];
+                REQUIRE(std::isfinite(step) && step > 0., "InvalidMarketIvRequest: /steps must be finite positive; ID=" + it->id_);
+                selected.push_back({static_cast<size_t>(it - quotes.begin()), step, carry.forward_, carry.discount_});
+            }
+            std::sort(selected.begin(), selected.end(), [](const auto& x, const auto& y) { return x.quoteIndex_ < y.quoteIndex_; });
+            return selected;
+        }
+        void ValidateRefitQuotes(const Vector_<String_>& ids, const Vector_<>& steps) {
+            REQUIRE(steps.empty() || steps.size() == ids.size(), "InvalidMarketIvRequest: /steps must match quote_ids");
+            ValidateIds(ids);
+            for (const auto step : steps)
+                REQUIRE(std::isfinite(step) && step > 0., "InvalidMarketIvRequest: /steps must be finite positive");
+        }
+    } // namespace MarketIvDetail
+
     void ValidateMarketIvRefitRiskRequest(const MarketIvRefitRiskRequest_& request) {
         using namespace MarketIvDetail;
         const auto& s = request.settings_;
         const size_t a = request.quoteIds_.size(), o = request.outputs_.size();
         REQUIRE(a > 0 && a <= s.maxSelectedQuotes_ && o > 0 && o <= s.maxOutputs_,
                 "InvalidMarketIvRequest: refit quote_ids/outputs; empty or exceeds configured count limit");
-        ValidateRefitStepCount(request.steps_, a);
+        ValidateRefitQuotes(request.quoteIds_, request.steps_);
         ValidateMarketIvEvaluationSettings(s.evaluation_);
-        ValidateIds(request.quoteIds_);
-        for (const auto step : request.steps_)
-            REQUIRE(std::isfinite(step) && step > 0., "InvalidMarketIvRequest: refit steps must be finite positive");
         ValidateRefitOutputs(request.outputs_);
     }
     MarketIvRefitRiskResult_ EvaluateMarketIvRefitRisk(const MarketIvCalibrationSnapshot_& base, const MarketIvRefitRiskRequest_& request) {
@@ -176,7 +174,7 @@ namespace Dal {
             CheckedAdd(8192, CheckedAdd(CheckedMultiply(512, a), CheckedAdd(CheckedMultiply(128, CheckedMultiply(a, o)), CheckedMultiply(256, o)))));
         const size_t workspace = CheckedAdd(w, CheckedAdd(CheckedMultiply(2, p), CheckedMultiply(1024, o)));
         CheckBudget(payload, workspace, s.numericPayloadBudgetBytes_, s.workspaceBudgetBytes_);
-        const auto selected = Select(base, request);
+        const auto selected = SelectRefitQuotes(base, request.quoteIds_, request.steps_);
         auto data = std::make_shared<RiskData_>(base, request);
         data->execution_.plannedNumericPayloadBytes_ = payload;
         data->execution_.plannedWorkspaceBytes_ = workspace;
@@ -190,9 +188,9 @@ namespace Dal {
         }
         for (size_t i = 0; i < a; ++i) {
             auto& axis = data->axis_[i];
-            axis.quoteIndex_ = selected[i].quote_;
+            axis.quoteIndex_ = selected[i].quoteIndex_;
             axis.step_ = selected[i].step_;
-            axis.inputUnit_ = base.Request().quotes_[axis.quoteIndex_].quoteType_ == MarketIvQuoteType_::Value_::PRICE ? "premium" : "decimal_iv";
+            axis.inputUnit_ = RefitInputUnit(base.Request().quotes_[axis.quoteIndex_]);
             for (size_t j = 0; j < o; ++j) {
                 auto& row = data->responses_[i * o + j];
                 row.quoteIndex_ = axis.quoteIndex_;

@@ -30,5 +30,9 @@ namespace Dal::Script {
                                                 const MonteCarloSettings_& simulation = {});
 
         [[nodiscard]] PreparedScript_ CompleteScriptPreparation(PlannedScript_&& planned, const Handle_<MarketFixingSnapshot_>& snapshot);
+        [[nodiscard]] PreparedScript_ PrepareWithFrozenFixings(const ScriptProductData_& product,
+                                                               AAD::Model_<double>* model,
+                                                               const ScriptValuationSettings_& valuation,
+                                                               const MonteCarloSettings_& simulation);
     } // namespace Detail
 } // namespace Dal::Script
