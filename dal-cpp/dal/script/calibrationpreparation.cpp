@@ -883,8 +883,22 @@ namespace Dal {
     struct CalibrationPreparationCache_::Impl_ {
         std::mutex mutex_;
         std::map<std::string, PreparedCalibrationInstrument_> plans_;
+        std::map<std::string, Handle_<CalibrationInstrument_>> compoundedSources_;
     };
     CalibrationPreparationCache_::CalibrationPreparationCache_() : impl_(std::make_shared<Impl_>()) {}
+    Handle_<CalibrationInstrument_> CalibrationPreparationCache_::CompoundedPriceSource(const Handle_<PreparedCompoundedOis_>& tables) {
+        Check(bool(tables), "InvalidCompoundedOis", "/tables", "frozen compounded OIS tables");
+        const auto key = Bytes(tables->PreparationIdentity());
+        {
+            std::lock_guard<std::mutex> lock(impl_->mutex_);
+            const auto found = impl_->compoundedSources_.find(key);
+            if (found != impl_->compoundedSources_.end())
+                return found->second;
+        }
+        auto instrument = CompoundedOisInternal::BuildSource(tables).instrument_;
+        std::lock_guard<std::mutex> lock(impl_->mutex_);
+        return impl_->compoundedSources_.emplace(key, std::move(instrument)).first->second;
+    }
     namespace {
         String_ PreparationCacheKey(const CalibrationInstrument_& instrument,
                                     const String_& measureId,
