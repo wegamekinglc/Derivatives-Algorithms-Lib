@@ -47,7 +47,7 @@ namespace Dal::Script {
         const Handle_<MarketIvLocalVolModelData_> baseModel_;
     };
 
-    [[nodiscard]] MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(MarketIvScriptRefitRequest_ request);
+    [[nodiscard]] MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(const MarketIvScriptRefitRequest_& input);
 
     MarketIvLocalVolExecution_ InspectMarketIvLocalVolExecution(const ScriptProductData_& product,
                                                                 const MarketIvLocalVolModelData_& model,

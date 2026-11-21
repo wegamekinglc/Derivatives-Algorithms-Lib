@@ -110,6 +110,48 @@ TEST(MarketIvScriptRefitTest, TestBothBumpsMustMoveTheWholeBand) {
     ASSERT_THROW(static_cast<void>(PlanMarketIvScriptRefit(request)), Exception_);
 }
 
+TEST(MarketIvScriptRefitTest, TestBudgetOverflowsIdentifyPreflightFieldBeforeWork) {
+    const auto base = Request();
+    const auto maximum = std::numeric_limits<size_t>::max();
+    const auto rejectOverflow = [&](const char* operation, const char* field, auto configure) {
+        SCOPED_TRACE(operation);
+        auto request = base;
+        configure(&request);
+        size_t fitStarts = 0;
+        const MarketIvDetail::ScopedFitStartCounter_ observeFits(&fitStarts);
+        TestSupport::SubmissionCounter_ sampling;
+        const Script::Detail::ScopedSimulationObserver_ observeSampling(&sampling);
+        try {
+            static_cast<void>(PlanMarketIvScriptRefit(request));
+            FAIL() << "Expected budget overflow";
+        } catch (const MarketIvLocalVolError_& error) {
+            EXPECT_STREQ(error.code_.c_str(), "MarketIvLocalVolBudgetExceeded");
+            EXPECT_STREQ(error.stage_.c_str(), "Preflight");
+            EXPECT_STREQ(error.field_.c_str(), field);
+            EXPECT_STREQ(error.actual_.c_str(), "overflow");
+        }
+        EXPECT_EQ(fitStarts, 0U);
+        EXPECT_EQ(sampling.submissions_, 0U);
+    };
+
+    rejectOverflow("paths per scenario", "/budget/max_total_paths", [&](auto* r) {
+        r->blocks_ = 2;
+        r->pathsPerBlock_ = maximum;
+    });
+    rejectOverflow("paths across all scenarios", "/budget/max_total_paths", [&](auto* r) {
+        r->blocks_ = 2;
+        r->pathsPerBlock_ = maximum / 2;
+        r->budget_.maxTotalPaths_ = maximum;
+    });
+    auto fitRequest = base.snapshot_.Request();
+    fitRequest.settings_.maxModelRowEvaluations_ = maximum;
+    const auto fit = FitMarketIvSurface(fitRequest);
+    ASSERT_TRUE(fit.IsSuccess()) << fit.Failure().c_str();
+    rejectOverflow("fit rows across refits", "/budget/max_model_row_evaluations", [&](auto* r) { r->snapshot_ = fit.Snapshot(); });
+    rejectOverflow("three model payloads", "/budget/workspace_bytes", [&](auto* r) { r->model_.numericPayloadBudgetBytes_ = maximum; });
+    rejectOverflow("grid plus model payload", "/budget/workspace_bytes", [&](auto* r) { r->grid_.settings_.numericPayloadBudgetBytes_ = maximum; });
+}
+
 TEST(MarketIvScriptRefitTest, TestPlanOwnsInputsAndAdmitsExactBudget) {
     const auto plan = [] {
         auto request = Request();
@@ -142,6 +184,28 @@ TEST(MarketIvScriptRefitTest, TestPlanOwnsInputsAndAdmitsExactBudget) {
     ASSERT_EQ(plan.work_.totalPaths_, 30U);
     ASSERT_EQ(plan.work_.modelRowEvaluationLimit_, 20000000U);
     ASSERT_EQ(plan.work_.reservedWorkspaceBytes_, plan.request_.budget_.workspaceBudgetBytes_);
+}
+
+TEST(MarketIvScriptRefitTest, TestMovedRequestCannotChangePlanThroughSavedReferences) {
+    auto request = Request();
+    request.steps_ = {.012, .0003};
+    auto& time = request.grid_.times_.front();
+    auto& step = request.steps_.front();
+    auto& id = request.quoteIds_.front();
+
+    const auto plan = PlanMarketIvScriptRefit(std::move(request));
+    time = .2;
+    step = .04;
+    id = "100";
+
+    const auto summary = plan.baseModel_->Summary();
+    ASSERT_EQ(summary.gridFirstTime_, .1);
+    EXPECT_EQ(plan.request_.grid_.times_.front(), summary.gridFirstTime_);
+    ASSERT_EQ(plan.rows_.size(), 2U);
+    ASSERT_EQ(plan.rows_[1].id_, "110");
+    ASSERT_EQ(plan.rows_[1].step_, .012);
+    EXPECT_EQ(plan.request_.quoteIds_.front(), plan.rows_[1].id_);
+    EXPECT_EQ(plan.request_.steps_.front(), plan.rows_[1].step_);
 }
 
 TEST(MarketIvScriptRefitTest, TestPlanFreezesGlobalFixingAndValuationDate) {

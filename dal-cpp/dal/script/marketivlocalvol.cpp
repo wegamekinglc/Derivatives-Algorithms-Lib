@@ -70,19 +70,21 @@ namespace Dal::Script {
         }
 
         size_t RefitWorkspaceReservation(const MarketIvScriptRefitRequest_& request) {
-            using namespace MarketIvLocalVolDetail;
+            constexpr MarketIvLocalVolDetail::BudgetField_ bytes{"Preflight", "/budget/workspace_bytes"};
             // Reserve the configured numeric envelopes for a base and one pair at a time.
             const auto& fit = request.snapshot_.Execution();
             const auto& grid = request.grid_.settings_;
             const auto& model = request.model_;
-            const size_t models = CheckedMultiply(3, model.numericPayloadBudgetBytes_);
-            const size_t building = CheckedAdd(CheckedAdd(grid.numericPayloadBudgetBytes_, model.numericPayloadBudgetBytes_),
-                                               std::max(grid.workspaceBudgetBytes_, model.workspaceBudgetBytes_));
+            const size_t models = bytes.Multiply(3, model.numericPayloadBudgetBytes_);
+            const size_t building = bytes.Add(bytes.Add(grid.numericPayloadBudgetBytes_, model.numericPayloadBudgetBytes_),
+                                              std::max(grid.workspaceBudgetBytes_, model.workspaceBudgetBytes_));
             const size_t working = std::max(
-                {CheckedAdd(fit.plannedWorkspaceBytes_, fit.plannedNumericPayloadBytes_), building, CheckedMultiply(3, model.workspaceBudgetBytes_)});
-            const size_t rows = CheckedMultiply(request.quoteIds_.size(), sizeof(MarketIvScriptRefitRow_));
-            const size_t means = CheckedMultiply(request.blocks_, 3 * sizeof(double));
-            return CheckedAdd(CheckedAdd(fit.plannedNumericPayloadBytes_, models), CheckedAdd(working, CheckedAdd(rows, means)));
+                {bytes.Add(fit.plannedWorkspaceBytes_, fit.plannedNumericPayloadBytes_), building, bytes.Multiply(3, model.workspaceBudgetBytes_)});
+            const size_t rows = bytes.Multiply(request.quoteIds_.size(), sizeof(MarketIvScriptRefitRow_));
+            const size_t means = bytes.Multiply(request.blocks_, 3 * sizeof(double));
+            const size_t reserved = bytes.Add(bytes.Add(fit.plannedNumericPayloadBytes_, models), bytes.Add(working, bytes.Add(rows, means)));
+            bytes.Check(reserved, request.budget_.workspaceBudgetBytes_);
+            return reserved;
         }
 
         MarketIvScriptRefitWork_ RefitWork(const MarketIvScriptRefitRequest_& request) {
@@ -93,21 +95,25 @@ namespace Dal::Script {
             CheckLimit(count, budget.maxSelectedQuotes_, "/budget/max_selected_quotes", "Preflight");
             REQUIRE(request.blocks_ >= 2, "InvalidMarketIvRequest: /blocks requires at least two independent blocks");
             REQUIRE(request.pathsPerBlock_ > 0, "InvalidMarketIvRequest: /paths_per_block must be positive");
-            const size_t refits = CheckedMultiply(2, count), scenarios = CheckedAdd(1, refits);
-            CheckLimit(scenarios, budget.maxScenarios_, "/budget/max_scenarios", "Preflight");
-            const size_t paths = CheckedMultiply(request.blocks_, request.pathsPerBlock_);
-            const size_t totalPaths = CheckedMultiply(scenarios, paths);
-            CheckLimit(totalPaths, budget.maxTotalPaths_, "/budget/max_total_paths", "Preflight");
-            const size_t fitRows = CheckedMultiply(refits, request.snapshot_.Request().settings_.maxModelRowEvaluations_);
-            CheckLimit(fitRows, budget.maxModelRowEvaluations_, "/budget/max_model_row_evaluations", "Preflight");
+            constexpr BudgetField_ scenarioBudget{"Preflight", "/budget/max_scenarios"};
+            const size_t refits = scenarioBudget.Multiply(2, count), scenarios = scenarioBudget.Add(1, refits);
+            scenarioBudget.Check(scenarios, budget.maxScenarios_);
+            constexpr BudgetField_ pathBudget{"Preflight", "/budget/max_total_paths"};
+            const size_t paths = pathBudget.Multiply(request.blocks_, request.pathsPerBlock_);
+            const size_t totalPaths = pathBudget.Multiply(scenarios, paths);
+            pathBudget.Check(totalPaths, budget.maxTotalPaths_);
+            constexpr BudgetField_ fitBudget{"Preflight", "/budget/max_model_row_evaluations"};
+            const size_t fitRows = fitBudget.Multiply(refits, request.snapshot_.Request().settings_.maxModelRowEvaluations_);
+            fitBudget.Check(fitRows, budget.maxModelRowEvaluations_);
 
             const size_t bytes = RefitWorkspaceReservation(request);
-            CheckLimit(bytes, budget.workspaceBudgetBytes_, "/budget/workspace_bytes", "Preflight");
             return {refits, scenarios, scenarios, paths, totalPaths, fitRows, bytes};
         }
     } // namespace
 
-    MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(MarketIvScriptRefitRequest_ request) {
+    MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(const MarketIvScriptRefitRequest_& input) {
+        // Even an rvalue can have outstanding references into its vector storage.
+        auto request = input;
         REQUIRE(request.product_, "InvalidMarketIvRequest: /product is required");
         REQUIRE(request.simulation_.rsg_ == "mrg32", "InvalidMarketIvRequest: /simulation/rsg requires mrg32");
         REQUIRE(request.simulation_.normalPrecision_ == "Precise", "InvalidMarketIvRequest: /simulation/normal_precision requires Precise");
