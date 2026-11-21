@@ -602,6 +602,9 @@ namespace Dal {
                                               prepared.contextIdentities_, prepared.compoundedPrices_});
         return {std::move(data)};
     }
+    const std::shared_ptr<const CandidateCurveGeometry_>& CurveInstrumentInternal::PreparedCurvePriceContext_::Geometry() const {
+        return data_->geometry_;
+    }
     void CurveInstrumentInternal::RequireCurvePriceContext(const PreparedCurvePriceContext_& context, const CurveInstrumentCalibrationSpec_& spec) {
         Check(bool(context.data_), "CalibrationContextMismatch", "/context", "owning frozen price context");
         Check(Fingerprint(ContextJson(spec)) == Fingerprint(ContextJson(*context.data_->spec_)), "CalibrationContextMismatch", "/context",
@@ -965,6 +968,7 @@ namespace Dal {
     } // namespace
     CurveInstrumentCalibrationResult_ CalibrateCurveInstruments(const CurveInstrumentCalibrationSpec_& spec,
                                                                 const CurveInstrumentCalibrationOptions_& options) {
+        RecordCurveCalibrationInvocation();
         CurveInstrumentCalibrationResult_ result;
         try {
             result.axes_ = BuildCalibrationObservationAxes(spec.observations_);
