@@ -47,6 +47,7 @@ namespace Dal {
             Matrix_<>& j_;
             explicit XJDense_(Matrix_<>& j) : j_(j) {}
 
+            [[nodiscard]] const Matrix_<>* DenseMatrix() const override { return &j_; }
             [[nodiscard]] int Rows() const override { return j_.Rows(); }
             [[nodiscard]] int Columns() const override { return j_.Cols(); }
 
@@ -156,6 +157,10 @@ namespace Dal {
         }
 
         void StoreForwardJacobianAtSolution(const Underdetermined::Jacobian_& jac, Matrix_<>* out) {
+            if (const auto* dense = jac.DenseMatrix()) {
+                *out = *dense;
+                return;
+            }
             out->Resize(jac.Rows(), jac.Columns());
             for (int k = 0; k < jac.Columns(); ++k) {
                 Vector_<> ek(jac.Columns(), 0.0);
