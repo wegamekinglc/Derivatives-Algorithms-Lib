@@ -43,10 +43,11 @@ namespace Dal {
     } // namespace Underdetermined
 
     namespace {
-        struct XJDense_ : Underdetermined::Jacobian_ {
+        struct XJDense_ : Underdetermined::DenseJacobian_ {
             Matrix_<>& j_;
             explicit XJDense_(Matrix_<>& j) : j_(j) {}
 
+            [[nodiscard]] const Matrix_<>& DenseMatrix() const override { return j_; }
             [[nodiscard]] int Rows() const override { return j_.Rows(); }
             [[nodiscard]] int Columns() const override { return j_.Cols(); }
 
@@ -107,21 +108,17 @@ namespace Dal {
                 return BuildJacobian(x, f);
             }
 
-            std::unique_ptr<Underdetermined::Jacobian_> JAtSolution(const Vector_<>& x, const Vector_<>& scaledF) {
-                Vector_<> unscaledF = scaledF;
-                Transform(&unscaledF, tol_, std::multiplies<>());
-                return BuildJacobian(x, unscaledF);
+            std::unique_ptr<Underdetermined::Jacobian_> DenseJacobian(const Vector_<>& x, const Vector_<>& f) {
+                func_.Gradient(x, f, &jDense_);
+                return std::make_unique<XJDense_>(jDense_);
             }
 
             std::unique_ptr<Underdetermined::Jacobian_> BuildJacobian(const Vector_<>& x, const Vector_<>& f) {
-                if (auto sparse = func_.Gradient(x, f)) {
-                    sparse->DivideRows(tol_);
-                    return sparse;
-                }
-                func_.Gradient(x, f, &jDense_);
-                auto retVal = std::make_unique<XJDense_>(jDense_);
-                retVal->DivideRows(tol_);
-                return retVal;
+                auto jacobian = func_.Gradient(x, f);
+                if (!jacobian)
+                    jacobian = DenseJacobian(x, f);
+                jacobian->DivideRows(tol_);
+                return jacobian;
             }
         };
 
@@ -156,6 +153,10 @@ namespace Dal {
         }
 
         void StoreForwardJacobianAtSolution(const Underdetermined::Jacobian_& jac, Matrix_<>* out) {
+            if (const auto* dense = dynamic_cast<const Underdetermined::DenseJacobian_*>(&jac)) {
+                *out = dense->DenseMatrix();
+                return;
+            }
             out->Resize(jac.Rows(), jac.Columns());
             for (int k = 0; k < jac.Columns(); ++k) {
                 Vector_<> ek(jac.Columns(), 0.0);
@@ -277,20 +278,24 @@ namespace Dal {
                                   const Sparse::SymmetricDecomposition_& w,
                                   Matrix_<>* effJInv,
                                   Matrix_<>* fwdJacobianAtSolution) {
+            if (!effJInv && !fwdJacobianAtSolution)
+                return;
+            Vector_<> fUnscaled = scaledF;
+            Transform(&fUnscaled, tol, std::multiplies<>());
+            auto jacobian = funcIn.Gradient(x, fUnscaled);
+            Matrix_<> forward;
+            if (fwdJacobianAtSolution && jacobian)
+                StoreForwardJacobianAtSolution(*jacobian, &forward);
             if (effJInv) {
-                std::unique_ptr<Underdetermined::Jacobian_> jSolution(func->JAtSolution(x, scaledF));
-                StoreEffectiveJacobianInverse(*jSolution, w, effJInv);
-                if (!ValidSolutionMapping(*jSolution, *effJInv))
+                if (!jacobian)
+                    jacobian = func->DenseJacobian(x, fUnscaled);
+                jacobian->DivideRows(tol);
+                StoreEffectiveJacobianInverse(*jacobian, w, effJInv);
+                if (!ValidSolutionMapping(*jacobian, *effJInv))
                     effJInv->Clear();
             }
-            if (fwdJacobianAtSolution) {
-                fwdJacobianAtSolution->Clear();
-                Vector_<> fUnscaled = scaledF;
-                Transform(&fUnscaled, tol, std::multiplies<>());
-                std::unique_ptr<Underdetermined::Jacobian_> jSolution(funcIn.Gradient(x, fUnscaled));
-                if (jSolution)
-                    StoreForwardJacobianAtSolution(*jSolution, fwdJacobianAtSolution);
-            }
+            if (fwdJacobianAtSolution)
+                *fwdJacobianAtSolution = std::move(forward);
         }
 
         double BacktrackMinimum(const Vector_<>& fOld, const Vector_<>& fNew) {

@@ -1,5 +1,10 @@
 #pragma once
 
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <utility>
+
 #include <dal/model/blackscholes.hpp>
 #include <dal/script/detail/soaevaluator.hpp>
 #include <dal/script/simulation.hpp>
@@ -111,6 +116,9 @@ namespace Dal::Script {
             }
         };
 
+        inline const ScriptCompiled_& ScalarProgram(const PreparedScript_& product) { return product.CompiledProgram(); }
+        inline ScriptCompiled_ ScalarProgram(const ScriptProduct_& product) { return product.Compile(); }
+
         template <class P_> Plan_ BuildPlan(const P_& product) {
             const auto* observations = Observations(product);
             REQUIRE2(!observations || observations->EventToSample().size() == product.EventDates().size(),
@@ -119,7 +127,8 @@ namespace Dal::Script {
             for (size_t event = 0; event < eventSamples.size(); ++event)
                 eventSamples[event] = observations ? observations->EventToSample()[event] : event;
             const auto state = product.template BuildEvalState<double>();
-            return {product.Compile(), state.variablesInit_, state.constVariables_, product.DefLine().size(), std::move(eventSamples), observations};
+            return {ScalarProgram(product),   state.variablesInit_,    state.constVariables_,
+                    product.DefLine().size(), std::move(eventSamples), observations};
         }
 
         template <size_t L_, class P_>
@@ -154,24 +163,52 @@ namespace Dal::Script {
             }
             return result;
         }
+
+        template <size_t L_, class P_, class GetPlan_>
+        SimResults_ Simulate(const P_& product, AAD::Model_<double>* model, size_t nPaths, const String_& rsg, bool useBb, GetPlan_ getPlan) {
+            static_assert(L_ == 8 || L_ == 16 || L_ == 32 || L_ == 64, "SoA supports 8, 16, 32 or 64 lanes");
+            product.RequireExecutable();
+            REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
+            ValidateRNG(rsg);
+            REQUIRE2(model, "InvalidSoaModel: null model", ScriptError_);
+            if (product.EventDates().empty())
+                return SimResults_(Vector::Join(model->ParameterLabels(), product.ConstVarNames()));
+            RequireAdmission(product, model, rsg, useBb);
+            if (nPaths < 16)
+                return MCDoubleSimulation(product, model, nPaths, rsg, useBb, true);
+            Detail::InitializeDoubleSimulation(product, model, true, false);
+            return Run<L_>(product, *model, getPlan(), nPaths, rsg, useBb);
+        }
     } // namespace Detail::CompiledSoa
+
+    // Own the sealed script and decode its lane-independent instructions once for repeated valuations.
+    class PreparedSoaScript_ {
+        struct Cache_ {
+            std::once_flag once_;
+            std::optional<Detail::CompiledSoa::Plan_> plan_;
+        };
+        PreparedScript_ product_;
+        std::unique_ptr<Cache_> cache_ = std::make_unique<Cache_>();
+
+    public:
+        explicit PreparedSoaScript_(PreparedScript_ product) : product_(std::move(product)) { product_.RequireExecutable(); }
+        [[nodiscard]] const PreparedScript_& Product() const { return product_; }
+        [[nodiscard]] const Detail::CompiledSoa::Plan_& DecodedPlan() const {
+            std::call_once(cache_->once_, [&] { cache_->plan_.emplace(Detail::CompiledSoa::BuildPlan(product_)); });
+            return *cache_->plan_;
+        }
+    };
 
     template <size_t L_ = 32, class P_>
     SimResults_
     MCDoubleSimulationSoa(const P_& product, AAD::Model_<double>* model, size_t nPaths, const String_& rsg = "sobol", bool useBb = false) {
-        static_assert(L_ == 8 || L_ == 16 || L_ == 32 || L_ == 64, "SoA supports 8, 16, 32 or 64 lanes");
         static_assert(std::is_same_v<P_, ScriptProduct_> || std::is_same_v<P_, PreparedScript_>, "SoA requires a core script product");
-        product.RequireExecutable();
-        REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
-        ValidateRNG(rsg);
-        REQUIRE2(model, "InvalidSoaModel: null model", ScriptError_);
-        if (product.EventDates().empty())
-            return SimResults_(Vector::Join(model->ParameterLabels(), product.ConstVarNames()));
-        Detail::CompiledSoa::RequireAdmission(product, model, rsg, useBb);
-        if (nPaths < 16)
-            return MCDoubleSimulation(product, model, nPaths, rsg, useBb, true);
-        Detail::InitializeDoubleSimulation(product, model, true, false);
-        const auto plan = Detail::CompiledSoa::BuildPlan(product);
-        return Detail::CompiledSoa::Run<L_>(product, *model, plan, nPaths, rsg, useBb);
+        return Detail::CompiledSoa::Simulate<L_>(product, model, nPaths, rsg, useBb, [&] { return Detail::CompiledSoa::BuildPlan(product); });
+    }
+
+    template <size_t L_ = 32>
+    SimResults_ MCDoubleSimulationSoa(
+        const PreparedSoaScript_& script, AAD::Model_<double>* model, size_t nPaths, const String_& rsg = "sobol", bool useBb = false) {
+        return Detail::CompiledSoa::Simulate<L_>(script.Product(), model, nPaths, rsg, useBb, [&]() -> const auto& { return script.DecodedPlan(); });
     }
 } // namespace Dal::Script

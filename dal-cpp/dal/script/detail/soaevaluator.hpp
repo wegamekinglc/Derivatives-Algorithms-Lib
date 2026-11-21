@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <initializer_list>
 #include <vector>
+#if defined(_MSC_VER) && defined(_M_X64)
+#include <intrin.h>
+#endif
 
 #include <dal/script/event.hpp>
 #include <dal/script/observationplan.hpp>
@@ -19,7 +22,11 @@ namespace Dal::Script::Detail::CompiledSoa {
     };
 
     class Plan_ {
-        ScriptCompiled_ scalar_;
+        struct SourceEvent_ {
+            size_t index_;
+            const Vector_<int>& nodes_;
+            const Vector_<>& constants_;
+        };
         Vector_<> seed_, constants_;
         std::vector<std::vector<Instruction_>> events_;
         size_t maxDouble_ = 0, maxBool_ = 0;
@@ -28,15 +35,15 @@ namespace Dal::Script::Detail::CompiledSoa {
 
         static bool IsOneOf(int op, std::initializer_list<int> choices) { return std::find(choices.begin(), choices.end(), op) != choices.end(); }
 
-        size_t Operand(size_t event, size_t last, size_t* pc) const {
-            const auto& stream = scalar_.NodeStreams()[event];
+        size_t Operand(const SourceEvent_& event, size_t last, size_t* pc) const {
+            const auto& stream = event.nodes_;
             REQUIRE2(++*pc < last && stream[*pc] >= 0, "SoA: missing or negative operand", ScriptError_);
             return static_cast<size_t>(stream[*pc]);
         }
 
-        double Constant(size_t event, size_t last, size_t* pc) const {
+        double Constant(const SourceEvent_& event, size_t last, size_t* pc) const {
             const size_t index = Operand(event, last, pc);
-            const auto& values = scalar_.ConstStreams()[event];
+            const auto& values = event.constants_;
             REQUIRE2(index < values.size(), "SoA: constant index out of range", ScriptError_);
             return values[index];
         }
@@ -56,10 +63,10 @@ namespace Dal::Script::Detail::CompiledSoa {
             REQUIRE2(doubles == 0 && booleans == 0, "SoA: unbalanced statement or branch", ScriptError_);
         }
 
-        void DecodeLoad(size_t event, size_t last, size_t* pc, size_t* doubles, Instruction_* item) const {
+        void DecodeLoad(const SourceEvent_& event, size_t last, size_t* pc, size_t* doubles, Instruction_* item) const {
             item->dst_ = (*doubles)++;
             if (item->op_ == Spot)
-                item->left_ = eventSamples_[event];
+                item->left_ = eventSamples_[event.index_];
             if (item->op_ == Const)
                 item->constant_ = Constant(event, last, pc);
             if (IsOneOf(item->op_, {Var, ConstVar})) {
@@ -70,7 +77,7 @@ namespace Dal::Script::Detail::CompiledSoa {
             }
         }
 
-        void DecodeStore(size_t event, size_t last, size_t* pc, size_t* doubles, Instruction_* item) const {
+        void DecodeStore(const SourceEvent_& event, size_t last, size_t* pc, size_t* doubles, Instruction_* item) const {
             if (IsOneOf(item->op_, {AssignConst, PaysConst}))
                 item->constant_ = Constant(event, last, pc);
             else
@@ -79,7 +86,23 @@ namespace Dal::Script::Detail::CompiledSoa {
             REQUIRE2(item->dst_ < seed_.size(), "SoA: store index out of range", ScriptError_);
         }
 
-        void DecodeStack(size_t event, size_t last, size_t* pc, size_t* doubles, size_t* booleans, Instruction_* item) const {
+        static void DecodeBooleanStack(int op, size_t* doubles, size_t* booleans, Instruction_* item) {
+            if (IsOneOf(op, {Sup, SupEqual, Equal})) {
+                item->left_ = Pop(doubles);
+                item->dst_ = (*booleans)++;
+            } else if (IsOneOf(op, {True, False})) {
+                item->dst_ = (*booleans)++;
+            } else if (op == Not) {
+                item->dst_ = Top(*booleans);
+            } else if (IsOneOf(op, {And, Or})) {
+                item->right_ = Pop(booleans);
+                item->dst_ = Top(*booleans);
+            } else {
+                THROW2("UnsupportedSoaOpcode: " + String_(std::to_string(op)), ScriptError_);
+            }
+        }
+
+        void DecodeStack(const SourceEvent_& event, size_t last, size_t* pc, size_t* doubles, size_t* booleans, Instruction_* item) const {
             const int op = item->op_;
             if (IsOneOf(op, {Add, Sub, Multi, Div, Max2, Min2})) {
                 item->right_ = Pop(doubles);
@@ -91,24 +114,14 @@ namespace Dal::Script::Detail::CompiledSoa {
                 item->dst_ = Top(*doubles);
                 item->constant_ = Constant(event, last, pc);
                 item->constant2_ = Constant(event, last, pc);
-            } else if (IsOneOf(op, {Sup, SupEqual, Equal})) {
-                item->left_ = Pop(doubles);
-                item->dst_ = (*booleans)++;
-            } else if (IsOneOf(op, {True, False})) {
-                item->dst_ = (*booleans)++;
-            } else if (op == Not) {
-                item->dst_ = Top(*booleans);
-            } else if (IsOneOf(op, {And, Or})) {
-                item->right_ = Pop(booleans);
-                item->dst_ = Top(*booleans);
             } else if (IsOneOf(op, {UMinus, Sqrt, Log, Exp})) {
                 item->dst_ = Top(*doubles);
             } else {
-                THROW2("UnsupportedSoaOpcode: " + String_(std::to_string(op)), ScriptError_);
+                DecodeBooleanStack(op, doubles, booleans, item);
             }
         }
 
-        void DecodeInstruction(size_t event,
+        void DecodeInstruction(const SourceEvent_& event,
                                size_t last,
                                size_t* pc,
                                size_t* doubles,
@@ -137,15 +150,20 @@ namespace Dal::Script::Detail::CompiledSoa {
                 DecodeStack(event, last, pc, doubles, booleans, item);
         }
 
-        void DecodeBranch(
-            size_t event, size_t last, size_t* pc, size_t* doubles, size_t* booleans, Instruction_ item, const ObservationPlan_* observations) {
+        void DecodeBranch(const SourceEvent_& event,
+                          size_t last,
+                          size_t* pc,
+                          size_t* doubles,
+                          size_t* booleans,
+                          Instruction_ item,
+                          const ObservationPlan_* observations) {
             item.left_ = Pop(booleans);
             RequireEmpty(*doubles, *booleans);
             const size_t sourceFalse = Operand(event, last, pc);
             const size_t sourceEnd = item.op_ == IfElse ? Operand(event, last, pc) : sourceFalse;
             const size_t sourceTrue = *pc + 1;
             REQUIRE2(sourceTrue <= sourceFalse && sourceFalse <= sourceEnd && sourceEnd <= last, "SoA: invalid IF range", ScriptError_);
-            auto& out = events_[event];
+            auto& out = events_[event.index_];
             const size_t slot = out.size();
             out.push_back(item);
             Decode(event, sourceTrue, sourceFalse, doubles, booleans, observations);
@@ -157,8 +175,8 @@ namespace Dal::Script::Detail::CompiledSoa {
             *pc = sourceEnd - 1;
         }
 
-        void Decode(size_t event, size_t first, size_t last, size_t* doubles, size_t* booleans, const ObservationPlan_* observations) {
-            const auto& stream = scalar_.NodeStreams()[event];
+        void Decode(const SourceEvent_& event, size_t first, size_t last, size_t* doubles, size_t* booleans, const ObservationPlan_* observations) {
+            const auto& stream = event.nodes_;
             for (size_t pc = first; pc < last; ++pc) {
                 Instruction_ item{stream[pc]};
                 if (IsOneOf(item.op_, {If, IfElse})) {
@@ -167,27 +185,28 @@ namespace Dal::Script::Detail::CompiledSoa {
                     DecodeInstruction(event, last, &pc, doubles, booleans, &item, observations);
                     maxDouble_ = std::max(maxDouble_, *doubles);
                     maxBool_ = std::max(maxBool_, *booleans);
-                    events_[event].push_back(item);
+                    events_[event.index_].push_back(item);
                 }
             }
         }
 
     public:
-        Plan_(ScriptCompiled_ scalar,
+        Plan_(const ScriptCompiled_& scalar,
               Vector_<> seed,
               Vector_<> constants,
               size_t sampleCount,
               Vector_<size_t> eventSamples,
               const ObservationPlan_* observations = nullptr)
-            : scalar_(std::move(scalar)), seed_(std::move(seed)), constants_(std::move(constants)), events_(scalar_.NodeStreams().size()),
-              eventSamples_(std::move(eventSamples)), sampleCount_(sampleCount) {
-            REQUIRE2(events_.size() == scalar_.ConstStreams().size() && eventSamples_.size() == events_.size(), "SoA: event count mismatch",
+            : seed_(std::move(seed)), constants_(std::move(constants)), events_(scalar.NodeStreams().size()), eventSamples_(std::move(eventSamples)),
+              sampleCount_(sampleCount) {
+            REQUIRE2(events_.size() == scalar.ConstStreams().size() && eventSamples_.size() == events_.size(), "SoA: event count mismatch",
                      ScriptError_);
             for (const size_t sample : eventSamples_)
                 REQUIRE2(sample < sampleCount_, "SoA: event sample out of range", ScriptError_);
             for (size_t e = 0; e < events_.size(); ++e) {
                 size_t doubles = 0, booleans = 0;
-                Decode(e, 0, scalar_.NodeStreams()[e].size(), &doubles, &booleans, observations);
+                const SourceEvent_ source{e, scalar.NodeStreams()[e], scalar.ConstStreams()[e]};
+                Decode(source, 0, source.nodes_.size(), &doubles, &booleans, observations);
                 RequireEmpty(doubles, booleans);
             }
         }
@@ -207,9 +226,21 @@ namespace Dal::Script::Detail::CompiledSoa {
                 for (size_t lane = 0; lane < limit; ++lane)
                     f(lane);
             } else {
+#if defined(__GNUC__) || defined(__clang__) || (defined(_MSC_VER) && defined(_M_X64))
+                for (; mask; mask &= mask - 1) {
+#if defined(_MSC_VER) && defined(_M_X64)
+                    unsigned long lane;
+                    _BitScanForward64(&lane, mask);
+#else
+                    const auto lane = static_cast<size_t>(__builtin_ctzll(mask));
+#endif
+                    f(lane);
+                }
+#else
                 for (size_t lane = 0; lane < limit; ++lane)
                     if (mask & (uint64_t(1) << lane))
                         f(lane);
+#endif
             }
         }
 

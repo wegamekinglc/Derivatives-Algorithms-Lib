@@ -65,6 +65,11 @@ namespace Dal {
             virtual void SecantUpdate(const Vector_<>& dx, const Vector_<>& df) = 0;
         };
 
+        class DenseJacobian_ : public Jacobian_ {
+        public:
+            [[nodiscard]] virtual const Matrix_<>& DenseMatrix() const = 0;
+        };
+
         class Function_ {
             [[nodiscard]] virtual double BumpSize() const { return 1.0e-4; };
             virtual void FFast(const Vector_<>& x, Vector_<>* f) const { *f = F(x); }
