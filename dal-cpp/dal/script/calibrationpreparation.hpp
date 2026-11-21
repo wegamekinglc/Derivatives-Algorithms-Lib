@@ -184,6 +184,7 @@ namespace Dal {
 
     public:
         CalibrationPreparationCache_();
+        Handle_<CalibrationInstrument_> CompoundedPriceSource(const Handle_<PreparedCompoundedOis_>& tables);
     };
     PreparedCalibrationInstrument_ PrepareCalibrationInstrument(const Handle_<CalibrationInstrument_>& instrument,
                                                                 const String_& measureId,

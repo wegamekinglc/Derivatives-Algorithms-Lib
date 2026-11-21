@@ -410,7 +410,8 @@ namespace Dal {
             CurveFailure({}, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare, error.Failure().diagnostic_));
         }
         Handle_<CalibrationInstrument_> RegisteredInstrument(const Handle_<PreparedCompoundedOis_>& tables,
-                                                             const Vector_<PreparedCalibrationInstrument_>& plans) {
+                                                             const Vector_<PreparedCalibrationInstrument_>& plans,
+                                                             const std::shared_ptr<CalibrationPreparationCache_>& cache) {
             Handle_<CalibrationInstrument_> result;
             for (const auto& plan : plans)
                 if (Bytes(plan.Instrument()->Id()) == Bytes(tables->Spec().instrumentId_)) {
@@ -418,7 +419,9 @@ namespace Dal {
                           "CompoundedOisSourceMismatch", "/compounded_ois/instrument", "one complete source/binding identity per registered ID");
                     result = plan.Instrument();
                 }
-            return result ? result : CompoundedOisInternal::BuildSource(tables).instrument_;
+            if (result)
+                return result;
+            return cache ? cache->CompoundedPriceSource(tables) : CompoundedOisInternal::BuildSource(tables).instrument_;
         }
         std::map<std::string, PreparedCalibrationInstrument_> PrepareCompoundedPrices(const CurveInstrumentCalibrationSpec_& spec,
                                                                                       const RowContext_& structural,
@@ -430,7 +433,7 @@ namespace Dal {
                 return result;
             CurveInstrumentInternal::ValidateCompoundedRegistration(spec);
             for (const auto& tables : spec.compoundedOis_) {
-                const auto instrument = RegisteredInstrument(tables, plans);
+                const auto instrument = RegisteredInstrument(tables, plans, options.preparationCache_);
                 const auto existing = std::find_if(plans.begin(), plans.end(), [&](const auto& plan) {
                     return Bytes(plan.Instrument()->InstrumentIdentity()) == Bytes(instrument->InstrumentIdentity()) &&
                            Bytes(plan.Measure().id_) == "Price";

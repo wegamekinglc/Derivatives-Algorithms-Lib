@@ -164,6 +164,24 @@ TEST(CompoundedOisCalibrationTest, TestFrozenContextRejectsChangedCalendarValuat
     }
 }
 
+TEST(CompoundedOisCalibrationTest, TestCacheReusesOnlyMatchingRegisteredPvSources) {
+    auto spec = Spec("ObservationShift", "Overnight");
+    CurveInstrumentCalibrationOptions_ options;
+    options.preparationCache_ = std::make_shared<CalibrationPreparationCache_>();
+    const auto source = [&] {
+        const PreparedCurveInstruments_ prepared(spec, options);
+        const auto context = CurveInstrumentInternal::PrepareCurvePriceContext(prepared);
+        const auto instrument = NewCompoundedOisScriptInstrument(spec.compoundedOis_.back());
+        return CurveInstrumentInternal::PrepareCurvePrice(context, instrument, "Price").plan_.Instrument();
+    };
+    const auto first = source();
+    ASSERT_EQ(first.get(), source().get());
+    auto changed = spec.compoundedOis_.back()->Spec();
+    changed.coupon_ += .001;
+    spec.compoundedOis_.back() = PrepareCompoundedOis(changed, spec.valuation_);
+    ASSERT_NE(first->InstrumentIdentity(), source()->InstrumentIdentity());
+}
+
 TEST(CompoundedOisCalibrationTest, TestEveryPvUsesItsOwnRegisteredSourceBindingAndTable) {
     const auto spec = Spec("Lockout", "Shared");
     const PreparedCurveInstruments_ prepared(spec);
