@@ -264,6 +264,18 @@ namespace Dal {
             return result;
         }
 
+        using AnalyticRates_ = Vector_<Handle_<Tape::Rate_<AAD::Number_>>>;
+
+        AnalyticRates_ PrepareAnalyticRates(const Vector_<Handle_<YCInstrument_>>& instruments) {
+            AnalyticRates_ rates;
+            rates.reserve(instruments.size());
+            for (const auto& instrument : instruments)
+                rates.push_back(VisitRate(
+                    *instrument, [](const Deposit_& d) { return d.PrecomputeT<AAD::Number_>(); }, [](const FRA_& f) { return f.PrecomputeT<AAD::Number_>(); },
+                    [](const Future_& f) { return f.PrecomputeT<AAD::Number_>(); }, [](const Swap_& s) { return s.PrecomputeT<AAD::Number_>(); }));
+            return rates;
+        }
+
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             // Cached eligibility avoids re-evaluating the expensive per-instrument predicate every solver iteration.
 
@@ -273,6 +285,7 @@ namespace Dal {
             CurveDefinition_ definition_;
             Vector_<Handle_<YCInstrument_>> instruments_;
             Vector_<Handle_<YCInstrument_::Rate_>> rates_;
+            AnalyticRates_* analyticRates_;
             Vector_<> marketRates_;
             std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
             std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
@@ -301,10 +314,11 @@ namespace Dal {
                                        const DayBasis_& liborBasis,
                                        LogDfScheme_ logDfScheme,
                                        CurveJacobianMode_ jacobianMode,
-                                       CurveSolveMode_ solveMode)
+                                       CurveSolveMode_ solveMode,
+                                       AnalyticRates_* analyticRates)
                 : ccy_(ccy), curveName_(curveName), anchor_(anchor),
                   definition_(MakeCurveDefinition(curveName, ccy, parameterization, logDfScheme, knotDates, anchor, liborBasis)),
-                  instruments_(instruments), discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve),
+                  instruments_(instruments), analyticRates_(analyticRates), discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve),
                   targetCollateral_(targetCollateral), targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve),
                   liborBasis_(liborBasis), jacobianMode_(jacobianMode), bumpSize_(solveMode == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4) {
                 Handle_<YieldCurve_> fundingYC;
@@ -372,28 +386,23 @@ namespace Dal {
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
-
-            template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
-                return VisitRate(
-                    *instruments_[i], [](const Deposit_& d) { return d.PrecomputeT<T_>(); }, [](const FRA_& f) { return f.PrecomputeT<T_>(); },
-                    [](const Future_& fu) { return fu.PrecomputeT<T_>(); }, [](const Swap_& s) { return s.PrecomputeT<T_>(); });
-            }
         };
 
         std::unique_ptr<Underdetermined::Jacobian_> YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
             const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition_);
             REQUIRE(static_cast<int>(x.size()) == layout.parameterCount_, "AnalyticJacobian: x vector length must equal the curve parameter count");
+            // The solve owns the schedules. An initial fit without diagnostics never needs them.
+            if (analyticRates_->empty())
+                *analyticRates_ = PrepareAnalyticRates(instruments_);
             return TapeResidualJacobian(x, [&](const Vector_<Dal::AAD::Number_>& parameters) {
                 auto dc = BuildDiscountCurveUniqueT<Dal::AAD::Number_>(definition_, parameters, baseCurve_);
                 Tape::YCCtx_<Dal::AAD::Number_> ctx(*dc);
 
                 const int nRows = static_cast<int>(instruments_.size());
                 Vector_<Dal::AAD::Number_> residuals(nRows);
-                for (int i = 0; i < nRows; ++i) {
-                    Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT = PhaseARateAt<Dal::AAD::Number_>(i);
-                    residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
-                }
+                for (int i = 0; i < nRows; ++i)
+                    residuals[i] = (*(*analyticRates_)[i])(ctx) - static_cast<double>(marketRates_[i]);
                 return residuals;
             });
         }
@@ -630,9 +639,10 @@ namespace Dal {
         }
         std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 
+        AnalyticRates_ analyticRates;
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.today_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_);
+                                        spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_, &analyticRates);
 
         // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; not requested so the solver leaves the output empty.
         const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC &&
