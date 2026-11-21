@@ -6,6 +6,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycinstrument.hpp>
@@ -17,6 +18,16 @@
 #include <dal/time/periodlength.hpp>
 
 using namespace Dal;
+
+TEST(ForwardJacobianDiagnosticsTest, TestDenseJacobianExposesItsCurrentStorage) {
+    Matrix_<> values(2, 3, 0.);
+    values(1, 2) = 6.;
+    XCurveJacobian_ jacobian(std::move(values));
+    const Underdetermined::Jacobian_& view = jacobian;
+    ASSERT_EQ(view.DenseMatrix(), &jacobian.j_);
+    jacobian.DivideRows({1., 2.});
+    ASSERT_DOUBLE_EQ((*view.DenseMatrix())(1, 2), 3.);
+}
 
 // Tests for the public forward-Jacobian diagnostics field CurveCalibrationDiagnostics_::jacobian_.
 // The field is the unscaled analytic forward Jacobian d(modelRate_i) / d(logDF_free_k) evaluated at

@@ -15,6 +15,7 @@ namespace Dal {
         Matrix_<> j_;
         explicit XCurveJacobian_(Matrix_<>&& j) : j_(std::move(j)) {}
 
+        [[nodiscard]] const Matrix_<>* DenseMatrix() const override { return &j_; }
         [[nodiscard]] int Rows() const override { return j_.Rows(); }
         [[nodiscard]] int Columns() const override { return j_.Cols(); }
 

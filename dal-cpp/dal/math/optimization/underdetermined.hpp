@@ -56,6 +56,7 @@ namespace Dal {
         public:
             virtual ~Jacobian_() = default;
 
+            [[nodiscard]] virtual const Matrix_<>* DenseMatrix() const { return nullptr; }
             [[nodiscard]] virtual int Rows() const = 0;
             [[nodiscard]] virtual int Columns() const = 0;
             virtual void DivideRows(const Vector_<>& tol) = 0;
