@@ -27,7 +27,10 @@
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <exception>
 #include <memory>
+#include <new>
+#include <typeinfo>
 #include <utility>
 
 namespace Dal {
@@ -49,6 +52,12 @@ namespace Dal {
         // purpose -- a header-inline counter would split into one instance per module on Windows.
         // The count is process-global, so observing it requires a quiescent process.
         std::atomic<int> calibrationInvocationCount{0};
+
+        void ValidateInstrumentHandles(const CurveCalibrationSpec_& spec) {
+            REQUIRE(!spec.instruments_.empty(), "Curve calibration requires at least one instrument");
+            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
+                REQUIRE(spec.instruments_[i], spec.curveName_ + " has an empty instrument at input index " + String::FromInt(i));
+        }
 
         bool HasTemplatedSingleRate(const YCInstrument_& instrument) {
             return dynamic_cast<const Deposit_*>(&instrument) || dynamic_cast<const FRA_*>(&instrument) ||
@@ -115,14 +124,13 @@ namespace Dal {
             }
         }
 
-        void
+        const Handle_<DiscountCurve_>&
         StoreStageResult(const CurveCalibrationSpec_& stageSpec, CurveCalibrationResult_* stageResult, MultiCurveCalibrationResult_* multiResult) {
-            Handle_<DiscountCurve_> calibrated(stageResult->curve_.release());
-            if (stageSpec.calibrateDiscountCurve_)
-                multiResult->discountCurves_[stageSpec.targetCollateral_] = calibrated;
-            else
-                multiResult->forwardCurves_[stageSpec.targetTenor_] = calibrated;
-            multiResult->diagnostics_.push_back(stageResult->diagnostics_);
+            auto& calibrated = stageSpec.calibrateDiscountCurve_ ? multiResult->discountCurves_[stageSpec.targetCollateral_]
+                                                                 : multiResult->forwardCurves_[stageSpec.targetTenor_];
+            calibrated.reset(stageResult->curve_.release());
+            multiResult->diagnostics_.push_back(std::move(stageResult->diagnostics_));
+            return calibrated;
         }
 
         CurveKnotOrigin_ InputOrigin(int index) { return {CurveKnotOriginKind_::Value_::INPUT, index, -1}; }
@@ -503,7 +511,7 @@ namespace Dal {
     }
 
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec) {
-        REQUIRE(!spec.instruments_.empty(), "Curve calibration requires at least one instrument");
+        ValidateInstrumentHandles(spec);
         REQUIRE(spec.smoothingWeight_ > 0.0, "Curve calibration smoothing weight must be positive");
         REQUIRE(spec.tolerance_ > 0.0, "Curve calibration tolerance must be positive");
         REQUIRE(spec.fitTolerance_ > 0.0, "Curve calibration fit tolerance must be positive");
@@ -616,55 +624,188 @@ namespace Dal {
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) { return CalibrateYieldCurve(spec, CurveCalibrationOptions_()); }
 
-    CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options) {
-        RecordCurveCalibrationInvocation();
-        ValidateCurveCalibrationSpec(spec);
-
-        const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
-        const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
-        const CurveDefinition_ definition =
-            MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_);
-        const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
-        const int paramsPerKnot = layout.paramsPerDeclaredKnot_;
-
-        const Vector_<> guess = BuildCalibrationGuess(spec, definition, layout);
-        const Vector_<> tol(instruments.size(), spec.tolerance_);
-        Vector_<Date_> weightKnots;
-        if (layout.pinnedAnchor_) {
-            // Pinned representations store an internal anchor but expose only the free future nodes.
-            for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i)
-                weightKnots.push_back(definition.nodeDates_[i]);
-        } else {
-            weightKnots = definition.nodeDates_;
+    namespace {
+        Vector_<int> ResidualRowsByInput(const Vector_<Handle_<YCInstrument_>>& input, const Vector_<Handle_<YCInstrument_>>& ordered) {
+            // Use the exact solver ordering, including equivalent sort keys and repeated handles.
+            std::map<const YCInstrument_*, Vector_<int>> rows;
+            for (int row = static_cast<int>(ordered.size()); row-- > 0;)
+                rows[ordered[row].get()].push_back(row);
+            Vector_<int> result;
+            result.reserve(input.size());
+            for (const auto& instrument : input) {
+                auto& matches = rows.at(instrument.get());
+                result.push_back(matches.back());
+                matches.pop_back();
+            }
+            return result;
         }
-        std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 
-        AnalyticRates_ analyticRates;
-        YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.today_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
-                                        spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_, &analyticRates);
+        void SetUnavailable(StagedMultiCurveCalibrationRecord_* record, const String_& stage, const String_& reason) {
+            if (record->unavailableReason_.empty() && !reason.empty()) {
+                record->unavailableStage_ = stage;
+                record->unavailableReason_ = reason;
+            }
+        }
 
-        // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; not requested so the solver leaves the output empty.
-        const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC &&
-                                     spec.solveMode_ == CurveSolveMode_::Value_::EXACT && func.Eligible();
-        CurveSolveOutput_ solved =
-            RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
-                                wantFwdJacobian, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
-        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, definition, knotDates, solved.parameters_,
-                                                                   solved.hasEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
-        retval.diagnostics_.jacobian_ = std::move(solved.forwardJacobian_);
-        return retval;
+        String_ StageComponentRejection(const CurveCalibrationSpec_& stage, const StagedMultiCurveCalibrationRecord_& record) {
+            if (stage.calibrateDiscountCurve_) {
+                if (stage.baseCurve_)
+                    return "The discount stage must not depend on an external base curve";
+            } else {
+                const auto& discount = record.stages_.front();
+                const auto route = stage.discountCurves_.find(stage.targetCollateral_);
+                if (route == stage.discountCurves_.end() || route->second.get() != discount.curve_.get())
+                    return "The forward stage discount route must reference the fitted discount curve";
+                if (stage.baseCurve_.get() != discount.curve_.get())
+                    return "The forward stage base must reference the fitted discount curve";
+            }
+            return {};
+        }
+
+        bool HasStagedRiskPricingImplementation(const YCInstrument_& instrument) {
+            // Subclasses can override passive Precompute while inheriting a different, nonvirtual templated rate.
+            const auto& type = typeid(instrument);
+            return type == typeid(Deposit_) || type == typeid(FRA_) || type == typeid(STIR_) || type == typeid(Future_) || type == typeid(Swap_) ||
+                   type == typeid(OISSwap_);
+        }
+
+        String_ InstrumentRiskRejection(const CurveCalibrationSpec_& stage, int parameterCount) {
+            for (int i = 0; i < static_cast<int>(stage.instruments_.size()); ++i) {
+                const auto& instrument = *stage.instruments_[i];
+                if (!HasStagedRiskPricingImplementation(instrument))
+                    return String_("Staged risk cannot verify the pricing implementation at input index ") + String::FromInt(i);
+                const auto* index = FloatConventionOf(instrument);
+                if (index->collateral_ != stage.targetCollateral_)
+                    return "Instrument collateral does not match the discount route";
+                if (index->useProjectionCurve_ == stage.calibrateDiscountCurve_ ||
+                    (index->useProjectionCurve_ && index->forecastTenor_ != stage.targetTenor_))
+                    return "Instrument forecast route does not match the stage target";
+            }
+            if (parameterCount != static_cast<int>(stage.instruments_.size()))
+                return "Staged quote risk requires a square quote-by-parameter system";
+            return {};
+        }
+
+        String_ StageRiskRejection(const MultiCurveCalibrationSpec_& bundle,
+                                   const CurveCalibrationSpec_& stage,
+                                   const StagedMultiCurveCalibrationRecord_& record) {
+            if (stage.ccy_.empty() || (!bundle.ccy_.empty() && bundle.ccy_ != stage.ccy_) ||
+                (!record.stages_.empty() && stage.ccy_ != record.stages_.front().spec_.ccy_))
+                return "Stages must share the same currency";
+            if (stage.solveMode_ != CurveSolveMode_::Value_::EXACT)
+                return "Staged quote risk requires EXACT calibration";
+            return StageComponentRejection(stage, record);
+        }
+
+        CurveCalibrationResult_
+        CalibrateStage(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options, StagedMultiCurveCalibrationRecord_* riskRecord) {
+            RecordCurveCalibrationInvocation();
+            ValidateCurveCalibrationSpec(spec);
+
+            const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
+            const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
+            const CurveDefinition_ definition =
+                MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_);
+            const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
+            const int paramsPerKnot = layout.paramsPerDeclaredKnot_;
+            if (riskRecord && riskRecord->unavailableReason_.empty())
+                SetUnavailable(riskRecord, spec.curveName_, InstrumentRiskRejection(spec, layout.parameterCount_));
+
+            const Vector_<> guess = BuildCalibrationGuess(spec, definition, layout);
+            const Vector_<> tol(instruments.size(), spec.tolerance_);
+            const auto firstFreeKnot = definition.nodeDates_.begin() + (layout.pinnedAnchor_ ? 1 : 0);
+            const Vector_<Date_> weightKnots(firstFreeKnot, definition.nodeDates_.end());
+            std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
+
+            AnalyticRates_ analyticRates;
+            YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.today_, spec.parameterization_, instruments, knotDates,
+                                            spec.discountCurves_, spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_,
+                                            spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_,
+                                            &analyticRates);
+
+            // Eligibility is cached for ANALYTIC mode. RunCurveCalibration gates the diagnostic on EXACT.
+            const bool wantFwdJacobian = options.computeForwardJacobian_ && func.Eligible();
+            CurveSolveOutput_ solved =
+                RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
+                                    wantFwdJacobian, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
+            CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, definition, knotDates, solved.parameters_,
+                                                                       solved.hasEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
+            retval.diagnostics_.jacobian_ = std::move(solved.forwardJacobian_);
+            if (riskRecord) {
+                if (retval.diagnostics_.effJacobianInverse_.Empty())
+                    SetUnavailable(riskRecord, spec.curveName_, "Full rank could not be verified from the solution Jacobian");
+                riskRecord->stages_.emplace_back();
+                auto& record = riskRecord->stages_.back();
+                record.spec_ = spec;
+                record.spec_.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+                record.spec_.knotDates_ = knotDates;
+                record.freeParameters_ = DescribeCurveFreeParameters(definition);
+                record.solution_ = std::move(solved.parameters_);
+                record.residualRowByInput_ = ResidualRowsByInput(spec.instruments_, instruments);
+            }
+            return retval;
+        }
+
+        void PrepareRecordedStage(const MultiCurveCalibrationSpec_& bundle,
+                                  const MultiCurveCalibrationResult_& fitted,
+                                  CurveCalibrationSpec_* stage,
+                                  StagedMultiCurveCalibrationRecord_* record) {
+            if (stage->calibrateDiscountCurve_ != fitted.diagnostics_.empty())
+                SetUnavailable(record, stage->curveName_.empty() ? bundle.name_ : stage->curveName_,
+                               "Staged quote risk requires a discount stage followed by a forward stage");
+            ApplyStageDefaults(bundle, fitted, stage);
+            if (record->unavailableReason_.empty())
+                SetUnavailable(record, stage->curveName_, StageRiskRejection(bundle, *stage, *record));
+        }
+
+        void
+        StoreStageFailure(StagedMultiCurveCalibrationRecord_* record, const String_& name, const std::exception& error, bool previouslyUnavailable) {
+            const char* message = error.what();
+            if (*message == '\0')
+                message = "Calibration stage failed without an exception message";
+            if (previouslyUnavailable || record->unavailableReason_.empty()) {
+                record->unavailableStage_ = name;
+                record->unavailableReason_ = message;
+            } else {
+                record->unavailableReason_ += String_("; ") + message;
+            }
+        }
+    } // namespace
+
+    CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options) {
+        return CalibrateStage(spec, options, nullptr);
     }
 
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec) {
         REQUIRE(!spec.stages_.empty(), "Multi-curve calibration requires at least one stage");
-        MultiCurveCalibrationResult_ retval;
-        for (const auto& inputStageSpec : spec.stages_) {
-            auto stageSpec = inputStageSpec;
-            ApplyStageDefaults(spec, retval, &stageSpec);
+        MultiCurveCalibrationResult_ result;
+        for (auto stage : spec.stages_) {
+            ApplyStageDefaults(spec, result, &stage);
+            auto fitted = CalibrateYieldCurve(stage);
+            StoreStageResult(stage, &fitted, &result);
+        }
+        return result;
+    }
 
-            CurveCalibrationResult_ stageResult = CalibrateYieldCurve(stageSpec);
-            StoreStageResult(stageSpec, &stageResult, &retval);
+    MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec, StagedMultiCurveCalibrationRecord_* riskRecord) {
+        if (!riskRecord)
+            return CalibrateMultiCurve(spec);
+        MultiCurveCalibrationResult_ retval;
+        *riskRecord = {};
+        if (spec.stages_.size() != 2)
+            SetUnavailable(riskRecord, spec.name_, "Staged quote risk requires exactly two stages");
+        for (auto stageSpec : spec.stages_) {
+            const bool previouslyUnavailable = !riskRecord->unavailableReason_.empty();
+            try {
+                PrepareRecordedStage(spec, retval, &stageSpec, riskRecord);
+                auto stageResult = CalibrateStage(stageSpec, CurveCalibrationOptions_(), riskRecord);
+                riskRecord->stages_.back().curve_ = StoreStageResult(stageSpec, &stageResult, &retval);
+            } catch (const std::bad_alloc&) {
+                throw;
+            } catch (const std::exception& e) {
+                StoreStageFailure(riskRecord, stageSpec.curveName_, e, previouslyUnavailable);
+                break;
+            }
         }
         return retval;
     }
