@@ -86,6 +86,22 @@ namespace Dal::Script::Detail::CompiledSoa {
             REQUIRE2(item->dst_ < seed_.size(), "SoA: store index out of range", ScriptError_);
         }
 
+        static void DecodeBooleanStack(int op, size_t* doubles, size_t* booleans, Instruction_* item) {
+            if (IsOneOf(op, {Sup, SupEqual, Equal})) {
+                item->left_ = Pop(doubles);
+                item->dst_ = (*booleans)++;
+            } else if (IsOneOf(op, {True, False})) {
+                item->dst_ = (*booleans)++;
+            } else if (op == Not) {
+                item->dst_ = Top(*booleans);
+            } else if (IsOneOf(op, {And, Or})) {
+                item->right_ = Pop(booleans);
+                item->dst_ = Top(*booleans);
+            } else {
+                THROW2("UnsupportedSoaOpcode: " + String_(std::to_string(op)), ScriptError_);
+            }
+        }
+
         void DecodeStack(const SourceEvent_& event, size_t last, size_t* pc, size_t* doubles, size_t* booleans, Instruction_* item) const {
             const int op = item->op_;
             if (IsOneOf(op, {Add, Sub, Multi, Div, Max2, Min2})) {
@@ -98,20 +114,10 @@ namespace Dal::Script::Detail::CompiledSoa {
                 item->dst_ = Top(*doubles);
                 item->constant_ = Constant(event, last, pc);
                 item->constant2_ = Constant(event, last, pc);
-            } else if (IsOneOf(op, {Sup, SupEqual, Equal})) {
-                item->left_ = Pop(doubles);
-                item->dst_ = (*booleans)++;
-            } else if (IsOneOf(op, {True, False})) {
-                item->dst_ = (*booleans)++;
-            } else if (op == Not) {
-                item->dst_ = Top(*booleans);
-            } else if (IsOneOf(op, {And, Or})) {
-                item->right_ = Pop(booleans);
-                item->dst_ = Top(*booleans);
             } else if (IsOneOf(op, {UMinus, Sqrt, Log, Exp})) {
                 item->dst_ = Top(*doubles);
             } else {
-                THROW2("UnsupportedSoaOpcode: " + String_(std::to_string(op)), ScriptError_);
+                DecodeBooleanStack(op, doubles, booleans, item);
             }
         }
 
