@@ -23,17 +23,21 @@ namespace {
         spec.ccy_ = "EUR";
         for (int s = 0; s < 2; ++s) {
             CurveCalibrationSpec_ stage;
-            stage.curveName_ = s == 0 ? "ESTR" : "Euribor6M";
             stage.today_ = TODAY;
             stage.calibrateDiscountCurve_ = s == 0;
             stage.parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
             stage.knotPolicy_ = CurveKnotPolicy_::Value_::INSTRUMENTS;
-            stage.tolerance_ = s == 0 ? 1.e-13 : 5.e-13;
-            stage.initialGuess_ = s == 0 ? 0.02 : 0.01;
             RateIndexConvention_ index;
             RateLegConvention_ leg;
             leg.paymentFrequency_ = PeriodLength_("6M");
-            if (s == 1) {
+            if (stage.calibrateDiscountCurve_) {
+                stage.curveName_ = "ESTR";
+                stage.tolerance_ = 1.e-13;
+                stage.initialGuess_ = 0.02;
+            } else {
+                stage.curveName_ = "Euribor6M";
+                stage.tolerance_ = 5.e-13;
+                stage.initialGuess_ = 0.01;
                 stage.targetTenor_ = leg.paymentFrequency_;
                 index.forecastTenor_ = stage.targetTenor_;
                 index.useProjectionCurve_ = true;
@@ -42,7 +46,7 @@ namespace {
             for (int q = 0; q < 2; ++q) {
                 const auto maturity = Date::AddMonths(TODAY, q == 0 ? 24 : 6);
                 const double rate = 0.035 - q * 0.014 + s * 0.007 + (s == bumpedStage && q == bumpedQuote ? bump : 0.);
-                if (s == 0)
+                if (stage.calibrateDiscountCurve_)
                     stage.instruments_.emplace_back(new Deposit_(TODAY, TODAY, maturity, rate, index));
                 else
                     stage.instruments_.emplace_back(new Swap_(TODAY, TODAY, maturity, rate, leg, index, leg));
@@ -232,17 +236,28 @@ TEST(StagedPortfolioQuoteRiskTest, TestStaleMarketStateLocatesSourceBeforeSweeps
 TEST(StagedPortfolioQuoteRiskTest, TestStageMustDescribeTheBoundSolutionAndForwardBase) {
     StagedMultiCurveCalibrationRecord_ original;
     const auto market = Market(CalibrateMultiCurve(Spec(), &original));
-    for (int i = 0; i < 3; ++i) {
-        auto record = original;
-        auto& stage = record.stages_[1];
-        if (i == 0)
-            stage.solution_[0] += 1.e-4;
-        else if (i == 1)
-            std::swap(stage.freeParameters_[0], stage.freeParameters_[1]);
-        else
-            stage.spec_.discountCurves_.clear();
-        ASSERT_THROW(BuildStagedMultiCurveQuoteRiskProvenance(record, market, CONFIG), Exception_);
-    }
+    const auto check = [&](const StagedMultiCurveCalibrationRecord_& record, const char* reason) {
+        try {
+            BuildStagedMultiCurveQuoteRiskProvenance(record, market, CONFIG);
+            FAIL() << "Expected " << reason;
+        } catch (const Exception_& e) {
+            ASSERT_NE(std::string(e.what()).find(reason), std::string::npos) << e.what();
+        }
+    };
+
+    auto wrongSolution = original;
+    wrongSolution.stages_[1].solution_[0] += 1.e-4;
+    check(wrongSolution, "QUOTE_RISK_STAGED_CAPTURE_MISMATCH: Euribor6M");
+    auto wrongOrder = original;
+    auto& parameters = wrongOrder.stages_[1].freeParameters_;
+    std::swap(parameters[0], parameters[1]);
+    check(wrongOrder, "QUOTE_RISK_SPEC_RESULT_MISMATCH: Euribor6M");
+    auto missingBase = original;
+    missingBase.stages_[1].spec_.discountCurves_.clear();
+    check(missingBase, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: Euribor6M");
+    auto wrongWidth = original;
+    wrongWidth.stages_[1].freeParameters_.pop_back();
+    check(wrongWidth, "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
 }
 
 TEST(StagedPortfolioQuoteRiskTest, TestSameWidthFactorMustBelongToOriginalCapture) {

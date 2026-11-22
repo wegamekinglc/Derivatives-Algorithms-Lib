@@ -1890,6 +1890,14 @@ namespace Dal {
     }
 
     namespace {
+        void ValidateStagedAxisShape(const CurveCalibrationStageRecord_& stage, int offset, int size) {
+            const auto& block = stage.quoteRiskBlock_;
+            REQUIRE(block && size > 0 && size == block->factor_.Solution().Rows() &&
+                        stage.spec_.instruments_.size() == stage.freeParameters_.size() && stage.residualRowByInput_ == block->residualRowByInput_ &&
+                        block->baseJacobian_.Cols() == offset,
+                    "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+        }
+
         RateQuoteRiskAxis_ StagedMultiCurveAxis(const StagedMultiCurveCalibrationRecord_& record) {
             RateQuoteRiskAxis_ axis;
             axis.scheme_ = JOINT_AXIS_SCHEME;
@@ -1899,11 +1907,7 @@ namespace Dal {
                 const auto key = "stage:" + String::FromInt(s);
                 const int offset = static_cast<int>(axis.parameters_.size());
                 const int size = static_cast<int>(stage.freeParameters_.size());
-                const auto* block = stage.quoteRiskBlock_.get();
-                REQUIRE(block && size > 0 && size == block->factor_.Solution().Rows() &&
-                            stage.spec_.instruments_.size() == stage.freeParameters_.size() &&
-                            stage.residualRowByInput_ == block->residualRowByInput_ && block->baseJacobian_.Cols() == offset,
-                        "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+                ValidateStagedAxisShape(stage, offset, size);
                 axis.parameterRanges_.push_back({key, offset, size});
                 axis.residualRanges_.push_back({key, offset, size});
                 AppendAxisParameters(key, offset, stage.freeParameters_, &axis);
@@ -1913,13 +1917,25 @@ namespace Dal {
                     names.push_back(instrument->Name());
                 }
                 AppendAxisQuotes(key, offset, names, &axis);
-                for (int row : block->residualRowByInput_)
+                for (int row : stage.quoteRiskBlock_->residualRowByInput_)
                     rows.array_.push_back(Json_::Number(row));
             }
             auto identity = AxisJson("STAGED_MULTI_CURVE", axis);
             identity.object_["residualRowsByInput"] = std::move(rows);
             axis.fingerprint_ = Fingerprint(identity);
             return axis;
+        }
+
+        void ValidateStagedBase(const CurveCalibrationStageRecord_& stage, const String_& key, const Handle_<DiscountCurve_>& expectedBase) {
+            const auto& spec = stage.spec_;
+            REQUIRE(spec.calibrateDiscountCurve_ == !expectedBase && spec.baseCurve_ == expectedBase &&
+                        PassiveBase(*stage.curve_) == expectedBase.get(),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
+            if (expectedBase) {
+                const auto route = spec.discountCurves_.find(spec.targetCollateral_);
+                REQUIRE(route != spec.discountCurves_.end() && route->second == expectedBase && spec.ccy_ == expectedBase->ccy_.String(),
+                        "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
+            }
         }
 
         void ValidateStagedMarket(const CurveCalibrationStageRecord_& stage,
@@ -1931,14 +1947,7 @@ namespace Dal {
             REQUIRE(stage.curve_ && bound != market.curveComponents_.end() && bound->second == stage.curve_,
                     "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
             REQUIRE(market.valuationTime_.IsValid() && market.valuationTime_.Date() == spec.today_, "QUOTE_RISK_VALUATION_TIME_MISMATCH");
-            REQUIRE(spec.calibrateDiscountCurve_ == !expectedBase && spec.baseCurve_ == expectedBase &&
-                        PassiveBase(*stage.curve_) == expectedBase.get(),
-                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
-            if (expectedBase) {
-                const auto route = spec.discountCurves_.find(spec.targetCollateral_);
-                REQUIRE(route != spec.discountCurves_.end() && route->second == expectedBase && spec.ccy_ == expectedBase->ccy_.String(),
-                        "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
-            }
+            ValidateStagedBase(stage, key, expectedBase);
             const auto definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, spec.knotDates_,
                                                         spec.today_, spec.liborBasis_);
             ValidateSolvedCurveDefinition(*stage.curve_, definition);
