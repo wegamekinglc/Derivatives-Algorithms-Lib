@@ -175,12 +175,15 @@ namespace Dal::Script {
             MarketIvScriptBlockPvs_ pvs{Vector_<>(blocks)};
             PayoffMean_ scenario;
             const auto sample = [&](auto* evaluator, const auto& evaluate) {
+                const auto evaluatePath = [&](const auto& path, auto& state) {
+                    ++*totalPaths;
+                    evaluate(path, state);
+                };
                 for (size_t b = 0; b < blocks; ++b) {
                     const PathBatch_ batch{b * paths, paths};
-                    const auto block = Detail::EvaluateDoubleBatch<PayoffMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
+                    const auto block = Detail::EvaluateDoubleBatch<PayoffMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluatePath);
                     pvs.blockMeans_[b] = block.Mean();
                     scenario += pvs.blockMeans_[b];
-                    *totalPaths += block.count_;
                 }
             };
             if (simulation.compiled_.value_or(DEFAULT_COMPILED)) {
@@ -193,10 +196,13 @@ namespace Dal::Script {
         }
 
         size_t AdditionalModelBytes(const MarketIvScriptModelPair_& pair, const Handle_<MarketIvLocalVolModelData_>& base) {
-            const auto plus = pair.plus_->ConstructionExecution().numericPayloadBytes_ - pair.plus_->SharedNumericPayloadBytes(*base);
+            // An absent side adds zero bytes to the base reservation.
+            const auto& plusModel = pair.plus_ ? *pair.plus_ : *base;
+            const auto& minusModel = pair.minus_ ? *pair.minus_ : *base;
+            const auto plus = plusModel.ConstructionExecution().numericPayloadBytes_ - plusModel.SharedNumericPayloadBytes(*base);
             // Each source owns its grid and retains one fit. Shared portions of a side are therefore nested.
-            const auto sharedMinus = std::max(pair.minus_->SharedNumericPayloadBytes(*base), pair.minus_->SharedNumericPayloadBytes(*pair.plus_));
-            const auto minus = pair.minus_->ConstructionExecution().numericPayloadBytes_ - sharedMinus;
+            const auto sharedMinus = std::max(minusModel.SharedNumericPayloadBytes(*base), minusModel.SharedNumericPayloadBytes(plusModel));
+            const auto minus = minusModel.ConstructionExecution().numericPayloadBytes_ - sharedMinus;
             return MarketIvLocalVolDetail::CheckedAdd(plus, minus);
         }
 
@@ -244,6 +250,82 @@ namespace Dal::Script {
 
             return SampleBlocks(product, model, request.blocks_, request.pathsPerBlock_, &result->totalPaths_);
         }
+        struct SamplingPair_ {
+            MarketIvScriptModelPair_ models_;
+            MarketIvScriptRiskRow_* report_ = nullptr;
+        };
+
+        MarketIvScriptPairedPvs_ SamplePair(const MarketIvScriptRefitPlan_& plan,
+                                            const MarketIvScriptRefitRow_& quote,
+                                            const SamplingPair_& pair,
+                                            BufferCapacityBudget_* workspace,
+                                            MarketIvScriptSamplingResult_* result) {
+            const auto payload = BufferCapacityScope_::ForWorker(workspace, AdditionalModelBytes(pair.models_, plan.baseModel_));
+            MarketIvScriptPairedPvs_ row;
+            const auto sample = [&](const Handle_<MarketIvLocalVolModelData_>& model, const char* sign,
+                                    MarketIvScriptRiskSide_ MarketIvScriptRiskRow_::* side) -> MarketIvScriptBlockPvs_ {
+                if (!model)
+                    return {};
+                try {
+                    return SampleScenario(plan, *model, "/models/" + quote.id_ + sign, workspace, result);
+                } catch (const Exception_& error) {
+                    if (!pair.report_)
+                        throw;
+                    pair.report_->status_ = "SIDE_FAILED";
+                    (pair.report_->*side).failureStage_ = "SAMPLE";
+                    (pair.report_->*side).failure_ = error.what();
+                    return {};
+                }
+            };
+            row.plus_ = sample(pair.models_.plus_, "/plus", &MarketIvScriptRiskRow_::plus_);
+            row.minus_ = sample(pair.models_.minus_, "/minus", &MarketIvScriptRiskRow_::minus_);
+            if (row.plus_.blockMeans_.empty() || row.minus_.blockMeans_.empty())
+                return row;
+            const auto slope = [&](size_t b) { return (row.plus_.blockMeans_[b] - row.minus_.blockMeans_[b]) / (2. * quote.step_); };
+            for (size_t b = 0; b < plan.request_.blocks_; ++b)
+                row.slope_ += slope(b) / plan.request_.blocks_;
+            row.standardError_ = BatchStatisticsInternal::StandardError(plan.request_.blocks_, [&](size_t b) { return slope(b) - row.slope_; });
+            REQUIRE2(std::isfinite(row.slope_) && std::isfinite(row.standardError_), "InvalidPayoff: non-finite paired slope or error", ScriptError_);
+            return row;
+        }
+
+        template <class Models_> MarketIvScriptSamplingResult_ SampleModels(const MarketIvScriptRefitPlan_& plan, Models_ models) {
+            BufferCapacityBudget_ workspace(plan.work_.reservedWorkspaceBytes_);
+            BufferCapacityScope_ scope(&workspace, plan.baseModel_->ConstructionExecution().numericPayloadBytes_);
+            MarketIvScriptSamplingResult_ result;
+            result.factor_ = plan.baseModel_->Configuration().factor_;
+            result.useBb_ = plan.prepared_->Simulation().useBb_;
+            result.pathsPerBlock_ = plan.request_.pathsPerBlock_;
+            result.rows_.reserve(plan.rows_.size());
+            result.base_ = SampleScenario(plan, *plan.baseModel_, "/models/base", &workspace, &result);
+            for (size_t i = 0; i < plan.rows_.size(); ++i) {
+                const auto pair = [&] {
+                    Dal::Detail::BufferCapacitySuspension_ separateModelLedger;
+                    return models(i);
+                }();
+                result.rows_.push_back(SamplePair(plan, plan.rows_[i], pair, &workspace, &result));
+            }
+            result.peakWorkspaceBytes_ = std::max(result.peakWorkspaceBytes_, workspace.PeakCapacityBytes());
+            return result;
+        }
+
+        MarketIvScriptRiskSide_ RiskSide(const MarketIvScriptRefitSide_& side, MarketIvScriptRefitExecution_* work) {
+            MarketIvScriptRiskSide_ result;
+            result.fitStatus_ = side.fitStatus_;
+            result.failureStage_ = side.failureStage_;
+            result.failure_ = side.failure_;
+            if (side.selectedStart_ >= 0)
+                result.selectedStart_ = side.selectedStart_;
+            if (side.failureStage_ != "BUMP")
+                ++work->refits_;
+            if (side.model_ || side.failureStage_ == "GRID" || side.failureStage_ == "MODEL") {
+                ++work->grids_;
+                result.regimeChanged_ = side.regimeChanged_;
+            }
+            if (side.model_)
+                result.modelIdentity_ = side.model_->ModelIdentity();
+            return result;
+        }
     } // namespace
 
     MarketIvScriptSamplingResult_
@@ -251,33 +333,44 @@ namespace Dal::Script {
                                    const std::function<MarketIvScriptModelPair_(const MarketIvScriptRefitRow_&)>& models) {
         REQUIRE(plan.prepared_ && plan.baseModel_ && models,
                 "InvalidMarketIvRequest: /models requires the prepared plan and a pair per selected quote");
-        BufferCapacityBudget_ workspace(plan.work_.reservedWorkspaceBytes_);
-        BufferCapacityScope_ scope(&workspace, plan.baseModel_->ConstructionExecution().numericPayloadBytes_);
-        MarketIvScriptSamplingResult_ result;
-        result.factor_ = plan.baseModel_->Configuration().factor_;
-        result.useBb_ = plan.prepared_->Simulation().useBb_;
-        result.pathsPerBlock_ = plan.request_.pathsPerBlock_;
+        return SampleModels(plan, [&](size_t i) {
+            const auto pair = models(plan.rows_[i]);
+            REQUIRE(pair.plus_ && pair.minus_, "InvalidMarketIvRequest: /models requires both fixed sides for " + plan.rows_[i].id_);
+            return SamplingPair_{pair};
+        });
+    }
+
+    MarketIvScriptRefitRiskResult_ EvaluateMarketIvScriptRefitRisk(const MarketIvScriptRefitRequest_& request) {
+        const auto plan = PlanMarketIvScriptRefit(request);
+        MarketIvScriptRefitRiskResult_ result;
         result.rows_.reserve(plan.rows_.size());
-        result.base_ = SampleScenario(plan, *plan.baseModel_, "/models/base", &workspace, &result);
-        for (const auto& quote : plan.rows_) {
-            const auto pair = [&] {
-                Dal::Detail::BufferCapacitySuspension_ separateModelLedger;
-                return models(quote);
-            }();
-            REQUIRE(pair.plus_ && pair.minus_, "InvalidMarketIvRequest: /models requires both fixed sides for " + quote.id_);
-            const auto payload = BufferCapacityScope_::ForWorker(&workspace, AdditionalModelBytes(pair, plan.baseModel_));
-            result.rows_.emplace_back();
-            auto& row = result.rows_.back();
-            const auto field = "/models/" + quote.id_;
-            row.plus_ = SampleScenario(plan, *pair.plus_, field + "/plus", &workspace, &result);
-            row.minus_ = SampleScenario(plan, *pair.minus_, field + "/minus", &workspace, &result);
-            const auto slope = [&](size_t b) { return (row.plus_.blockMeans_[b] - row.minus_.blockMeans_[b]) / (2. * quote.step_); };
-            for (size_t b = 0; b < plan.request_.blocks_; ++b)
-                row.slope_ += slope(b) / plan.request_.blocks_;
-            row.standardError_ = BatchStatisticsInternal::StandardError(plan.request_.blocks_, [&](size_t b) { return slope(b) - row.slope_; });
-            REQUIRE2(std::isfinite(row.slope_) && std::isfinite(row.standardError_), "InvalidPayoff: non-finite paired slope or error", ScriptError_);
+        auto& work = result.execution_;
+        work.blocks_ = plan.request_.blocks_;
+        work.pathsPerBlock_ = plan.request_.pathsPerBlock_;
+        work.grids_ = 1;
+        const auto currency = plan.baseModel_->Configuration().currency_;
+        auto sampled = SampleModels(plan, [&](size_t i) {
+            const auto pair = BuildMarketIvScriptRefitPair(plan, i);
+            result.rows_.push_back({pair.row_, currency, pair.Status(), 0., RiskSide(pair.plus_, &work), RiskSide(pair.minus_, &work)});
+            return SamplingPair_{{pair.plus_.model_, pair.minus_.model_}, &result.rows_.back()};
+        });
+        work.scenarios_ = sampled.scenarios_;
+        result.baseBlockMeans_ = std::move(sampled.base_.blockMeans_);
+        work.totalPaths_ = sampled.totalPaths_;
+        work.samplingPeakWorkspaceBytes_ = sampled.peakWorkspaceBytes_;
+        for (size_t i = 0; i < result.rows_.size(); ++i) {
+            auto& row = result.rows_[i];
+            const auto& pvs = sampled.rows_[i];
+            row.basePv_ = sampled.base_.mean_;
+            if (!pvs.plus_.blockMeans_.empty())
+                row.plus_.pv_ = pvs.plus_.mean_;
+            if (!pvs.minus_.blockMeans_.empty())
+                row.minus_.pv_ = pvs.minus_.mean_;
+            if (row.plus_.pv_ && row.minus_.pv_) {
+                row.slope_ = pvs.slope_;
+                row.standardError_ = pvs.standardError_;
+            }
         }
-        result.peakWorkspaceBytes_ = std::max(result.peakWorkspaceBytes_, workspace.PeakCapacityBytes());
         return result;
     }
 

@@ -1204,7 +1204,52 @@ namespace Dal {
                 c.Visit(visitor);
             }
         };
+
+        struct CommandCells_ {
+            Vector_<OPER_> cells_;
+            explicit CommandCells_(size_t size) : cells_(size, OPER_{}) {}
+            CommandCells_(const CommandCells_&) = delete;
+            CommandCells_& operator=(const CommandCells_&) = delete;
+            ~CommandCells_() {
+                for (auto& cell : cells_)
+                    FreeContents(cell, true);
+            }
+        };
+
+        const XLREF12& Rectangle(const OPER_& destination) {
+            if (destination.xltype == xltypeSRef)
+                return destination.val.sref.ref;
+            REQUIRE(destination.xltype == xltypeRef && destination.val.mref.lpmref && destination.val.mref.lpmref->count == 1,
+                    "Expected a single rectangular destination range");
+            return destination.val.mref.lpmref->reftbl[0];
+        }
     } // namespace
+
+    void Excel::WriteRange(const OPER_* destination, const Matrix_<Cell_>& values) {
+        REQUIRE(destination, "Expected a destination range");
+        const auto& bounds = Rectangle(*destination);
+        REQUIRE(bounds.rwLast - bounds.rwFirst + 1 == values.Rows() && bounds.colLast - bounds.colFirst + 1 == values.Cols(),
+                "Destination range must match the full result table, including its header");
+        CommandCells_ storage(static_cast<size_t>(values.Rows()) * values.Cols());
+        for (int r = 0; r < values.Rows(); ++r) {
+            for (int c = 0; c < values.Cols(); ++c) {
+                auto& cell = storage.cells_[static_cast<size_t>(r) * values.Cols() + c];
+                if (std::holds_alternative<std::monostate>(values(r, c).val_))
+                    cell.xltype = xltypeNil;
+                else
+                    values(r, c).Visit(WriteExcelCell_{&cell});
+            }
+        }
+        OPER_ target = *destination, array{}, result{};
+        array.xltype = xltypeMulti;
+        array.val.array.rows = values.Rows();
+        array.val.array.columns = values.Cols();
+        array.val.array.lparray = storage.cells_.data();
+        OPER_* args[] = {&target, &array};
+        const int status = XL_CALLBACK(xlSet, &result, 2, args);
+        REQUIRE(status == xlretSuccess && result.xltype != xltypeErr && (result.xltype != xltypeBool || result.val.xbool),
+                "Excel could not write the destination range");
+    }
 
     void Excel::Retval_::Load(double s) {
         scalars_.push_back(values_.size());
@@ -1338,6 +1383,7 @@ namespace Dal {
         String_ argNames_;
         Vector_<String_> argHelp_;
         bool volatile_;
+        bool isCommand_ = false;
         XLFunc_(const String_& dll_name,
                 const String_& c_name,
                 const String_& xl_name,
@@ -1361,6 +1407,16 @@ namespace Dal {
                          const Vector_<String_>& arg_help,
                          bool is_volatile) {
         TheFunctions().emplace_back(dll_name, c_name, xl_name, help, arg_types, arg_names, arg_help, is_volatile);
+    }
+
+    void Excel::RegisterCommand(const String_& c_name,
+                                const String_& xl_name,
+                                const String_& help,
+                                const String_& arg_types,
+                                const String_& arg_names,
+                                const Vector_<String_>& arg_help) {
+        Register("Base", c_name, xl_name, help, arg_types, arg_names, arg_help, false);
+        TheFunctions().back().isCommand_ = true;
     }
 
     // Menu table
@@ -1408,7 +1464,7 @@ namespace Dal {
             xl4args[2] = TempStr(func.argTypes_);
             xl4args[3] = TempStr(func.xlName_);
             xl4args[4] = TempStr(func.argNames_);
-            xl4args[5] = TempNum(1);
+            xl4args[5] = TempNum(func.isCommand_ ? 2 : 1);
             xl4args[6] = TempStr(CATEGORY);
             xl4args[7] = xl4args[8] = TempStr(BLANK);
             xl4args[9] = TempStr(func.help_);

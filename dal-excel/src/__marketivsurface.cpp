@@ -872,22 +872,29 @@ namespace Dal {
                     MarketIvQuantity_(quantity)};
         }
     } // namespace
+    Vector_<String_> Excel::MarketIvQuoteIds(const Matrix_<Cell_>& ids) {
+        REQUIRE(ids.Rows() == 1 || ids.Cols() == 1, "InvalidMarketIvRequest: quote_ids requires row or column");
+        Vector_<String_> values;
+        for (int r = 0; r < ids.Rows(); ++r)
+            for (int c = 0; c < ids.Cols(); ++c)
+                values.push_back(TextInput(ids(r, c), Location("quote_ids", r, c)));
+        return values;
+    }
+    Vector_<> Excel::MarketIvQuoteSteps(const Matrix_<Cell_>& steps) { return AxisNumbers(steps, "steps", true); }
+
     void MarketIvRefitRiskRequest_New(const String_& name,
                                       const Matrix_<Cell_>& ids,
                                       const Matrix_<Cell_>& outputs,
                                       const Handle_<StorableMarketIvRefitRiskSettings_>& settings,
                                       const Matrix_<Cell_>& steps,
                                       Handle_<StorableMarketIvRefitRiskRequest_>* output) {
-        REQUIRE(ids.Rows() == 1 || ids.Cols() == 1, "InvalidMarketIvRequest: quote_ids requires row or column");
         REQUIRE(outputs.Cols() == 3, "InvalidMarketIvRequest: outputs requires Strike/Time/Quantity");
         MarketIvRefitRiskRequest_ request;
-        for (int r = 0; r < ids.Rows(); ++r)
-            for (int c = 0; c < ids.Cols(); ++c)
-                request.quoteIds_.push_back(TextInput(ids(r, c), Location("quote_ids", r, c)));
+        request.quoteIds_ = Excel::MarketIvQuoteIds(ids);
         for (int r = 0; r < outputs.Rows(); ++r)
             request.outputs_.push_back(RefitOutput(outputs, r));
         request.settings_ = Default(settings);
-        request.steps_ = AxisNumbers(steps, "steps", true);
+        request.steps_ = Excel::MarketIvQuoteSteps(steps);
         ValidateMarketIvRefitRiskRequest(request);
         Store(name, std::move(request), output);
     }

@@ -113,6 +113,73 @@ namespace {
     template <class T_> T_ Input(const py::handle& value, const char* field) {
         return RequiredRiskInput<T_>(value, field, "matching DAL value type", INVALID);
     }
+    Vector_<String_> QuoteIds(const py::handle& value) {
+        Vector_<String_> ids;
+        for (const auto& item : RequestSequence(value, {"quote_ids", INVALID}))
+            ids.push_back(TextInput(item, "quote_ids"));
+        return ids;
+    }
+    Vector_<> RefitSteps(const py::handle& value) { return RequestNumbers(value, {"steps", INVALID}, "steps").value_or(Vector_<>{}); }
+    MarketIvScriptRefitRequest_ RefitRequest(const MarketIvCalibrationSnapshot_& snapshot,
+                                             const MarketIvDupireRequest_& grid,
+                                             const MarketIvLocalVolModelSettings_& model,
+                                             const std::shared_ptr<ScriptProductData_>& product,
+                                             const py::object& ids,
+                                             const py::object& steps,
+                                             const py::object& blocks,
+                                             const py::object& paths,
+                                             const py::object& valuation,
+                                             const py::object& simulation,
+                                             const py::object& budget) {
+        MarketIvScriptRefitRequest_ request{snapshot, grid, model, Handle_<ScriptProductData_>(product)};
+        request.quoteIds_ = QuoteIds(ids);
+        request.steps_ = RefitSteps(steps);
+        request.blocks_ = Count(blocks, "blocks");
+        request.pathsPerBlock_ = Count(paths, "paths_per_block");
+        request.valuation_ = SettingsInput<ScriptValuationSettings_>(valuation, "valuation", "ScriptValuationSettings_");
+        if (!simulation.is_none())
+            request.simulation_ = Input<MonteCarloSettings_>(simulation, "simulation");
+        if (!budget.is_none())
+            request.budget_ = Input<MarketIvScriptRefitBudget_>(budget, "budget");
+        return request;
+    }
+    void RegisterRefit(py::module_& m) {
+        using Budget_ = MarketIvScriptRefitBudget_;
+        using Request_ = MarketIvScriptRefitRequest_;
+        using Result_ = MarketIvScriptRefitRiskResult_;
+        auto budget = WithCopies(py::class_<Budget_>(m, "MarketIvScriptRefitBudget_"));
+        budget.def(py::init<>());
+        for (const auto& field : MarketIvLocalVolFields::RefitBudgetFields())
+            budget.def_property(
+                field.name_, [field](const Budget_& b) { return b.*field.member_; },
+                [field](Budget_& b, const py::object& value) { b.*field.member_ = Count(value, field.name_); });
+        WithCopies(py::class_<Request_>(m, "MarketIvScriptRefitRequest_"))
+            .def(py::init(&RefitRequest), py::arg("snapshot"), py::arg("grid"), py::arg("model"), py::arg("product").none(false),
+                 py::arg("quote_ids"), py::kw_only(), py::arg("steps") = py::none(), py::arg("blocks") = 16, py::arg("paths_per_block") = 1024,
+                 py::arg("valuation") = py::none(), py::arg("simulation") = py::none(), py::arg("budget") = py::none())
+            .def_property(
+                "quote_ids", [](const Request_& r) { return RiskTextVector(r.quoteIds_); },
+                [](Request_& r, const py::object& ids) { r.quoteIds_ = QuoteIds(ids); })
+            .def_property(
+                "steps", [](const Request_& r) { return CopyRiskVector(r.steps_); },
+                [](Request_& r, const py::object& steps) { r.steps_ = RefitSteps(steps); })
+            .def_readwrite("valuation", &Request_::valuation_)
+            .def_readwrite("simulation", &Request_::simulation_)
+            .def_readwrite("budget", &Request_::budget_);
+        py::class_<Result_>(m, "MarketIvScriptRefitRiskResult_")
+            .def_property_readonly("base_block_means", [](const Result_& r) { return CopyRiskVector(r.baseBlockMeans_); })
+            .def_property_readonly("rows", [](const Result_& r) { return Rows(r.rows_); })
+            .def_property_readonly("execution", [](const Result_& r) { return Report(r.execution_); });
+        m.def(
+            "MarketIvScriptRefitRiskResult_New",
+            [](Request_ request) {
+                request.valuation_ = ResolveValuationSettings(request.valuation_);
+                py::gil_scoped_release release;
+                barrier.Wait(&barrierArmed, "MarketIvScriptRefit: GIL test barrier timed out");
+                return EvaluateMarketIvScriptRefitRisk(request);
+            },
+            py::arg("request"));
+    }
     void RegisterSettings(py::module_& m) {
         auto type = WithCopies(py::class_<MarketIvLocalVolModelSettings_>(m, "MarketIvLocalVolModelSettings_"));
         type.def(py::init(&NewSettings), py::arg("index"), py::arg("currency"), py::arg("factor"), py::arg("horizon"));
@@ -180,6 +247,7 @@ void init_bindings_marketivlocalvol(py::module_& m) {
     py::register_exception_translator(Translate);
     RegisterSettings(m);
     RegisterModel(m);
+    RegisterRefit(m);
     m.def("_MarketIvLocalVolGilBarrier_ArmForTesting", [] { barrier.Arm(&barrierArmed); });
     m.def("_MarketIvLocalVolGilBarrier_AwaitEntryForTesting", [] {
         py::gil_scoped_release release;

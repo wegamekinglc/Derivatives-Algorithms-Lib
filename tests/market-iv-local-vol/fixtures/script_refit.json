@@ -1,0 +1,25 @@
+{
+  "flat": {
+    "forward": 105, "strike": 105, "spots": [80, 100, 120], "times": [0.125, 0.5, 1], "max_step": 1,
+    "quotes": [
+      ["left", 90, "CALL", "DECIMAL_IV", 0.2, null, null, 1],
+      ["atm", 105, "CALL", "DECIMAL_IV", 0.2, null, null, 1],
+      ["right", 120, "CALL", "DECIMAL_IV", 0.2, null, null, 1]
+    ]
+  },
+  "premium": {
+    "forward": 100, "strike": 100, "spots": [85, 100, 115], "times": [0.25, 1], "max_step": 0.019230769230769232,
+    "quotes": [
+      ["left", 90, "CALL", "DECIMAL_IV", 0.2, null, null, 1],
+      ["atm", 100, "CALL", "PRICE", 7.646944757189564, 7.644944757189564, 7.648944757189564, 1],
+      ["right", 110, "CALL", "DECIMAL_IV", 0.2, null, null, 1],
+      ["atm-put", 100, "PUT", "PRICE", 7.646944757189564, 7.546944757189564, 7.649944757189564, 0.75]
+    ]
+  },
+  "cases": {
+    "full": ["flat", ["atm"], [0.0001]],
+    "half": ["flat", ["atm"], [0.00005]],
+    "all_buckets": ["flat", ["right", "atm", "left"], []],
+    "partial": ["premium", ["right", "atm"], [0.0001, 0.01]]
+  }
+}
