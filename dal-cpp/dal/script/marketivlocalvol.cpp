@@ -143,17 +143,33 @@ namespace Dal::Script {
                                                  ToString(times[i]));
         }
 
-        MarketIvScriptBlockPvs_ SampleBlocks(const PreparedScript_& product, const AAD::MarketIvLocalVolModel_& model, size_t blocks, size_t paths) {
+        struct RunningMean_ {
+            size_t count_ = 0;
+            double mean_ = 0.;
+
+            void operator+=(double value) {
+                ++count_;
+                // Scale opposite extremes before differencing when their distance exceeds double range.
+                if (std::signbit(value) != std::signbit(mean_) && std::abs(value) >= std::numeric_limits<double>::max() - std::abs(mean_))
+                    mean_ = (mean_ - mean_ / count_) + value / count_;
+                else
+                    mean_ += (value - mean_) / count_;
+            }
+        };
+
+        MarketIvScriptBlockPvs_
+        SampleBlocks(const PreparedScript_& product, const AAD::MarketIvLocalVolModel_& model, size_t blocks, size_t paths, size_t* totalPaths) {
             const auto& simulation = product.Simulation();
             Detail::DoubleSimulationState_<PreparedScript_> state(product, model, simulation.rsg_, simulation.useBb_, simulation.normalPrecision_);
             MarketIvScriptBlockPvs_ pvs{Vector_<>(blocks)};
+            RunningMean_ scenario;
             const auto sample = [&](auto* evaluator, const auto& evaluate) {
                 for (size_t b = 0; b < blocks; ++b) {
                     const PathBatch_ batch{b * paths, paths};
-                    const double sum = Detail::EvaluateDoubleBatch(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
-                    REQUIRE2(std::isfinite(sum), "InvalidPayoff: non-finite block PV", ScriptError_);
-                    pvs.blockMeans_[b] = sum / paths;
-                    pvs.mean_ += pvs.blockMeans_[b] / blocks;
+                    const auto block = Detail::EvaluateDoubleBatch<RunningMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
+                    pvs.blockMeans_[b] = block.mean_;
+                    scenario += block.mean_;
+                    *totalPaths += block.count_;
                 }
             };
             if (simulation.compiled_.value_or(DEFAULT_COMPILED)) {
@@ -161,8 +177,14 @@ namespace Dal::Script {
                 sample(&state.compiledState_, [&](const auto& path, auto& eval) { program.Evaluate(path, eval); });
             } else
                 sample(&state.evaluator_, [&](const auto& path, auto& eval) { product.Evaluate(path, eval); });
-            REQUIRE2(std::isfinite(pvs.mean_), "InvalidPayoff: non-finite scenario PV", ScriptError_);
+            pvs.mean_ = scenario.mean_;
             return pvs;
+        }
+
+        size_t AdditionalModelBytes(const MarketIvScriptModelPair_& pair, const Handle_<MarketIvLocalVolModelData_>& base) {
+            const auto plus = pair.plus_ == base ? 0 : pair.plus_->ConstructionExecution().numericPayloadBytes_;
+            const auto minus = pair.minus_ == base || pair.minus_ == pair.plus_ ? 0 : pair.minus_->ConstructionExecution().numericPayloadBytes_;
+            return MarketIvLocalVolDetail::CheckedAdd(plus, minus);
         }
 
         MarketIvScriptBlockPvs_ SampleScenario(const MarketIvScriptRefitPlan_& plan,
@@ -180,9 +202,11 @@ namespace Dal::Script {
             if (config.factor_ != result->factor_)
                 MarketIvLocalVolDetail::Fail("MarketIvCoordinateMismatch", "Sample", modelField + "/simulation/factor", result->factor_,
                                              config.factor_);
-            REQUIRE(config.index_ == request.model_.index_ && config.currency_ == request.model_.currency_,
+            const auto frozen = plan.baseModel_->Configuration();
+            REQUIRE(config.index_ == frozen.index_ && config.currency_ == frozen.currency_,
                     "InvalidMarketIvRequest: /models must use the frozen index and PV currency");
             AAD::MarketIvLocalVolModel_ model(data);
+            model.ValidateFrozenMarket(request.snapshot_.Request().market_, modelField + "/market");
             model.ValidateRequest(false, false, request.valuation_.evaluationDate_, request.simulation_.rsg_);
             model.ValidatePaths(plan.work_.pathsPerScenario_, request.simulation_.rsg_);
             ++result->scenarios_;
@@ -196,7 +220,7 @@ namespace Dal::Script {
             }
             const auto execution = model.Execution();
             constexpr MarketIvLocalVolDetail::BudgetField_ bytes{"Sample", "/budget/workspace_bytes"};
-            const auto preparationPeak = bytes.Add(workspace->CapacityBytes(), execution.peakWorkspaceBytes_);
+            const auto preparationPeak = bytes.Add(workspace->CapacityBytes(), model.PreparationPeakBytes());
             bytes.Check(preparationPeak, workspace->LimitBytes());
             result->peakWorkspaceBytes_ = std::max(result->peakWorkspaceBytes_, preparationPeak);
             const auto shared = BufferCapacityScope_::ForWorker(workspace, execution.sharedNumericBytes_);
@@ -205,9 +229,7 @@ namespace Dal::Script {
             else
                 CheckSamplingTimes(result->simulationTimes_, model.SimulationTimes(), modelField);
 
-            auto pvs = SampleBlocks(product, model, request.blocks_, request.pathsPerBlock_);
-            result->totalPaths_ += plan.work_.pathsPerScenario_;
-            return pvs;
+            return SampleBlocks(product, model, request.blocks_, request.pathsPerBlock_, &result->totalPaths_);
         }
     } // namespace
 
@@ -219,7 +241,7 @@ namespace Dal::Script {
         BufferCapacityBudget_ workspace(plan.work_.reservedWorkspaceBytes_);
         BufferCapacityScope_ scope(&workspace, plan.baseModel_->ConstructionExecution().numericPayloadBytes_);
         MarketIvScriptSamplingResult_ result;
-        result.factor_ = plan.request_.model_.factor_;
+        result.factor_ = plan.baseModel_->Configuration().factor_;
         result.useBb_ = plan.prepared_->Simulation().useBb_;
         result.pathsPerBlock_ = plan.request_.pathsPerBlock_;
         result.rows_.reserve(plan.rows_.size());
@@ -230,10 +252,7 @@ namespace Dal::Script {
                 return models(quote);
             }();
             REQUIRE(pair.plus_ && pair.minus_, "InvalidMarketIvRequest: /models requires both fixed sides for " + quote.id_);
-            const auto plusBytes = pair.plus_ == plan.baseModel_ ? 0 : pair.plus_->ConstructionExecution().numericPayloadBytes_;
-            const auto minusBytes =
-                pair.minus_ == plan.baseModel_ || pair.minus_ == pair.plus_ ? 0 : pair.minus_->ConstructionExecution().numericPayloadBytes_;
-            const auto payload = BufferCapacityScope_::ForWorker(&workspace, MarketIvLocalVolDetail::CheckedAdd(plusBytes, minusBytes));
+            const auto payload = BufferCapacityScope_::ForWorker(&workspace, AdditionalModelBytes(pair, plan.baseModel_));
             result.rows_.emplace_back();
             auto& row = result.rows_.back();
             const auto field = "/models/" + quote.id_;

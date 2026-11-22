@@ -217,11 +217,14 @@ The planner builds the base local-volatility model and freezes the resolved
 valuation date and fixings. It requires MRG32 with Precise normals, at least
 two blocks and a positive path count per block. For `A` selected quotes it
 budgets `2*A` refits and `1+2*A` scenarios, including the base. The returned
-work counts describe the admitted plan.
+work counts describe the admitted plan. Only the planner can construct a plan.
 
 Given the fitted and rebuilt models, `Dal::Script::SampleMarketIvScriptModelPairs`
 prices the base once and requests one fixed plus/minus pair for each plan row.
-All scenarios use the prepared script and the same MRG32 Precise stream (seed
+Before pricing a side, the sampler checks its market date, spot and carry
+inputs (flat rates or every forward and discount knot) against the frozen
+market. It compares index and PV currency using the base model's canonical
+settings. All scenarios use the prepared script and the same MRG32 Precise stream (seed
 1024). For block `b`, path `p` within the block and normal slot `j`, the
 zero-based draw index is `((b * pathsPerBlock + p) * dimension) + j`.
 The result records the factor, actual evolution times and Brownian bridge
@@ -233,7 +236,9 @@ and original-unit quote step $h$, the block slopes are
 $d_b=(\overline{PV}^{+}_b-\overline{PV}^{-}_b)/(2h)$. The row reports their
 mean and their sample standard deviation divided by $\sqrt{B}$, both in PV
 currency per original quote unit. The sampling ledger covers priced scenarios,
-generated paths and peak numeric workspace. Fixed-model sampling itself uses
+generated paths counted during payoff evaluation, and peak numeric workspace.
+The peak includes the distinct live model payloads and the larger of model
+preparation and path evaluation with their then-live result buffers. Fixed-model sampling itself uses
 zero refits and zero grid exports.
 
 ## Defaults and resource limits

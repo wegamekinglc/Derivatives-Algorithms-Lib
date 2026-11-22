@@ -32,9 +32,11 @@ namespace Dal::AAD {
         void GeneratePath(const Vector_<>& normals, Scenario_<>* path) const override;
         [[nodiscard]] std::unique_ptr<Model_<double>> Clone() const override;
         void ValidateRequest(bool aad, bool exercise, const std::optional<Date_>& date, const String_& rsg, size_t workers = 1);
+        void ValidateFrozenMarket(const MarketIvMarket_& expected, const String_& field) const;
         void PrepareWorkers(size_t workers);
         void ValidatePaths(size_t paths, const String_& rsg);
         [[nodiscard]] MarketIvLocalVolExecution_ Execution() const;
+        [[nodiscard]] size_t PreparationPeakBytes() const;
         [[nodiscard]] const Vector_<>& SimulationTimes() const;
     };
 } // namespace Dal::AAD

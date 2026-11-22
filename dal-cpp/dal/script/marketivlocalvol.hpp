@@ -48,6 +48,15 @@ namespace Dal::Script {
         const MarketIvScriptRefitWork_ work_;
         const Handle_<MarketIvLocalVolModelData_> baseModel_;
         const std::shared_ptr<const PreparedScript_> prepared_;
+
+    private:
+        friend MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(const MarketIvScriptRefitRequest_&);
+        MarketIvScriptRefitPlan_(MarketIvScriptRefitRequest_ request,
+                                 Vector_<MarketIvScriptRefitRow_> rows,
+                                 MarketIvScriptRefitWork_ work,
+                                 Handle_<MarketIvLocalVolModelData_> baseModel,
+                                 std::shared_ptr<const PreparedScript_> prepared)
+            : request_(std::move(request)), rows_(std::move(rows)), work_(work), baseModel_(std::move(baseModel)), prepared_(std::move(prepared)) {}
     };
 
     [[nodiscard]] MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(const MarketIvScriptRefitRequest_& input);

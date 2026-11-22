@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <numeric>
+#include <type_traits>
+
 #include <dal/math/aad/recording.hpp>
+#include <dal/model/marketivlocalvolmodel.hpp>
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
 #include <dal/script/marketivlocalvol.hpp>
-#include <numeric>
 
 #include "script_test_observers.hpp"
 
@@ -59,6 +62,58 @@ namespace {
             pvs.push_back(.96 * 105. * std::exp(vol * (.5 * first + std::sqrt(.75) * second) - .5 * vol * vol));
         }
         return pvs;
+    }
+
+    void CheckEnumeratedBlockPvs(
+        const MarketIvScriptSamplingResult_& result, const Vector_<>& basePvs, const Vector_<>& plus, const Vector_<>& minus, bool record) {
+        const size_t blockSize = result.pathsPerBlock_, blocks = basePvs.size() / blockSize;
+        const auto& row = result.rows_.front();
+        ASSERT_EQ(result.base_.blockMeans_.size(), blocks);
+        ASSERT_EQ(row.plus_.blockMeans_.size(), blocks);
+        ASSERT_EQ(row.minus_.blockMeans_.size(), blocks);
+        Vector_<> slopes;
+        for (size_t b = 0; b < blocks; ++b) {
+            const auto average = [&](const Vector_<>& paths) {
+                const auto first = paths.begin() + b * blockSize;
+                return std::accumulate(first, first + blockSize, 0.) / blockSize;
+            };
+            ASSERT_NEAR(result.base_.blockMeans_[b], average(basePvs), 1e-10);
+            ASSERT_NEAR(row.plus_.blockMeans_[b], average(plus), 1e-10);
+            ASSERT_NEAR(row.minus_.blockMeans_[b], average(minus), 1e-10);
+            slopes.push_back((average(plus) - average(minus)) / .02);
+        }
+        const double mean = std::accumulate(slopes.begin(), slopes.end(), 0.) / slopes.size();
+        double sumSquares = 0.;
+        for (const double slope : slopes)
+            sumSquares += (slope - mean) * (slope - mean);
+        ASSERT_NEAR(row.slope_, mean, 1e-9);
+        ASSERT_NEAR(row.standardError_, std::sqrt(sumSquares / (slopes.size() - 1) / slopes.size()), 1e-9);
+        ASSERT_NEAR(row.plus_.mean_, std::accumulate(plus.begin(), plus.end(), 0.) / 6., 1e-10);
+        ASSERT_NEAR(row.minus_.mean_, std::accumulate(minus.begin(), minus.end(), 0.) / 6., 1e-10);
+        if (record) {
+            for (size_t b = 0; b < slopes.size(); ++b) {
+                const auto suffix = std::to_string(b);
+                ::testing::Test::RecordProperty("base" + suffix, ToString(result.base_.blockMeans_[b]).c_str());
+                ::testing::Test::RecordProperty("plus" + suffix, ToString(row.plus_.blockMeans_[b]).c_str());
+                ::testing::Test::RecordProperty("minus" + suffix, ToString(row.minus_.blockMeans_[b]).c_str());
+                ::testing::Test::RecordProperty("slope" + suffix, ToString(slopes[b]).c_str());
+            }
+            ::testing::Test::RecordProperty("meanSlope", ToString(row.slope_).c_str());
+            ::testing::Test::RecordProperty("pairedSE", ToString(row.standardError_).c_str());
+        }
+    }
+
+    struct SamplingCapacity_ final : Dal::Detail::OwnedBufferAccount_ {
+        size_t live_ = 0, peak_ = 0;
+        void Reserve(size_t bytes) override {
+            live_ += bytes;
+            peak_ = std::max(peak_, live_);
+        }
+        void Release(size_t bytes) noexcept override { live_ -= bytes; }
+    };
+
+    MarketIvScriptSamplingResult_ SampleBaseOnly(const MarketIvScriptRefitPlan_& plan) {
+        return SampleMarketIvScriptModelPairs(plan, [&](const auto&) { return MarketIvScriptModelPair_{plan.baseModel_, plan.baseModel_}; });
     }
 } // namespace
 
@@ -146,40 +201,7 @@ TEST(MarketIvScriptRefitTest, TestEnumeratedPathsAndPairedStandardError) {
                 ASSERT_EQ(result.useBb_, bridge);
                 ASSERT_EQ(result.pathsPerBlock_, blockSize);
                 ASSERT_EQ(result.rows_.size(), 1U);
-                const auto& row = result.rows_.front();
-                ASSERT_EQ(result.base_.blockMeans_.size(), request.blocks_);
-                ASSERT_EQ(row.plus_.blockMeans_.size(), request.blocks_);
-                ASSERT_EQ(row.minus_.blockMeans_.size(), request.blocks_);
-                Vector_<> slopes;
-                for (size_t b = 0; b < request.blocks_; ++b) {
-                    const auto average = [&](const Vector_<>& paths) {
-                        const auto first = paths.begin() + b * blockSize;
-                        return std::accumulate(first, first + blockSize, 0.) / blockSize;
-                    };
-                    ASSERT_NEAR(result.base_.blockMeans_[b], average(basePvs), 1e-10);
-                    ASSERT_NEAR(row.plus_.blockMeans_[b], average(plus), 1e-10);
-                    ASSERT_NEAR(row.minus_.blockMeans_[b], average(minus), 1e-10);
-                    slopes.push_back((average(plus) - average(minus)) / .02);
-                }
-                const double mean = std::accumulate(slopes.begin(), slopes.end(), 0.) / slopes.size();
-                double sumSquares = 0.;
-                for (const double slope : slopes)
-                    sumSquares += (slope - mean) * (slope - mean);
-                ASSERT_NEAR(row.slope_, mean, 1e-9);
-                ASSERT_NEAR(row.standardError_, std::sqrt(sumSquares / (slopes.size() - 1) / slopes.size()), 1e-9);
-                ASSERT_NEAR(row.plus_.mean_, std::accumulate(plus.begin(), plus.end(), 0.) / 6., 1e-10);
-                ASSERT_NEAR(row.minus_.mean_, std::accumulate(minus.begin(), minus.end(), 0.) / 6., 1e-10);
-                if (!bridge && compiled && blockSize == 2) {
-                    for (size_t b = 0; b < slopes.size(); ++b) {
-                        const auto suffix = std::to_string(b);
-                        RecordProperty("base" + suffix, ToString(result.base_.blockMeans_[b]).c_str());
-                        RecordProperty("plus" + suffix, ToString(row.plus_.blockMeans_[b]).c_str());
-                        RecordProperty("minus" + suffix, ToString(row.minus_.blockMeans_[b]).c_str());
-                        RecordProperty("slope" + suffix, ToString(slopes[b]).c_str());
-                    }
-                    RecordProperty("meanSlope", ToString(row.slope_).c_str());
-                    RecordProperty("pairedSE", ToString(row.standardError_).c_str());
-                }
+                CheckEnumeratedBlockPvs(result, basePvs, plus, minus, !bridge && compiled && blockSize == 2);
             }
     }
 }
@@ -231,6 +253,122 @@ TEST(MarketIvScriptRefitTest, TestSideCannotExpandFrozenWorkspaceEnvelope) {
         ASSERT_EQ(error.stage_, "Sample");
         ASSERT_EQ(error.field_, "/models/90/plus/settings/workspace_budget_bytes");
     }
+}
+
+TEST(MarketIvScriptRefitTest, TestFrozenMarketRejectsSideDrift) {
+    auto request = TwoStepRequest();
+    request.product_ = Handle_<ScriptProductData_>(new ScriptProductData_("cash", request.product_->Dates(), {"pay PAYS 1"}));
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const Date_ today = *request.valuation_.evaluationDate_, expiry = today.AddDays(365);
+    const auto reject = [&](double spot, double forward, double discount, const String_& field) {
+        auto fit = request.snapshot_.Request();
+        fit.market_ = MarketIvMarket_(today, spot, {{expiry, forward, discount}});
+        fit.quotes_.back().mid_ = discount * forward * MarketIvDetail::NormalizedBlack(std::log(110. / forward), .04);
+        const auto fitted = FitMarketIvSurface(fit);
+        ASSERT_TRUE(fitted.IsSuccess());
+        const auto side = BuildMarketIvLocalVolModelData("drift", CalibrateMarketIvDupire(fitted.Snapshot(), request.grid_), request.model_);
+        try {
+            const auto result = SampleMarketIvScriptModelPairs(plan, [&](const auto&) { return MarketIvScriptModelPair_{plan.baseModel_, side}; });
+            FAIL() << "Accepted market drift with slope " << result.rows_.front().slope_;
+        } catch (const MarketIvLocalVolError_& e) {
+            ASSERT_EQ(e.code_, "MarketIvSourceMismatch");
+            ASSERT_EQ(e.stage_, "Sample");
+            ASSERT_EQ(e.field_, "/models/90/minus/market/" + field);
+        }
+    };
+    reject(100., 105., .95, "terms/0/discount");
+    reject(100., 104., .96, "terms/0/forward");
+    reject(101., 105., .96, "spot");
+}
+
+TEST(MarketIvScriptRefitTest, TestPathCountFollowsAdmittedBatches) {
+    auto request = TwoStepRequest();
+    request.budget_.maxTotalPaths_ = 18;
+    const auto plan = PlanMarketIvScriptRefit(request);
+    request.pathsPerBlock_ = 4;
+    ASSERT_THROW(static_cast<void>(PlanMarketIvScriptRefit(request)), MarketIvLocalVolError_);
+    ASSERT_FALSE(std::is_aggregate_v<MarketIvScriptRefitPlan_>);
+    ASSERT_FALSE((std::is_constructible_v<MarketIvScriptRefitPlan_, decltype(request), decltype(plan.rows_), decltype(plan.work_),
+                                          decltype(plan.baseModel_), decltype(plan.prepared_)>));
+    const auto result = SampleBaseOnly(plan);
+    ASSERT_EQ(result.totalPaths_, 18U);
+    RecordProperty("pathsAtBudget18", std::to_string(result.totalPaths_));
+    request.budget_.maxTotalPaths_ = 36;
+    const auto larger = PlanMarketIvScriptRefit(request);
+    const auto expanded = SampleBaseOnly(larger);
+    ASSERT_EQ(expanded.totalPaths_, 36U);
+    RecordProperty("pathsAtBudget36", std::to_string(expanded.totalPaths_));
+}
+
+TEST(MarketIvScriptRefitTest, TestSamplingPeakMatchesLiveBuffers) {
+    auto request = TwoStepRequest();
+    request.grid_.spots_.Resize(801);
+    for (size_t i = 0; i < request.grid_.spots_.size(); ++i)
+        request.grid_.spots_[i] = 80. + i * .05;
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const auto construction = plan.baseModel_->ConstructionExecution();
+    SamplingCapacity_ measured;
+    size_t reported;
+    {
+        const Dal::Detail::OwnedBufferScope_ meter(&measured);
+        const auto result = SampleBaseOnly(plan);
+        reported = result.peakWorkspaceBytes_;
+    }
+    ASSERT_EQ(measured.live_, 0U);
+    // OwnedBufferScope observes vector storage. The capacity ledger also charges the heap-allocated
+    // hybrid model and its components, which remain live from preparation through the last path.
+    SamplingCapacity_ preparation;
+    size_t modelObjects, preparationPeak;
+    {
+        const Dal::Detail::OwnedBufferScope_ meter(&preparation);
+        AAD::MarketIvLocalVolModel_ model(*plan.baseModel_);
+        model.ValidateRequest(false, false, request.valuation_.evaluationDate_, request.simulation_.rsg_);
+        model.Allocate(plan.prepared_->TimeLine(), plan.prepared_->DefLine());
+        model.Init(plan.prepared_->TimeLine(), plan.prepared_->DefLine());
+        const auto shared = model.Execution().sharedNumericBytes_;
+        RecordProperty("sharedModel", std::to_string(shared));
+        RecordProperty("preparedVectors", std::to_string(preparation.live_));
+        RecordProperty("prepareVectorPeak", std::to_string(preparation.peak_));
+        RecordProperty("worker", std::to_string(model.Execution().perWorkerNumericBytes_));
+        ASSERT_GT(shared, preparation.live_);
+        modelObjects = shared - preparation.live_;
+        preparationPeak = model.PreparationPeakBytes();
+    }
+    ASSERT_EQ(preparation.live_, 0U);
+    ASSERT_EQ(preparationPeak, preparation.peak_ + modelObjects);
+    RecordProperty("modelPayload", std::to_string(construction.numericPayloadBytes_));
+    RecordProperty("historicalConstructionPeak", std::to_string(construction.peakWorkspaceBytes_));
+    RecordProperty("samplingVectorPeak", std::to_string(measured.peak_));
+    RecordProperty("modelObjects", std::to_string(modelObjects));
+    RecordProperty("preparationPeak", std::to_string(preparationPeak));
+    RecordProperty("reportedPeak", std::to_string(reported));
+    ASSERT_EQ(reported, construction.numericPayloadBytes_ + measured.peak_ + modelObjects);
+}
+
+TEST(MarketIvScriptRefitTest, TestRepresentableMeanOfLargeCashPayments) {
+    auto request = TwoStepRequest();
+    request.product_ = Handle_<ScriptProductData_>(new ScriptProductData_("large", request.product_->Dates(), {"pay PAYS 1E308"}));
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const auto result = SampleBaseOnly(plan);
+    for (double pv : result.base_.blockMeans_)
+        ASSERT_NEAR(pv / 1e308, .96, 1e-14);
+    ASSERT_NEAR(result.base_.mean_ / 1e308, .96, 1e-14);
+    ASSERT_EQ(result.rows_[0].slope_, 0.);
+    ASSERT_EQ(result.rows_[0].standardError_, 0.);
+}
+
+TEST(MarketIvScriptRefitTest, TestSamplingUsesCanonicalModelCurrency) {
+    auto request = TwoStepRequest();
+    request.model_.currency_ = " USD ";
+    const auto plan = PlanMarketIvScriptRefit(request);
+    ASSERT_EQ(plan.baseModel_->Configuration().currency_, "USD");
+    const auto same = SampleBaseOnly(plan);
+    ASSERT_EQ(same.totalPaths_, 18U);
+    request.model_.currency_ = "EUR";
+    const auto other = BuildMarketIvLocalVolModelData("other", CalibrateMarketIvDupire(request.snapshot_, request.grid_), request.model_);
+    ASSERT_THROW(
+        static_cast<void>(SampleMarketIvScriptModelPairs(plan, [&](const auto&) { return MarketIvScriptModelPair_{other, plan.baseModel_}; })),
+        Exception_);
 }
 
 TEST(MarketIvScriptRefitTest, TestPreflightRejectsInvalidFieldsBeforeWork) {
