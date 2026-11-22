@@ -288,11 +288,16 @@ Price risk holds K, N and the bound source fixed. `RawSensitivity()` is currency
 amount per 1.0 decimal quote rate; `DV01()` is raw times 0.0001, the signed PV
 response to a quote rising 1bp. There is no per-million normalization or extra
 minus sign. Doubling N doubles PV/raw/DV01, and ReceiveFixed reverses them.
-ParRate risk, live-quote payoffs, stale contexts and unregistered PVs remain
-unavailable. Calibration report availability keeps its existing meaning.
+
+For a registered OIS, the core snapshot's `ValueCompoundedOisParRateWithQuoteRisk`
+returns the decimal par rate and signed bp/bp sensitivities in the requested
+quote order. An empty selection uses snapshot order. AAD differentiates the
+floating leg and fixed annuity together. The operation reuses the snapshot
+factorization for one checked transpose response per contract. A settled
+contract or an annuity outside its signed floor returns diagnostics.
+Live-quote payoffs, stale contexts and unregistered contracts are unavailable.
 General script/MC and legacy tenor staging still reject ON/ON2. Public C++,
-Python and Excel expose the same admitted native path and owning audit; their
-factories do not extend the supported numerical or product scope.
+Python and Excel expose fixed-coupon Price quote risk and its owning audit.
 
 Build and run the core `compounded_ois` example under
 `dal-cpp/examples/curves/compounded_ois/`. It uses all four modes and checks
@@ -341,7 +346,7 @@ scaling/signs, complete quote recalibration and owning failures. Independent
 schedule/product checks protect holiday/weekend weights and accumulated Lockout
 adjoints. `/1` golden source/archive/identities, tampering, lifecycle and
 unobservable PWLF/PWC cases retain separate protection. Rejection remains for
-multi-target/joint or staged risk, APPROXIMATE roots, ParRate risk, live-quote
+multi-target/joint or staged risk, APPROXIMATE roots, live-quote
 payoffs, unregistered PVs and general MC/GSR/XCCY execution.
 
 ## Resource measurement

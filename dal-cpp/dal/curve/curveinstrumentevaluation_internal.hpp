@@ -17,6 +17,7 @@ namespace Dal::CurveInstrumentInternal {
     struct PreparedCurvePriceContext_ {
         struct Data_;
         std::shared_ptr<const Data_> data_;
+        [[nodiscard]] const std::shared_ptr<const CandidateCurveGeometry_>& Geometry() const;
     };
     PreparedCurvePriceContext_ PrepareCurvePriceContext(const PreparedCurveInstruments_&);
     void RequireCurvePriceContext(const PreparedCurvePriceContext_&, const CurveInstrumentCalibrationSpec_&);

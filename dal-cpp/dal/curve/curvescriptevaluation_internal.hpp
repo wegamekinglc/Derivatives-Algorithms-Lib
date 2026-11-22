@@ -147,9 +147,8 @@ namespace Dal::CurveScriptInternal {
         if (plan.Measure().kind_ == CalibrationMeasureKind_::Value_::Price)
             return total.b_ + descriptor.coupon_ * total.a_;
         const auto& measure = plan.Measure();
-        CalibrationInternal::Check(measure.annuitySign_ && measure.minAbsAnnuity_ && std::isfinite(static_cast<double>(total.a_)) &&
-                                       static_cast<double>(total.a_) * *measure.annuitySign_ >= *measure.minAbsAnnuity_,
-                                   "InvalidCalibrationAnnuity", "/annuity", "actual finite annuity with declared sign and minimum magnitude");
+        CalibrationInternal::Check(measure.annuitySign_ && measure.minAbsAnnuity_, "InvalidCalibrationAnnuity", "/annuity", "annuity sign and floor");
+        CheckSignedAnnuity(static_cast<double>(total.a_), *measure.annuitySign_, *measure.minAbsAnnuity_);
         return -total.b_ / total.a_;
     }
     template <class T_>
