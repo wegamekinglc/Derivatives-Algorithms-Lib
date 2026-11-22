@@ -36,10 +36,26 @@ namespace {
         for (size_t i = 0; i < expected.size(); ++i) {
             const auto& a = actual[i];
             const auto& e = expected[i];
-            REQUIRE(a.id_ == e.id_ && a.mid_ == e.mid_ && a.bid_ == e.bid_ && a.ask_ == e.ask_ && a.weight_ == e.weight_ && a.strike_ == e.strike_ &&
-                        a.expiry_ == e.expiry_ && a.optionType_ == e.optionType_ && a.quoteType_ == e.quoteType_,
-                    "quote mismatch at " + e.id_);
+            REQUIRE(a.id_ == e.id_, "quote ID mismatch at " + e.id_);
+            REQUIRE(a.mid_ == e.mid_, "quote mid mismatch at " + e.id_);
+            REQUIRE(a.bid_ == e.bid_ && a.ask_ == e.ask_, "quote band mismatch at " + e.id_);
+            REQUIRE(a.weight_ == e.weight_, "quote weight mismatch at " + e.id_);
+            REQUIRE(a.strike_ == e.strike_ && a.expiry_ == e.expiry_ && a.optionType_ == e.optionType_ && a.quoteType_ == e.quoteType_,
+                    "quote terms mismatch at " + e.id_);
         }
+    }
+
+    void CompareModel(const MarketIvLocalVolModelData_& actual, const MarketIvDupireResult_& grid, const MarketIvScriptRefitRequest_& request) {
+        const auto manual = BuildMarketIvLocalVolModelData("manual", grid, request.model_);
+        const auto& surface = actual.SurfaceData();
+        const auto& expected = grid.SurfaceData();
+        REQUIRE(surface.spots_ == request.grid_.spots_ && surface.times_ == request.grid_.times_, "grid axis mismatch");
+        REQUIRE(surface.vols_.Rows() == expected.vols_.Rows() && surface.vols_.Cols() == expected.vols_.Cols(), "grid shape mismatch");
+        for (int i = 0; i < surface.vols_.Rows(); ++i)
+            for (int j = 0; j < surface.vols_.Cols(); ++j)
+                REQUIRE(surface.vols_(i, j) == expected.vols_(i, j), "grid node mismatch");
+        REQUIRE(actual.SourceIdentity() == manual->SourceIdentity() && actual.ModelIdentity() == manual->ModelIdentity(),
+                "source or model identity mismatch");
     }
 
     void CompareSide(const MarketIvScriptRefitRequest_& request, size_t originalRow, double step, const MarketIvScriptRefitSide_& side) {
@@ -61,44 +77,36 @@ namespace {
         const auto snapshot = fit.Snapshot();
         const auto grid = CalibrateMarketIvDupire(snapshot, request.grid_);
         REQUIRE(grid.IsSuccess(), grid.Failure());
-        const auto model = BuildMarketIvLocalVolModelData("manual", grid, request.model_);
         const auto& actual = side.model_->Snapshot();
         CompareQuotes(actual.Request().quotes_, quotes);
-        REQUIRE(actual.Certificate().certified_ && side.selectedStart_ == fit.SelectedStart() &&
-                    actual.RegimeSignature() == snapshot.RegimeSignature(),
-                "certificate or selected branch mismatch");
+        REQUIRE(actual.Certificate().certified_, "expected a certified fit");
+        REQUIRE(side.selectedStart_ == fit.SelectedStart(), "selected start mismatch");
+        REQUIRE(actual.RegimeSignature() == snapshot.RegimeSignature(), "regime signature mismatch");
         REQUIRE(side.regimeChanged_ == (snapshot.RegimeSignature() != request.snapshot_.RegimeSignature()), "regime flag mismatch");
-        const auto& surface = side.model_->SurfaceData();
-        REQUIRE(surface.spots_ == request.grid_.spots_ && surface.times_ == request.grid_.times_, "grid axis mismatch");
-        REQUIRE(surface.vols_.Rows() == grid.SurfaceData().vols_.Rows() && surface.vols_.Cols() == grid.SurfaceData().vols_.Cols(),
-                "grid shape mismatch");
-        for (int i = 0; i < surface.vols_.Rows(); ++i)
-            for (int j = 0; j < surface.vols_.Cols(); ++j)
-                REQUIRE(surface.vols_(i, j) == grid.SurfaceData().vols_(i, j), "grid node mismatch");
-        REQUIRE(side.model_->SourceIdentity() == model->SourceIdentity() && side.model_->ModelIdentity() == model->ModelIdentity(),
-                "source or model identity mismatch");
+        CompareModel(*side.model_, grid, request);
         std::cout << quote.id_ << " " << step << " PASS start=" << fit.SelectedStart() << " quotes=" << quotes.size()
                   << " nodes=" << grid.Nodes().size() << " identities=match\n";
     }
 
-    void CheckPairs(MarketIvScriptRefitRequest_ request) {
-        {
-            const auto plan = PlanMarketIvScriptRefit(request);
-            for (size_t i = 0; i < 2; ++i) {
-                const auto pair = BuildMarketIvScriptRefitPair(plan, i);
-                const double step = i == 0 ? .0001 : .001;
-                REQUIRE(pair.row_.id_ == request.snapshot_.Request().quotes_[i].id_ && pair.row_.step_ == step, "quote selection mismatch");
-                REQUIRE(pair.plus_.model_ && pair.minus_.model_, "expected two successful sides for " + pair.row_.id_);
-                CompareSide(request, i, step, pair.plus_);
-                CompareSide(request, i, -step, pair.minus_);
-                if (i == 0) {
-                    REQUIRE(pair.plus_.model_->Snapshot().RegimeSignature() != pair.minus_.model_->Snapshot().RegimeSignature() &&
-                                pair.Status() == "REGIME_CHANGED",
-                            "expected two successful branches");
-                    std::cout << "left " << pair.Status() << '\n';
-                }
+    void CheckPairs(const MarketIvScriptRefitRequest_& request) {
+        const auto plan = PlanMarketIvScriptRefit(request);
+        for (size_t i = 0; i < 2; ++i) {
+            const auto pair = BuildMarketIvScriptRefitPair(plan, i);
+            const double step = i == 0 ? .0001 : .001;
+            REQUIRE(pair.row_.id_ == request.snapshot_.Request().quotes_[i].id_ && pair.row_.step_ == step, "quote selection mismatch");
+            REQUIRE(pair.plus_.model_ && pair.minus_.model_, "expected two successful sides for " + pair.row_.id_);
+            CompareSide(request, i, step, pair.plus_);
+            CompareSide(request, i, -step, pair.minus_);
+            if (i == 0) {
+                REQUIRE(pair.plus_.model_->Snapshot().RegimeSignature() != pair.minus_.model_->Snapshot().RegimeSignature() &&
+                            pair.Status() == "REGIME_CHANGED",
+                        "expected two successful branches");
+                std::cout << "left " << pair.Status() << '\n';
             }
         }
+    }
+
+    void CheckParityFailure(MarketIvScriptRefitRequest_ request) {
         request.quoteIds_ = {"atm", "right"};
         request.steps_ = {.01, .0001};
         const auto plan = PlanMarketIvScriptRefit(request);
@@ -132,15 +140,15 @@ namespace {
         request.steps_ = {step};
 
         const auto reference = RefitMarketIvSurface(request.snapshot_, minusQuotes);
-        REQUIRE(reference.Status() == "WORK_LIMIT" && reference.Execution().modelRowEvaluations_ == rows - 1 && reference.SelectedStart() >= 0 &&
-                    reference.SelectedStart() == full.SelectedStart(),
-                "expected the negative refit to exhaust its budget after selecting a start");
+        REQUIRE(reference.Status() == "WORK_LIMIT", "expected a work-limited negative refit");
+        REQUIRE(reference.Execution().modelRowEvaluations_ == rows - 1, "negative refit did not exhaust the configured row budget");
+        REQUIRE(reference.SelectedStart() >= 0 && reference.SelectedStart() == full.SelectedStart(), "negative refit lost its selected start");
         const auto pair = BuildMarketIvScriptRefitPair(PlanMarketIvScriptRefit(request), 0);
         REQUIRE(pair.plus_.model_, "expected a readable positive-side model");
         CompareSide(request, 0, step, pair.plus_);
-        REQUIRE(pair.minus_.fitStatus_ == reference.Status() && pair.minus_.failure_ == reference.Failure() && pair.minus_.failureStage_ == "FIT" &&
-                    !pair.minus_.model_ && pair.Status() == "SIDE_FAILED" && !pair.symmetricBumpSlope_,
-                "negative-side work-limit diagnostic mismatch");
+        REQUIRE(pair.minus_.fitStatus_ == reference.Status() && pair.minus_.failure_ == reference.Failure(), "negative fit diagnostic mismatch");
+        REQUIRE(pair.minus_.failureStage_ == "FIT" && !pair.minus_.model_, "expected a fit failure with no negative model");
+        REQUIRE(pair.Status() == "SIDE_FAILED" && !pair.symmetricBumpSlope_, "expected a failed row with no central slope");
         std::cout << "left negative full_rows=" << rows << " budget=" << rows - 1 << " " << pair.minus_.fitStatus_
                   << " reference_start=" << reference.SelectedStart() << " pair_start=" << pair.minus_.selectedStart_ << " model=empty\n";
         REQUIRE(pair.minus_.selectedStart_ == reference.SelectedStart(), "failed negative side lost its selected start");
@@ -152,6 +160,7 @@ int main() {
         RegisterAll_::Init();
         const auto request = Request();
         CheckPairs(request);
+        CheckParityFailure(request);
         CheckWorkLimitAfterSelection(request);
         return 0;
     } catch (const std::exception& error) {
