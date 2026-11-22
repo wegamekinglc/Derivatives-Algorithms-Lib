@@ -265,6 +265,8 @@ EXACT examples cover an ON target with passive discount, a discount target with
 passive ON, and one target serving both routes. Mixed `/1`/`/2` contracts share
 the same calibration specification.
 
+### Registered Price and ParRate quote risk
+
 Register every calibration and prospective PV contract in `compoundedOis_`
 before calibration. IDs must be unique across the entire table collection, and
 every table must use the same valuation, today policy and complete explicit
@@ -289,9 +291,13 @@ amount per 1.0 decimal quote rate; `DV01()` is raw times 0.0001, the signed PV
 response to a quote rising 1bp. There is no per-million normalization or extra
 minus sign. Doubling N doubles PV/raw/DV01, and ReceiveFixed reverses them.
 
-For a registered OIS, the core snapshot's `ValueCompoundedOisParRateWithQuoteRisk`
-returns the decimal par rate and signed bp/bp sensitivities in the requested
-quote order. An empty selection uses snapshot order. AAD differentiates the
+For a registered OIS, core C++ callers can use the snapshot's
+`ResolveCompoundedOisParRate` to check the bound instrument, prepared tables,
+calibration context and selected quote IDs. On success it returns the prepared
+ParRate plan and quote axis. Check `Available()` before using the plan.
+`ValueCompoundedOisParRateWithQuoteRisk` uses that resolution to return the
+decimal par rate and signed bp/bp sensitivities in the requested quote order.
+An empty selection uses snapshot order. AAD differentiates the
 floating leg and fixed annuity together. The operation reuses the snapshot
 factorization for one checked transpose response per contract. A settled
 contract or an annuity outside its signed floor returns diagnostics.

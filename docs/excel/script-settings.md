@@ -412,7 +412,7 @@ results, and saves the executed workbook. It requires Windows, a matching XLL
 and Excel architecture, and Excel supporting `Formula2` and dynamic spills.
 See [Windows build prerequisites](../installation.md#windows-c-and-excel).
 
-From a Visual Studio 2022 x64 developer PowerShell at the repository root,
+From an x64 Visual Studio 2022 or 2026 developer PowerShell at the repository root,
 build the source being recorded, then execute the runner. Set the three Office
 type-library paths to your installed files; this example uses a Click-to-Run
 Office16 layout:

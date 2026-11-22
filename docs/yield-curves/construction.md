@@ -709,12 +709,14 @@ const auto fraRate = fra3x6->Precompute(Handle_<YieldCurve_>());
 const double modelFra = (*fraRate)(bundle);
 ```
 
-To retain the inputs for same-currency staged quote risk, pass a
-`StagedMultiCurveCalibrationRecord_` to the core overload.
+For same-currency staged quote risk, use a separate specification with two
+square, full-rank EXACT stages. The overdetermined APPROXIMATE example above
+returns fitted curves but cannot supply this risk mapping. Pass a
+`StagedMultiCurveCalibrationRecord_` to the core overload to capture the fit.
 
 ```cpp
 StagedMultiCurveCalibrationRecord_ record;
-const auto fitted = CalibrateMultiCurve(multi, &record);
+const auto fitted = CalibrateMultiCurve(exactTwoStageSpec, &record);
 ```
 
 An empty `record.unavailableReason_` after the call identifies two square,

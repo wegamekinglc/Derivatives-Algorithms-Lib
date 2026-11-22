@@ -87,6 +87,7 @@ Naming, type idioms, error handling, and enum markup follow
 
 - Python: **uv** is recommended for `dal-python/`; standalone `dal-python` package
   builds also support pip.
-- DAL agent rules: `.codex/skills/dal-git-pr/SKILL.md` (the only skill shipping a `SKILL.md`;
-  `dal-agent-team/` holds compatibility references only) and
-  `.codex/skills/dal-agent-team/references/shared-rules.md`.
+- The [shared guidance](../.codex/skills/dal-agent-team/references/shared-rules.md)
+  points to the ten DAL role contracts. Codex registers the
+  [Git/PR skill](../.codex/skills/dal-git-pr/SKILL.md). Claude registers four
+  [skills](../.claude/skills/) that refer to the shared workflows.
