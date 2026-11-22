@@ -15,17 +15,17 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Rate quote curvature** — immutable calibration snapshots and weighted native portfolios with recalibrated quote gradients and finite-step Hessian products; see [the interface](../docs/python/README.md#rate-quote-gamma-and-hessian-products)
 - **Segmented Black–Scholes risk** — owning script preparation, explicit path/checkpoint budgets and common-path mean gradients/Hessian products; see [the interface](../docs/python/README.md#segmented-blackscholes-monte-carlo-risk)
 - **LSMC policy curvature** — owning preparation and retained policy metadata distinguish frozen-policy HVPs from differences of the retrained gradient estimator; see [the interface](../docs/python/README.md#native-lsmc-policy-curvature)
-- **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
+- **Type-safe wrappers** for `Date_`, `DoubleMatrix_`, `Cell_`, and vector types
 
 ## Prerequisites
 
 - **CPython 3.9-3.14** with development headers (`Requires-Python: >=3.9,<3.15`)
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
 - **pybind11 3.1.0** — installed automatically for isolated package builds;
-  local helpers install it before non-isolated builds. Older repository builds
-  can fall back to the pinned `dal-cpp/externals/pybind11` submodule, so run
-  `git submodule update --init --recursive` on fresh clones
-- **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
+  local helpers install it before non-isolated builds. On supported interpreters
+  older than CPython 3.14, CMake can fall back to the pinned pybind11 submodule.
+  Run `git submodule update --init --recursive` on fresh clones
+- **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or the x64 MSVC toolchain from Visual Studio 2022 or 2026)
 - **DAL C++ staged install** — build core/public first; the canonical workflow is
   in the [installation guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/installation.md#python-bindings)
 
@@ -149,7 +149,7 @@ uv pip install dist/dal_python-2026.11.15.tar.gz \
 ```
 
 **Requirements for building from source:**
-- C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
+- C++17 compiler as listed under [Prerequisites](#prerequisites)
 - CMake 3.21+
 - pybind11 3.1.0 (declared as an isolated build requirement and installed
   automatically; Python 3.14 builds require pybind11 3.0 or newer)

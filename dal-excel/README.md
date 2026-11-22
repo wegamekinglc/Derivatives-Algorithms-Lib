@@ -7,7 +7,7 @@ interpolation, curve calibration, and repository management.
 
 ## Build
 
-Use a Windows preset from a Visual Studio 2022 developer shell:
+Run the Windows preset from an x64 Visual Studio 2022 or 2026 developer shell with Ninja available.
 
 ```powershell
 cmake --preset Release-windows

@@ -96,8 +96,9 @@ places it in `bin/snowball`. Multi-configuration generators also add the build
 configuration, such as `Release`, to the executable directory. CTest resolves the
 correct target location automatically.
 
-`dal_script_settings_example` and `dal_hybrid_script_example` are build-only
-targets; run them through their CTest entries.
+Run the two uninstalled executables `dal_script_settings_example` and
+`dal_hybrid_script_example` through their CTest entries `ScriptSettingsExample`
+and `HybridScriptExample`, respectively.
 
 `european_mc` keeps its `examples_slow` label. `excelwriter` requires MSVC and
 Microsoft Office type libraries and is excluded from automatic smoke tests because
