@@ -116,12 +116,43 @@ namespace {
         CompareSide(request, 2, .0001, next.plus_);
         CompareSide(request, 2, -.0001, next.minus_);
     }
+
+    void CheckWorkLimitAfterSelection(MarketIvScriptRefitRequest_ request) {
+        constexpr double step = .0001;
+        auto base = request.snapshot_.Request();
+        auto minusQuotes = base.quotes_;
+        minusQuotes.front().mid_ -= step;
+        const auto full = RefitMarketIvSurface(request.snapshot_, minusQuotes);
+        REQUIRE(full.IsSuccess(), full.Failure());
+        const size_t rows = full.Execution().modelRowEvaluations_;
+        REQUIRE(rows > 1, "expected a nonzero final diagnostic budget");
+        base.settings_.maxModelRowEvaluations_ = rows - 1;
+        request.snapshot_ = FitMarketIvSurface(base).Snapshot();
+        request.quoteIds_ = {"left"};
+        request.steps_ = {step};
+
+        const auto reference = RefitMarketIvSurface(request.snapshot_, minusQuotes);
+        REQUIRE(reference.Status() == "WORK_LIMIT" && reference.Execution().modelRowEvaluations_ == rows - 1 && reference.SelectedStart() >= 0 &&
+                    reference.SelectedStart() == full.SelectedStart(),
+                "expected the negative refit to exhaust its budget after selecting a start");
+        const auto pair = BuildMarketIvScriptRefitPair(PlanMarketIvScriptRefit(request), 0);
+        REQUIRE(pair.plus_.model_, "expected a readable positive-side model");
+        CompareSide(request, 0, step, pair.plus_);
+        REQUIRE(pair.minus_.fitStatus_ == reference.Status() && pair.minus_.failure_ == reference.Failure() && pair.minus_.failureStage_ == "FIT" &&
+                    !pair.minus_.model_ && pair.Status() == "SIDE_FAILED" && !pair.symmetricBumpSlope_,
+                "negative-side work-limit diagnostic mismatch");
+        std::cout << "left negative full_rows=" << rows << " budget=" << rows - 1 << " " << pair.minus_.fitStatus_
+                  << " reference_start=" << reference.SelectedStart() << " pair_start=" << pair.minus_.selectedStart_ << " model=empty\n";
+        REQUIRE(pair.minus_.selectedStart_ == reference.SelectedStart(), "failed negative side lost its selected start");
+    }
 } // namespace
 
 int main() {
     try {
         RegisterAll_::Init();
-        CheckPairs(Request());
+        const auto request = Request();
+        CheckPairs(request);
+        CheckWorkLimitAfterSelection(request);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

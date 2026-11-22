@@ -17,11 +17,11 @@ namespace Dal::Script {
                 }
                 const auto& fit = *bumped.fit_;
                 side.fitStatus_ = fit.Status();
+                side.selectedStart_ = fit.SelectedStart();
                 if (!fit.IsSuccess()) {
                     side.failure_ = fit.Failure();
                     return side;
                 }
-                side.selectedStart_ = fit.SelectedStart();
                 const auto snapshot = fit.Snapshot();
                 side.regimeChanged_ = snapshot.RegimeSignature() != request.snapshot_.RegimeSignature();
                 side.failureStage_ = "GRID";
