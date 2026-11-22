@@ -35,10 +35,11 @@ The basic valuation shape is:
 ```python
 import dal
 
-dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+today = dal.Date_(2022, 9, 25)
+dal.EvaluationDate_Set(today)
 product = dal.Product_New(
     ["STRIKE", dal.Date_(2023, 9, 25)],
-    ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
+    ["100.0", "intrinsic = MAX(spot() - STRIKE, 0.0) call PAYS intrinsic"],
 )
 model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
 result = dal.MonteCarlo_Value(product, model, 2**16, enable_aad=True)
@@ -286,13 +287,19 @@ describes the retained product/model/history settings and mixed LSM policy risk.
 with `id`, `label` and `slot`. The payoff receiver has ID `payoff`; other scalar
 slots use `output:<ordinal>`. Labels are display text. Vector storage is excluded.
 
+The [basic valuation example](#common-workflows) defines `today`, `product` and
+`model`. Its two scalar outputs are the intrinsic value at expiry and the call
+payment. The weights below follow that order.
+
 ```python
+valuation = dal.ScriptValuationSettings_(evaluation_date=today)
+output_ids = [item.id for item in dal.Product_Get_RiskOutputs(product)]  # ["output:0", "payoff"]
 request = dal.WeightedRiskRequest_(
-    outputs=["output:0", "payoff"], weights=[2.0, -0.5],
+    outputs=output_ids, weights=[2.0, -0.5],
     inputs=["model:0", "model:1"], report_factors=[1.0, 0.01],
 )
 risk = dal.MonteCarlo_ValueWithWeightedRisk(
-    product, model, 2**16, request=request,
+    product, model, 2**16, request=request, valuation=valuation,
 )
 objective = risk.weighted_value
 components = risk.component_means
@@ -326,11 +333,12 @@ source snapshots and detached getter copies are excluded. See the
 
 `MonteCarlo_ValueWithJacobianRisk` returns owning output means and a complete
 selected-output by selected-input matrix. Choices after product, model and
-path count are keyword-only:
+path count are keyword-only. This example reuses `valuation` and `output_ids`
+from the [weighted risk example](#weighted-script-risk).
 
 ```python
 request = dal.JacobianRiskRequest_(
-    outputs=["output:0", "payoff"], inputs=["model:0", "model:1"],
+    outputs=output_ids, inputs=["model:0", "model:1"],
     max_block_width=2, scratch_capacity_budget_bytes=8 * 1024 * 1024,
 )
 risk = dal.MonteCarlo_ValueWithJacobianRisk(
