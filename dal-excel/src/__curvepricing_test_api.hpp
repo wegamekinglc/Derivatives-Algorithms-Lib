@@ -13,6 +13,20 @@
 namespace Dal {
     struct StorableRateQuoteRiskProvenance_;
 
+    DAL_EXCEL_TEST_API void
+    Calibrate_MultiCurve(const Vector_<Handle_<Storable_>>& stages, bool recordQuoteRisk, Handle_<StorableMultiCurveCalibrationResult_>* result);
+    DAL_EXCEL_TEST_API void MultiCurveCalibrationResult_Get_Curve(const Handle_<StorableMultiCurveCalibrationResult_>& result,
+                                                                  const String_& role,
+                                                                  const String_& route,
+                                                                  Handle_<StorableDiscountCurve_>* curve);
+    DAL_EXCEL_TEST_API void StagedMultiCurveQuoteRiskProvenance_New(const Handle_<StorableMultiCurveCalibrationResult_>& result,
+                                                                    const String_& calibrationId,
+                                                                    const Vector_<String_>& parameterBlockKeys,
+                                                                    const Vector_<String_>& componentKeys,
+                                                                    const Handle_<StorableRatePricingMarket_>& market,
+                                                                    const Cell_& retainCalibrationRecord,
+                                                                    Handle_<StorableRateQuoteRiskProvenance_>* provenance);
+
     DAL_EXCEL_TEST_API void JointMultiCurveQuoteRiskProvenance_New(const Handle_<StorableJointMultiCurveCalibrationResult_>& result,
                                                                    const String_& calibrationId,
                                                                    const Vector_<String_>& parameterBlockKeys,

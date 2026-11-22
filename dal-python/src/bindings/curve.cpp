@@ -1506,22 +1506,28 @@ namespace {
     }
 
     void init_bindings_curve_calibration_results(py::module_& m) {
-        py::class_<MultiCurveCalibrationResult_>(m, "MultiCurveCalibrationResult_")
+        py::class_<StagedMultiCurveCalibrationRecord_>(m, "StagedMultiCurveCalibrationRecord_")
+            .def_property_readonly("unavailable_stage", [](const StagedMultiCurveCalibrationRecord_& r) { return StdString(r.unavailableStage_); })
+            .def_property_readonly("unavailable_reason", [](const StagedMultiCurveCalibrationRecord_& r) { return StdString(r.unavailableReason_); });
+
+        py::class_<MultiCurveBundleResult_>(m, "MultiCurveCalibrationResult_")
+            .def_property_readonly(
+                "risk_record", [](const MultiCurveBundleResult_& r) { return r.riskRecord_.get(); }, py::return_value_policy::reference_internal)
             .def_property_readonly("discountCurves_",
-                                   [](const MultiCurveCalibrationResult_& r) -> std::map<CollateralType_, std::shared_ptr<DiscountCurve_>> {
+                                   [](const MultiCurveBundleResult_& r) -> std::map<CollateralType_, std::shared_ptr<DiscountCurve_>> {
                                        std::map<CollateralType_, std::shared_ptr<DiscountCurve_>> result;
                                        for (auto& kv : r.discountCurves_)
                                            result[kv.first] = std::const_pointer_cast<DiscountCurve_>(kv.second);
                                        return result;
                                    })
             .def_property_readonly("forwardCurves_",
-                                   [](const MultiCurveCalibrationResult_& r) -> std::map<PeriodLength_, std::shared_ptr<DiscountCurve_>> {
+                                   [](const MultiCurveBundleResult_& r) -> std::map<PeriodLength_, std::shared_ptr<DiscountCurve_>> {
                                        std::map<PeriodLength_, std::shared_ptr<DiscountCurve_>> result;
                                        for (auto& kv : r.forwardCurves_)
                                            result[kv.first] = std::const_pointer_cast<DiscountCurve_>(kv.second);
                                        return result;
                                    })
-            .def_property_readonly("diagnostics_", [](const MultiCurveCalibrationResult_& r) -> py::list {
+            .def_property_readonly("diagnostics_", [](const MultiCurveBundleResult_& r) -> py::list {
                 py::list result;
                 for (auto& d : r.diagnostics_)
                     result.append(d);
@@ -1576,12 +1582,12 @@ namespace {
 
         m.def(
             "CalibrateMultiCurveBundle",
-            [](MultiCurveCalibrationSpec_ spec) {
+            [](MultiCurveCalibrationSpec_ spec, bool recordQuoteRisk) {
                 py::gil_scoped_release release;
                 RunCurveCalibrationGilBarrierForTesting();
-                return CalibrateMultiCurveBundle(spec);
+                return CalibrateMultiCurveBundle(spec, recordQuoteRisk);
             },
-            py::arg("spec"));
+            py::arg("spec"), py::kw_only(), py::arg("record_quote_risk") = false);
     }
 
     void init_bindings_curve_xccy(py::module_& m) {
@@ -2201,6 +2207,12 @@ namespace {
 
         m.def("RateQuoteRiskAxisFingerprintScheme", []() { return StdString(RateQuoteRiskAxisFingerprintScheme()); });
         m.def("RateQuoteRiskStateFingerprintScheme", []() { return StdString(RateQuoteRiskStateFingerprintScheme()); });
+        m.def(
+            "BuildStagedMultiCurveQuoteRiskProvenance",
+            [](const MultiCurveBundleResult_& result, const RatePricingMarket_& market, const RateQuoteRiskProvenanceConfig_& config) {
+                return RunQuoteRiskWithReleasedGil([&] { return BuildStagedMultiCurveQuoteRiskProvenance(result, market, config); });
+            },
+            py::kw_only(), py::arg("result"), py::arg("bound_market"), py::arg("config"));
         m.def("BuildSingleCurveQuoteRiskProvenance", &RunBuildSingleCurveQuoteRiskProvenance, py::kw_only(), py::arg("spec"), py::arg("result"),
               py::arg("options"), py::arg("bound_market"), py::arg("config"));
         m.def("BuildJointXccyQuoteRiskProvenance", &RunBuildJointXccyQuoteRiskProvenance, py::kw_only(), py::arg("spec"), py::arg("result"),

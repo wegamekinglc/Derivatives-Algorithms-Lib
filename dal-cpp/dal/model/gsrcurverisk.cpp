@@ -87,6 +87,7 @@ namespace Dal {
                                 size_t projectionCount) {
             RequireLiveQuoteRiskState(provenance, "gsr.curve.source");
             REQUIRE(provenance.Available(), "InvalidGSRCurveRisk: curve quote provenance unavailable: " + provenance.Reason());
+            const auto& inverse = provenance.EffectiveInverse();
             REQUIRE(market.valuationTime_.Date() == snapshot.evaluationDate_ && market.resultCurrency_.String() == snapshot.currency_,
                     "InvalidGSRCurveRisk: market date or currency mismatch");
             REQUIRE(projectionCount == snapshot.projectionTenors_.size(), "InvalidGSRCurveRisk: projection component count mismatch");
@@ -95,7 +96,6 @@ namespace Dal {
                             state.fingerprint_,
                         "InvalidGSRCurveRisk: stale curve quote provenance");
             const auto& axis = provenance.Axis();
-            const auto& inverse = provenance.EffectiveInverse();
             REQUIRE(std::isfinite(provenance.Tolerance()) && provenance.Tolerance() > 0.0, "InvalidGSRCurveRisk: curve residual tolerance invalid");
             REQUIRE(inverse.Rows() == static_cast<int>(axis.parameters_.size()) && inverse.Cols() == static_cast<int>(axis.quotes_.size()) &&
                         inverse.Cols() > 0,

@@ -780,6 +780,21 @@ raises a calibration or pricing exception, the recording overload returns the
 completed stages and the error text. The one-argument call propagates the
 exception.
 
+The installed C++ facade accepts an explicit capture request and carries the
+record alongside the ordinary curve maps and diagnostics.
+
+```cpp
+const auto bundle = CalibrateMultiCurveBundle(exactTwoStageSpec, true);
+market.curveComponents_["ESTR"] = bundle.discountCurves_.at(CollateralType_("OIS"));
+market.curveComponents_["Euribor6M"] = bundle.forwardCurves_.at(PeriodLength_("6M"));
+auto source = BuildStagedMultiCurveQuoteRiskProvenance(bundle, market, config);
+auto risk = AggregateRatePortfolioQuoteRisk(trades, market, {source});
+```
+
+The two-argument facade returns a null
+`riskRecord_` for `false`. The dedicated factory reports
+`bundle QUOTE_RISK_STAGED_RECORD_NOT_REQUESTED` for this result.
+
 API citations:
 
 - `OISSwap_` and `FRA_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp`.

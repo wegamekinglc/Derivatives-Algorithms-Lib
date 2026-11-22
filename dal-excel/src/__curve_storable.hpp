@@ -129,9 +129,11 @@ namespace Dal {
     };
 
     struct StorableMultiCurveCalibrationResult_ : public Storable_ {
-        MultiCurveCalibrationResult_ val_;
-        explicit StorableMultiCurveCalibrationResult_(const MultiCurveCalibrationResult_& v)
-            : Storable_("MultiCurveCalibrationResult", String_()), val_(v) {}
+        MultiCurveBundleResult_ val_;
+        explicit StorableMultiCurveCalibrationResult_(MultiCurveBundleResult_ value)
+            : Storable_("MultiCurveCalibrationResult", String_()), val_(std::move(value)) {}
+        explicit StorableMultiCurveCalibrationResult_(MultiCurveCalibrationResult_ value)
+            : StorableMultiCurveCalibrationResult_(MultiCurveBundleResult_{std::move(value), {}}) {}
         void Write(Archive::Store_&) const override {}
     };
 

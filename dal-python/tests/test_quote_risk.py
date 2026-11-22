@@ -179,6 +179,7 @@ def test_quote_risk_factories_and_aggregate_are_keyword_only():
         "BuildSingleCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
         "BuildJointXccyQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
         "BuildJointMultiCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
+        "BuildStagedMultiCurveQuoteRiskProvenance": ("result", "bound_market", "config"),
         "BuildStagedXccyBasisQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
         "AggregateRatePortfolioQuoteRisk": ("trades", "market", "provenances"),
     }
@@ -196,6 +197,100 @@ def test_quote_risk_factories_and_aggregate_are_keyword_only():
 
     with pytest.raises(TypeError):
         dal.RateQuoteRiskProvenanceConfig_("calibration", {"curve": "discount"})
+
+
+def _staged_portfolio():
+    today = dal.Date_(2024, 1, 15)
+    tenor = dal.PeriodLength_New("6M")
+    basis = dal.DayBasis_New("ACT_365F")
+    leg = dal.RateLegConvention_New(tenor, basis)
+    index = dal.RateIndexConvention_New(tenor, basis, dal.CollateralType_OIS(), True)
+    disc_index = dal.RateIndexConvention_New(tenor, basis, dal.CollateralType_OIS())
+    maturities = (dal.Date_(2026, 1, 15), dal.Date_(2024, 7, 15))
+    builder = dal.CurveCalibrationSpecBuilder_()
+    builder.today_, builder.ccy_ = today, dal.String_("EUR")
+    builder.parameterization_ = dal.CurveParameterization.ZERO_RATE
+    builder.knot_policy = dal.CurveKnotPolicy.INSTRUMENTS
+    builder.curveName_, builder.initialGuess_, builder.tolerance_ = dal.String_("ESTR"), .02, 1e-13
+    builder.instruments_ = [dal.Deposit_New(today, today, date, rate, disc_index)
+                            for date, rate in zip(maturities, (.035, .021))]
+    discount = builder.Build()
+    builder.calibrateDiscountCurve_, builder.targetTenor_ = False, tenor
+    builder.curveName_, builder.initialGuess_, builder.tolerance_ = dal.String_("Euribor6M"), .01, 5e-13
+    builder.instruments_ = [dal.Swap_New(today, today, date, rate, leg, index, leg)
+                            for date, rate in zip(maturities, (.042, .028))]
+    spec = dal.MultiCurveCalibrationSpec_()
+    spec.ccy_, spec.stages_ = builder.ccy_, [discount, builder.Build()]
+
+    identity = dal.FixingIdentity_()
+    identity.index_name, identity.fixing_hour, identity.fixing_minute = "Euribor6M", 11, 0
+    trades = []
+    for name, notional, rate, maturity in (
+        ("payer", 1_000_000., .031, dal.Date_(2025, 8, 15)),
+        ("receiver", 400_000., .048, dal.Date_(2025, 2, 15)),
+    ):
+        terms = dal.FixedFloatTradeTerms_(notional=notional, contract_rate=rate, pay_fixed=name == "payer",
+                                         fixed_leg=leg, float_leg=leg, float_index=index, fixing_identity=identity,
+                                         forecast_component_key="Euribor6M", discount_component_key="ESTR")
+        trades.append(dal.RateTradeDefinition_(instrument_id=name, instrument_type=dal.RateInstrumentType.IRS,
+                                              trade_date=today, start_date=dal.Date_(2024, 2, 15), maturity_date=maturity,
+                                              currency="EUR", terms=dal.IrsTradeTerms_(value=terms)))
+    return spec, trades
+
+
+def test_staged_portfolio_quote_risk_matches_the_four_eur_buckets():
+    spec, trades = _staged_portfolio()
+    fit = dal.CalibrateMultiCurveBundle(spec=spec, record_quote_risk=True)
+    components = {"ESTR": next(iter(fit.discountCurves_.values())), "Euribor6M": next(iter(fit.forwardCurves_.values()))}
+    market = dal.RatePricingMarket_(valuation_time=dal.DateTime_(dal.Date_(2024, 1, 15), 10, 0),
+                                    result_currency="USD", curve_components=components)
+    config = dal.RateQuoteRiskProvenanceConfig_(calibration_id="EUR-calibration",
+                                               component_key_by_parameter_block={"stage:0": "ESTR", "stage:1": "Euribor6M"})
+    source = dal.BuildStagedMultiCurveQuoteRiskProvenance(result=fit, bound_market=market, config=config)
+    assert fit.risk_record.unavailable_reason == ""
+    with pytest.raises(AttributeError):
+        fit.risk_record = None
+    with pytest.raises(AttributeError):
+        fit.risk_record.unavailable_reason = "changed"
+    with pytest.raises(TypeError):
+        dal.CalibrateMultiCurveBundle(spec, True)
+    del fit, spec
+    risk = dal.AggregateRatePortfolioQuoteRisk(trades=trades, market=market, provenances=[source])
+    assert risk.provenance_failures == ()
+    assert tuple(row.eligible for row in risk.meta) == (True, True)
+    expected = (-1.13929254, -.62725918, 109.06027558, -3.41379201)
+    assert tuple(b.quote_key for b in risk.buckets) == ("stage:0:0", "stage:0:1", "stage:1:0", "stage:1:1")
+    for bucket, dv01 in zip(risk.buckets, expected):
+        assert bucket.actual_pv_ccy == "EUR"
+        assert bucket.d_pv_d_decimal_quote == pytest.approx(dv01 * 1e4, abs=1e-4, rel=0)
+        assert bucket.dv01 == pytest.approx(dv01, abs=1e-8, rel=0)
+    stale = dal.RatePricingMarket_(valuation_time=dal.DateTime_(dal.Date_(2024, 1, 15), 10, 1),
+                                   result_currency="USD", curve_components=components)
+    rejected = dal.AggregateRatePortfolioQuoteRisk(trades=trades, market=stale, provenances=[source])
+    assert rejected.buckets == ()
+    failure, = rejected.provenance_failures
+    assert (failure.calibration_id, failure.reason) == ("EUR-calibration", "QUOTE_RISK_CALIBRATION_STATE_MISMATCH")
+
+
+def test_staged_unavailable_record_keeps_fit_and_reports_stage():
+    spec, _ = _staged_portfolio()
+    spec.stages_ = spec.stages_[:1]
+    plain = dal.CalibrateMultiCurveBundle(spec)
+    fitted = dal.CalibrateMultiCurveBundle(spec, record_quote_risk=True)
+    assert plain.risk_record is None
+    assert len(fitted.discountCurves_) == len(plain.discountCurves_) == 1
+    assert fitted.risk_record.unavailable_stage == "bundle"
+    assert "exactly two stages" in fitted.risk_record.unavailable_reason
+    market = dal.RatePricingMarket_(valuation_time=dal.DateTime_(dal.Date_(2024, 1, 15), 10, 0), result_currency="USD",
+                                    curve_components={"ESTR": next(iter(fitted.discountCurves_.values()))})
+    config = dal.RateQuoteRiskProvenanceConfig_(calibration_id="incomplete", component_key_by_parameter_block={})
+    for result, reason in ((plain, "bundle QUOTE_RISK_STAGED_RECORD_NOT_REQUESTED"),
+                           (fitted, "bundle " + fitted.risk_record.unavailable_reason)):
+        source = dal.BuildStagedMultiCurveQuoteRiskProvenance(result=result, bound_market=market, config=config)
+        risk = dal.AggregateRatePortfolioQuoteRisk(trades=[], market=market, provenances=[source])
+        assert source.available is False
+        assert risk.buckets == ()
+        assert risk.provenance_failures[0].reason == reason
 
 
 def test_single_curve_quote_risk_exposes_immutable_provenance_and_unit_bearing_results():

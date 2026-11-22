@@ -1151,8 +1151,16 @@ K1: =RATEPORTFOLIOQUOTERISK.SPILL(E1, G1, J1)
 ```
 
 `JOINTXCCYQUOTERISKPROVENANCE.NEW` and
-`STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover the other supported calibration
-domains. Generic joint calibration has the dedicated
+`STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover the XCCY calibration domains.
+For sequential same-currency calibration, create each
+`CURVECALIBRATIONSTAGE.NEW(today, currency, instruments, [knotDates], [settings])`
+and pass the ordered stage handles to `CALIBRATE.MULTICURVE(stages, TRUE)`.
+Omitting knot dates selects instrument knots. Build the market with
+`MULTICURVECALIBRATIONRESULT.GET.CURVE(result, "Discount", "OIS")` and the
+corresponding `"Forward"` tenor. Pass the result, calibration ID, stage keys,
+component keys and market to `STAGEDMULTICURVEQUOTERISKPROVENANCE.NEW`.
+The existing portfolio spill returns the discount then forward quote rows.
+Generic joint calibration has the dedicated
 `JOINTMULTICURVEQUOTERISKPROVENANCE.NEW` factory and a
 [complete worksheet construction path](../../dal-excel/examples/009.generic_joint_quote_risk.md).
 The legacy `RATEQUOTERISKPROVENANCE.NEW(result, calibrationId,

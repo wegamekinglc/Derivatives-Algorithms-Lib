@@ -12,6 +12,7 @@
 #include <dal-public/src/curveinstrument.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
+#include <dal-public/tests/stagedquoteriskfixture.hpp>
 
 namespace {
     using namespace Dal;
@@ -245,6 +246,49 @@ TEST(ExcelCurvePricingTest, TestQuoteRiskEmptySpillKeepsFixedColumnShape) {
 TEST(ExcelCurvePricingTest, TestSingleCurveQuoteRiskProvenanceRejectsMissingHandles) {
     Handle_<StorableRateQuoteRiskProvenance_> provenance;
     ASSERT_THROW(SingleCurveQuoteRiskProvenance_New({}, "single", {"curve"}, {"discount"}, {}, &provenance), Exception_);
+}
+
+TEST(ExcelCurvePricingTest, TestStagedPortfolioSpillsFourEurBucketsAndStaleSourceRow) {
+    using namespace StagedQuoteRiskTest;
+    Vector_<Handle_<Storable_>> stages;
+    for (auto stage : Spec().stages_) {
+        stage.ccy_ = "EUR";
+        stages.emplace_back(new StorableCurveCalibrationSpec_(stage));
+    }
+    Handle_<StorableMultiCurveCalibrationResult_> fit;
+    Calibrate_MultiCurve(stages, true, &fit);
+    Handle_<StorableDiscountCurve_> discount, forward;
+    MultiCurveCalibrationResult_Get_Curve(fit, "Discount", "OIS", &discount);
+    MultiCurveCalibrationResult_Get_Curve(fit, "Forward", "6M", &forward);
+    Handle_<StorableRatePricingMarket_> market;
+    const Vector_<Handle_<Storable_>> curves{Handle_<Storable_>(discount), Handle_<Storable_>(forward)};
+    RatePricingMarket_New(Cell_(DateTime_(TODAY, 10, 0)), "USD", {"ESTR", "Euribor6M"}, curves, {}, {}, {}, 0., {}, {}, &market);
+    Handle_<StorableRateQuoteRiskProvenance_> source;
+    StagedMultiCurveQuoteRiskProvenance_New(fit, CONFIG.calibrationId_, {"stage:0", "stage:1"}, {"ESTR", "Euribor6M"}, market, {}, &source);
+    const Vector_<Handle_<Storable_>> trades{Handle_<Storable_>(new StorableRateTradeDefinition_(SwapTrade(true))),
+                                             Handle_<Storable_>(new StorableRateTradeDefinition_(SwapTrade(false)))};
+    Matrix_<Cell_> spill;
+    const Vector_<Handle_<Storable_>> sources{Handle_<Storable_>(source)};
+    RatePortfolioQuoteRisk_Spill(trades, market, sources, &spill);
+    ASSERT_EQ(spill.Rows(), 4);
+    ASSERT_EQ(spill.Cols(), 10);
+    for (int i = 0; i < 4; ++i) {
+        ASSERT_EQ(Cell::ToString(spill(i, 2)), "stage:" + String::FromInt(i / 2) + ":" + String::FromInt(i % 2));
+        ASSERT_EQ(Cell::ToString(spill(i, 5)), "EUR");
+        ASSERT_NEAR(Cell::ToDouble(spill(i, 6)), PORTFOLIO_DV01[i] * 1.e4, 1.e-4);
+        ASSERT_NEAR(Cell::ToDouble(spill(i, 7)), PORTFOLIO_DV01[i], 1.e-8);
+        ASSERT_EQ(Cell::ToString(spill(i, 8)), "available");
+        ASSERT_TRUE(Cell::IsEmpty(spill(i, 9)));
+    }
+    RatePricingMarket_New(Cell_(DateTime_(TODAY, 10, 1)), "USD", {"ESTR", "Euribor6M"}, curves, {}, {}, {}, 0., {}, {}, &market);
+    RatePortfolioQuoteRisk_Spill(trades, market, sources, &spill);
+    ASSERT_EQ(spill.Rows(), 1);
+    ASSERT_EQ(spill.Cols(), 10);
+    ASSERT_EQ(Cell::ToString(spill(0, 0)), CONFIG.calibrationId_);
+    ASSERT_TRUE(Cell::IsEmpty(spill(0, 6)));
+    ASSERT_TRUE(Cell::IsEmpty(spill(0, 7)));
+    ASSERT_EQ(Cell::ToString(spill(0, 8)), "unavailable");
+    ASSERT_EQ(Cell::ToString(spill(0, 9)), "QUOTE_RISK_CALIBRATION_STATE_MISMATCH");
 }
 
 TEST(ExcelCurvePricingTest, TestExcludedCalibrationDomainsSpillFrozenUnavailableReasons) {

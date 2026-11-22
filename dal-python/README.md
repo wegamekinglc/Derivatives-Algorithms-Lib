@@ -1134,8 +1134,16 @@ Aggregation verifies the current market state and performs neither quote bumps
 nor recalibration.
 
 The policy is `UnconvertedByActualPvCcy`: PV and quote-risk buckets remain
-separate by each trade's actual PV currency, without FX conversion. Ordinary
-staged multi-curve chain rules are not supported. `JointMultiCurveCalibrationSpec_`,
+separate by each trade's actual PV currency, without FX conversion.
+For a sequential discount and forward fit, call
+`CalibrateMultiCurveBundle(spec, record_quote_risk=True)` and build the market
+with the fitted curves. Pass the result to
+`BuildStagedMultiCurveQuoteRiskProvenance(result=fit, bound_market=market, config=config)`.
+Bind `stage:0` and `stage:1` to the corresponding market component keys.
+The read-only `fit.risk_record` exposes `unavailable_stage` and
+`unavailable_reason` and is `None` when capture is omitted.
+
+`JointMultiCurveCalibrationSpec_`,
 `JointMultiCurveCalibrationOptions_`, and `CalibrateJointMultiCurveBundle`
 provide a reachable generic joint calibration with read-only results and owning
 curve maps. Its inverse request defaults to false; enabling it for an

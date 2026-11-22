@@ -55,8 +55,8 @@ namespace Dal {
         void ValidateCurve(const RateQuoteRiskProvenance_& calibration) {
             RequireLiveQuoteRiskState(calibration, "calibration.source");
             REQUIRE(calibration.Available(), calibration.Reason());
-            REQUIRE(!calibration.CalibrationRecord().empty(), "QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED");
             const auto& inverse = calibration.EffectiveInverse();
+            REQUIRE(!calibration.CalibrationRecord().empty(), "QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED");
             CheckShape(inverse.Rows(), inverse.Cols());
             REQUIRE(static_cast<size_t>(inverse.Rows()) == calibration.Axis().parameters_.size() &&
                         static_cast<size_t>(inverse.Cols()) == calibration.Axis().quotes_.size(),

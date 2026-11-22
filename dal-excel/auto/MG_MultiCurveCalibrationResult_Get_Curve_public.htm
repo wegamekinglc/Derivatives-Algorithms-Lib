@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>MultiCurveCalibrationResult_Get_Curve</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>MultiCurveCalibrationResult_Get_Curve (in Excel: MULTICURVECALIBRATIONRESULT.GET.CURVE)</h1>
+Extract a fitted curve for use in RATEPRICINGMARKET.NEW
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableMultiCurveCalibrationResult</td><td></td><td>Result of CALIBRATE.MULTICURVE</td></tr>
+<tr><td>role</td><td>string</td><td></td><td>Discount or Forward</td></tr>
+<tr><td>route</td><td>string</td><td></td><td>Collateral type for Discount (e.g. OIS) or tenor for Forward (e.g. 6M)</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>curve</td><td>handle of type StorableDiscountCurve</td><td>Fitted discount or forward curve</td></tr>
+</table>
+
+
+
+
+
+

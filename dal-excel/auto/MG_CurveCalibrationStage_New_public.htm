@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CurveCalibrationStage_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CurveCalibrationStage_New (in Excel: CURVECALIBRATIONSTAGE.NEW)</h1>
+Define one stage of a sequential same-currency curve calibration
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>today</td><td>date</td><td></td><td>Calibration date</td></tr>
+<tr><td>currency</td><td>string</td><td></td><td>Currency of the stage</td></tr>
+<tr><td>instruments</td><td>vector of handles</td><td></td><td>Market instruments in original quote order</td></tr>
+<tr><td>knotDates</td><td>vector of dates</td><td>yes</td><td>Explicit knots. When omitted the stage uses instrument maturities.</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Stage settings as in CALIBRATE.SINGLECURVE, including curveName, calibrateDiscountCurve, targetTenor, parameterization and tolerance</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>stage</td><td>handle of type StorableCurveCalibrationSpec</td><td>Input stage for CALIBRATE.MULTICURVE</td></tr>
+</table>
+
+
+
+
+
+
