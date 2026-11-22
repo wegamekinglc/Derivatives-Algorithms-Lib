@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 
 #ifdef DAL_TEST_PUBLIC_OIS
@@ -35,7 +36,7 @@ namespace {
         trade.coupons_ = {{"coupon", start, end, pay}};
         return trade;
     }
-    CurveInstrumentCalibrationSpec_ Context(const String_& mode) {
+    CurveInstrumentCalibrationSpec_ BaseContext() {
         const Date_ today(2024, 3, 1);
         CurveInstrumentCalibrationSpec_ spec;
         spec.geometry_.today_ = today;
@@ -47,6 +48,10 @@ namespace {
         spec.market_.routes_ = {{"USD.OIS", false, CollateralType_("OIS"), {}, false, true}, {"USD.SOFR", true, CollateralType_("OIS"), {}, true}};
         spec.valuation_.evaluationDate_ = today;
         spec.valuation_.fixings_.reset(new MarketFixingSnapshot_());
+        return spec;
+    }
+    CurveInstrumentCalibrationSpec_ Context(const String_& mode) {
+        auto spec = BaseContext();
         const auto prepared = PrepareCompoundedOis(Contract(mode), spec.valuation_);
         const auto loaded = LoadPreparedCompoundedOisJson(DumpPreparedCompoundedOisJson(prepared));
         REQUIRE(loaded->PreparationIdentity() == prepared->PreparationIdentity(), "Installed /2 archive identity");
@@ -83,6 +88,64 @@ namespace {
         CurveScriptEvaluationResult_ evaluation_;
     };
 #ifdef DAL_TEST_PUBLIC_OIS
+    CompoundedOisParRateRiskResult_ LookbackRisk(bool highFloor, bool pvOnly) {
+        auto spec = BaseContext();
+        const Date_ start(2024, 3, 1), middle(2024, 3, 6), end(2024, 3, 12), pay(2024, 3, 13);
+        spec.geometry_.knotDates_ = {start, Date_(2024, 3, 5), Date_(2024, 3, 20)};
+        spec.valuation_.fixings_.reset(new MarketFixingSnapshot_({{"USD-SOFR", {{DateTime_(Date_(2024, 2, 29)), -.012}}}}));
+        auto trade = Contract("None");
+        trade.fixedLeg_ = {{start, middle, middle, 5. / 365.}};
+        trade.coupons_ = {{"first", start, middle, middle}};
+        for (const String_ id : {"short", "long"}) {
+            if (id == "long") {
+                trade.fixedLeg_.push_back({middle, end, pay, 6. / 365.});
+                trade.coupons_.push_back({"second", middle, end, pay});
+            }
+            trade.instrumentId_ = id;
+            const auto tables = PrepareCompoundedOis(trade, spec.valuation_);
+            spec.compoundedOis_.push_back(tables);
+            const auto quote =
+                NewCalibrationMarketQuote(id, id == "short" ? .030179570014802 : .0362870928259698, CalibrationValueUnit_::Parse("Rate"));
+            spec.observations_.push_back(NewCalibrationObservation(id, NewCompoundedOisScriptInstrument(tables), "ParRate", quote, 1e-13));
+        }
+        trade.instrumentId_ = "registered-par";
+        trade.observationConvention_ = Contract("Lookback").observationConvention_;
+        trade.coupons_.back().end_ = Date_(2024, 3, 11);
+        trade.fixedLeg_ = {{start, Date_(2024, 3, 11), Date_(2024, 3, 15), 10. / 365.}};
+        if (highFloor)
+            trade.minAbsAnnuity_ = 100.;
+        const auto tables = PrepareCompoundedOis(trade, spec.valuation_);
+        spec.compoundedOis_.push_back(tables);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(Fit(spec), {{1e-12, 1e-12}, 1e-10, 1e-12, 1e-12, pvOnly});
+        return ValueCompoundedOisParRateWithQuoteRisk(NewCompoundedOisScriptInstrument(tables), tables, snapshot, spec, {{"long", "short"}});
+    }
+    void VerifyParRate() {
+        for (const bool pvOnly : {false, true}) {
+            const auto result = LookbackRisk(false, pvOnly);
+            REQUIRE(result.Available() && !result.SnapshotIdentity().empty(), "Installed owning ParRate result");
+            const auto summary = ScriptCurveQuoteRiskTable(result, "Summary"), buckets = ScriptCurveQuoteRiskTable(result, "Sensitivity");
+            REQUIRE(Cell::ToString(summary(3, 1)) == result.SnapshotIdentity(), "Installed snapshot identity");
+            REQUIRE(std::abs(Cell::ToDouble(summary(2, 1)) - .01856212179263) < 1e-12, "Installed decimal par rate");
+            REQUIRE(buckets.Rows() == 3 && buckets.Cols() == 3 && Cell::ToString(buckets(0, 2)) == "sensitivity_bp_per_bp", "Installed bucket units");
+            REQUIRE(Cell::ToString(buckets(1, 1)) == "long" && Cell::ToString(buckets(2, 1)) == "short", "Installed selected quote order");
+            REQUIRE(Cell::ToDouble(buckets(1, 0)) == 1 && Cell::ToDouble(buckets(2, 0)) == 0, "Installed snapshot ordinals");
+            REQUIRE(std::abs(Cell::ToDouble(buckets(1, 2)) - .87138316352446) < 1e-10 &&
+                        std::abs(Cell::ToDouble(buckets(2, 2)) + .27115795540455) < 1e-10,
+                    "Installed signed Lookback buckets");
+            std::cout << std::setprecision(14) << "Lookback pv_only=" << pvOnly << " rate=" << result.ParRate()
+                      << " long=" << result.SensitivityBpPerBp()[0] << " short=" << result.SensitivityBpPerBp()[1]
+                      << " snapshot=" << result.SnapshotIdentity() << '\n';
+        }
+        const auto failure = LookbackRisk(true, false);
+        REQUIRE(!failure.Available() && !failure.SnapshotIdentity().empty(), "Installed owning unavailable result");
+        const auto summary = ScriptCurveQuoteRiskTable(failure, "Summary"), buckets = ScriptCurveQuoteRiskTable(failure, "Sensitivity");
+        const auto errors = ScriptCurveQuoteRiskTable(failure, "Diagnostics");
+        REQUIRE(Cell::IsEmpty(summary(2, 1)) && buckets.Rows() == 3 && Cell::IsEmpty(buckets(1, 2)) && Cell::IsEmpty(buckets(2, 2)),
+                "Installed unavailable rate and slopes must be blank");
+        REQUIRE(Cell::ToString(errors(1, 0)) == "InvalidCalibrationAnnuity" && Cell::ToString(errors(1, 3)) == "/annuity",
+                "Installed annuity diagnostic");
+        std::cout << "High floor: " << failure.Diagnostics().front().code_ << " " << *failure.Diagnostics().front().field_ << '\n';
+    }
     void VerifyAudit(const Handle_<PreparedCompoundedOis_>& tables, const CurveScriptEvaluationResult_& evaluation) {
         const auto prepared = CompoundedOisObservationScheduleTable(tables);
         const auto evaluated = CurveScriptEvaluationTable(evaluation, "observation_schedule");
@@ -126,6 +189,9 @@ namespace {
 int main() {
     try {
         Dal::RegisterAll_::Init();
+#ifdef DAL_TEST_PUBLIC_OIS
+        VerifyParRate();
+#endif
         for (const Dal::String_ mode : {"None", "Lookback", "ObservationShift", "Lockout"}) {
             const auto owned = Run(mode);
             REQUIRE(owned.evaluation_.observationSchedule_.size() == 3 && owned.evaluation_.observationMode_ == mode, "Installed owning audit");

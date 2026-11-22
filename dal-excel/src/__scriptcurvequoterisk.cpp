@@ -208,6 +208,59 @@ value is number[]
     Owning result; unavailable table metrics remain blank
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRate_ValueWithQuoteRisk
+    Value a registered compounded OIS par rate and its signed calibration quote sensitivities
+&inputs
+instrument is handle CalibrationInstrument
+    Registered bound OIS instrument
+tables is handle StorablePreparedCompoundedOis
+    Frozen OIS schedule
+snapshot is handle StorableScriptCurveQuoteRiskSnapshot
+    Owning fitted snapshot
+context is handle StorableCurveInstrumentCalibrationSpec
+    Current calibration context
+&optional
+quoteIds is handle StorableScriptCurveQuoteIds
+    Selected quote IDs in output order; omit for the snapshot axis
+&outputs
+value is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRateRiskResult_Get_Summary
+    Read status, decimal par rate and snapshot identity
+&inputs
+result is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+&outputs
+value is cell[][]
+    Field and value rows
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRateRiskResult_Get_Sensitivity
+    Read ordered quote IDs and signed bp/bp sensitivities
+&inputs
+result is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+&outputs
+value is cell[][]
+    One row per selected quote
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRateRiskResult_Get_Diagnostics
+    Read structured par-rate diagnostics
+&inputs
+result is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+&outputs
+value is cell[][]
+    One row per diagnostic
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     namespace {
         using Readers_ = std::map<std::string, std::function<void(const Cell_&)>>;
@@ -314,8 +367,31 @@ namespace Dal {
     void ScriptCurveQuoteRiskResult_Get_DV01(const Handle_<StorableScriptCurveQuoteRiskResult_>& result, Vector_<>* value) {
         *value = Value(result).DV01();
     }
+    void CompoundedOisParRate_ValueWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                 const Handle_<StorablePreparedCompoundedOis_>& tables,
+                                                 const Handle_<StorableScriptCurveQuoteRiskSnapshot_>& snapshot,
+                                                 const Handle_<StorableCurveInstrumentCalibrationSpec_>& context,
+                                                 const Handle_<StorableScriptCurveQuoteIds_>& quoteIds,
+                                                 Handle_<StorableCompoundedOisParRateRiskResult_>* value) {
+        const CompoundedOisParRateRequest_ request{quoteIds ? quoteIds->val_ : Vector_<String_>()};
+        value->reset(new StorableCompoundedOisParRateRiskResult_(
+            ValueCompoundedOisParRateWithQuoteRisk(instrument, Value(tables), Value(snapshot), Value(context), request)));
+    }
+    void CompoundedOisParRateRiskResult_Get_Summary(const Handle_<StorableCompoundedOisParRateRiskResult_>& result, Matrix_<Cell_>* value) {
+        *value = ScriptCurveQuoteRiskTable(Value(result), "Summary");
+    }
+    void CompoundedOisParRateRiskResult_Get_Sensitivity(const Handle_<StorableCompoundedOisParRateRiskResult_>& result, Matrix_<Cell_>* value) {
+        *value = ScriptCurveQuoteRiskTable(Value(result), "Sensitivity");
+    }
+    void CompoundedOisParRateRiskResult_Get_Diagnostics(const Handle_<StorableCompoundedOisParRateRiskResult_>& result, Matrix_<Cell_>* value) {
+        *value = ScriptCurveQuoteRiskTable(Value(result), "Diagnostics");
+    }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_CalibrationInstrument_ValueWithQuoteRisk_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Diagnostics_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Sensitivity_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Summary_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRate_ValueWithQuoteRisk_public.inc>
 #include <dal-excel/auto/MG_ScriptCurveQuoteIds_New_public.inc>
 #include <dal-excel/auto/MG_ScriptCurveQuoteRiskAccuracy_New_public.inc>
 #include <dal-excel/auto/MG_ScriptCurveQuoteRiskRequest_New_public.inc>

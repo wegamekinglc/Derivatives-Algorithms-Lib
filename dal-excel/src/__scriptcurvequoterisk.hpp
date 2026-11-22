@@ -2,7 +2,7 @@
 
 #include <dal-public/src/scriptcurvequoterisk.hpp>
 
-#include "__calibrationinstrument.hpp"
+#include "__compoundedois.hpp"
 
 #if defined(_WIN32) && defined(DAL_EXCEL_TEST_API_EXPORTS)
 #define DAL_SCRIPT_QUOTE_RISK_API __declspec(dllexport)
@@ -18,6 +18,20 @@ namespace Dal {
     using StorableScriptCurveQuoteIds_ = StorableCalibrationValue_<Vector_<String_>>;
     using StorableScriptCurveQuoteRiskSnapshot_ = StorableCalibrationValue_<ScriptCurveQuoteRiskSnapshot_>;
     using StorableScriptCurveQuoteRiskResult_ = StorableCalibrationValue_<ScriptCurveQuoteRiskResult_>;
+    using StorableCompoundedOisParRateRiskResult_ = StorableCalibrationValue_<CompoundedOisParRateRiskResult_>;
+
+    DAL_SCRIPT_QUOTE_RISK_API void CompoundedOisParRate_ValueWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                                           const Handle_<StorablePreparedCompoundedOis_>& tables,
+                                                                           const Handle_<StorableScriptCurveQuoteRiskSnapshot_>& snapshot,
+                                                                           const Handle_<StorableCurveInstrumentCalibrationSpec_>& context,
+                                                                           const Handle_<StorableScriptCurveQuoteIds_>& quoteIds,
+                                                                           Handle_<StorableCompoundedOisParRateRiskResult_>* value);
+    DAL_SCRIPT_QUOTE_RISK_API void CompoundedOisParRateRiskResult_Get_Summary(const Handle_<StorableCompoundedOisParRateRiskResult_>& result,
+                                                                              Matrix_<Cell_>* value);
+    DAL_SCRIPT_QUOTE_RISK_API void CompoundedOisParRateRiskResult_Get_Sensitivity(const Handle_<StorableCompoundedOisParRateRiskResult_>& result,
+                                                                                  Matrix_<Cell_>* value);
+    DAL_SCRIPT_QUOTE_RISK_API void CompoundedOisParRateRiskResult_Get_Diagnostics(const Handle_<StorableCompoundedOisParRateRiskResult_>& result,
+                                                                                  Matrix_<Cell_>* value);
 
     DAL_SCRIPT_QUOTE_RISK_API void ScriptCurveQuoteRiskAccuracy_New(const Matrix_<Cell_>& settings,
                                                                     Handle_<StorableScriptCurveQuoteRiskAccuracy_>* value);

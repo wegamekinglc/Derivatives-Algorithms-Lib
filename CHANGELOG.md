@@ -23,7 +23,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   on the fitted discount curve. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
 - Core C++ quote-risk snapshots return the decimal par rate of a registered
   compounded OIS and its signed sensitivity to each selected calibration quote
-  in bp/bp. See [compounded OIS](docs/ccy-curves/compounded-ois.md).
+  in bp/bp. The installed public SDK, Python and Excel expose the owning
+  result and its diagnostics. See [compounded OIS](docs/ccy-curves/compounded-ois.md).
 
 ## 2026-11-21
 
