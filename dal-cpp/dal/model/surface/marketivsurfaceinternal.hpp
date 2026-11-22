@@ -28,6 +28,12 @@ namespace Dal::MarketIvDetail {
     };
     void ValidateRefitQuotes(const Vector_<String_>& ids, const Vector_<>& steps);
     void BumpRefitQuote(MarketIvQuote_* quote, double step);
+    struct BumpedRefit_ {
+        std::optional<MarketIvFitResult_> fit_;
+        String_ bumpFailure_;
+    };
+    BumpedRefit_
+    RefitBumpedQuote(const MarketIvCalibrationSnapshot_& base, size_t quoteIndex, double step, std::optional<size_t> remainingRows = std::nullopt);
     Vector_<RefitQuoteSelection_> SelectRefitQuotes(const MarketIvCalibrationSnapshot_& base, const Vector_<String_>& ids, const Vector_<>& steps);
     inline String_ RefitInputUnit(const MarketIvQuote_& quote) {
         return quote.quoteType_ == MarketIvQuoteType_::Value_::PRICE ? "premium" : "decimal_iv";

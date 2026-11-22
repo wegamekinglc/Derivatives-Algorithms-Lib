@@ -87,6 +87,8 @@ namespace Dal {
     public:
         [[nodiscard]] String_ SourceIdentity() const;
         [[nodiscard]] String_ ModelIdentity() const;
+        [[nodiscard]] const MarketIvCalibrationSnapshot_& Snapshot() const;
+        [[nodiscard]] const LocalVolSurfaceData_& SurfaceData() const;
         [[nodiscard]] MarketIvLocalVolModelSettings_ Configuration() const;
         [[nodiscard]] MarketIvLocalVolModelSummary_ Summary() const;
         [[nodiscard]] Vector_<MarketIvLocalVolCarryTerm_> CarryTerms() const;
