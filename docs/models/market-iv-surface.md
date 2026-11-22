@@ -245,6 +245,36 @@ handles share the entire source payload. Models rebuilt from a shared fit
 share its snapshot bytes. Independently fitted and rebuilt models each count
 in full. Fixed-model sampling itself uses zero refits and zero grid exports.
 
+### Script PV quote risk in the SDK, Python and Excel
+
+Include `dal-public/src/marketivlocalvol.hpp` and pass a
+`Dal::MarketIvScriptRefitRequest_` to `Dal::EvaluateMarketIvScriptRefitRisk`.
+The result owns its quote rows, base block means in path order and execution
+counts. Each row gives the original quote index and ID, input unit, actual
+bump size, PV currency, base PV, both side PVs, central slope and paired SE.
+Each side carries its selected start, fit status, change from the base regime,
+model identity and any failure stage and message. A failed side leaves its PV
+and the paired statistics empty. The surviving side and later rows remain
+available. A successful pair with a changed fit branch retains its statistics.
+
+In Python, construct `MarketIvScriptRefitRequest_(snapshot, grid, model,
+product, quote_ids, steps=..., valuation=..., blocks=16, paths_per_block=257)`
+and pass it to `MarketIvScriptRefitRiskResult_New`. Optional `simulation`
+and `budget` take `MonteCarloSettings_` and `MarketIvScriptRefitBudget_`.
+The call copies the request before releasing the GIL. Read `rows`,
+`base_block_means` and `execution` after releasing the inputs. Missing
+numerical values appear as `None`.
+
+In Excel, `MARKETIVSCRIPTREFITREQUEST.NEW` takes a name, snapshot, grid
+request, model settings, product and quote ID range. Optional arguments are
+a matching step range, valuation settings, simulation settings and a
+two-column table of counts. The count keys are `blocks`, `paths_per_block`,
+`max_selected_quotes`, `max_scenarios`, `max_total_paths`,
+`max_model_row_evaluations` and `workspace_budget_bytes`.
+`MARKETIVSCRIPTREFITRISKRESULT.NEW(name,request)` creates the result handle.
+Use its `GET.ROWS`, `GET.BASEBLOCKS` and `GET.EXECUTION` functions to spill
+the corresponding tables. Unavailable values display as blank cells.
+
 ## Defaults and resource limits
 
 Canonical snake-case names below are Python keywords and Excel settings keys;

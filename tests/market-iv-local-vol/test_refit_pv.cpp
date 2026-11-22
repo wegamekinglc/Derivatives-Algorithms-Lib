@@ -163,6 +163,17 @@ namespace {
         ASSERT_NEAR(row.slope_, bucket.referenceSlope_, tolerance / s);
         ASSERT_NEAR(row.standardError_, bucket.referenceSe_, tolerance / s);
         ASSERT_EQ(bucket.pair_.Status(), bucket.plus_.changed_ || bucket.minus_.changed_ ? "REGIME_CHANGED" : "SUCCESS");
+        const auto risk = EvaluateMarketIvScriptRefitRisk(request);
+        ASSERT_EQ(risk.rows_.size(), 1U);
+        const auto& priced = risk.rows_.front();
+        ASSERT_EQ(priced.plus_.selectedStart_, bucket.plus_.start_);
+        ASSERT_EQ(priced.minus_.selectedStart_, bucket.minus_.start_);
+        ASSERT_EQ(priced.status_, bucket.pair_.Status());
+        ASSERT_EQ(priced.basePv_, bucket.sample_.base_.mean_);
+        ASSERT_NEAR(priced.plus_.pv_.value(), bucket.plus_.Mean(), tolerance);
+        ASSERT_NEAR(priced.minus_.pv_.value(), bucket.minus_.Mean(), tolerance);
+        ASSERT_NEAR(priced.slope_.value(), bucket.referenceSlope_, tolerance / s);
+        ASSERT_NEAR(priced.standardError_.value(), bucket.referenceSe_, tolerance / s);
     }
 
     Handle_<MarketIvLocalVolModelData_> ShiftedFlatModel(const MarketIvScriptRefitRequest_& request, double shift) {

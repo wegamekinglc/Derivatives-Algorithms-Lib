@@ -1,11 +1,15 @@
 #pragma once
 
-#include <dal/model/marketivlocalvol.hpp>
-#include <dal/script/preparation.hpp>
+#include <dal/script/marketivscriptrefit.hpp>
 
 #include <dal-public/src/marketivsurface.hpp>
 
 namespace Dal {
+    using Script::EvaluateMarketIvScriptRefitRisk;
+    using Script::MarketIvScriptRefitBudget_;
+    using Script::MarketIvScriptRefitRequest_;
+    using Script::MarketIvScriptRefitRiskResult_;
+
     Handle_<MarketIvLocalVolModelData_>
     NewMarketIvLocalVolModelData(const String_& name, const MarketIvDupireResult_& grid, const MarketIvLocalVolModelSettings_& settings);
     MarketIvLocalVolExecution_ InspectMarketIvLocalVolExecution(const Script::ScriptProductData_& product,
@@ -15,6 +19,52 @@ namespace Dal {
 } // namespace Dal
 
 namespace Dal::MarketIvLocalVolFields {
+    inline const Vector_<MarketIvSettings::Field_<MarketIvScriptRefitBudget_, size_t>>& RefitBudgetFields() {
+        using B_ = MarketIvScriptRefitBudget_;
+        static const Vector_<MarketIvSettings::Field_<B_, size_t>> fields{{"max_selected_quotes", &B_::maxSelectedQuotes_},
+                                                                          {"max_scenarios", &B_::maxScenarios_},
+                                                                          {"max_total_paths", &B_::maxTotalPaths_},
+                                                                          {"max_model_row_evaluations", &B_::maxModelRowEvaluations_},
+                                                                          {"workspace_budget_bytes", &B_::workspaceBudgetBytes_}};
+        return fields;
+    }
+
+    template <class F_> void Visit(const Script::MarketIvScriptRiskRow_& row, F_ f) {
+        f("quote_index", row.quote_.quoteIndex_);
+        f("id", row.quote_.id_);
+        f("input_unit", row.quote_.inputUnit_);
+        f("step", row.quote_.step_);
+        f("pv_currency", row.currency_);
+        f("base_pv", row.basePv_);
+        f("plus_pv", row.plus_.pv_);
+        f("minus_pv", row.minus_.pv_);
+        f("slope", row.slope_);
+        f("standard_error", row.standardError_);
+        f("status", row.status_);
+        f("plus_start", row.plus_.selectedStart_);
+        f("minus_start", row.minus_.selectedStart_);
+        f("plus_regime_changed", row.plus_.regimeChanged_);
+        f("minus_regime_changed", row.minus_.regimeChanged_);
+        f("plus_fit_status", row.plus_.fitStatus_);
+        f("minus_fit_status", row.minus_.fitStatus_);
+        f("plus_failure_stage", row.plus_.failureStage_);
+        f("minus_failure_stage", row.minus_.failureStage_);
+        f("plus_failure", row.plus_.failure_);
+        f("minus_failure", row.minus_.failure_);
+        f("plus_model_identity", row.plus_.modelIdentity_);
+        f("minus_model_identity", row.minus_.modelIdentity_);
+    }
+
+    template <class F_> void Visit(const Script::MarketIvScriptRefitExecution_& work, F_ f) {
+        f("blocks", work.blocks_);
+        f("paths_per_block", work.pathsPerBlock_);
+        f("refits", work.refits_);
+        f("grids", work.grids_);
+        f("scenarios", work.scenarios_);
+        f("total_paths", work.totalPaths_);
+        f("sampling_peak_workspace_bytes", work.samplingPeakWorkspaceBytes_);
+    }
+
     using Settings_ = MarketIvLocalVolModelSettings_;
     inline const Vector_<MarketIvSettings::Field_<Settings_, String_>>& TextFields() {
         static const Vector_<MarketIvSettings::Field_<Settings_, String_>> fields{

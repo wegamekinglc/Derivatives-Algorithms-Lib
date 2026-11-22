@@ -3,6 +3,8 @@
 #include "__riskrequestinput.hpp"
 
 namespace Dal::Excel {
+    Vector_<String_> MarketIvQuoteIds(const Matrix_<Cell_>& cells);
+    Vector_<> MarketIvQuoteSteps(const Matrix_<Cell_>& cells);
 #ifdef _WIN32
     inline bool ValidMarketIvArray(const OPER_* input) {
         const int rows = input->val.array.rows, columns = input->val.array.columns;
