@@ -3,8 +3,10 @@
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/model/marketivlocalvolinternal.hpp>
 #include <dal/model/marketivlocalvolmodel.hpp>
+#include <dal/model/surface/marketivsurfaceinternal.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/marketivlocalvol.hpp>
+#include <dal/script/plannedpreparation.hpp>
 #include <dal/storage/canonicaljson_internal.hpp>
 
 namespace Dal::Script {
@@ -49,7 +51,82 @@ namespace Dal::Script {
             root.object_["fixings"] = std::move(fixings);
             return CanonicalJson::Fingerprint(root);
         }
+
+        Vector_<MarketIvScriptRefitRow_> RefitRows(const MarketIvScriptRefitRequest_& request) {
+            MarketIvDetail::ValidateRefitQuotes(request.quoteIds_, request.steps_);
+            Vector_<MarketIvScriptRefitRow_> rows;
+            rows.reserve(request.quoteIds_.size());
+            for (const auto& selection : MarketIvDetail::SelectRefitQuotes(request.snapshot_, request.quoteIds_, request.steps_)) {
+                const auto& quote = request.snapshot_.Request().quotes_[selection.quoteIndex_];
+                REQUIRE(std::isfinite(2. * selection.step_), "InvalidMarketIvRequest: /steps symmetric span overflows; ID=" + quote.id_);
+                for (double step : {selection.step_, -selection.step_}) {
+                    auto bumped = quote;
+                    MarketIvDetail::BumpRefitQuote(&bumped, step);
+                }
+                rows.push_back({selection.quoteIndex_, quote.id_, quote.quoteType_, MarketIvDetail::RefitInputUnit(quote), selection.step_,
+                                selection.forward_, selection.discount_});
+            }
+            return rows;
+        }
+
+        size_t RefitWorkspaceReservation(const MarketIvScriptRefitRequest_& request) {
+            constexpr MarketIvLocalVolDetail::BudgetField_ bytes{"Preflight", "/budget/workspace_bytes"};
+            // Reserve the configured numeric envelopes for a base and one pair at a time.
+            const auto& fit = request.snapshot_.Execution();
+            const auto& grid = request.grid_.settings_;
+            const auto& model = request.model_;
+            const size_t models = bytes.Multiply(3, model.numericPayloadBudgetBytes_);
+            const size_t building = bytes.Add(bytes.Add(grid.numericPayloadBudgetBytes_, model.numericPayloadBudgetBytes_),
+                                              std::max(grid.workspaceBudgetBytes_, model.workspaceBudgetBytes_));
+            const size_t working = std::max(
+                {bytes.Add(fit.plannedWorkspaceBytes_, fit.plannedNumericPayloadBytes_), building, bytes.Multiply(3, model.workspaceBudgetBytes_)});
+            const size_t rows = bytes.Multiply(request.quoteIds_.size(), sizeof(MarketIvScriptRefitRow_));
+            const size_t means = bytes.Multiply(request.blocks_, 3 * sizeof(double));
+            const size_t reserved = bytes.Add(bytes.Add(fit.plannedNumericPayloadBytes_, models), bytes.Add(working, bytes.Add(rows, means)));
+            bytes.Check(reserved, request.budget_.workspaceBudgetBytes_);
+            return reserved;
+        }
+
+        MarketIvScriptRefitWork_ RefitWork(const MarketIvScriptRefitRequest_& request) {
+            using namespace MarketIvLocalVolDetail;
+            const auto& budget = request.budget_;
+            const size_t count = request.quoteIds_.size();
+            REQUIRE(count > 0, "InvalidMarketIvRequest: /quote_ids must select at least one quote");
+            CheckLimit(count, budget.maxSelectedQuotes_, "/budget/max_selected_quotes", "Preflight");
+            REQUIRE(request.blocks_ >= 2, "InvalidMarketIvRequest: /blocks requires at least two independent blocks");
+            REQUIRE(request.pathsPerBlock_ > 0, "InvalidMarketIvRequest: /paths_per_block must be positive");
+            constexpr BudgetField_ scenarioBudget{"Preflight", "/budget/max_scenarios"};
+            const size_t refits = scenarioBudget.Multiply(2, count), scenarios = scenarioBudget.Add(1, refits);
+            scenarioBudget.Check(scenarios, budget.maxScenarios_);
+            constexpr BudgetField_ pathBudget{"Preflight", "/budget/max_total_paths"};
+            const size_t paths = pathBudget.Multiply(request.blocks_, request.pathsPerBlock_);
+            const size_t totalPaths = pathBudget.Multiply(scenarios, paths);
+            pathBudget.Check(totalPaths, budget.maxTotalPaths_);
+            constexpr BudgetField_ fitBudget{"Preflight", "/budget/max_model_row_evaluations"};
+            const size_t fitRows = fitBudget.Multiply(refits, request.snapshot_.Request().settings_.maxModelRowEvaluations_);
+            fitBudget.Check(fitRows, budget.maxModelRowEvaluations_);
+
+            const size_t bytes = RefitWorkspaceReservation(request);
+            return {refits, scenarios, scenarios, paths, totalPaths, fitRows, bytes};
+        }
     } // namespace
+
+    MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(const MarketIvScriptRefitRequest_& input) {
+        // Even an rvalue can have outstanding references into its vector storage.
+        auto request = input;
+        REQUIRE(request.product_, "InvalidMarketIvRequest: /product is required");
+        REQUIRE(request.simulation_.rsg_ == "mrg32", "InvalidMarketIvRequest: /simulation/rsg requires mrg32");
+        REQUIRE(request.simulation_.normalPrecision_ == "Precise", "InvalidMarketIvRequest: /simulation/normal_precision requires Precise");
+        const auto work = RefitWork(request);
+        auto rows = RefitRows(request);
+        const auto grid = CalibrateMarketIvDupire(request.snapshot_, request.grid_);
+        auto base = BuildMarketIvLocalVolModelData("refit-base", grid, request.model_);
+        AAD::MarketIvLocalVolModel_ model(*base);
+        model.ValidatePaths(work.pathsPerScenario_, request.simulation_.rsg_);
+        const auto prepared = Detail::PrepareWithFrozenFixings(*request.product_, &model, request.valuation_, request.simulation_);
+        request.valuation_ = prepared.Settings();
+        return {std::move(request), std::move(rows), work, std::move(base)};
+    }
 
     MarketIvLocalVolExecution_ InspectMarketIvLocalVolExecution(const ScriptProductData_& product,
                                                                 const MarketIvLocalVolModelData_& data,

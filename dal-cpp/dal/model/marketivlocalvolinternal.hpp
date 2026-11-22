@@ -4,6 +4,14 @@
 
 namespace Dal::MarketIvLocalVolDetail {
     [[noreturn]] void Fail(const String_& code, const String_& stage, const String_& field, const String_& expected, const String_& actual);
+    struct BudgetField_ {
+        const char* stage_;
+        const char* field_;
+        [[nodiscard]] size_t Add(size_t a, size_t b) const;
+        [[nodiscard]] size_t Multiply(size_t a, size_t b) const;
+        void Check(size_t value, size_t limit) const;
+    };
+
     size_t CheckedAdd(size_t a, size_t b);
     size_t CheckedMultiply(size_t a, size_t b);
     void CheckLimit(size_t value, size_t limit, const String_& field, const String_& stage = "Build");

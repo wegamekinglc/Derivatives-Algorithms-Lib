@@ -535,6 +535,7 @@ namespace Dal::Script {
 
     public:
         struct NoAdmission_ {};
+        struct FrozenFixings_ {};
         struct CompiledHistory_ {
             void operator()(const PreparedScript_&) const {}
         };
@@ -554,6 +555,7 @@ namespace Dal::Script {
         }
 
         static void AdmitBeforeHistory(PreparedScript_*, ScriptProduct_*, const NoAdmission_&) {}
+        static void AdmitBeforeHistory(PreparedScript_*, ScriptProduct_*, const FrozenFixings_&) {}
 
         static void AdmitBeforeHistory(PreparedScript_* result, ScriptProduct_* product, const DeferredHistory_&) {
             result->maxNestedIfs_ = product->IFProcess();
@@ -647,7 +649,12 @@ namespace Dal::Script {
             if constexpr (std::is_same_v<F_, DeferredHistory_>)
                 return ExportPlan(std::move(result), writable, beforeHistory);
             else {
-                Complete(&result, writable, model, settings.fixings_, std::is_same_v<F_, CompiledHistory_>);
+                if constexpr (std::is_same_v<F_, FrozenFixings_>) {
+                    if (!result.settings_.fixings_)
+                        result.settings_.fixings_ =
+                            SnapshotGlobalFixings(result.AllExpired() ? Vector_<FixingRequest_>{} : HistoricalRequests(result.Plan().Requests()));
+                }
+                Complete(&result, writable, model, result.Settings().fixings_, std::is_same_v<F_, CompiledHistory_>);
                 return result;
             }
         }
@@ -724,6 +731,14 @@ namespace Dal::Script {
 
         PreparedScript_ CompleteScriptPreparation(PlannedScript_&& planned, const Handle_<MarketFixingSnapshot_>& snapshot) {
             return PreparedScriptBuilder_::Complete(std::move(planned), snapshot);
+        }
+
+        PreparedScript_ PrepareWithFrozenFixings(const ScriptProductData_& product,
+                                                 AAD::Model_<double>* model,
+                                                 const ScriptValuationSettings_& valuation,
+                                                 const MonteCarloSettings_& simulation) {
+            REQUIRE2(model, "InvalidModel: preparation requires a model", ScriptError_);
+            return PreparedScriptBuilder_::Prepare(product, valuation, {}, model, simulation, {}, PreparedScriptBuilder_::FrozenFixings_{});
         }
 
         PreparedScript_ PrepareScriptWithAdmission(const ScriptProductData_& data,

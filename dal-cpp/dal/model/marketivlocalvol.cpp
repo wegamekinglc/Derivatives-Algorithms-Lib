@@ -48,20 +48,23 @@ namespace Dal::MarketIvLocalVolDetail {
     [[noreturn]] void Fail(const String_& code, const String_& stage, const String_& field, const String_& expected, const String_& actual) {
         throw MarketIvLocalVolError_(code, stage, field, expected, actual);
     }
-    size_t CheckedAdd(size_t a, size_t b) {
+    size_t BudgetField_::Add(size_t a, size_t b) const {
         if (b > std::numeric_limits<size_t>::max() - a)
-            Fail("MarketIvLocalVolBudgetExceeded", "Build", "/ledger", "representable sum", "overflow");
+            Fail("MarketIvLocalVolBudgetExceeded", stage_, field_, "representable sum", "overflow");
         return a + b;
     }
-    size_t CheckedMultiply(size_t a, size_t b) {
+    size_t BudgetField_::Multiply(size_t a, size_t b) const {
         if (a && b > std::numeric_limits<size_t>::max() / a)
-            Fail("MarketIvLocalVolBudgetExceeded", "Build", "/ledger", "representable product", "overflow");
+            Fail("MarketIvLocalVolBudgetExceeded", stage_, field_, "representable product", "overflow");
         return a * b;
     }
     void CheckLimit(size_t value, size_t limit, const String_& field, const String_& stage) {
         if (value > limit)
             Fail("MarketIvLocalVolBudgetExceeded", stage, field, String_(std::to_string(limit)), String_(std::to_string(value)));
     }
+    void BudgetField_::Check(size_t value, size_t limit) const { CheckLimit(value, limit, field_, stage_); }
+    size_t CheckedAdd(size_t a, size_t b) { return BudgetField_{"Build", "/ledger"}.Add(a, b); }
+    size_t CheckedMultiply(size_t a, size_t b) { return BudgetField_{"Build", "/ledger"}.Multiply(a, b); }
     double CheckedExp(double value, const String_& field, const String_& stage) {
         const double result = std::exp(value);
         if (!std::isfinite(value) || !std::isfinite(result) || result <= 0.)

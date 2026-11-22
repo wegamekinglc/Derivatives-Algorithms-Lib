@@ -520,7 +520,14 @@ namespace Dal::MarketIvDetail {
         }
     } // namespace
 
+    size_t*& FitStartCounter() {
+        static thread_local size_t* counter = nullptr;
+        return counter;
+    }
+
     std::shared_ptr<const FitData_> Fit(const MarketIvFitRequest_& request, std::optional<size_t> aggregateRemaining) {
+        if (auto* counter = FitStartCounter())
+            ++*counter;
         auto data = std::make_shared<FitData_>(request);
         data->rowLimit_ = std::min(request.settings_.maxModelRowEvaluations_, aggregateRemaining.value_or(request.settings_.maxModelRowEvaluations_));
         try {
