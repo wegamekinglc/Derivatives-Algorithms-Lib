@@ -1034,6 +1034,7 @@ namespace Dal {
             [[nodiscard]] size_t NumAssets() const override { return assetNames_.size(); }
             [[nodiscard]] const Vector_<String_>& AssetNames() const override { return assetNames_; }
             [[nodiscard]] const Vector_<String_>& FactorNames() const { return factorNames_; }
+            [[nodiscard]] const Vector_<>& SimulationTimes() const { return timeLine_; }
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
             [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
             [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override {

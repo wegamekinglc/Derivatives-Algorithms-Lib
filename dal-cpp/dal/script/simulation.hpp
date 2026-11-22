@@ -770,18 +770,18 @@ namespace Dal::Script {
             });
         }
 
-        template <class S_, class E_, class F_, class O_ = ScalarPayoffCollector_>
-        double EvaluateDoubleBatch(const AAD::Model_<double>& model,
-                                   S_* state,
-                                   E_* evaluator,
-                                   const PathBatch_& batch,
-                                   size_t payoffIndex,
-                                   const F_& evaluate,
-                                   O_&& objective = {}) {
+        template <class R_ = double, class S_, class E_, class F_, class O_ = ScalarPayoffCollector_>
+        R_ EvaluateDoubleBatch(const AAD::Model_<double>& model,
+                               S_* state,
+                               E_* evaluator,
+                               const PathBatch_& batch,
+                               size_t payoffIndex,
+                               const F_& evaluate,
+                               O_&& objective = {}) {
             if (state->random_)
                 state->random_->SkipNormalTo(batch.firstPath_);
             auto run = [&](const auto& generate) {
-                double sumValue = 0.0;
+                R_ aggregate{};
                 for (size_t i = 0; i < batch.pathCount_; ++i) {
 #if defined(DAL_ENABLE_AAD_PROFILING)
                     AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
@@ -806,9 +806,9 @@ namespace Dal::Script {
 #endif
                     const double value = objective(evaluator->VarVals(), payoffIndex, 0.0);
                     REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
-                    sumValue += value;
+                    aggregate += value;
                 }
-                return sumValue;
+                return aggregate;
             };
             if (state->bsPaths_) {
                 auto& paths = *state->bsPaths_;

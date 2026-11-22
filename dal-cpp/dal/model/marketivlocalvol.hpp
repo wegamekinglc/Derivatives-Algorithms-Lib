@@ -95,6 +95,7 @@ namespace Dal {
         [[nodiscard]] MarketIvLocalVolCapabilities_ Capabilities() const { return {}; }
         [[nodiscard]] Vector_<MarketIvLocalVolWarning_> Warnings() const;
         [[nodiscard]] MarketIvLocalVolConstructionExecution_ ConstructionExecution() const;
+        [[nodiscard]] size_t SharedNumericPayloadBytes(const MarketIvLocalVolModelData_& other) const;
         void Write(Archive::Store_&) const override;
         [[nodiscard]] std::unique_ptr<ModelData_> MutantModel(const String_& newName, const Vector_<Handle_<Slide_>>& slides) const {
             return ModelData_::MutantModel(newName, slides);
