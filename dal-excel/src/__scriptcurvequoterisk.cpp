@@ -1,5 +1,7 @@
 #include "__scriptcurvequoterisk.hpp"
 
+#include <algorithm>
+#include <climits>
 #include <functional>
 #include <set>
 
@@ -37,9 +39,8 @@ value is handle StorableScriptCurveQuoteRiskRequest
 public ScriptCurveQuoteIds_New
     Preserve case-sensitive quote selection order
 &inputs
-ids is cell[]
+ids is cell[] or QuoteIds->"ids"
     Ordered text quote IDs
-+const Excel::ScriptSettingsInput_ normalized_ids(xl_ids); xl_ids = normalized_ids.Get();
 &outputs
 value is handle StorableScriptCurveQuoteIds
     Owning result; unavailable table metrics remain blank
@@ -208,6 +209,59 @@ value is number[]
     Owning result; unavailable table metrics remain blank
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRate_ValueWithQuoteRisk
+    Value a registered compounded OIS par rate and its signed calibration quote sensitivities
+&inputs
+instrument is handle CalibrationInstrument
+    Registered bound OIS instrument
+tables is handle StorablePreparedCompoundedOis
+    Frozen OIS schedule
+snapshot is handle StorableScriptCurveQuoteRiskSnapshot
+    Owning fitted snapshot
+context is handle StorableCurveInstrumentCalibrationSpec
+    Current calibration context
+&optional
+quoteIds is handle StorableScriptCurveQuoteIds
+    Selected quote IDs in output order; omit for the snapshot axis
+&outputs
+value is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRateRiskResult_Get_Summary
+    Read status, decimal par rate and snapshot identity
+&inputs
+result is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+&outputs
+value is cell[][]
+    Field and value rows
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRateRiskResult_Get_Sensitivity
+    Read ordered quote IDs and signed bp/bp sensitivities
+&inputs
+result is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+&outputs
+value is cell[][]
+    One row per selected quote
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CompoundedOisParRateRiskResult_Get_Diagnostics
+    Read structured par-rate diagnostics
+&inputs
+result is handle StorableCompoundedOisParRateRiskResult
+    Owning par-rate risk result
+&outputs
+value is cell[][]
+    One row per diagnostic
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     namespace {
         using Readers_ = std::map<std::string, std::function<void(const Cell_&)>>;
@@ -314,8 +368,60 @@ namespace Dal {
     void ScriptCurveQuoteRiskResult_Get_DV01(const Handle_<StorableScriptCurveQuoteRiskResult_>& result, Vector_<>* value) {
         *value = Value(result).DV01();
     }
+    void CompoundedOisParRate_ValueWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                 const Handle_<StorablePreparedCompoundedOis_>& tables,
+                                                 const Handle_<StorableScriptCurveQuoteRiskSnapshot_>& snapshot,
+                                                 const Handle_<StorableCurveInstrumentCalibrationSpec_>& context,
+                                                 const Handle_<StorableScriptCurveQuoteIds_>& quoteIds,
+                                                 Handle_<StorableCompoundedOisParRateRiskResult_>* value) {
+        const CompoundedOisParRateRequest_ request{quoteIds ? quoteIds->val_ : Vector_<String_>()};
+        value->reset(new StorableCompoundedOisParRateRiskResult_(
+            ValueCompoundedOisParRateWithQuoteRisk(instrument, Value(tables), Value(snapshot), Value(context), request)));
+    }
+    void CompoundedOisParRateRiskResult_Get_Summary(const Handle_<StorableCompoundedOisParRateRiskResult_>& result, Matrix_<Cell_>* value) {
+        *value = ScriptCurveQuoteRiskTable(Value(result), "Summary");
+    }
+    void CompoundedOisParRateRiskResult_Get_Sensitivity(const Handle_<StorableCompoundedOisParRateRiskResult_>& result, Matrix_<Cell_>* value) {
+        *value = ScriptCurveQuoteRiskTable(Value(result), "Sensitivity");
+    }
+    void CompoundedOisParRateRiskResult_Get_Diagnostics(const Handle_<StorableCompoundedOisParRateRiskResult_>& result, Matrix_<Cell_>* value) {
+        *value = ScriptCurveQuoteRiskTable(Value(result), "Diagnostics");
+    }
 #ifdef _WIN32
+    namespace Excel {
+        static Cell_ QuoteIdCell(const OPER_& cell, const String_& location) {
+            REQUIRE(!ScriptInputBlank(&cell), location + "blank quote ID before the end of the selection");
+            REQUIRE(cell.xltype == xltypeStr, location + "expected text quote ID");
+            const auto* text = cell.val.str;
+            REQUIRE(std::all_of(text + 1, text + 1 + text[0], [](wchar_t c) { return c > 0 && c <= UCHAR_MAX; }),
+                    location + "quote ID cannot be represented as single-byte text without NUL");
+            return ToCell(&cell);
+        }
+
+        static Vector_<Cell_> ToCellVector_orQuoteIds(const OPER_* input, const char* argument) {
+            const bool multi = input->xltype == xltypeMulti;
+            const int rows = multi ? input->val.array.rows : 1;
+            const int columns = multi ? input->val.array.columns : 1;
+            const auto* cells = multi ? input->val.array.lparray : input;
+            REQUIRE(rows == 1 || columns == 1, "ScriptCurveQuoteIds_New: expected a single row or column of quote IDs");
+            int count = rows * columns;
+            while (count > 0 && ScriptInputBlank(&cells[count - 1]))
+                --count;
+            REQUIRE(count > 0, "ScriptCurveQuoteIds_New: expected at least one text quote ID");
+            Vector_<Cell_> ids(count);
+            for (int i = 0; i < count; ++i) {
+                const auto location = ScriptSettingLocation("ScriptCurveQuoteIds_New", argument, i / columns + 1, i % columns + 1);
+                ids[i] = QuoteIdCell(cells[i], location);
+            }
+            return ids;
+        }
+    } // namespace Excel
+
 #include <dal-excel/auto/MG_CalibrationInstrument_ValueWithQuoteRisk_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Diagnostics_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Sensitivity_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Summary_public.inc>
+#include <dal-excel/auto/MG_CompoundedOisParRate_ValueWithQuoteRisk_public.inc>
 #include <dal-excel/auto/MG_ScriptCurveQuoteIds_New_public.inc>
 #include <dal-excel/auto/MG_ScriptCurveQuoteRiskAccuracy_New_public.inc>
 #include <dal-excel/auto/MG_ScriptCurveQuoteRiskRequest_New_public.inc>
