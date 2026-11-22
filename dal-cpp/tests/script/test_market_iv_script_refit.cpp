@@ -33,6 +33,24 @@ namespace {
     }
 } // namespace
 
+TEST(MarketIvScriptRefitTest, TestBuildsIndependentCertifiedModelsForOneQuote) {
+    const auto plan = PlanMarketIvScriptRefit(Request());
+    size_t fits = 0;
+    const MarketIvDetail::ScopedFitStartCounter_ observeFits(&fits);
+    const auto pair = BuildMarketIvScriptRefitPair(plan, 0);
+    ASSERT_EQ(fits, 2U);
+    ASSERT_EQ(pair.row_.id_, "90");
+    ASSERT_TRUE(pair.plus_.model_);
+    ASSERT_TRUE(pair.minus_.model_);
+    ASSERT_NE(pair.plus_.model_->ModelIdentity(), pair.minus_.model_->ModelIdentity());
+    for (const auto* side : {&pair.plus_, &pair.minus_}) {
+        ASSERT_NE(side->model_->SourceIdentity(), plan.baseModel_->SourceIdentity());
+        ASSERT_GE(side->selectedStart_, 0);
+        ASSERT_TRUE(side->failureStage_.empty());
+        ASSERT_TRUE(side->failure_.empty());
+    }
+}
+
 TEST(MarketIvScriptRefitTest, TestMixedQuoteOrderAndSteps) {
     auto request = Request();
     request.steps_ = {.012, .0003};
@@ -57,6 +75,72 @@ TEST(MarketIvScriptRefitTest, TestMixedQuoteOrderAndSteps) {
     ASSERT_EQ(defaults.rows_[0].step_, 1e-4);
     ASSERT_DOUBLE_EQ(defaults.rows_[1].step_, 1e-4 * .96 * 105.);
     ASSERT_EQ(explicitPlan.request_.steps_.size(), 2U);
+}
+
+TEST(MarketIvScriptRefitTest, TestInvalidBidRetainsOppositeModelAndFollowingRow) {
+    auto request = Request();
+    auto base = request.snapshot_.Request();
+    base.quotes_[0].bid_ = 0.;
+    base.quotes_[0].ask_ = .201;
+    request.snapshot_ = FitMarketIvSurface(base).Snapshot();
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const auto pair = BuildMarketIvScriptRefitPair(plan, 0);
+    ASSERT_TRUE(pair.plus_.model_);
+    ASSERT_FALSE(pair.minus_.model_);
+    ASSERT_EQ(pair.minus_.failureStage_, "BUMP");
+    ASSERT_NE(pair.minus_.failure_.find(".bid"), String_::npos);
+    ASSERT_EQ(pair.Status(), "SIDE_FAILED");
+    ASSERT_FALSE(pair.symmetricBumpSlope_);
+    const auto next = BuildMarketIvScriptRefitPair(plan, 1);
+    ASSERT_TRUE(next.plus_.model_) << next.plus_.failure_;
+    ASSERT_TRUE(next.minus_.model_) << next.minus_.failure_;
+}
+
+TEST(MarketIvScriptRefitTest, TestPairReportsChangeFromBaseFitRegime) {
+    const auto plan = PlanMarketIvScriptRefit(Request());
+    const auto pair = BuildMarketIvScriptRefitPair(plan, 0);
+    ASSERT_TRUE(pair.plus_.model_);
+    ASSERT_TRUE(pair.minus_.model_);
+    const auto& base = plan.request_.snapshot_.RegimeSignature();
+    for (const auto* side : {&pair.plus_, &pair.minus_})
+        ASSERT_EQ(side->regimeChanged_, side->model_->Snapshot().RegimeSignature() != base);
+    ASSERT_TRUE(pair.plus_.regimeChanged_ || pair.minus_.regimeChanged_);
+    ASSERT_EQ(pair.Status(), "REGIME_CHANGED");
+}
+
+TEST(MarketIvScriptRefitTest, TestUnchangedRegimeWithDistinctModels) {
+    auto request = Request();
+    request.quoteIds_ = {"90"};
+    request.steps_ = {1e-12};
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const auto pair = BuildMarketIvScriptRefitPair(plan, 0);
+    ASSERT_TRUE(pair.plus_.model_);
+    ASSERT_TRUE(pair.minus_.model_);
+    ASSERT_NE(pair.plus_.model_->ModelIdentity(), pair.minus_.model_->ModelIdentity());
+    ASSERT_FALSE(pair.plus_.regimeChanged_);
+    ASSERT_FALSE(pair.minus_.regimeChanged_);
+    ASSERT_EQ(pair.Status(), "SUCCESS");
+    ASSERT_THROW(static_cast<void>(BuildMarketIvScriptRefitPair(plan, plan.rows_.size())), Exception_);
+}
+
+TEST(MarketIvScriptRefitTest, TestGridFailurePreservesCertifiedFit) {
+    auto request = Request();
+    auto base = request.snapshot_.Request();
+    base.quotes_.Resize(1);
+    base.quotes_[0].id_ = "only-iv";
+    base.quotes_[0].strike_ = 105.;
+    request.snapshot_ = FitMarketIvSurface(base).Snapshot();
+    request.quoteIds_ = {"only-iv"};
+    request.steps_ = {.001};
+    request.grid_.settings_.evaluation_.minTotalVariance_ = .003995;
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const auto pair = BuildMarketIvScriptRefitPair(plan, 0);
+    ASSERT_TRUE(pair.plus_.model_) << pair.plus_.failure_;
+    ASSERT_FALSE(pair.minus_.model_);
+    ASSERT_EQ(pair.minus_.failureStage_, "GRID");
+    ASSERT_GE(pair.minus_.selectedStart_, 0);
+    ASSERT_NE(pair.minus_.failure_.find("Dupire node"), String_::npos);
+    ASSERT_FALSE(pair.symmetricBumpSlope_);
 }
 
 TEST(MarketIvScriptRefitTest, TestPreflightRejectsInvalidFieldsBeforeWork) {
