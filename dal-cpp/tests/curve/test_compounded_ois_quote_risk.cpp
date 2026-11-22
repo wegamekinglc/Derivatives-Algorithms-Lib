@@ -1,9 +1,16 @@
 #include <gtest/gtest.h>
 
 #include <functional>
+#include <iomanip>
 #include <iostream>
+#include <limits>
+#include <sstream>
 
+#include <dal/curve/calibration_internal.hpp>
+#include <dal/curve/curvescriptevaluation_internal.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
+#include <dal/math/aad/recording.hpp>
+#include <dal/math/aad/statistics.hpp>
 #include <dal/math/matrix/linearsolveaccuracy.hpp>
 
 #include "compoundedoiscalibrationfixture.hpp"
@@ -56,11 +63,57 @@ namespace {
         for (size_t i = 0; i < spec->compoundedOis_.size(); ++i)
             ReplaceTable(spec, i, spec->compoundedOis_[i]->Spec());
     }
+    CurveInstrumentCalibrationSpec_ NegativeParRateSpec() {
+        auto spec = RiskSpec("None", "Shared");
+        const auto quotes = Measures(spec, "Shared", {.0003, .002}, false);
+        for (int i = 0; i < 2; ++i)
+            spec = Bumped(spec, i, quotes[i] - spec.observations_[i]->Quote()->Value());
+        auto contract = Contract(false, "Lookback");
+        contract.instrumentId_ = "registered-negative";
+        ReplaceTable(&spec, 2, contract);
+        return spec;
+    }
     void AssertParRateRejected(const CompoundedOisParRateResolution_& result, const String_& code) {
         ASSERT_FALSE(result.Available());
         ASSERT_TRUE(result.quotes_.empty());
         ASSERT_EQ(result.diagnostics_.size(), 1u);
         ASSERT_EQ(result.diagnostics_.front().code_, code);
+    }
+    void AssertParRateUnavailable(const CompoundedOisParRateRiskResult_& result, const String_& code) {
+        ASSERT_FALSE(result.Available());
+        ASSERT_EQ(result.Diagnostics().size(), 1u);
+        ASSERT_EQ(result.Diagnostics()[0].code_, code);
+        ASSERT_EQ(result.Diagnostics()[0].measureId_, "ParRate");
+        ASSERT_THROW(static_cast<void>(result.ParRate()), Exception_);
+        ASSERT_THROW(static_cast<void>(result.NativeGradient()), Exception_);
+        ASSERT_THROW(static_cast<void>(result.SensitivityBpPerBp()), Exception_);
+        ASSERT_THROW(static_cast<void>(result.TransposeBackwardErrors()), Exception_);
+    }
+    void AssertUnserializableParRateContext(bool pvOnly) {
+        auto spec = RiskSpec("None", "Overnight");
+        const auto nodes = CompoundedOisTest::BackgroundParameters();
+        const auto background = std::make_shared<DiscountLogDF_>("passive", "USD", spec.geometry_.knotDates_, Vector_<>{0., nodes[0], nodes[1]},
+                                                                 DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR"));
+        spec.market_.discountCurves_[CollateralType_("OIS")] = Handle_<DiscountCurve_>(background);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, Options()), Accuracy(pvOnly));
+        const auto& tables = spec.compoundedOis_.back();
+        const auto instrument = NewCompoundedOisScriptInstrument(tables);
+        const auto good = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+        ASSERT_TRUE(good.Available());
+        ASSERT_EQ(good.SnapshotIdentity(), snapshot.Identity());
+
+        const Vector_<> bump{std::numeric_limits<double>::infinity(), 0.};
+        background->ApplyDX(bump.begin(), 1.);
+        const auto bad = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+        ASSERT_NO_FATAL_FAILURE(AssertParRateUnavailable(bad, "ScriptCurveQuoteRiskUnavailable"));
+        ASSERT_EQ(bad.SnapshotIdentity(), good.SnapshotIdentity());
+        const auto& diagnostic = bad.Diagnostics().front();
+        ASSERT_EQ(diagnostic.field_, "/context");
+        ASSERT_EQ(diagnostic.stage_, CalibrationStage_::Value_::Validate);
+        ASSERT_EQ(diagnostic.instrumentId_, instrument->Id());
+        ASSERT_TRUE(diagnostic.actual_);
+        ASSERT_NE(diagnostic.actual_->find("ARCHIVE_NUMBER_NON_FINITE"), String_::npos);
+        ASSERT_THROW(ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec), Exception_);
     }
     void AssertUnavailable(const ScriptCurveQuoteRiskResult_& result) {
         ASSERT_FALSE(result.Available());
@@ -230,6 +283,172 @@ TEST(CompoundedOisQuoteRiskTest, TestQuoteSelectionSignedDv01AndActualNotionalSc
     ASSERT_DOUBLE_EQ(subset.RawSensitivity()[0], base.RawSensitivity()[1]);
 }
 
+TEST(CompoundedOisQuoteRiskTest, TestNegativeParRateUsesOneTransposeRhsForSelectedBuckets) {
+    const auto spec = NegativeParRateSpec();
+    const auto& tables = spec.compoundedOis_[2];
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    const int beforeFit = CurveCalibrationInvocationCount();
+    const auto fit = CalibrateCurveInstruments(spec, Options());
+    ASSERT_EQ(CurveCalibrationInvocationCount() - beforeFit, 1);
+    const auto& theta = fit.parameters_;
+    const auto rate = [&](const Vector_<>& x) { return Oracle(tables->Spec(), "Shared", x, false, spec.valuation_)[1]; };
+    const auto full = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy());
+    const auto mapping = full.ParameterQuoteMapping(spec);
+    const auto& response = mapping.ParameterResponse();
+    for (const auto& snapshot : {full, NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(true))}) {
+        ASSERT_TRUE(snapshot.RiskAvailable());
+        for (const Vector_<String_>& ids : {Vector_<String_>{"long"}, {"long", "short"}}) {
+            const int before = CurveCalibrationInvocationCount();
+            const auto result = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec, {ids});
+            ASSERT_TRUE(result.Available());
+            ASSERT_EQ(result.SnapshotIdentity(), snapshot.Identity());
+            ASSERT_LT(result.ParRate(), 0.);
+            ASSERT_NEAR(result.ParRate(), rate({.0003, .002}), 1e-11);
+            ASSERT_EQ(result.QuoteAxis().size(), ids.size());
+            ASSERT_EQ(result.SensitivityBpPerBp().size(), ids.size());
+            ASSERT_EQ(result.NativeGradient().size(), theta.size());
+            ASSERT_EQ(result.TransposeBackwardErrors().size(), 1u);
+            ASSERT_LE(result.TransposeBackwardErrors()[0], 1e-12);
+            ASSERT_EQ(CurveCalibrationInvocationCount() - before, 0);
+            for (size_t j = 0; j < theta.size(); ++j) {
+                auto up = theta, down = theta;
+                up[j] += 1e-7;
+                down[j] -= 1e-7;
+                ASSERT_NEAR(result.NativeGradient()[j], (rate(up) - rate(down)) / 2e-7, 1e-6);
+            }
+            for (size_t j = 0; j < ids.size(); ++j) {
+                ASSERT_EQ(result.QuoteAxis()[j].id_, ids[j]);
+                const int column = ids[j] == "long" ? 1 : 0;
+                ASSERT_EQ(result.QuoteAxis()[j].ordinal_, column);
+                ASSERT_NEAR(result.SensitivityBpPerBp()[j],
+                            result.NativeGradient()[0] * response(0, column) + result.NativeGradient()[1] * response(1, column), 1e-12);
+                std::ostringstream row;
+                row << std::setprecision(15) << "par-rate pv_only=" << snapshot.Accuracy().pvOnly_ << " buckets=" << ids.size()
+                    << " rate=" << result.ParRate() << " quote=" << ids[j] << " bp/bp=" << result.SensitivityBpPerBp()[j]
+                    << " transpose_rhs=" << result.TransposeBackwardErrors().size()
+                    << " recalibrations=" << CurveCalibrationInvocationCount() - before;
+                std::cout << row.str() << '\n';
+            }
+        }
+    }
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestFullParRateOwnsUnserializableContextDiagnostic) {
+    ASSERT_NO_FATAL_FAILURE(AssertUnserializableParRateContext(false));
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestPvOnlyParRateOwnsUnserializableContextDiagnostic) {
+    ASSERT_NO_FATAL_FAILURE(AssertUnserializableParRateContext(true));
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateRejectsSettledAndInsufficientAnnuitiesAndRestoresTape) {
+    auto spec = RiskSpec("None", "Shared");
+    auto contract = Contract(true, "None");
+    contract.instrumentId_ = "high-floor";
+    contract.minAbsAnnuity_ = 100.;
+    spec.compoundedOis_.push_back(PrepareCompoundedOis(contract, spec.valuation_));
+    contract.instrumentId_ = "all-settled";
+    contract.coupons_ = {{"past", Date_(2024, 2, 26), Date_(2024, 2, 27), Date_(2024, 2, 29)}};
+    contract.fixedLeg_ = {{Date_(2024, 2, 26), Date_(2024, 2, 27), Date_(2024, 2, 29), 1. / 365.}};
+    spec.compoundedOis_.push_back(PrepareCompoundedOis(contract, spec.valuation_));
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, Options()), Accuracy(true));
+    ASSERT_TRUE(snapshot.RiskAvailable());
+    const auto mode = AAD::SetNumResultsForAAD(true, 3);
+    for (size_t i : {3, 4}) {
+        const auto& tables = spec.compoundedOis_[i];
+        const auto result = snapshot.ValueCompoundedOisParRateWithQuoteRisk(NewCompoundedOisScriptInstrument(tables), tables, spec);
+        ASSERT_NO_FATAL_FAILURE(AssertParRateUnavailable(result, "InvalidCalibrationAnnuity"));
+        const auto& diagnostic = result.Diagnostics()[0];
+        ASSERT_EQ(diagnostic.instrumentId_, tables->Spec().instrumentId_);
+        ASSERT_EQ(diagnostic.field_, "/annuity");
+        ASSERT_TRUE(diagnostic.actual_ && !diagnostic.actual_->empty());
+        const double annuity = std::stod(diagnostic.actual_->c_str());
+        if (i == 3) {
+            ASSERT_LT(annuity, 0.);
+            ASSERT_LT(std::abs(annuity), contract.minAbsAnnuity_);
+        } else
+            ASSERT_DOUBLE_EQ(annuity, 0.);
+        ASSERT_TRUE(AAD::Tape()->multi_);
+        ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+        ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+    }
+    const auto& live = spec.compoundedOis_[2];
+    ASSERT_TRUE(snapshot.ValueCompoundedOisParRateWithQuoteRisk(NewCompoundedOisScriptInstrument(live), live, spec).Available());
+    ASSERT_TRUE(AAD::Tape()->multi_);
+    ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateRejectsExcessTransposeErrorAtEvaluation) {
+    const auto spec = NegativeParRateSpec();
+    const auto fit = CalibrateCurveInstruments(spec, Options());
+    const auto& tables = spec.compoundedOis_.back();
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    auto accuracy = Accuracy(true);
+    const auto good = NewScriptCurveQuoteRiskSnapshot(fit, accuracy).ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+    ASSERT_TRUE(good.Available());
+    const double error = good.TransposeBackwardErrors().front();
+    ASSERT_GT(error, 0.);
+    accuracy.responseBackwardErrorLimit_ = error / 2.;
+    const auto strict = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+    ASSERT_TRUE(strict.RiskAvailable());
+    const auto result = strict.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+    ASSERT_NO_FATAL_FAILURE(AssertParRateUnavailable(result, "ScriptCurveQuoteRiskResponseAccuracy"));
+    ASSERT_EQ(result.Diagnostics()[0].field_, "/par_rate/transpose_error");
+    ASSERT_EQ(result.Diagnostics()[0].stage_, CalibrationStage_::Value_::Evaluate);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateRejectsNestedRecordingAndPreservesOuterDerivative) {
+    const auto spec = NegativeParRateSpec();
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, Options()), Accuracy());
+    const auto& tables = spec.compoundedOis_.back();
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    AAD::RecordingScope_ outer;
+    AAD::Number_ x;
+    outer.RegisterInput(x, 3.);
+    outer.StartRecording();
+    const auto before = AAD::MeasureTape(*AAD::Tape()).nodes_;
+    const auto result = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+    ASSERT_NO_FATAL_FAILURE(AssertParRateUnavailable(result, "ScriptCurveQuoteRiskNestedRecording"));
+    ASSERT_EQ(result.Diagnostics()[0].field_, "/par_rate/recording");
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, before);
+    AAD::Number_ square = x * x;
+    outer.FinishRecording();
+    AAD::Adjoint(square) = 1.;
+    outer.Reverse();
+    ASSERT_DOUBLE_EQ(AAD::Adjoint(x), 6.);
+    outer.Close();
+    ASSERT_EQ(result.Diagnostics()[0].stage_, CalibrationStage_::Value_::Evaluate);
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateRejectsAnnuityWithOppositeSign) {
+    const auto spec = NegativeParRateSpec();
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, Options()), Accuracy());
+    const auto& tables = spec.compoundedOis_.back();
+    const auto instrument = NewCompoundedOisScriptInstrument(tables);
+    const auto resolved = snapshot.ResolveCompoundedOisParRate(instrument, tables, spec);
+    ASSERT_TRUE(resolved.Available());
+    ASSERT_EQ(resolved.plan_->Measure().annuitySign_, -1);
+    // An admitted PayFixed contract has positive discounts and negative fixed-leg coefficients.
+    try {
+        static_cast<void>(CurveScriptInternal::Measure(*resolved.plan_, CurveScriptInternal::Affine_<double>{1., .03}));
+        FAIL() << "Accepted a positive PayFixed annuity";
+    } catch (const CalibrationError_& error) {
+        const auto& d = error.Failure().diagnostic_;
+        ASSERT_EQ(d.code_, "InvalidCalibrationAnnuity");
+        ASSERT_EQ(d.field_, "/annuity");
+        ASSERT_EQ(d.actual_, "1");
+    }
+    auto source = instrument->Definition()->Spec();
+    for (auto& measure : source.measures_)
+        if (measure.id_ == "ParRate")
+            measure.annuitySign_ = 1;
+    const auto changed = NewScriptCalibrationInstrument({instrument->Id(), NewScriptInstrumentDefinition(source), {}, instrument->Pillar()});
+    ASSERT_NO_FATAL_FAILURE(
+        AssertParRateUnavailable(snapshot.ValueCompoundedOisParRateWithQuoteRisk(changed, tables, spec), "CompoundedOisSourceMismatch"));
+}
+
 TEST(CompoundedOisQuoteRiskTest, TestResolveRegisteredParRateOnBothSnapshotModes) {
     auto spec = RiskSpec("ObservationShift", "Shared", true);
     auto receiving = spec.compoundedOis_.back()->Spec();
@@ -285,9 +504,16 @@ TEST(CompoundedOisQuoteRiskTest, TestParRateChecksTableIdentityWithColdAndWarmPr
             const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(pvOnly));
             const auto accepted = snapshot.ResolveCompoundedOisParRate(instrument, tables, spec);
             ASSERT_TRUE(accepted.Available());
+            ASSERT_EQ(accepted.plan_->Measure().id_, "ParRate");
+            ASSERT_EQ(accepted.plan_->Measure().kind_, CalibrationMeasureKind_::Value_::ParAffineRate);
             if (!planIdentity.empty())
                 ASSERT_EQ(accepted.plan_->PlanIdentity(), planIdentity);
             planIdentity = accepted.plan_->PlanIdentity();
+            const auto risk = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+            ASSERT_TRUE(risk.Available());
+            ASSERT_EQ(risk.SnapshotIdentity(), snapshot.Identity());
+            ASSERT_NO_FATAL_FAILURE(AssertParRateUnavailable(snapshot.ValueCompoundedOisParRateWithQuoteRisk(sameScript, different, spec),
+                                                             "CompoundedOisSourceMismatch"));
             ASSERT_NO_FATAL_FAILURE(
                 AssertParRateRejected(snapshot.ResolveCompoundedOisParRate(sameScript, different, spec), "CompoundedOisSourceMismatch"));
         }

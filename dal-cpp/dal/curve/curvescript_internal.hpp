@@ -50,14 +50,19 @@ namespace Dal {
 
 namespace Dal::CurveScriptInternal {
     Date_ Horizon(const CalibrationPreparationContext_& context);
+    inline void CheckSignedAnnuity(double annuity, int sign, double minimum, const CalibrationDiagnostic_& source = {}) {
+        if (std::isfinite(annuity) && annuity * sign >= minimum)
+            return;
+        auto diagnostic = source;
+        diagnostic.stage_ = CalibrationStage_::Value_::Evaluate;
+        CalibrationInternal::Fail("InvalidCalibrationAnnuity", "/annuity",
+                                  "annuity * " + CalibrationInternal::NumberText(sign) + " >= " + CalibrationInternal::NumberText(minimum),
+                                  CalibrationInternal::NumberText(annuity), diagnostic);
+    }
     inline void CheckCompoundedAnnuity(const CalibrationCurveFamilyDescriptor_& descriptor, double annuity) {
         if (!descriptor.compounded_ || descriptor.payments_.empty())
             return;
-        auto diagnostic = descriptor.payments_.front().source_;
-        diagnostic.stage_ = CalibrationStage_::Value_::Evaluate;
-        CalibrationInternal::Check(std::isfinite(annuity) && annuity * descriptor.annuitySign_ >= descriptor.minAbsAnnuity_,
-                                   "InvalidCalibrationAnnuity", "/annuity", "actual finite annuity with frozen sign and minimum magnitude", "",
-                                   diagnostic);
+        CheckSignedAnnuity(annuity, descriptor.annuitySign_, descriptor.minAbsAnnuity_, descriptor.payments_.front().source_);
     }
     template <class T_> struct Affine_ {
         T_ a_ = T_(0.), b_ = T_(0.);

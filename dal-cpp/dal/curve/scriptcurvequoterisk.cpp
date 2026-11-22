@@ -464,15 +464,15 @@ namespace Dal {
             }
             return result;
         }
-        struct NativePrice_ {
+        struct NativeMeasure_ {
             double value_;
             Vector_<> gradient_;
         };
-        NativePrice_ NativePrice(const PreparedCurvePrice_& prepared, const Vector_<>& theta, const Date_& today) {
+        NativeMeasure_ NativeMeasure(const PreparedCurvePrice_& prepared, const Vector_<>& theta, const Date_& today, const String_& field) {
             try {
                 AAD::RequireRecordingModeChangeAllowed();
             } catch (const std::exception& error) {
-                Fail("ScriptCurveQuoteRiskNestedRecording", "/pv/recording", "no active independent recording", error.what());
+                Fail("ScriptCurveQuoteRiskNestedRecording", field + "/recording", "no active independent recording", error.what());
             }
             const auto mode = AAD::SetNumResultsForAAD(false, 1);
             AAD::RecordingScope_ recording;
@@ -482,29 +482,29 @@ namespace Dal {
             recording.StartRecording();
             const CandidateCurveProvider_<AAD::Number_> provider(prepared.geometry_, active);
             CurveScriptInternal::EvaluationScratch_<AAD::Number_> scratch;
-            auto price = CashflowMeasure(prepared.plan_, provider, today, &scratch);
-            Check(std::isfinite(static_cast<double>(price)), "ScriptCurveQuoteRiskNonFinite", "/pv", "finite Price");
+            auto value = CashflowMeasure(prepared.plan_, provider, today, &scratch);
+            Check(std::isfinite(static_cast<double>(value)), "ScriptCurveQuoteRiskNonFinite", field, "finite " + prepared.plan_.Measure().id_);
             recording.FinishRecording();
             recording.ClearAdjoints();
-            AAD::Adjoint(price) = 1.;
+            AAD::Adjoint(value) = 1.;
             recording.Reverse();
-            NativePrice_ result{static_cast<double>(price), Vector_<>(theta.size())};
+            NativeMeasure_ result{static_cast<double>(value), Vector_<>(theta.size())};
             for (size_t i = 0; i < theta.size(); ++i) {
                 result.gradient_[i] = AAD::Adjoint(active[i]);
-                Check(std::isfinite(result.gradient_[i]), "ScriptCurveQuoteRiskNonFinite", "/pv/native_gradient/" + OrdinalText(i),
+                Check(std::isfinite(result.gradient_[i]), "ScriptCurveQuoteRiskNonFinite", field + "/native_gradient/" + OrdinalText(i),
                       "finite native gradient", NumberText(result.gradient_[i]));
             }
             recording.Close();
             return result;
         }
-        ImplicitRootAdjoints_ PriceResponse(const ScriptCurveQuoteRiskSnapshot_::Data_& data, const Vector_<>& gradient) {
+        ImplicitRootAdjoints_ MeasureResponse(const ScriptCurveQuoteRiskSnapshot_::Data_& data, const Vector_<>& gradient, const String_& field) {
             Matrix_<> seed(static_cast<int>(gradient.size()), 1);
             for (int i = 0; i < seed.Rows(); ++i)
                 seed(i, 0) = gradient[i];
             const auto reverse = data.linearization_->Reverse(seed);
             const double error = reverse.transposeBackwardErrors_[0];
             Check(std::isfinite(error) && error <= data.accuracy_.responseBackwardErrorLimit_, "ScriptCurveQuoteRiskResponseAccuracy",
-                  "/pv/transpose_error", NumberText(data.accuracy_.responseBackwardErrorLimit_), NumberText(error));
+                  field + "/transpose_error", NumberText(data.accuracy_.responseBackwardErrorLimit_), NumberText(error));
             return reverse;
         }
     } // namespace
@@ -541,8 +541,8 @@ namespace Dal {
             AdmitQuoteRiskPlan(prepared.plan_, *data.spec_, "/instrument");
             Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price, "ScriptCurveQuoteRiskUnsupportedMeasure",
                   "/request/measure_id", "Price kind", request.measureId_);
-            const auto price = NativePrice(prepared, data.parameters_, data.spec_->geometry_.today_);
-            const auto reverse = PriceResponse(data, price.gradient_);
+            const auto price = NativeMeasure(prepared, data.parameters_, data.spec_->geometry_.today_, "/pv");
+            const auto reverse = MeasureResponse(data, price.gradient_, "/pv");
             result.numerics_.transposeBackwardErrors_ = reverse.transposeBackwardErrors_;
             result.axes_.quotes_.clear();
             for (const int i : selected) {
@@ -572,10 +572,22 @@ namespace Dal {
                                                                                                const Handle_<PreparedCompoundedOis_>& tables,
                                                                                                const CurveInstrumentCalibrationSpec_& context,
                                                                                                const CompoundedOisParRateRequest_& request) const {
+        const auto rejected = [&](CalibrationDiagnostic_ diagnostic) -> CompoundedOisParRateResolution_ {
+            if (instrument)
+                diagnostic.instrumentId_ = instrument->Id();
+            diagnostic.measureId_ = "ParRate";
+            return {{}, {}, {std::move(diagnostic)}};
+        };
         try {
             const auto validation = ValidateContext(context);
             if (!validation.Passed())
                 return {{}, {}, validation.Diagnostics()};
+        } catch (const CalibrationError_& error) {
+            return rejected(error.Failure().diagnostic_);
+        } catch (const std::exception& error) {
+            return rejected(Diagnostic("ScriptCurveQuoteRiskUnavailable", "/context", "serializable calibration context", error.what()));
+        }
+        try {
             if (!RiskAvailable())
                 return {{}, {}, Diagnostics()};
             Check(bool(instrument) && bool(tables), INPUT_ERROR, "/instrument", "bound OIS instrument and prepared tables");
@@ -588,12 +600,52 @@ namespace Dal {
                 selected.push_back(QuoteAxis()[i]);
             return {std::move(plan), std::move(selected), {}};
         } catch (const CalibrationError_& error) {
-            auto d = error.Failure().diagnostic_;
-            if (instrument)
-                d.instrumentId_ = instrument->Id();
-            d.measureId_ = "ParRate";
-            return {{}, {}, {std::move(d)}};
+            return rejected(error.Failure().diagnostic_);
         }
+    }
+
+    const CompoundedOisParRateRiskResult_::Values_& CompoundedOisParRateRiskResult_::Values() const {
+        REQUIRE(Available(), "Compounded OIS par rate quote risk is unavailable; inspect diagnostics");
+        return *values_;
+    }
+
+    CompoundedOisParRateRiskResult_
+    ScriptCurveQuoteRiskSnapshot_::ValueCompoundedOisParRateWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                                          const Handle_<PreparedCompoundedOis_>& tables,
+                                                                          const CurveInstrumentCalibrationSpec_& context,
+                                                                          const CompoundedOisParRateRequest_& request) const {
+        CompoundedOisParRateRiskResult_ result;
+        result.snapshotIdentity_ = Identity();
+        auto resolved = ResolveCompoundedOisParRate(instrument, tables, context, request);
+        if (!resolved.Available()) {
+            result.diagnostics_ = std::move(resolved.diagnostics_);
+            return result;
+        }
+        result.quotes_ = std::move(resolved.quotes_);
+        try {
+            const PreparedCurvePrice_ prepared{std::move(*resolved.plan_), data_->priceContext_.Geometry()};
+            auto rate = NativeMeasure(prepared, Parameters(), data_->spec_->geometry_.today_, "/par_rate");
+            auto reverse = MeasureResponse(*data_, rate.gradient_, "/par_rate");
+            Vector_<> slopes;
+            for (const auto& quote : result.quotes_) {
+                const double slope = reverse.inputs_(quote.ordinal_, 0);
+                Check(std::isfinite(slope), "ScriptCurveQuoteRiskNonFinite", "/par_rate/sensitivity", "finite bp/bp");
+                slopes.push_back(slope);
+            }
+            result.values_ = CompoundedOisParRateRiskResult_::Values_{rate.value_, std::move(rate.gradient_), std::move(slopes),
+                                                                      std::move(reverse.transposeBackwardErrors_)};
+            return result;
+        } catch (const CalibrationError_& error) {
+            result.diagnostics_.push_back(error.Failure().diagnostic_);
+        } catch (const std::exception& error) {
+            result.diagnostics_.push_back(
+                Diagnostic("ScriptCurveQuoteRiskEvaluationUnavailable", "/par_rate", "finite ParRate and checked response", error.what()));
+        }
+        auto& diagnostic = result.diagnostics_.back();
+        diagnostic.stage_ = CalibrationStage_::Value_::Evaluate;
+        diagnostic.instrumentId_ = instrument->Id();
+        diagnostic.measureId_ = "ParRate";
+        return result;
     }
 
     bool ScriptCurveQuoteRiskSnapshot_::StructureValid() const { return data_->structureValid_; }
