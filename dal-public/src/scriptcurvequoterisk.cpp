@@ -61,6 +61,31 @@ namespace Dal {
         String_ Status(bool available) { return available ? "Available" : "Unavailable"; }
     } // namespace
 
+    CompoundedOisParRateRiskResult_ ValueCompoundedOisParRateWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                                           const Handle_<PreparedCompoundedOis_>& tables,
+                                                                           const ScriptCurveQuoteRiskSnapshot_& snapshot,
+                                                                           const CurveInstrumentCalibrationSpec_& context,
+                                                                           const CompoundedOisParRateRequest_& request) {
+        return snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, context, request);
+    }
+
+    Matrix_<Cell_> ScriptCurveQuoteRiskTable(const CompoundedOisParRateRiskResult_& result, const String_& table) {
+        if (table == "Diagnostics")
+            return Diagnostics(result.Diagnostics());
+        if (table == "Sensitivity") {
+            Vector_<Row_> rows{Row("ordinal", "id", "sensitivity_bp_per_bp")};
+            for (size_t i = 0; i < result.QuoteAxis().size(); ++i) {
+                const auto& q = result.QuoteAxis()[i];
+                rows.push_back(Row(q.ordinal_, q.id_, result.Available() ? Cell_(result.SensitivityBpPerBp()[i]) : Cell_()));
+            }
+            return Cells(rows);
+        }
+        REQUIRE(table == "Summary", "Compounded OIS par-rate risk: expected Summary, Sensitivity or Diagnostics");
+        return Cells({Row("field", "value"), Row("status", Status(result.Available())),
+                      Row("par_rate_decimal", result.Available() ? Cell_(result.ParRate()) : Cell_()),
+                      Row("snapshot_identity", result.SnapshotIdentity())});
+    }
+
     Matrix_<Cell_> ScriptCurveQuoteRiskTable(const ScriptCurveQuoteRiskSnapshot_& snapshot, const String_& table) {
         if (table == "QuoteAxis")
             return Quotes(snapshot.QuoteAxis());
