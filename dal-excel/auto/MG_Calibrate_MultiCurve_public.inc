@@ -35,7 +35,7 @@ struct XlRegister_Calibrate_MultiCurve_
     XlRegister_Calibrate_MultiCurve_()
     {
         Vector_<String_> argHelp;        
-        argHelp.push_back("CURVECALIBRATIONSTAGE.NEW handles in calibration order");
+        argHelp.push_back("CURVECALIBRATIONSTAGE.NEW handles in calibration order, all with the same liborBasis");
         argHelp.push_back("TRUE captures the discount and forward stages for quote risk");
         Excel::Register("Base", "xl_Calibrate_MultiCurve", "CALIBRATE.MULTICURVE", "Fit a sequential same-currency curve bundle", "QQQ", "stages,[recordQuoteRisk]", argHelp, false);
     }

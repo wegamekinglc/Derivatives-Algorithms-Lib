@@ -16,7 +16,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "route (input #3)";
         const String_ route = Excel::ToString(xl_route);
         argName = 0;
-		Handle_<StorableDiscountCurve_> curve;
+		Handle_<Storable_> curve;
         MultiCurveCalibrationResult_Get_Curve(result, role, route, &curve);
         Excel::Retval_ retval;
         retval.Load(_env, curve);

@@ -18,7 +18,7 @@ Define one stage of a sequential same-currency curve calibration
 <tr><td>today</td><td>date</td><td></td><td>Calibration date</td></tr>
 <tr><td>currency</td><td>string</td><td></td><td>Currency of the stage</td></tr>
 <tr><td>instruments</td><td>vector of handles</td><td></td><td>Market instruments in original quote order</td></tr>
-<tr><td>knotDates</td><td>vector of dates</td><td>yes</td><td>Explicit knots. When omitted the stage uses instrument maturities.</td></tr>
+<tr><td>knotDates</td><td>vector of dates</td><td>yes</td><td>Explicit knots. When omitted, use distinct instrument start and maturity dates strictly after the valuation date.</td></tr>
 <tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Stage settings as in CALIBRATE.SINGLECURVE, including curveName, calibrateDiscountCurve, targetTenor, parameterization and tolerance</td></tr>
 
 </table>

@@ -45,7 +45,7 @@ struct XlRegister_CurveCalibrationStage_New_
         argHelp.push_back("Calibration date");
         argHelp.push_back("Currency of the stage");
         argHelp.push_back("Market instruments in original quote order");
-        argHelp.push_back("Explicit knots. When omitted the stage uses instrument maturities.");
+        argHelp.push_back("Explicit knots. When omitted, use distinct instrument start and maturity dates strictly after the valuation date.");
         argHelp.push_back("Stage settings as in CALIBRATE.SINGLECURVE, including curveName, calibrateDiscountCurve, targetTenor, parameterization and tolerance");
         Excel::Register("Base", "xl_CurveCalibrationStage_New", "CURVECALIBRATIONSTAGE.NEW", "Define one stage of a sequential same-currency curve calibration", "QQQQQQ", "today,currency,instruments,[knotDates],[settings]", argHelp, false);
     }

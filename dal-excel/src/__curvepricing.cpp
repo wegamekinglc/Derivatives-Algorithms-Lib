@@ -219,7 +219,7 @@ resultCurrency is string
 componentKeys is string[]
     Component keys, parallel to componentCurves
 componentCurves is handle[]
-    Discount curve handles, parallel to componentKeys
+    Curve handles parallel to componentKeys. A declared unfitted route from a partial staged result leaves that component unavailable.
 &optional
 fixings is handle StorableMarketFixingSnapshot
     Immutable fixing snapshot
@@ -592,6 +592,10 @@ namespace Dal {
         AddCurveComponents(const Vector_<String_>& componentKeys, const Vector_<Handle_<Storable_>>& componentCurves, RatePricingMarket_* market) {
             REQUIRE(componentKeys.size() == componentCurves.size(), "Rate pricing market component keys and curves must be parallel arrays");
             for (int index = 0; index < static_cast<int>(componentKeys.size()); ++index) {
+                if (handle_cast<StorableUnfittedCurve_>(componentCurves[index])) {
+                    market->curveComponents_.erase(componentKeys[index]);
+                    continue;
+                }
                 const auto* curve = dynamic_cast<const StorableDiscountCurve_*>(componentCurves[index].get());
                 REQUIRE(curve && curve->val_, "Rate pricing market component " + componentKeys[index] + " must be a discount curve handle");
                 market->curveComponents_[componentKeys[index]] = curve->val_;

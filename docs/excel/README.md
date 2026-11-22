@@ -1155,11 +1155,22 @@ K1: =RATEPORTFOLIOQUOTERISK.SPILL(E1, G1, J1)
 For sequential same-currency calibration, create each
 `CURVECALIBRATIONSTAGE.NEW(today, currency, instruments, [knotDates], [settings])`
 and pass the ordered stage handles to `CALIBRATE.MULTICURVE(stages, TRUE)`.
-Omitting knot dates selects instrument knots. Build the market with
+All stages must use the same `liborBasis`. A conflict names the stages and their
+bases at the calibration cell. Omitting knot dates selects the distinct
+instrument start and maturity dates strictly after the valuation date. For
+example, two deposits with a common T+2 start and distinct maturities give
+three knots. Supply the two maturity dates explicitly for a two-node fit.
+Build the market with
 `MULTICURVECALIBRATIONRESULT.GET.CURVE(result, "Discount", "OIS")` and the
 corresponding `"Forward"` tenor. Pass the result, calibration ID, stage keys,
 component keys and market to `STAGEDMULTICURVEQUOTERISKPROVENANCE.NEW`.
 The existing portfolio spill returns the discount then forward quote rows.
+If a recorded stage fails, keep both component keys and curve references in
+`RATEPRICINGMARKET.NEW`. The getter returns the fitted curves and an
+`UnfittedCurve` handle for each declared route left unfinished. The market
+includes only fitted curves. The dedicated source gives the portfolio spill
+one ten-column failure row with the stage and original reason, leaving the
+quote sensitivity and DV01 cells empty. An undeclared route is an input error.
 Generic joint calibration has the dedicated
 `JOINTMULTICURVEQUOTERISKPROVENANCE.NEW` factory and a
 [complete worksheet construction path](../../dal-excel/examples/009.generic_joint_quote_risk.md).

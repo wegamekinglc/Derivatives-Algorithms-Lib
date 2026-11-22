@@ -54,7 +54,7 @@ struct XlRegister_RatePricingMarket_New_
         argHelp.push_back("Valuation timestamp as an Excel date or date-time cell");
         argHelp.push_back("Reported (passthrough) currency code; never the aggregation grouping key");
         argHelp.push_back("Component keys, parallel to componentCurves");
-        argHelp.push_back("Discount curve handles, parallel to componentKeys");
+        argHelp.push_back("Curve handles parallel to componentKeys. A declared unfitted route from a partial staged result leaves that component unavailable.");
         argHelp.push_back("Immutable fixing snapshot");
         argHelp.push_back("XCCY domestic curve block (required for XCCY trades)");
         argHelp.push_back("XCCY foreign curve block (required for XCCY trades)");

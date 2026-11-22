@@ -18,7 +18,7 @@ namespace Dal {
     DAL_EXCEL_TEST_API void MultiCurveCalibrationResult_Get_Curve(const Handle_<StorableMultiCurveCalibrationResult_>& result,
                                                                   const String_& role,
                                                                   const String_& route,
-                                                                  Handle_<StorableDiscountCurve_>* curve);
+                                                                  Handle_<Storable_>* curve);
     DAL_EXCEL_TEST_API void StagedMultiCurveQuoteRiskProvenance_New(const Handle_<StorableMultiCurveCalibrationResult_>& result,
                                                                     const String_& calibrationId,
                                                                     const Vector_<String_>& parameterBlockKeys,

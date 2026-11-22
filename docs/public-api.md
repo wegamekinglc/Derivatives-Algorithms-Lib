@@ -786,10 +786,9 @@ sensitivity returns the `TRADE_VALIDATION_FAILED` token.
 
 ### C++ quote-space DV01
 
-Quote-space aggregation is a two-step workflow. First freeze a calibration result,
-its quote/parameter axes, its effective inverse, and the state of every bound market
-component in a `RateQuoteRiskProvenance_`. Then aggregate a portfolio against one or
-more provenances:
+A `RateQuoteRiskProvenance_` binds the calibration's axes and quote mapping
+to the fitted market components. Pass one or more such sources to
+`AggregateRatePortfolioQuoteRisk`.
 
 ```cpp
 const auto provenance = Dal::BuildSingleCurveQuoteRiskProvenance(
@@ -800,30 +799,37 @@ const auto quoteRisk = Dal::AggregateRatePortfolioQuoteRisk(
     trades, market, {provenance});
 ```
 
-The supported provenance factories are
-`BuildSingleCurveQuoteRiskProvenance`, `BuildJointXccyQuoteRiskProvenance`,
-`BuildStagedXccyBasisQuoteRiskProvenance`, and
-`BuildJointMultiCurveQuoteRiskProvenance`. They cover exact single-curve,
-simultaneous domestic/foreign/basis XCCY, staged XCCY basis, and generic
-same-currency joint calibration, respectively. The public
-`CalibrateJointMultiCurveBundle(spec, options)` facade exposes the generic
-joint result; its effective inverse request defaults to false. See the
-[generic joint mapping contract](yield-curves/joint-quote-risk.md),
-including the explicit solution-selection semantics for underdetermined systems.
-For sequential discount and forward curves, core C++ provides
-[`MapStagedQuoteRisk` on a two-stage EXACT calibration record](yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting).
-The portfolio quote-risk calculation requires an available effective inverse.
-Unavailable results retain a stable reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
-`QUOTE_RISK_NOT_AVAILABLE_FOR_SOLVE_MODE`, or
-`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`.
+| Calibration | Public provenance factory | Portfolio quote mapping |
+| --- | --- | --- |
+| Exact single curve | `BuildSingleCurveQuoteRiskProvenance` | Dense effective inverse |
+| Simultaneous domestic, foreign and basis XCCY | `BuildJointXccyQuoteRiskProvenance` | Dense effective inverse |
+| Staged XCCY basis | `BuildStagedXccyBasisQuoteRiskProvenance` | Dense effective inverse |
+| Generic joint curves | `BuildJointMultiCurveQuoteRiskProvenance` | Dense effective inverse |
+| Sequential same-currency discount and forward curves | `BuildStagedMultiCurveQuoteRiskProvenance` | Block transpose solve |
+
+For two square EXACT stages, call `CalibrateMultiCurveBundle(spec, true)`, put
+the fitted curves in the market and pass the bundle to
+`BuildStagedMultiCurveQuoteRiskProvenance(bundle, market, config)`. Bind
+`stage:0` to the discount component and `stage:1` to the forward component.
+Aggregation solves the transposed forward block first and carries its discount
+dependence into the transposed discount solve. The buckets follow each stage's
+input quote order. [Sequential calibration and mapping](yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
+
+`NewCalibrationPullback` and `BuildGSRCurveQuoteRisk` require a dense
+effective inverse. Passing an available block mapping to either reports
+`QUOTE_RISK_DENSE_MAPPING_REQUIRED`. For generic joint calibration,
+`CalibrateJointMultiCurveBundle(spec, options)` defaults the inverse request
+to false. Unavailable dense sources report reasons such as
+`QUOTE_RISK_INVERSE_NOT_REQUESTED`, `QUOTE_RISK_NOT_AVAILABLE_FOR_SOLVE_MODE`
+or `QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`. [Generic joint mapping and solution selection](yield-curves/joint-quote-risk.md)
 
 `RateQuoteRiskAxis_` publishes named parameter/residual ranges and ordered
 coordinates. Its scheme remains `dal.quote-risk-axis/1+jcs+sha256` for
 `SINGLE_CURVE`, `JOINT_XCCY` and `STAGED_XCCY_BASIS`, and
-`dal.quote-risk-axis/2+jcs+sha256` for `JOINT_MULTI_CURVE`.
+`dal.quote-risk-axis/2+jcs+sha256` for `JOINT_MULTI_CURVE` and `STAGED_MULTI_CURVE`.
 New factories use `dal.quote-risk-state/3+jcs+sha256` for the first three kinds
-and `dal.quote-risk-state/4+jcs+sha256` for generic joint provenance. `/4` retains
-the joint routing and base-chain binding. Read the actual scheme from
+and `dal.quote-risk-state/4+jcs+sha256` for generic joint and same-currency staged
+provenance. `/4` retains the routing and base-chain binding. Read the actual scheme from
 `provenance.State().scheme_`: the historical no-argument
 `RateQuoteRiskStateFingerprintScheme()` still returns `/1`. Fingerprints begin
 with `sha256:`.

@@ -13,7 +13,7 @@ Ref = worksheet.Ref
 require = worksheet.require
 
 
-def populate(sheet):
+def populate(sheet, *, deposit_start=None, discount_knots=Ref("")):
     inputs = worksheet.SheetInputs(sheet)
     call, table = inputs.call, inputs.table
     today = Ref("DATE(2024,1,15)")
@@ -21,17 +21,21 @@ def populate(sheet):
     leg = call("RATELEGCONVENTION.NEW", "6M", "ACT_365F")
     discount_index = call("RATEINDEXCONVENTION.NEW", "6M", "ACT_365F", "OIS")
     index = call("RATEINDEXCONVENTION.NEW", "6M", "ACT_365F", "OIS", True)
-    deposits = [call("DEPOSIT.NEW", today, today, date, rate, discount_index) for date, rate in zip(dates, (.035, .021))]
+    deposits = [call("DEPOSIT.NEW", today, deposit_start or today, date, rate, discount_index) for date, rate in zip(dates, (.035, .021))]
     swaps = [call("SWAP.NEW", today, today, date, rate, leg, index, leg) for date, rate in zip(dates, (.042, .028))]
 
     def column(values):
         return table([[value] for value in values])
 
-    def stage(quotes, settings):
-        return call("CURVECALIBRATIONSTAGE.NEW", today, "EUR", column(quotes), Ref(""),
-                    table([["parameterization", "ZERO_RATE"], *settings]))
+    def stage(quotes, settings, knots=Ref("")):
+        instruments = column(quotes)
+        cells = sheet.Range(table([["parameterization", "ZERO_RATE"], *settings]))
+        # Include the spare row so a scenario can change one setting at the same address.
+        last = sheet.Cells(cells.Row + cells.Rows.Count, cells.Column + 1)
+        settings_with_spare = sheet.Range(sheet.Cells(cells.Row, cells.Column), last)
+        return call("CURVECALIBRATIONSTAGE.NEW", today, "EUR", instruments, knots, Ref(settings_with_spare.Address))
 
-    discount = stage(deposits, [["curveName", "ESTR"], ["tolerance", 1e-13], ["initialGuess", .02]])
+    discount = stage(deposits, [["curveName", "ESTR"], ["tolerance", 1e-13], ["initialGuess", .02]], discount_knots)
     forward = stage(swaps, [["curveName", "Euribor6M"], ["tolerance", 5e-13], ["initialGuess", .01],
                             ["calibrateDiscountCurve", False], ["targetTenor", "6M"]])
     stages = column([discount, forward])
@@ -79,6 +83,55 @@ def portfolio_spill(sheet):
     return result
 
 
+def forward_scenario(book, title, setting, value):
+    sheet = book.Worksheets.Add()
+    sheet.Name = title
+    populate(sheet)
+    sheet.Range("Q34:R34").Value2 = ((setting, value),)
+    return sheet
+
+
+def partial_fit_spill(sheet, base):
+    for cell in ("Q44", "Q46", "Q57", "Q61", "A3"):
+        require(sheet.Range(cell).Formula2 == base.Range(cell).Formula2, cell)
+    result = read_spill(sheet, "A3", "$A$3:$J$3")
+    row, = result["values"]
+    require(row[0] == "EUR-calibration" and row[8] == "unavailable", row)
+    require(row[6] in (None, "") and row[7] in (None, ""), row)
+    require("Euribor6M" in row[9] and "Forward-curve calibration requires a preloaded discount curve for the requested collateral" in row[9], row)
+    result["market_formula"] = sheet.Range("Q57").Formula2
+    result["forward_setting"] = sheet.Range("Q34:R34").Value2[0]
+    result["routes"] = {cell: {"formula": sheet.Range(cell).Formula2, "type": sheet.Range(cell).Value2.split("~")[1]} for cell in ("Q44", "Q46")}
+    require(result["routes"]["Q44"]["type"] == "DiscountCurve" and result["routes"]["Q46"]["type"] == "UnfittedCurve", result["routes"])
+    return result
+
+
+def conflicting_bases(sheet):
+    observed = {}
+    for address in ("Q40", "Q42"):
+        cell = sheet.Range(address)
+        require("stage:1 (Euribor6M) uses BOND" in cell.Value2 and "stage:0 (ESTR) uses ACT_365F" in cell.Value2, cell.Value2)
+        observed[address] = {"formula": cell.Formula2, "value": cell.Value2}
+    return observed
+
+
+def deposit_knot_cases(book, excel):
+    auto, explicit = book.Worksheets.Add(), book.Worksheets.Add()
+    auto.Name, explicit.Name = "T+2 instrument knots", "T+2 explicit knots"
+    explicit.Range("T2").Formula2 = "=DATE(2024,7,15)"
+    explicit.Range("T3").Formula2 = "=DATE(2026,1,15)"
+    start = Ref("DATE(2024,1,17)")
+    populate(auto, deposit_start=start)
+    populate(explicit, deposit_start=start, discount_knots=Ref("$T$2:$T$3"))
+    excel.CalculateFullRebuild()
+    default = read_spill(auto, "A3", "$A$3:$J$3")
+    row, = default["values"]
+    require(row[8] == "unavailable" and "square quote-by-parameter system" in row[9], row)
+    supplied = read_spill(explicit, "A3", "$A$3:$J$6")
+    require(all(row[5] == "EUR" and row[8] == "available" for row in supplied["values"]), supplied)
+    return {"instrument_knots": default, "explicit_knots": supplied}
+
+
 def run(xll, output):
     excel = win32com.client.DispatchEx("Excel.Application")
     book = None
@@ -90,9 +143,12 @@ def run(xll, output):
         sheet.Name = "EUR portfolio"
         sheet.Range("M1").Formula2 = "=INIT.GLOBALDATA(1)"
         populate(sheet)
-        excel.CalculateFullRebuild()
+        gc_sheet = forward_scenario(book, "GC forward", "targetCollateral", "GC")
+        basis_sheet = forward_scenario(book, "Basis conflict", "liborBasis", "BOND")
+        knots = deposit_knot_cases(book, excel)
         evidence = {"excel_version": excel.Version, "excel_build": excel.Build,
-                    "binaries": worksheet.helpers.loaded_binaries(excel, xll), "portfolio": portfolio_spill(sheet)}
+                    "binaries": worksheet.helpers.loaded_binaries(excel, xll), "portfolio": portfolio_spill(sheet),
+                    "partial_fit": partial_fit_spill(gc_sheet, sheet), "basis_conflict": conflicting_bases(basis_sheet), "T+2": knots}
         for name, index, reason in (("stale", 9, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH"),
                                     ("unrecorded", 12, "bundle QUOTE_RISK_STAGED_RECORD_NOT_REQUESTED"),
                                     ("legacy", 15, "QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE")):
@@ -100,6 +156,7 @@ def run(xll, output):
             row, = spill["values"]
             require(row[6] in (None, "") and row[7] in (None, "") and row[8:] == ("unavailable", reason), row)
             evidence[name] = spill
+        sheet.Activate()
         book.SaveAs(str(output.with_suffix(".xlsx").resolve()), FileFormat=51)
         output.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     finally:
