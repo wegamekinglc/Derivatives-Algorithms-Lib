@@ -21,16 +21,17 @@ not grant additional editing, delegation, publication, or merge permissions.
 | `dal-performancer` | Measure regressions and advise on benchmark coverage     |
 | `dal-simplifier`   | Report duplication; apply fixes only when requested      |
 
-The [orchestrator contract](dal-orchestrator.md) defines the route:
+The [orchestrator contract](dal-orchestrator.md) defines the routes for code and tests.
 
 - Unclear features: spec writer → critic → implementer → tester → reviewer → doc writer.
 - Public surfaces: insert API designer after specification and before critique.
 - Clear bug fixes: implementer → tester → reviewer → doc writer.
 - Pure coverage: tester → reviewer.
-- Pure documentation: doc writer → reviewer.
 - Performance and simplification are optional post-correctness sidecars.
 
-Every code change needs a reviewer. The doc writer decides whether docs or
+For documentation-only work, the doc writer reconciles the guides against
+source and the reviewer verifies the corrections. Every code change needs a
+reviewer. The doc writer decides whether docs or
 `CHANGELOG.md` need changes, except for pure tests and behavior-preserving refactors.
 Task-specific instructions may select a shorter applicable route.
 

@@ -337,8 +337,8 @@ risk = dal.MonteCarlo_ValueWithJacobianRisk(
     product, model, 1024, request=request, valuation=valuation,
 )
 means = risk.values
-raw = risk.jacobian.to_numpy()                 # shape (2, 2)
-reported = risk.reported_jacobian.to_numpy()
+raw = risk.jacobian.to_rows()  # Two output rows, each with two input derivatives
+reported = risk.reported_jacobian.to_rows()
 work = risk.execution.executed_paths
 ```
 

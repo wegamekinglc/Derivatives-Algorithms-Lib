@@ -36,7 +36,9 @@ bash ./build_linux.sh
 
 The default is a core development build: core and public C++ libraries, tests,
 and examples, with Python and benchmarks disabled. It configures
-`build/Release-linux`, installs to `build/stage/Release-linux`, and runs CTest.
+`build/Release-linux`, installs to `build/stage/Release-linux`, and runs CTest
+with `-LE "benchmark|examples"`. To run the example tests from that build,
+use `ctest --test-dir build/Release-linux -L examples --output-on-failure`.
 It does not regenerate tracked Machinist output unless requested.
 
 ### Script options

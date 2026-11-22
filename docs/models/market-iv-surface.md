@@ -203,11 +203,23 @@ active bounds, limiter/band branches, winning start/model, rank and near-tie
 state. Valid finite slopes may carry that warning. An unchanged signature also
 does not certify differentiability; inspect both sides and h/h2 behavior.
 
-These are surface-output finite bumps, distinct from the existing fixed-base
-decimal-vol-spread VJP. A trade/portfolio refit requires explicit grid export,
-model reconstruction and full repricing per direction, with common random
-numbers for Monte Carlo. This interface provides no generic trade callback or
-analytic derivative through the constrained optimizer.
+These finite bumps measure surface outputs. The decimal-vol-spread VJP holds
+the base surface fixed.
+
+For a script PV, core C++ provides `Dal::Script::PlanMarketIvScriptRefit` in
+`dal-cpp/dal/script/marketivlocalvol.hpp`. It takes a fitted snapshot, Dupire
+grid request, model settings, script product and quote selection. Explicit steps
+follow the requested ID order. The returned rows follow snapshot order and carry
+the resolved step in decimal IV or premium units. Both signs must move the mid
+and any bid and ask by a representable amount.
+
+The planner builds the base local-volatility model and freezes the resolved
+valuation date and fixings. It requires MRG32 with Precise normals, at least
+two blocks and a positive path count per block. For `A` selected quotes it
+budgets `2*A` refits and `1+2*A` scenarios, including the base. The returned
+work counts describe the admitted plan. Computing a PV sensitivity
+still requires fitting each bumped surface, rebuilding its grid and model, and
+repricing the script with common random numbers.
 
 ## Defaults and resource limits
 
