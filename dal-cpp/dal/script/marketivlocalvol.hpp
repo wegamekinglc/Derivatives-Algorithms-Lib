@@ -49,6 +49,22 @@ namespace Dal::Script {
 
     [[nodiscard]] MarketIvScriptRefitPlan_ PlanMarketIvScriptRefit(const MarketIvScriptRefitRequest_& input);
 
+    struct MarketIvScriptRefitSide_ {
+        Handle_<MarketIvLocalVolModelData_> model_;
+        String_ fitStatus_, failureStage_, failure_;
+        int selectedStart_ = -1;
+        bool regimeChanged_ = false;
+    };
+
+    struct MarketIvScriptRefitPair_ {
+        MarketIvScriptRefitRow_ row_;
+        MarketIvScriptRefitSide_ plus_, minus_;
+        std::optional<double> symmetricBumpSlope_;
+        [[nodiscard]] String_ Status() const;
+    };
+
+    [[nodiscard]] MarketIvScriptRefitPair_ BuildMarketIvScriptRefitPair(const MarketIvScriptRefitPlan_& plan, size_t rowIndex);
+
     MarketIvLocalVolExecution_ InspectMarketIvLocalVolExecution(const ScriptProductData_& product,
                                                                 const MarketIvLocalVolModelData_& model,
                                                                 const ScriptValuationSettings_& valuation = {},

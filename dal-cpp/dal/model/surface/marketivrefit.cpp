@@ -66,16 +66,14 @@ namespace Dal {
                 status = "WORK_LIMIT";
                 return;
             }
-            auto fitRequest = base.Request();
-            try {
-                BumpRefitQuote(&fitRequest.quotes_[a.quoteIndex_], plus ? a.step_ : -a.step_);
-                ValidateMarketIvFitRequest(fitRequest);
-            } catch (const Exception_& error) {
+            const auto bumped = RefitBumpedQuote(base, a.quoteIndex_, plus ? a.step_ : -a.step_, totalLimit - data->execution_.modelRowEvaluations_);
+            if (!bumped.fit_) {
                 status = "BUMP_INVALID";
-                failure = error.what();
+                failure = bumped.bumpFailure_;
                 return;
             }
-            const auto fit = Access_::Result(Fit(fitRequest, totalLimit - data->execution_.modelRowEvaluations_));
+            const auto& fit = *bumped.fit_;
+            const auto& fitRequest = fit.Request();
             data->execution_.modelRowEvaluations_ += fit.Execution().modelRowEvaluations_;
             data->execution_.quoteConversions_ += fit.Execution().quoteConversions_;
             data->execution_.peakWorkspaceBytes_ = std::max(data->execution_.peakWorkspaceBytes_,
@@ -121,6 +119,18 @@ namespace Dal {
                 change(&*q->bid_);
                 change(&*q->ask_);
             }
+        }
+
+        BumpedRefit_ RefitBumpedQuote(const MarketIvCalibrationSnapshot_& base, size_t quoteIndex, double step, std::optional<size_t> remainingRows) {
+            auto request = base.Request();
+            REQUIRE(quoteIndex < request.quotes_.size(), "InvalidMarketIvRequest: refit quote index outside original axis");
+            try {
+                BumpRefitQuote(&request.quotes_[quoteIndex], step);
+                ValidateMarketIvFitRequest(request);
+            } catch (const Exception_& error) {
+                return {std::nullopt, error.what()};
+            }
+            return {Access_::Result(Fit(request, remainingRows)), {}};
         }
 
         Vector_<RefitQuoteSelection_>
