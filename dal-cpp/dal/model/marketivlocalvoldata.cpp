@@ -26,6 +26,13 @@ namespace Dal {
     Vector_<MarketIvLocalVolWarning_> MarketIvLocalVolModelData_::Warnings() const { return source_->Warnings(); }
     MarketIvLocalVolConstructionExecution_ MarketIvLocalVolModelData_::ConstructionExecution() const { return source_->ConstructionExecution(); }
 
+    size_t MarketIvLocalVolModelData_::SharedNumericPayloadBytes(const MarketIvLocalVolModelData_& other) const {
+        if (source_ == other.source_)
+            return ConstructionExecution().numericPayloadBytes_;
+        const auto& snapshot = source_->Snapshot();
+        return &MarketIvData(snapshot) == &MarketIvData(other.source_->Snapshot()) ? snapshot.Execution().numericPayloadBytes_ : 0;
+    }
+
     MarketIvLocalVolModelSummary_ MarketIvLocalVolModelData_::Summary() const {
         MarketIvLocalVolModelSummary_ result;
         const auto settings = Configuration();

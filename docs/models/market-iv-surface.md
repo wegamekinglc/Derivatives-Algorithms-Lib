@@ -231,15 +231,19 @@ The result records the factor, actual evolution times and Brownian bridge
 setting. With the bridge enabled, the same transform maps each path's vector
 of draws to time increments in all scenarios.
 
-Each side reports its discounted block means. With $B$ equal-sized blocks
+Each side reports its discounted block means. The sampler uses compensated
+summation with power-of-two scaling for finite payoffs and keeps tiny terms
+at their original scale. With $B$ equal-sized blocks
 and original-unit quote step $h$, the block slopes are
 $d_b=(\overline{PV}^{+}_b-\overline{PV}^{-}_b)/(2h)$. The row reports their
 mean and their sample standard deviation divided by $\sqrt{B}$, both in PV
 currency per original quote unit. The sampling ledger covers priced scenarios,
 generated paths counted during payoff evaluation, and peak numeric workspace.
 The peak includes the distinct live model payloads and the larger of model
-preparation and path evaluation with their then-live result buffers. Fixed-model sampling itself uses
-zero refits and zero grid exports.
+preparation and path evaluation with their then-live result buffers. Renamed
+handles share the entire source payload. Models rebuilt from a shared fit
+share its snapshot bytes. Independently fitted and rebuilt models each count
+in full. Fixed-model sampling itself uses zero refits and zero grid exports.
 
 ## Defaults and resource limits
 

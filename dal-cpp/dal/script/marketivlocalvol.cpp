@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/math/compensatedsum.hpp>
 #include <dal/model/marketivlocalvolinternal.hpp>
 #include <dal/model/marketivlocalvolmodel.hpp>
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
@@ -143,17 +144,27 @@ namespace Dal::Script {
                                                  ToString(times[i]));
         }
 
-        struct RunningMean_ {
+        struct PayoffMean_ {
+            // A power of two leaves room for any size_t path count without rounding individual normal terms.
+            static constexpr double SCALE = .5 / (1. + static_cast<double>(std::numeric_limits<size_t>::max()));
+            Dal::Detail::CompensatedSum_ scaled_, tiny_;
             size_t count_ = 0;
-            double mean_ = 0.;
 
             void operator+=(double value) {
                 ++count_;
-                // Scale opposite extremes before differencing when their distance exceeds double range.
-                if (std::signbit(value) != std::signbit(mean_) && std::abs(value) >= std::numeric_limits<double>::max() - std::abs(mean_))
-                    mean_ = (mean_ - mean_ / count_) + value / count_;
+                if (std::abs(value) < std::numeric_limits<double>::min() / SCALE)
+                    tiny_.Add(value);
                 else
-                    mean_ += (value - mean_) / count_;
+                    scaled_.Add(value * SCALE);
+            }
+
+            [[nodiscard]] double Mean() const {
+                const double sum = scaled_.Value();
+                if (std::abs(sum) < 1.)
+                    return (sum / SCALE + tiny_.Value()) / count_;
+                // Here even size_t::max tiny terms are below one ulp. Bound final rounding at the largest finite payoff.
+                constexpr double LIMIT = std::numeric_limits<double>::max() * SCALE;
+                return std::clamp(sum / count_, -LIMIT, LIMIT) / SCALE;
             }
         };
 
@@ -162,13 +173,13 @@ namespace Dal::Script {
             const auto& simulation = product.Simulation();
             Detail::DoubleSimulationState_<PreparedScript_> state(product, model, simulation.rsg_, simulation.useBb_, simulation.normalPrecision_);
             MarketIvScriptBlockPvs_ pvs{Vector_<>(blocks)};
-            RunningMean_ scenario;
+            PayoffMean_ scenario;
             const auto sample = [&](auto* evaluator, const auto& evaluate) {
                 for (size_t b = 0; b < blocks; ++b) {
                     const PathBatch_ batch{b * paths, paths};
-                    const auto block = Detail::EvaluateDoubleBatch<RunningMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
-                    pvs.blockMeans_[b] = block.mean_;
-                    scenario += block.mean_;
+                    const auto block = Detail::EvaluateDoubleBatch<PayoffMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
+                    pvs.blockMeans_[b] = block.Mean();
+                    scenario += pvs.blockMeans_[b];
                     *totalPaths += block.count_;
                 }
             };
@@ -177,13 +188,15 @@ namespace Dal::Script {
                 sample(&state.compiledState_, [&](const auto& path, auto& eval) { program.Evaluate(path, eval); });
             } else
                 sample(&state.evaluator_, [&](const auto& path, auto& eval) { product.Evaluate(path, eval); });
-            pvs.mean_ = scenario.mean_;
+            pvs.mean_ = scenario.Mean();
             return pvs;
         }
 
         size_t AdditionalModelBytes(const MarketIvScriptModelPair_& pair, const Handle_<MarketIvLocalVolModelData_>& base) {
-            const auto plus = pair.plus_ == base ? 0 : pair.plus_->ConstructionExecution().numericPayloadBytes_;
-            const auto minus = pair.minus_ == base || pair.minus_ == pair.plus_ ? 0 : pair.minus_->ConstructionExecution().numericPayloadBytes_;
+            const auto plus = pair.plus_->ConstructionExecution().numericPayloadBytes_ - pair.plus_->SharedNumericPayloadBytes(*base);
+            // Each source owns its grid and retains one fit. Shared portions of a side are therefore nested.
+            const auto sharedMinus = std::max(pair.minus_->SharedNumericPayloadBytes(*base), pair.minus_->SharedNumericPayloadBytes(*pair.plus_));
+            const auto minus = pair.minus_->ConstructionExecution().numericPayloadBytes_ - sharedMinus;
             return MarketIvLocalVolDetail::CheckedAdd(plus, minus);
         }
 

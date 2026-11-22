@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <dal/math/compensatedsum.hpp>
 #include <limits>
 
 namespace Dal::LinearSolveDetail {
@@ -25,19 +26,6 @@ namespace Dal::LinearSolveDetail {
         [[nodiscard]] double RoundoffAtExponent(int exponent) const { return roundoff_ == 0.0 ? 0.0 : std::scalbn(roundoff_, exponent_ - exponent); }
     };
 
-    class CompensatedSum_ {
-        double sum_ = 0.0;
-        double correction_ = 0.0;
-
-    public:
-        void Add(double value) {
-            const double next = sum_ + value;
-            correction_ += std::abs(sum_) >= std::abs(value) ? (sum_ - next) + value : (value - next) + sum_;
-            sum_ = next;
-        }
-        [[nodiscard]] double Value() const { return sum_ + correction_; }
-    };
-
     template <class ProductAt_> double PhysicalRowBackwardError(double rhs, int entries, const ProductAt_& productAt) {
         const ScaledProduct_ rightHandSide(rhs, 1.0);
         int exponent = rightHandSide.exponent_;
@@ -48,7 +36,7 @@ namespace Dal::LinearSolveDetail {
         // Headroom retains representable tiny ratios until the final division.
         exponent -= std::numeric_limits<double>::digits;
         const double b = rightHandSide.AtExponent(exponent);
-        CompensatedSum_ residual;
+        Dal::Detail::CompensatedSum_ residual;
         residual.Add(-b);
         double denominator = std::abs(b);
         for (int entry = 0; entry < entries; ++entry) {

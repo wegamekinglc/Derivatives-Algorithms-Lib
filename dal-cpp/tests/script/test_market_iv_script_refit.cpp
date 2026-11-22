@@ -50,6 +50,26 @@ namespace {
         return request;
     }
 
+    MarketIvCalibrationSnapshot_ BranchSnapshot(double vol) {
+        const Date_ today(2026, 11, 16), expiry = today.AddDays(365);
+        MarketIvFitRequest_ fit{MarketIvMarket_(today, 100., {{expiry, 105., 1.}}), {}, {}};
+        for (int strike : {90, 100, 110})
+            fit.quotes_.push_back(
+                {String_(std::to_string(strike)), expiry, double(strike), OptionType_("CALL"), MarketIvQuoteType_("DECIMAL_IV"), vol});
+        const auto fitted = FitMarketIvSurface(fit);
+        REQUIRE(fitted.IsSuccess(), fitted.Failure());
+        return fitted.Snapshot();
+    }
+
+    MarketIvScriptRefitRequest_ BranchRequest() {
+        auto request = TwoStepRequest();
+        request.snapshot_ = BranchSnapshot(.2);
+        request.simulation_.compiled_ = true;
+        request.product_ = Handle_<ScriptProductData_>(new ScriptProductData_(
+            "branch", request.product_->Dates(), {"IF spot() > 112.5 OR spot() < 112 THEN pay PAYS 1E16 ELSE pay PAYS -9999999999999998 END"}));
+        return request;
+    }
+
     Vector_<> EnumeratedPvs(double vol, bool bridge) {
         // Seed 1024, consecutive MRG32 draws transformed independently with the normal quantile.
         const double normals[][2] = {{-.4055684161278695, .7560724540882088}, {.8931393704012665, -.030318933107075754},
@@ -355,6 +375,70 @@ TEST(MarketIvScriptRefitTest, TestRepresentableMeanOfLargeCashPayments) {
     ASSERT_NEAR(result.base_.mean_ / 1e308, .96, 1e-14);
     ASSERT_EQ(result.rows_[0].slope_, 0.);
     ASSERT_EQ(result.rows_[0].standardError_, 0.);
+}
+
+TEST(MarketIvScriptRefitTest, TestOppositePayoffOrdersRetainNetAmount) {
+    auto request = BranchRequest();
+    const auto modelAtVol = [&](double vol) {
+        return BuildMarketIvLocalVolModelData("side", CalibrateMarketIvDupire(BranchSnapshot(vol), request.grid_), request.model_);
+    };
+    const MarketIvScriptModelPair_ pair{modelAtVol(.21), modelAtVol(.19)};
+    const auto sample = [&](size_t paths) {
+        request.blocks_ = 6 / paths;
+        request.pathsPerBlock_ = paths;
+        return SampleMarketIvScriptModelPairs(PlanMarketIvScriptRefit(request), [&](const auto&) { return pair; });
+    };
+    const auto paths = sample(1).rows_.front();
+    constexpr double positive = 1e16, negative = -9999999999999998.;
+    ASSERT_EQ(paths.plus_.blockMeans_, (Vector_<>{positive, negative, positive, positive, positive, positive}));
+    ASSERT_EQ(paths.minus_.blockMeans_, (Vector_<>{negative, positive, positive, positive, positive, positive}));
+    const auto row = sample(2).rows_.front();
+    const Vector_<> expected{1., positive, positive};
+    EXPECT_EQ(row.plus_.blockMeans_, expected);
+    EXPECT_EQ(row.minus_.blockMeans_, expected);
+    EXPECT_EQ(row.slope_, 0.);
+    EXPECT_EQ(row.standardError_, 0.);
+}
+
+TEST(MarketIvScriptRefitTest, TestSamplingCountsDistinctPayloadStorage) {
+    auto request = BranchRequest();
+    request.grid_.spots_.Resize(801);
+    for (size_t i = 0; i < request.grid_.spots_.size(); ++i)
+        request.grid_.spots_[i] = 80. + .05 * i;
+    const auto plan = PlanMarketIvScriptRefit(request);
+    const auto base = plan.baseModel_;
+    const auto rename = [](const auto& model, const char* name) {
+        return handle_cast<MarketIvLocalVolModelData_>(Handle_<ModelData_>(model->MutantModel(name, {})));
+    };
+    const auto build = [&](const MarketIvCalibrationSnapshot_& snapshot) {
+        return BuildMarketIvLocalVolModelData("same", CalibrateMarketIvDupire(snapshot, request.grid_), request.model_);
+    };
+    const auto measure = [&](const MarketIvScriptModelPair_& pair) {
+        SamplingCapacity_ measured;
+        const Dal::Detail::OwnedBufferScope_ meter(&measured);
+        const auto peak = SampleMarketIvScriptModelPairs(plan, [&](const auto&) { return pair; }).peakWorkspaceBytes_;
+        EXPECT_EQ(measured.live_, 0U);
+        return std::make_pair(peak, measured.peak_);
+    };
+    const auto original = measure({base, base});
+    const auto payload = base->ConstructionExecution().numericPayloadBytes_;
+    const auto check = [&](const char* label, const MarketIvScriptModelPair_& pair, size_t extraBytes) {
+        SCOPED_TRACE(label);
+        ASSERT_EQ(pair.plus_->ModelIdentity(), base->ModelIdentity());
+        ASSERT_EQ(pair.minus_->ModelIdentity(), base->ModelIdentity());
+        const auto [peak, vectorBytes] = measure(pair);
+        RecordProperty(label, std::to_string(peak));
+        EXPECT_EQ(vectorBytes, original.second);
+        EXPECT_EQ(peak, original.first + extraBytes);
+    };
+    RecordProperty("originalPeak", std::to_string(original.first));
+    RecordProperty("payloadBytes", std::to_string(payload));
+    RecordProperty("vectorPeak", std::to_string(original.second));
+    check("renamed", {rename(base, "up"), rename(base, "down")}, 0);
+    const auto independent = build(BranchSnapshot(.2));
+    check("independentAndRenamed", {independent, rename(independent, "down")}, payload);
+    check("independentPair", {independent, build(BranchSnapshot(.2))}, 2 * payload);
+    check("sharedSnapshot", {base, build(request.snapshot_)}, payload - request.snapshot_.Execution().numericPayloadBytes_);
 }
 
 TEST(MarketIvScriptRefitTest, TestSamplingUsesCanonicalModelCurrency) {
