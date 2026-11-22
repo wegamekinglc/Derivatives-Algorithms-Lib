@@ -28,3 +28,7 @@ target_compile_definitions(dal_market_iv_a1_protocol_tests PRIVATE DAL_A1_REQUES
 gtest_discover_tests(dal_market_iv_a1_protocol_tests)
 add_executable(dal_market_iv_a1_probe a1_probe.cpp)
 target_link_libraries(dal_market_iv_a1_probe PRIVATE DAL::cpp)
+
+add_executable(dal_market_iv_refit_pair refit_pair.cpp)
+target_link_libraries(dal_market_iv_refit_pair PRIVATE DAL::cpp)
+add_test(NAME market_iv_refit_pair COMMAND dal_market_iv_refit_pair)

@@ -55,6 +55,20 @@ They do not launch the formal qualification matrix.
 
 ## Numerical reproduction entry points
 
+The standalone quote-refit check rebuilds each side from the original quotes
+using the core fit, Dupire and model APIs. It compares the complete quote
+axis, selected branch, grid values and identities. Its fixtures include a
+one-sided call/put parity failure and a successful pair with different
+branches.
+
+```bash
+cmake -S tests/market-iv-local-vol -B build/p22 -DCMAKE_BUILD_TYPE=Release
+cmake --build build/p22 --target dal_market_iv_refit_pair
+build/p22/dal_market_iv_refit_pair
+```
+
+### PDE and Monte Carlo qualification
+
 Long calculations are explicit. The completed qualification budget is sealed;
 these commands describe reproduction and must not overwrite the archived run
 or create a fresh official budget.

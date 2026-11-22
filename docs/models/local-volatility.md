@@ -242,6 +242,23 @@ with the same settings and records. Convert the factory result explicitly to
 `Handle_<ModelData_>` for `ValueByMonteCarlo`. The model owns its source;
 passing a standalone surface or a second market is not supported.
 
+### Model pairs for script quote refits
+
+Pass a frozen `Script::PlanMarketIvScriptRefit` result and a zero-based index
+into its `rows_` to `Script::BuildMarketIvScriptRefitPair`. Consume one pair
+at a time to stay within the plan's workspace reservation. Both directions
+start from the original market, shift the selected mid and any bid/ask in
+quote units, and export their certified fits on the frozen grid axes.
+
+Each side records its fit status, selected start and change from the base
+regime signature. A successful model exposes its source and model identities,
+quote snapshot and local-vol grid. A failed side records its stage
+(`BUMP`, `FIT`, `GRID` or `MODEL`) and reason. `Status()` returns
+`SIDE_FAILED` when either model is missing. For two successful models it
+returns `REGIME_CHANGED` if either signature differs from the base, and
+`SUCCESS` otherwise. Both successful models are available for paired pricing
+in either case. The central slope is empty at model construction.
+
 ### Request identity and execution reports
 
 The execution report uses `dal.market-iv-local-vol-execution/1` with 23 fields.

@@ -21,6 +21,8 @@ namespace Dal {
     }
     String_ MarketIvLocalVolModelData_::SourceIdentity() const { return source_->SourceIdentity(); }
     String_ MarketIvLocalVolModelData_::ModelIdentity() const { return source_->ModelIdentity(); }
+    const MarketIvCalibrationSnapshot_& MarketIvLocalVolModelData_::Snapshot() const { return source_->Snapshot(); }
+    const LocalVolSurfaceData_& MarketIvLocalVolModelData_::SurfaceData() const { return source_->Surface(); }
     MarketIvLocalVolModelSettings_ MarketIvLocalVolModelData_::Configuration() const { return source_->Configuration(); }
     Vector_<MarketIvLocalVolCarryTerm_> MarketIvLocalVolModelData_::CarryTerms() const { return source_->CarryTerms(); }
     Vector_<MarketIvLocalVolWarning_> MarketIvLocalVolModelData_::Warnings() const { return source_->Warnings(); }
