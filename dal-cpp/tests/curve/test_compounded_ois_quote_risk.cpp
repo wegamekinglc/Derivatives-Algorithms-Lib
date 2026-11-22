@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -72,6 +73,87 @@ namespace {
         contract.instrumentId_ = "registered-negative";
         ReplaceTable(&spec, 2, contract);
         return spec;
+    }
+    double FrozenParRate(const PreparedCompoundedOis_& tables, const Vector_<>& sharedLogDiscounts) {
+        const auto& s = tables.Spec();
+        const auto logDf = [&](const Date_& date) { return CompoundedOisTest::LogDiscount(date, sharedLogDiscounts); };
+        Vector_<> products(s.coupons_.size(), 1.);
+        for (const auto& row : tables.ObservationSchedule()) {
+            if (!row.included_)
+                continue;
+            const double rate = row.historicalRequired_ ? tables.Valuation().fixings_->Find(row.fixingIndex_, row.fixingTime_).value()
+                                                        : std::expm1(logDf(row.rateStart_) - logDf(row.rateEnd_)) / row.rateAccrual_;
+            products[row.couponRow_] *= 1. + rate * row.compoundingAccrual_;
+        }
+        double floating = 0., annuity = 0.;
+        for (size_t i = 0; i < products.size(); ++i)
+            if (tables.CouponPayments()[i].included_)
+                floating += (products[i] - 1.) * std::exp(logDf(s.coupons_[i].payment_));
+        for (size_t i = 0; i < s.fixedLeg_.size(); ++i)
+            if (tables.FixedPayments()[i].included_)
+                annuity += s.fixedLeg_[i].accrual_ * std::exp(logDf(s.fixedLeg_[i].payment_));
+        // Both legs are per unit notional; reversing the trade changes both signs.
+        return floating / annuity;
+    }
+    CompoundedOisScriptSpec_ ParRateContract(const String_& mode) {
+        if (mode == "Legacy")
+            return CompoundedOisTest::Contract();
+        auto contract = Contract(false, mode);
+        // Give the registered trade a different maturity and fixed payment date from both calibration instruments.
+        const auto start = contract.coupons_.front().start_;
+        const Date_ end(2024, 3, 11);
+        contract.coupons_.back().end_ = end;
+        contract.fixedLeg_ = {{start, end, Date_(2024, 3, 15), (end - start) / 365.}};
+        return contract;
+    }
+    void AssertParRateBumps(const CurveInstrumentCalibrationSpec_& spec, const CompoundedOisParRateRiskResult_& base, const String_& mode) {
+        const auto& tables = spec.compoundedOis_.back();
+        const auto instrument = NewCompoundedOisScriptInstrument(tables);
+        for (size_t j = 0; j < spec.observations_.size(); ++j) {
+            const auto& id = spec.observations_[j]->Quote()->Id();
+            ASSERT_EQ(base.QuoteAxis()[j].id_, id);
+            const double analytic = base.SensitivityBpPerBp()[j];
+            for (const double h : {1e-4, 5e-5}) {
+                SCOPED_TRACE(::testing::Message() << mode << " " << id << " h=" << h);
+                std::ostringstream row;
+                row << std::setprecision(14) << "ParRate FD " << mode << " " << id << " h=" << h << " analytic=" << analytic;
+                std::array<double, 2> rates{};
+                for (size_t side = 0; side < rates.size(); ++side) {
+                    const double bump = side == 0 ? -h : h;
+                    SCOPED_TRACE(bump);
+                    const auto bumped = Bumped(spec, static_cast<int>(j), bump);
+                    const auto fit = CalibrateCurveInstruments(bumped, Options());
+                    ASSERT_TRUE(fit.fitWithinTolerance_);
+                    ASSERT_EQ(fit.solveMode_, CurveSolveMode_("EXACT"));
+                    rates[side] = FrozenParRate(*tables, fit.parameters_);
+
+                    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(true));
+                    ASSERT_TRUE(snapshot.RiskAvailable());
+                    const auto& numerics = snapshot.Numerics();
+                    ASSERT_EQ(numerics.rawResiduals_.size(), spec.observations_.size());
+                    double residual = 0.;
+                    for (const auto r : numerics.rawResiduals_) {
+                        ASSERT_LE(std::abs(r), 1e-12);
+                        residual = std::max(residual, std::abs(r));
+                    }
+                    ASSERT_TRUE(numerics.reciprocalCondition_);
+                    ASSERT_GE(*numerics.reciprocalCondition_, 1e-10);
+                    const auto risk = snapshot.ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, bumped);
+                    ASSERT_TRUE(risk.Available());
+                    ASSERT_NEAR(risk.ParRate(), rates[side], 1e-12);
+                    ASSERT_EQ(risk.TransposeBackwardErrors().size(), 1u);
+                    const double backward = risk.TransposeBackwardErrors()[0];
+                    ASSERT_LE(backward, 1e-12);
+                    row << (side == 0 ? " minus" : " plus") << "(residual,rcond,backward)=" << residual << "," << *numerics.reciprocalCondition_
+                        << "," << backward;
+                }
+                const double reference = (rates[1] - rates[0]) / (2. * h);
+                const double error = std::abs(analytic - reference);
+                ASSERT_LE(error, 1e-7 + 1e-5 * std::abs(reference));
+                row << " reference=" << reference << " abs_error=" << error;
+                std::cout << row.str() << '\n';
+            }
+        }
     }
     void AssertParRateRejected(const CompoundedOisParRateResolution_& result, const String_& code) {
         ASSERT_FALSE(result.Available());
@@ -215,6 +297,91 @@ namespace {
         ASSERT_NO_FATAL_FAILURE(AssertFd(spec, risk, role, zeroRate));
     }
 } // namespace
+
+TEST(CompoundedOisQuoteRiskTest, TestFrozenParRateUsesLegacyHistoricalAndProjectedFixings) {
+    const auto tables = PrepareCompoundedOis(CompoundedOisTest::Contract(), CompoundedOisTest::Valuation());
+    const auto theta = Parameters();
+    ASSERT_NEAR(FrozenParRate(*tables, theta), CompoundedOisTest::Oracle(theta, theta)[1], 1e-12);
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestParRateBucketsMatchFrozenCashflowsAfterCompleteRecalibration) {
+    for (const String_ mode : {"None", "Lookback", "ObservationShift", "Lockout", "Legacy"}) {
+        SCOPED_TRACE(mode);
+        auto spec = RiskSpec("None", "Shared");
+        auto contract = ParRateContract(mode);
+        contract.instrumentId_ = "registered-par";
+        ReplaceTable(&spec, 2, contract);
+        const auto& tables = spec.compoundedOis_.back();
+        const auto instrument = NewCompoundedOisScriptInstrument(tables);
+        const auto fit = CalibrateCurveInstruments(spec, Options());
+        const auto full = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy()).ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+        const auto lean = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy(true)).ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, spec);
+        ASSERT_TRUE(full.Available());
+        ASSERT_TRUE(lean.Available());
+        ASSERT_NEAR(full.ParRate(), FrozenParRate(*tables, fit.parameters_), 1e-12);
+        ASSERT_DOUBLE_EQ(lean.ParRate(), full.ParRate());
+        ASSERT_EQ(full.TransposeBackwardErrors().size(), 1u);
+        ASSERT_EQ(lean.TransposeBackwardErrors().size(), 1u);
+        ASSERT_LE(full.TransposeBackwardErrors()[0], 1e-12);
+        ASSERT_LE(lean.TransposeBackwardErrors()[0], 1e-12);
+        std::ostringstream row;
+        row << std::setprecision(14) << "ParRate base " << mode << " rate=" << full.ParRate()
+            << " full_backward=" << full.TransposeBackwardErrors()[0] << " pv_only_backward=" << lean.TransposeBackwardErrors()[0];
+        std::cout << row.str() << '\n';
+        ASSERT_EQ(full.QuoteAxis().size(), spec.observations_.size());
+        ASSERT_EQ(lean.QuoteAxis().size(), full.QuoteAxis().size());
+        ASSERT_EQ(full.SensitivityBpPerBp().size(), full.QuoteAxis().size());
+        ASSERT_EQ(lean.SensitivityBpPerBp(), full.SensitivityBpPerBp());
+        for (size_t j = 0; j < full.QuoteAxis().size(); ++j) {
+            ASSERT_EQ(lean.QuoteAxis()[j].id_, full.QuoteAxis()[j].id_);
+            ASSERT_EQ(lean.QuoteAxis()[j].unit_.Token(), "Rate");
+            ASSERT_EQ(full.QuoteAxis()[j].unit_.Token(), "Rate");
+        }
+        ASSERT_NO_FATAL_FAILURE(AssertParRateBumps(spec, full, mode));
+    }
+}
+
+TEST(CompoundedOisQuoteRiskTest, TestLockoutParRateAccumulatesAnchorRiskForEitherDirectionAndNotional) {
+    auto spec = RiskSpec("None", "Shared");
+    auto contract = Contract(true, "Lockout");
+    contract.instrumentId_ = "lockout-anchor";
+    ReplaceTable(&spec, 2, contract);
+    auto receive = contract, doubled = contract;
+    receive.instrumentId_ = "receive";
+    receive.direction_ = "ReceiveFixed";
+    doubled.instrumentId_ = "doubled";
+    doubled.notional_ *= 2.;
+    for (const auto& variant : {receive, doubled})
+        spec.compoundedOis_.push_back(PrepareCompoundedOis(variant, spec.valuation_));
+
+    const auto& rows = spec.compoundedOis_[2]->ObservationSchedule();
+    ASSERT_EQ(rows.size(), 2u);
+    ASSERT_EQ(rows[1].reusedFromRow_, 0u);
+    const double first = 4. / 360., tail = 1. / 360., fixed = 5. / 365.;
+    ASSERT_DOUBLE_EQ(rows[0].compoundingAccrual_, first);
+    ASSERT_DOUBLE_EQ(rows[1].compoundingAccrual_, tail);
+    const auto fit = CalibrateCurveInstruments(spec, Options());
+    const double x = fit.parameters_[0];
+    const double anchor = std::expm1(-x) / first;
+    const double dRateDAnchor = (first * (1. + tail * anchor) + tail * (1. + first * anchor)) / fixed;
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy());
+    const auto value = [&](size_t i) {
+        const auto& tables = spec.compoundedOis_[i];
+        return snapshot.ValueCompoundedOisParRateWithQuoteRisk(NewCompoundedOisScriptInstrument(tables), tables, spec);
+    };
+    const auto base = value(2);
+    ASSERT_TRUE(base.Available());
+    ASSERT_EQ(base.SensitivityBpPerBp().size(), spec.observations_.size());
+    ASSERT_EQ(base.NativeGradient().size(), 2u);
+    ASSERT_NEAR(base.NativeGradient()[0], dRateDAnchor * (-std::exp(-x) / first), 1e-10);
+    ASSERT_NEAR(base.NativeGradient()[1], 0., 1e-12);
+    for (const size_t i : {3, 4}) {
+        const auto risk = value(i);
+        ASSERT_TRUE(risk.Available());
+        ASSERT_DOUBLE_EQ(risk.ParRate(), base.ParRate());
+        ASSERT_EQ(risk.SensitivityBpPerBp(), base.SensitivityBpPerBp());
+    }
+}
 
 TEST(CompoundedOisQuoteRiskTest, TestVersionTwoFullAndPvOnlyUseFrozenNativeCapability) {
     const auto spec = Spec("ObservationShift", "Shared");
