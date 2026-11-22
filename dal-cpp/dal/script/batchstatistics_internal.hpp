@@ -34,11 +34,15 @@ namespace Dal::BatchStatisticsInternal {
         return influence;
     }
 
-    inline double ProjectedError(const Vector_<Vector_<>>& rows, const Vector_<>& means, const Vector_<>& weights) {
+    template <class F_> double StandardError(size_t blocks, const F_& deviation) {
         double norm = 0.;
-        const double scale = std::sqrt(static_cast<double>(rows.size()) * (rows.size() - 1));
-        for (const auto& row : rows)
-            norm = std::hypot(norm, Project(row, means, weights) / scale);
+        const double scale = std::sqrt(static_cast<double>(blocks) * (blocks - 1));
+        for (size_t block = 0; block < blocks; ++block)
+            norm = std::hypot(norm, deviation(block) / scale);
         return norm;
+    }
+
+    inline double ProjectedError(const Vector_<Vector_<>>& rows, const Vector_<>& means, const Vector_<>& weights) {
+        return StandardError(rows.size(), [&](size_t block) { return Project(rows[block], means, weights); });
     }
 } // namespace Dal::BatchStatisticsInternal

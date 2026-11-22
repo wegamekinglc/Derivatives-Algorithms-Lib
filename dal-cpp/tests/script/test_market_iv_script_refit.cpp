@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <dal/math/aad/recording.hpp>
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
 #include <dal/script/marketivlocalvol.hpp>
+#include <numeric>
 
 #include "script_test_observers.hpp"
 
@@ -9,14 +11,14 @@ using namespace Dal;
 using namespace Dal::Script;
 
 namespace {
-    MarketIvScriptRefitRequest_ Request(bool premiumBand = false) {
+    MarketIvScriptRefitRequest_ Request(bool premiumBand = false, double volatility = .2) {
         const Date_ today(2026, 11, 16), expiry = today.AddDays(365);
         const MarketIvMarket_ market(today, 100., {{expiry, 105., .96}});
         const OptionType_ call("CALL");
         MarketIvFitRequest_ fit{market, {}, {}};
         for (const double strike : {90., 100., 110.}) {
             const bool premium = strike == 110.;
-            const double mid = premium ? .96 * 105. * MarketIvDetail::NormalizedBlack(std::log(strike / 105.), .04) : .2;
+            const double mid = premium ? .96 * 105. * MarketIvDetail::NormalizedBlack(std::log(strike / 105.), volatility * volatility) : volatility;
             fit.quotes_.push_back({String_(std::to_string(static_cast<int>(strike))), expiry, strike, call, MarketIvQuoteType_(premium ? "PRICE" : "DECIMAL_IV"), mid});
             if (premium && premiumBand) {
                 fit.quotes_.back().bid_ = fit.quotes_.back().mid_;
@@ -30,6 +32,33 @@ namespace {
         request.valuation_.evaluationDate_ = today;
         request.quoteIds_ = {"110", "90"};
         return request;
+    }
+
+    MarketIvScriptRefitRequest_ TwoStepRequest() {
+        auto request = Request();
+        request.grid_.spots_ = {100.};
+        request.grid_.times_ = {.25};
+        request.model_.maxStep_ = 1.;
+        request.product_ = Handle_<ScriptProductData_>(new ScriptProductData_("stock", request.product_->Dates(), {"pay PAYS spot()"}));
+        request.quoteIds_ = {"90"};
+        request.steps_ = {.01};
+        request.blocks_ = 3;
+        request.pathsPerBlock_ = 2;
+        return request;
+    }
+
+    Vector_<> EnumeratedPvs(double vol, bool bridge) {
+        // Seed 1024, consecutive MRG32 draws transformed independently with the normal quantile.
+        const double normals[][2] = {{-.4055684161278695, .7560724540882088}, {.8931393704012665, -.030318933107075754},
+                                     {.7600511022612914, .5440022882119729},  {1.9421280634017497, -.16742512224731482},
+                                     {1.1872376013353831, .432597484966376},  {-.2192065064927242, -.43031290384969717}};
+        Vector_<> pvs;
+        for (const auto& z : normals) {
+            const double first = bridge ? (z[0] + z[1]) / std::sqrt(2.) : z[0];
+            const double second = bridge ? (z[0] - z[1]) / std::sqrt(2.) : z[1];
+            pvs.push_back(.96 * 105. * std::exp(vol * (.5 * first + std::sqrt(.75) * second) - .5 * vol * vol));
+        }
+        return pvs;
     }
 } // namespace
 
@@ -57,6 +86,151 @@ TEST(MarketIvScriptRefitTest, TestMixedQuoteOrderAndSteps) {
     ASSERT_EQ(defaults.rows_[0].step_, 1e-4);
     ASSERT_DOUBLE_EQ(defaults.rows_[1].step_, 1e-4 * .96 * 105.);
     ASSERT_EQ(explicitPlan.request_.steps_.size(), 2U);
+}
+
+TEST(MarketIvScriptRefitTest, TestFixedPairsShareOneBaseAndDisjointBlocks) {
+    auto request = Request();
+    request.blocks_ = 3;
+    request.pathsPerBlock_ = 2;
+    request.budget_.maxScenarios_ = 5;
+    request.budget_.maxTotalPaths_ = 30;
+    request.budget_.workspaceBudgetBytes_ = PlanMarketIvScriptRefit(request).work_.reservedWorkspaceBytes_;
+    const auto plan = PlanMarketIvScriptRefit(request);
+    Vector_<String_> quoted;
+    size_t fits = 0;
+    const MarketIvDetail::ScopedFitStartCounter_ observeFits(&fits);
+    const auto result = SampleMarketIvScriptModelPairs(plan, [&](const auto& quote) {
+        quoted.push_back(quote.id_);
+        return MarketIvScriptModelPair_{plan.baseModel_, plan.baseModel_};
+    });
+    ASSERT_EQ(quoted, (Vector_<String_>{"90", "110"}));
+    ASSERT_EQ(fits, 0U);
+    ASSERT_EQ(result.base_.blockMeans_.size(), 3U);
+    ASSERT_NE(result.base_.blockMeans_[0], result.base_.blockMeans_[1]);
+    ASSERT_EQ(result.rows_.size(), 2U);
+    for (const auto& row : result.rows_) {
+        ASSERT_EQ(row.plus_.blockMeans_, result.base_.blockMeans_);
+        ASSERT_EQ(row.minus_.blockMeans_, result.base_.blockMeans_);
+        ASSERT_EQ(row.slope_, 0.);
+        ASSERT_EQ(row.standardError_, 0.);
+    }
+    ASSERT_EQ(result.scenarios_, 5U);
+    ASSERT_EQ(result.totalPaths_, 30U);
+    ASSERT_EQ(result.refits_, 0U);
+    ASSERT_EQ(result.grids_, 0U);
+    ASSERT_GT(result.peakWorkspaceBytes_, 0U);
+    ASSERT_LE(result.peakWorkspaceBytes_, plan.work_.reservedWorkspaceBytes_);
+    RecordProperty("samplingPeakBytes", std::to_string(result.peakWorkspaceBytes_));
+}
+
+TEST(MarketIvScriptRefitTest, TestEnumeratedPathsAndPairedStandardError) {
+    auto request = TwoStepRequest();
+    const auto grid = [&](const auto& snapshot) { return CalibrateMarketIvDupire(snapshot, request.grid_); };
+    const auto base = grid(request.snapshot_), up = grid(Request(false, .21).snapshot_), down = grid(Request(false, .19).snapshot_);
+    const MarketIvScriptModelPair_ models{BuildMarketIvLocalVolModelData("up", up, request.model_),
+                                          BuildMarketIvLocalVolModelData("down", down, request.model_)};
+    for (bool bridge : {false, true}) {
+        const auto reference = [&](const auto& scenario) { return EnumeratedPvs(scenario.SurfaceData().vols_(0, 0), bridge); };
+        const auto basePvs = reference(base), plus = reference(up), minus = reference(down);
+        for (bool compiled : {true, false})
+            for (size_t blockSize : {1U, 2U}) {
+                SCOPED_TRACE(::testing::Message() << "compiled=" << compiled << " bridge=" << bridge << " paths per block=" << blockSize);
+                request.simulation_.useBb_ = bridge;
+                request.simulation_.compiled_ = compiled;
+                request.blocks_ = 6 / blockSize;
+                request.pathsPerBlock_ = blockSize;
+                const auto plan = PlanMarketIvScriptRefit(request);
+                const auto result = SampleMarketIvScriptModelPairs(plan, [&](const auto&) { return models; });
+                ASSERT_EQ(result.simulationTimes_, (Vector_<>{0., .25, 1.}));
+                ASSERT_EQ(result.factor_, "W_EQ");
+                ASSERT_EQ(result.useBb_, bridge);
+                ASSERT_EQ(result.pathsPerBlock_, blockSize);
+                ASSERT_EQ(result.rows_.size(), 1U);
+                const auto& row = result.rows_.front();
+                ASSERT_EQ(result.base_.blockMeans_.size(), request.blocks_);
+                ASSERT_EQ(row.plus_.blockMeans_.size(), request.blocks_);
+                ASSERT_EQ(row.minus_.blockMeans_.size(), request.blocks_);
+                Vector_<> slopes;
+                for (size_t b = 0; b < request.blocks_; ++b) {
+                    const auto average = [&](const Vector_<>& paths) {
+                        const auto first = paths.begin() + b * blockSize;
+                        return std::accumulate(first, first + blockSize, 0.) / blockSize;
+                    };
+                    ASSERT_NEAR(result.base_.blockMeans_[b], average(basePvs), 1e-10);
+                    ASSERT_NEAR(row.plus_.blockMeans_[b], average(plus), 1e-10);
+                    ASSERT_NEAR(row.minus_.blockMeans_[b], average(minus), 1e-10);
+                    slopes.push_back((average(plus) - average(minus)) / .02);
+                }
+                const double mean = std::accumulate(slopes.begin(), slopes.end(), 0.) / slopes.size();
+                double sumSquares = 0.;
+                for (const double slope : slopes)
+                    sumSquares += (slope - mean) * (slope - mean);
+                ASSERT_NEAR(row.slope_, mean, 1e-9);
+                ASSERT_NEAR(row.standardError_, std::sqrt(sumSquares / (slopes.size() - 1) / slopes.size()), 1e-9);
+                ASSERT_NEAR(row.plus_.mean_, std::accumulate(plus.begin(), plus.end(), 0.) / 6., 1e-10);
+                ASSERT_NEAR(row.minus_.mean_, std::accumulate(minus.begin(), minus.end(), 0.) / 6., 1e-10);
+                if (!bridge && compiled && blockSize == 2) {
+                    for (size_t b = 0; b < slopes.size(); ++b) {
+                        const auto suffix = std::to_string(b);
+                        RecordProperty("base" + suffix, ToString(result.base_.blockMeans_[b]).c_str());
+                        RecordProperty("plus" + suffix, ToString(row.plus_.blockMeans_[b]).c_str());
+                        RecordProperty("minus" + suffix, ToString(row.minus_.blockMeans_[b]).c_str());
+                        RecordProperty("slope" + suffix, ToString(slopes[b]).c_str());
+                    }
+                    RecordProperty("meanSlope", ToString(row.slope_).c_str());
+                    RecordProperty("pairedSE", ToString(row.standardError_).c_str());
+                }
+            }
+    }
+}
+
+TEST(MarketIvScriptRefitTest, TestSwappedIntervalsIdentifySideAndPreserveCallerTape) {
+    auto request = TwoStepRequest();
+    const auto plan = PlanMarketIvScriptRefit(request);
+    request.grid_.times_ = {.75}; // Exchange dt=1/4 and dt=3/4, preserving SimDim, factor and RNG.
+    const auto swapped = BuildMarketIvLocalVolModelData("swapped", CalibrateMarketIvDupire(request.snapshot_, request.grid_), request.model_);
+    AAD::RecordingScope_ caller;
+    caller.StartRecording();
+    AAD::Number_ input(3.);
+    AAD::Number_ output = input * input;
+    const auto nodes = AAD::Tape()->nodes_.Size();
+    const auto reverses = AAD::Tape()->ReverseEventCount();
+    for (bool mismatch : {false, true}) {
+        try {
+            const auto result = SampleMarketIvScriptModelPairs(
+                plan, [&](const auto&) { return MarketIvScriptModelPair_{plan.baseModel_, mismatch ? swapped : plan.baseModel_}; });
+            ASSERT_FALSE(mismatch);
+            ASSERT_EQ(result.totalPaths_, 18U);
+        } catch (const MarketIvLocalVolError_& e) {
+            ASSERT_TRUE(mismatch);
+            ASSERT_EQ(e.code_, "MarketIvCoordinateMismatch");
+            ASSERT_EQ(e.field_, "/models/90/minus/simulation/times/1");
+            ASSERT_DOUBLE_EQ(std::stod(e.expected_.c_str()), .25);
+            ASSERT_DOUBLE_EQ(std::stod(e.actual_.c_str()), .75);
+        }
+        ASSERT_EQ(AAD::Tape()->nodes_.Size(), nodes);
+        ASSERT_EQ(AAD::Tape()->ReverseEventCount(), reverses);
+    }
+    caller.FinishRecording();
+    caller.ClearAdjoints();
+    Adjoint(output) = 1.;
+    caller.Reverse();
+    ASSERT_DOUBLE_EQ(Adjoint(input), 6.);
+}
+
+TEST(MarketIvScriptRefitTest, TestSideCannotExpandFrozenWorkspaceEnvelope) {
+    auto request = TwoStepRequest();
+    const auto plan = PlanMarketIvScriptRefit(request);
+    ++request.model_.workspaceBudgetBytes_;
+    const auto larger = BuildMarketIvLocalVolModelData("larger", CalibrateMarketIvDupire(request.snapshot_, request.grid_), request.model_);
+    try {
+        static_cast<void>(SampleMarketIvScriptModelPairs(plan, [&](const auto&) { return MarketIvScriptModelPair_{larger, plan.baseModel_}; }));
+        FAIL() << "Expected the frozen model workspace envelope";
+    } catch (const MarketIvLocalVolError_& error) {
+        ASSERT_EQ(error.code_, "MarketIvLocalVolBudgetExceeded");
+        ASSERT_EQ(error.stage_, "Sample");
+        ASSERT_EQ(error.field_, "/models/90/plus/settings/workspace_budget_bytes");
+    }
 }
 
 TEST(MarketIvScriptRefitTest, TestPreflightRejectsInvalidFieldsBeforeWork) {

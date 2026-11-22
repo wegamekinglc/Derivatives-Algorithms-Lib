@@ -35,5 +35,6 @@ namespace Dal::AAD {
         void PrepareWorkers(size_t workers);
         void ValidatePaths(size_t paths, const String_& rsg);
         [[nodiscard]] MarketIvLocalVolExecution_ Execution() const;
+        [[nodiscard]] const Vector_<>& SimulationTimes() const;
     };
 } // namespace Dal::AAD

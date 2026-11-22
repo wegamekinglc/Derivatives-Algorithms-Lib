@@ -424,6 +424,10 @@ namespace Dal::AAD {
         state_->initialized_ = true;
     }
     size_t MarketIvLocalVolModel_::SimDim() const { return state_ ? state_->execution_.simulationDimension_ : 0; }
+    const Vector_<>& MarketIvLocalVolModel_::SimulationTimes() const {
+        REQUIRE(state_, "InvalidMarketIvLocalVolRequest: Allocate before inspecting coordinates");
+        return state_->delegate_->SimulationTimes();
+    }
     void MarketIvLocalVolModel_::GeneratePath(const Vector_<>& normals, Scenario_<>* path) const {
         REQUIRE(state_ && state_->initialized_, "InvalidMarketIvLocalVolRequest: Init before GeneratePath");
         state_->delegate_->GeneratePath(normals, path);
