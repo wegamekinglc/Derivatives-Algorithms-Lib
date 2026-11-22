@@ -132,6 +132,11 @@ namespace {
         Property(request, "live_quote_payoff", &ScriptCurveQuoteRiskRequest_::liveQuotePayoff_);
         m.attr("ScriptCurveQuoteRiskAccuracy_New") = m.attr("ScriptCurveQuoteRiskAccuracy_");
         m.attr("ScriptCurveQuoteRiskRequest_New") = m.attr("ScriptCurveQuoteRiskRequest_");
+        auto parRequest = Struct<CompoundedOisParRateRequest_>(m, "CompoundedOisParRateRequest_", [](Fields_& fields) {
+            return CompoundedOisParRateRequest_{fields.Default<Vector_<String_>>("quote_ids", {}), fields.Default<bool>("live_quote_payoff", false)};
+        });
+        Property(parRequest, "quote_ids", &CompoundedOisParRateRequest_::quoteIds_);
+        Property(parRequest, "live_quote_payoff", &CompoundedOisParRateRequest_::liveQuotePayoff_);
     }
     void ScriptRiskAxes(py::module_& m) {
         using namespace Dal::Python::Calibration;
@@ -229,6 +234,32 @@ namespace {
             },
             py::arg("instrument"), py::arg("snapshot"), py::arg("context"), py::kw_only(), py::arg("request") = py::none());
     }
+    void ParRateRiskResult(py::module_& m) {
+        using namespace Dal::Python::Calibration;
+        using Result_ = CompoundedOisParRateRiskResult_;
+        WithCopies(py::class_<Result_>(m, "CompoundedOisParRateRiskResult_"))
+            .def_property_readonly("available", &Result_::Available)
+            .def_property_readonly("par_rate", &Result_::ParRate)
+            .def_property_readonly("sensitivity_bp_per_bp", [](const Result_& v) { return Output(v.SensitivityBpPerBp()); })
+            .def_property_readonly("native_gradient", [](const Result_& v) { return Output(v.NativeGradient()); })
+            .def_property_readonly("transpose_backward_errors", [](const Result_& v) { return Output(v.TransposeBackwardErrors()); })
+            .def_property_readonly("snapshot_identity", [](const Result_& v) { return Text(v.SnapshotIdentity()); })
+            .def_property_readonly("quote_axis", [](const Result_& v) { return Output(v.QuoteAxis()); })
+            .def_property_readonly("diagnostics", [](const Result_& v) { return Output(v.Diagnostics()); });
+        m.def(
+            "CompoundedOisParRate_ValueWithQuoteRisk",
+            [](const py::object& instrument, const py::object& tables, ScriptCurveQuoteRiskSnapshot_ snapshot,
+               CurveInstrumentCalibrationSpec_ context, CompoundedOisParRateRequest_ request) {
+                const auto contract =
+                    Input_<Handle_<CalibrationInstrument_>>::Read(instrument, "CompoundedOisParRate_ValueWithQuoteRisk; instrument");
+                const auto prepared = Input_<Handle_<PreparedCompoundedOis_>>::Read(tables, "CompoundedOisParRate_ValueWithQuoteRisk; tables");
+                py::gil_scoped_release release;
+                return ValueCompoundedOisParRateWithQuoteRisk(contract, prepared, snapshot, context, request);
+            },
+            py::arg("instrument"), py::arg("tables"), py::arg("snapshot"), py::arg("context"), py::kw_only(),
+            py::arg("request") = CompoundedOisParRateRequest_());
+    }
+
     template <class T_> void ScriptRiskGetters(py::module_& m, const char* prefix) {
         using namespace Dal::Python::Calibration;
         const std::string type(prefix);
@@ -265,6 +296,7 @@ void init_bindings_calibrationrisk(py::module_& m) {
     ScriptRiskAxes(m);
     ScriptRiskSnapshot(m);
     ScriptRiskResult(m);
+    ParRateRiskResult(m);
     ScriptRiskGilHooks(m);
     ScriptRiskGetters<ScriptCurveQuoteRiskSnapshot_>(m, "ScriptCurveQuoteRiskSnapshot");
     ScriptRiskGetters<ScriptCurveQuoteRiskResult_>(m, "ScriptCurveQuoteRiskResult");

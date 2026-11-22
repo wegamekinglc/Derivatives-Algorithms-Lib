@@ -30,6 +30,71 @@ def _accuracy():
         min_reciprocal_condition=1e-10, response_backward_error_limit=1e-12)
 
 
+def _lookback_risk(high_floor=False, quote_ids=()):
+    def date(day):
+        return dal.Date_(2024, 3, day)
+
+    valuation = dal.ScriptValuationSettings_(evaluation_date=date(1), fixings=dal.MarketFixingSnapshot_New(
+        {"USD-SOFR": [(dal.DateTime_(dal.Date_(2024, 2, 29), 0), -.012)]}))
+    calendar = dal.HolidayCenterData_(center="explicit", holidays=[date(4)], work_weekends=[date(9)])
+    geometry = dal.CurveInstrumentGeometry_(today=date(1), currency="USD", knot_dates=[date(1), date(5), date(20)],
+        parameterization="LOG_DISCOUNT", calibrate_discount_curve=False, target_overnight_route="USD.SOFR")
+    market = dal.CurveInstrumentMarket_(routes=[dal.CurveScriptRoute_(id="USD.OIS", use_target_curve=True),
+        dal.CurveScriptRoute_(id="USD.SOFR", projection=True, overnight=True)])
+    tables, observations = [], []
+    for name, quote in [("short", .030179570014802), ("long", .0362870928259698), ("registered-par", None)]:
+        registered = quote is None
+        periods = [(1, 6, 6)] if name == "short" else [(1, 6, 6), (6, 11 if registered else 12, 13)]
+        fixed = [(1, 11, 15)] if registered else periods
+        convention = (dal.CompoundedOisObservationConvention_("Lookback", lookback_business_days=1) if registered else
+                      dal.CompoundedOisObservationConvention_("None"))
+        trade = dal.CompoundedOisScriptSpec_(instrument_id=name, direction="PayFixed", notional=100., coupon=.02,
+            currency="USD", collateral_currency="USD", collateral_type="OIS", discount_route="USD.OIS",
+            projection_route="USD.SOFR", fixing_index="USD-SOFR", observation_basis="ACT_360", fixed_basis="ACT_365F",
+            calendar=calendar, rule_id="dal.compounded-ois-cashflows/2", observation_convention=convention,
+            fixed_leg=[dal.CompoundedOisFixedRow_(start=date(a), end=date(b), payment=date(p), accrual=(b-a)/365)
+                       for a, b, p in fixed],
+            coupons=[dal.CompoundedOisCouponRow_(coupon_id=key, start=date(a), end=date(b), payment=date(p))
+                     for key, (a, b, p) in zip(("first", "second"), periods)],
+            **({"min_abs_annuity": 100.} if high_floor and registered else {}))
+        tables.append(dal.CompoundedOis_Prepare(trade, valuation))
+        instrument = dal.CompoundedOisScriptInstrument_New(tables[-1])
+        if quote is not None:
+            observations.append(dal.CalibrationObservation_New(name, instrument, "ParRate",
+                dal.CalibrationMarketQuote_New(name, quote, dal.CalibrationValueUnit_(kind="Rate")), 1e-13))
+    spec = dal.CurveInstrumentCalibrationSpec_(geometry=geometry, market=market, valuation=valuation,
+        observations=observations, compounded_ois=tables, solver=dal.CurveInstrumentSolver_(initial_guess_per_node=[-.0003, -.002]))
+    fit = dal.Calibrate_CurveInstruments(spec, options=dal.CurveInstrumentCalibrationOptions_(jacobian_mode="AAD"))
+    snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(fit, dal.ScriptCurveQuoteRiskAccuracy_(residual_absolute_limits=[1e-12, 1e-12],
+        min_reciprocal_condition=1e-10, response_backward_error_limit=1e-12, relative_pivot_tolerance=1e-12))
+    selection = {"request": dal.CompoundedOisParRateRequest_(quote_ids=quote_ids)} if quote_ids else {}
+    return snapshot.identity, dal.CompoundedOisParRate_ValueWithQuoteRisk(instrument, tables[-1], snapshot, spec, **selection)
+
+
+def test_lookback_par_rate_owns_signed_selected_buckets():
+    identity, result = _lookback_risk(quote_ids=["long", "short"])
+    gc.collect()
+    assert identity and result.snapshot_identity == identity
+    assert result.available and result.diagnostics == []
+    assert result.par_rate == pytest.approx(.01856212179263, abs=1e-12, rel=0)
+    assert [(q.ordinal, q.id) for q in result.quote_axis] == [(1, "long"), (0, "short")]
+    assert result.sensitivity_bp_per_bp == pytest.approx([.87138316352446, -.27115795540455], abs=1e-10, rel=0)
+    with pytest.raises(AttributeError):
+        result.par_rate = 0
+
+
+def test_invalid_par_annuity_keeps_axis_and_guards_all_numeric_getters():
+    identity, result = _lookback_risk(high_floor=True)
+    assert not result.available and result.snapshot_identity == identity
+    assert [q.id for q in result.quote_axis] == ["short", "long"]
+    error, = result.diagnostics
+    assert (error.code, error.field, error.instrument_id, error.measure_id) == (
+        "InvalidCalibrationAnnuity", "/annuity", "registered-par", "ParRate")
+    for name in ("par_rate", "sensitivity_bp_per_bp", "native_gradient", "transpose_backward_errors"):
+        with pytest.raises(RuntimeError, match="unavailable"):
+            getattr(result, name)
+
+
 def test_ordered_owned_result_preserves_signed_pv_raw_and_decimal_dv01():
     spec = _spec()
     fit = dal.Calibrate_CurveInstruments(spec)
