@@ -60,6 +60,8 @@ namespace Dal {
         try {
             REQUIRE(record.stages_.size() == 2 && record.stages_[0].quoteRiskBlock_ && record.stages_[1].quoteRiskBlock_,
                     "Staged quote risk requires both stage factors");
+            if (record.capture_ || record.stages_[0].curve_ || record.stages_[1].curve_)
+                record.RequireMatchingCapture();
             const auto& discount = *record.stages_[0].quoteRiskBlock_;
             const auto& forward = *record.stages_[1].quoteRiskBlock_;
             const int nx = discount.factor_.Solution().Rows(), ny = forward.factor_.Solution().Rows();
@@ -102,7 +104,7 @@ namespace Dal {
         bool ExactText(const String_& lhs, const String_& rhs) { return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin()); }
 
         const String_& LiveStateScheme(const String_& kind) {
-            if (ExactText(kind, "JOINT_MULTI_CURVE"))
+            if (ExactText(kind, "JOINT_MULTI_CURVE") || ExactText(kind, "STAGED_MULTI_CURVE"))
                 return JOINT_STATE_SCHEME;
             for (const char* supported : {"SINGLE_CURVE", "JOINT_XCCY", "STAGED_XCCY_BASIS"})
                 if (ExactText(kind, supported))
@@ -1807,6 +1809,7 @@ namespace Dal {
         RateQuoteRiskAxis_ axis_;
         RateQuoteRiskState_ state_;
         Matrix_<> effectiveInverse_;
+        std::unique_ptr<const StagedMultiCurveCalibrationRecord_> stagedMapping_;
         double tolerance_ = 0.0;
         std::unique_ptr<const std::string> calibrationRecord_;
     };
@@ -1831,8 +1834,15 @@ namespace Dal {
     const std::map<String_, String_>& RateQuoteRiskProvenance_::ComponentKeyByParameterBlock() const { return data_->bindings_; }
     const RateQuoteRiskAxis_& RateQuoteRiskProvenance_::Axis() const { return data_->axis_; }
     const RateQuoteRiskState_& RateQuoteRiskProvenance_::State() const { return data_->state_; }
-    const Matrix_<>& RateQuoteRiskProvenance_::EffectiveInverse() const { return data_->effectiveInverse_; }
-    double RateQuoteRiskProvenance_::Tolerance() const { return data_->tolerance_; }
+    const StagedMultiCurveCalibrationRecord_* RateQuoteRiskProvenance_::StagedMapping() const { return data_->stagedMapping_.get(); }
+    const Matrix_<>& RateQuoteRiskProvenance_::EffectiveInverse() const {
+        REQUIRE(!StagedMapping(), "QUOTE_RISK_DENSE_MAPPING_REQUIRED");
+        return data_->effectiveInverse_;
+    }
+    double RateQuoteRiskProvenance_::Tolerance() const {
+        REQUIRE(!StagedMapping(), "QUOTE_RISK_SINGLE_TOLERANCE_REQUIRED");
+        return data_->tolerance_;
+    }
     const std::string& RateQuoteRiskProvenance_::CalibrationRecord() const {
         static const std::string empty;
         return data_->calibrationRecord_ ? *data_->calibrationRecord_ : empty;
@@ -1877,6 +1887,127 @@ namespace Dal {
             // Invalid live sources fail before a price or sweep, independently per provenance.
             return {componentKey, String_("INVALID")};
         }
+    }
+
+    namespace {
+        void ValidateStagedAxisShape(const CurveCalibrationStageRecord_& stage, int offset, int size) {
+            const auto& block = stage.quoteRiskBlock_;
+            REQUIRE(block && size > 0 && size == block->factor_.Solution().Rows() &&
+                        stage.spec_.instruments_.size() == stage.freeParameters_.size() && stage.residualRowByInput_ == block->residualRowByInput_ &&
+                        block->baseJacobian_.Cols() == offset,
+                    "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+        }
+
+        RateQuoteRiskAxis_ StagedMultiCurveAxis(const StagedMultiCurveCalibrationRecord_& record) {
+            RateQuoteRiskAxis_ axis;
+            axis.scheme_ = JOINT_AXIS_SCHEME;
+            Json_ rows = Json_::Array();
+            for (int s = 0; s < static_cast<int>(record.stages_.size()); ++s) {
+                const auto& stage = record.stages_[s];
+                const auto key = "stage:" + String::FromInt(s);
+                const int offset = static_cast<int>(axis.parameters_.size());
+                const int size = static_cast<int>(stage.freeParameters_.size());
+                ValidateStagedAxisShape(stage, offset, size);
+                axis.parameterRanges_.push_back({key, offset, size});
+                axis.residualRanges_.push_back({key, offset, size});
+                AppendAxisParameters(key, offset, stage.freeParameters_, &axis);
+                Vector_<String_> names;
+                for (const auto& instrument : stage.spec_.instruments_) {
+                    REQUIRE(instrument, "QUOTE_RISK_EMPTY_CALIBRATION_INSTRUMENT");
+                    names.push_back(instrument->Name());
+                }
+                AppendAxisQuotes(key, offset, names, &axis);
+                for (int row : stage.quoteRiskBlock_->residualRowByInput_)
+                    rows.array_.push_back(Json_::Number(row));
+            }
+            auto identity = AxisJson("STAGED_MULTI_CURVE", axis);
+            identity.object_["residualRowsByInput"] = std::move(rows);
+            axis.fingerprint_ = Fingerprint(identity);
+            return axis;
+        }
+
+        void ValidateStagedBase(const CurveCalibrationStageRecord_& stage, const String_& key, const Handle_<DiscountCurve_>& expectedBase) {
+            const auto& spec = stage.spec_;
+            REQUIRE(spec.calibrateDiscountCurve_ == !expectedBase && spec.baseCurve_ == expectedBase &&
+                        PassiveBase(*stage.curve_) == expectedBase.get(),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
+            if (expectedBase) {
+                const auto route = spec.discountCurves_.find(spec.targetCollateral_);
+                REQUIRE(route != spec.discountCurves_.end() && route->second == expectedBase && spec.ccy_ == expectedBase->ccy_.String(),
+                        "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
+            }
+        }
+
+        void ValidateStagedMarket(const CurveCalibrationStageRecord_& stage,
+                                  const RatePricingMarket_& market,
+                                  const String_& key,
+                                  const Handle_<DiscountCurve_>& expectedBase) {
+            const auto& spec = stage.spec_;
+            const auto bound = market.curveComponents_.find(key);
+            REQUIRE(stage.curve_ && bound != market.curveComponents_.end() && bound->second == stage.curve_,
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH: " + key);
+            REQUIRE(market.valuationTime_.IsValid() && market.valuationTime_.Date() == spec.today_, "QUOTE_RISK_VALUATION_TIME_MISMATCH");
+            ValidateStagedBase(stage, key, expectedBase);
+            const auto definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, spec.knotDates_,
+                                                        spec.today_, spec.liborBasis_);
+            ValidateSolvedCurveDefinition(*stage.curve_, definition);
+            const auto parameters = DescribeCurveFreeParameters(definition);
+            REQUIRE(InspectCurveParameters(*stage.curve_, spec.today_).passiveParameters_ == stage.solution_ &&
+                        parameters.size() == stage.freeParameters_.size(),
+                    "QUOTE_RISK_SPEC_RESULT_MISMATCH: " + key);
+            for (size_t i = 0; i < parameters.size(); ++i)
+                REQUIRE(parameters[i].date_ == stage.freeParameters_[i].date_ && parameters[i].component_ == stage.freeParameters_[i].component_,
+                        "QUOTE_RISK_SPEC_RESULT_MISMATCH: " + key);
+        }
+
+        Json_ StagedMappingJson(const CurveCalibrationStageRecord_& stage) {
+            Json_ entry = Json_::Object();
+            entry.object_["spec"] = SingleSpecJson(stage.spec_);
+            entry.object_["solution"] = DoubleVectorJson(stage.solution_);
+            entry.object_["ownJacobianTranspose"] = MatrixJson(stage.quoteRiskBlock_->factor_.TransposedMatrix());
+            entry.object_["baseJacobian"] = MatrixJson(stage.quoteRiskBlock_->baseJacobian_);
+            return entry;
+        }
+    } // namespace
+
+    RateQuoteRiskProvenance_ BuildStagedMultiCurveQuoteRiskProvenance(const StagedMultiCurveCalibrationRecord_& record,
+                                                                      const RatePricingMarket_& boundMarket,
+                                                                      const RateQuoteRiskProvenanceConfig_& config) {
+        REQUIRE(!config.calibrationId_.empty(), "QUOTE_RISK_CALIBRATION_ID_EMPTY");
+        auto data = std::make_shared<RateQuoteRiskProvenance_::Data_>();
+        data->kind_ = "STAGED_MULTI_CURVE";
+        data->state_.scheme_ = JOINT_STATE_SCHEME;
+        data->calibrationId_ = config.calibrationId_;
+        data->bindings_ = config.componentKeyByParameterBlock_;
+        data->stagedMapping_ = std::make_unique<const StagedMultiCurveCalibrationRecord_>(record);
+        Json_ state = Json_::Object();
+        state.object_["kind"] = Json_::String(data->kind_);
+        state.object_["scheme"] = Json_::String(data->state_.scheme_);
+        if (!record.unavailableReason_.empty()) {
+            data->reason_ = record.unavailableStage_ + " " + record.unavailableReason_;
+            state.object_["reason"] = Json_::String(data->reason_);
+        } else {
+            REQUIRE(record.stages_.size() == 2, "QUOTE_RISK_STAGED_MAPPING_REQUIRES_TWO_STAGES");
+            record.RequireMatchingCapture();
+            data->axis_ = StagedMultiCurveAxis(record);
+            ValidateConfig(config, data->axis_.parameterRanges_);
+            Json_ stages = Json_::Array();
+            for (int i = 0; i < 2; ++i) {
+                const auto& stage = record.stages_[i];
+                const auto& key = data->bindings_.at(data->axis_.parameterRanges_[i].blockKey_);
+                ValidateStagedMarket(stage, boundMarket, key, i == 0 ? Handle_<DiscountCurve_>() : record.stages_[0].curve_);
+                data->state_.components_.push_back(ComponentState(key, *stage.curve_, boundMarket, data->state_.scheme_));
+                stages.array_.push_back(StagedMappingJson(stage));
+            }
+            state.object_["axisFingerprint"] = Json_::String(data->axis_.fingerprint_);
+            state.object_["bindings"] = BindingsJson(data->bindings_);
+            state.object_["market"] = MarketJson(boundMarket, data->bindings_);
+            state.object_["jointRouting"] = JointRoutingJson(boundMarket, data->bindings_);
+            state.object_["stages"] = std::move(stages);
+            data->available_ = true;
+        }
+        FreezeStateRecord(state, config.retainCalibrationRecord_, data.get());
+        return RateQuoteRiskProvenance_(data);
     }
 
     RateQuoteRiskProvenance_ BuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_& spec,

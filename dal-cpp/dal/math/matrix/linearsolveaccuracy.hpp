@@ -28,6 +28,7 @@ namespace Dal {
                             const LinearSolveAccuracyPolicy_& policy,
                             double relativePivotTolerance = 64.0 * std::numeric_limits<double>::epsilon());
         [[nodiscard]] const Matrix_<>& Solution() const { return solve_.Solve().Solution(); }
+        [[nodiscard]] const SquareMatrix_<>& TransposedMatrix() const { return transpose_; }
         [[nodiscard]] const LinearSolveDiagnostics_& Diagnostics() const { return solve_.Diagnostics(); }
         [[nodiscard]] const LinearSolveAccuracyPolicy_& Policy() const { return policy_; }
         [[nodiscard]] CheckedLinearSolveAdjoints_ Reverse(const Matrix_<>& solutionAdjoints) const;
