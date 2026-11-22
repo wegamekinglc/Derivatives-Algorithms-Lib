@@ -421,6 +421,30 @@ namespace Dal {
                                                        simulation ? simulation->val_ : MonteCarloSettings_{}));
     }
 #ifdef _WIN32
+    extern "C" __declspec(dllexport) OPER_* xl_MarketIvScriptRefitRiskResult_Write_Rows(const OPER_* result, const OPER_* destination) {
+        ENV_SEED_TYPE(ObjectAccess_);
+        try {
+            const auto handle = Excel::ToHandle<StorableMarketIvScriptRefitRiskResult_>(_env, result);
+            Matrix_<Cell_> rows;
+            MarketIvScriptRefitRiskResult_Get_Rows(handle, &rows);
+            Excel::WriteRange(destination, rows);
+            Excel::Retval_ out;
+            out.Load(rows.Rows());
+            return out.ToXloper();
+        } catch (const std::exception& error) {
+            return Excel::Error(error.what(), "MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS");
+        } catch (...) {
+            return Excel::Error("Unknown error", "MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS");
+        }
+    }
+    namespace {
+        const auto registeredWriteRows = [] {
+            Excel::RegisterCommand("xl_MarketIvScriptRefitRiskResult_Write_Rows", "MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS",
+                                   "Write result rows to a worksheet range with empty cells for missing values", "QQU", "result,destination",
+                                   {"Script quote-refit result", "Destination range including the header"});
+            return true;
+        }();
+    } // namespace
     namespace Excel {
         void ValidateMarketIvLocalVolSettingsInput(const OPER_* input) {
             try {

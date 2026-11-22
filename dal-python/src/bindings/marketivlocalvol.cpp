@@ -173,6 +173,7 @@ namespace {
         m.def(
             "MarketIvScriptRefitRiskResult_New",
             [](Request_ request) {
+                request.valuation_ = ResolveValuationSettings(request.valuation_);
                 py::gil_scoped_release release;
                 barrier.Wait(&barrierArmed, "MarketIvScriptRefit: GIL test barrier timed out");
                 return EvaluateMarketIvScriptRefitRisk(request);

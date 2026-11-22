@@ -175,12 +175,15 @@ namespace Dal::Script {
             MarketIvScriptBlockPvs_ pvs{Vector_<>(blocks)};
             PayoffMean_ scenario;
             const auto sample = [&](auto* evaluator, const auto& evaluate) {
+                const auto evaluatePath = [&](const auto& path, auto& state) {
+                    ++*totalPaths;
+                    evaluate(path, state);
+                };
                 for (size_t b = 0; b < blocks; ++b) {
                     const PathBatch_ batch{b * paths, paths};
-                    const auto block = Detail::EvaluateDoubleBatch<PayoffMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
+                    const auto block = Detail::EvaluateDoubleBatch<PayoffMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluatePath);
                     pvs.blockMeans_[b] = block.Mean();
                     scenario += pvs.blockMeans_[b];
-                    *totalPaths += block.count_;
                 }
             };
             if (simulation.compiled_.value_or(DEFAULT_COMPILED)) {
@@ -345,10 +348,10 @@ namespace Dal::Script {
         work.blocks_ = plan.request_.blocks_;
         work.pathsPerBlock_ = plan.request_.pathsPerBlock_;
         work.grids_ = 1;
+        const auto currency = plan.baseModel_->Configuration().currency_;
         auto sampled = SampleModels(plan, [&](size_t i) {
             const auto pair = BuildMarketIvScriptRefitPair(plan, i);
-            result.rows_.push_back(
-                {pair.row_, plan.request_.model_.currency_, pair.Status(), 0., RiskSide(pair.plus_, &work), RiskSide(pair.minus_, &work)});
+            result.rows_.push_back({pair.row_, currency, pair.Status(), 0., RiskSide(pair.plus_, &work), RiskSide(pair.minus_, &work)});
             return SamplingPair_{{pair.plus_.model_, pair.minus_.model_}, &result.rows_.back()};
         });
         work.scenarios_ = sampled.scenarios_;

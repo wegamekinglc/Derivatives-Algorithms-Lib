@@ -104,8 +104,11 @@ exercise the same single bucket and Black direction through each binding.
 The Black calculation pairs the 16 base block means from the two jointly
 shifted snapshots. The premium fixture moves the ATM call by ±0.01 with a
 put parity band and checks the surviving side and the following IV bucket.
-The worksheet runner saves the recalculated workbook alongside its JSON
-capture, then erases the request handles and reads the result rows again.
+The worksheet runner writes the quotation table to a prefilled range using
+the XLL command. Excel formulas check `ISBLANK(G2)`, `ISBLANK(I2)`,
+`ISBLANK(J2)` and `COUNTA(G2,I2,J2)` in the premium failure case. The
+runner saves the workbook alongside its JSON capture, then erases the
+request handles and reads the result again.
 
 ```powershell
 python dal-excel/tests/windows/run-market-iv-script-refit.py --xll build/Release-windows/dal-excel/dal_excel.xll --output script-refit.json

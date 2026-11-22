@@ -42,55 +42,77 @@ def populate(sheet, fixture, iv_shift=0.):
     request = call("MARKETIVSCRIPTREFITREQUEST.NEW", case, snapshot, grid, model, product, column(ids),
                    column(steps) if steps else helpers.Ref(""), valuation, helpers.Ref(""), counts)
     result = call("MARKETIVSCRIPTREFITRISKRESULT.NEW", case, request)
-    sheet.Range("A1").Formula2 = f"=MARKETIVSCRIPTREFITRISKRESULT.GET.ROWS({result})"
+    sheet.Range("AA22").Formula2 = f"=MARKETIVSCRIPTREFITRISKRESULT.GET.ROWS({result})"
     sheet.Range("A7").Formula2 = f"=MARKETIVSCRIPTREFITRISKRESULT.GET.EXECUTION({result})"
-    if iv_shift:
-        sheet.Range("D7").Formula2 = f"=MARKETIVSCRIPTREFITRISKRESULT.GET.BASEBLOCKS({result})"
+    sheet.Range("D7").Formula2 = f"=MARKETIVSCRIPTREFITRISKRESULT.GET.BASEBLOCKS({result})"
     return request, result
 
 
-def read_rows(sheet, anchor):
-    cells = sheet.Range(anchor)
-    helpers.require(cells.Value2 == "quote_index", f"{sheet.Name}!{anchor} expected row headers, got {cells.Value2}")
-    headers, *rows = cells.SpillingToRange.Value2
+def write_rows(excel, tag, cells):
+    written = excel.Run("MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS", tag, cells)
+    helpers.require(written == (cells.Rows.Count,), f"{cells.Address} write returned {written}")
+    headers, *rows = cells.Value2
+    helpers.require(headers[0] == "quote_index", f"Missing headers at {cells.Address}, command returned {written}")
     return [dict(zip(headers, row)) for row in rows]
+
+
+def destination_range(sheet, top, rows, columns):
+    return sheet.Range(sheet.Cells(top, 1), sheet.Cells(top + rows - 1, columns))
 
 
 def verify_row(sheet_name, row):
     if row["status"] == "SIDE_FAILED":
         helpers.require(sheet_name == "partial" and row["id"] == "atm" and row["plus_fit_status"] == "INCONSISTENT_QUOTES",
                         f"{sheet_name} unexpected fit failure")
-        helpers.require(all(row[k] in (None, "") for k in ("plus_pv", "slope", "standard_error")), "Misplaced missing values")
+        helpers.require(all(row[k] is None for k in ("plus_pv", "slope", "standard_error")), "Misplaced missing values")
         helpers.require(math.isfinite(row["minus_pv"]), "Missing surviving PV")
     else:
         helpers.require(math.isclose(row["slope"], (row["plus_pv"] - row["minus_pv"]) / (2 * row["step"]), abs_tol=1e-8),
                         f"{sheet_name} slope")
 
 
-def verify(sheet):
-    rows = read_rows(sheet, "A1")
+def verify(excel, sheet, result):
+    preview = sheet.Range("AA22").SpillingToRange
+    destination = destination_range(sheet, 1, preview.Rows.Count, preview.Columns.Count)
+    destination.Value2 = "old value"
+    tag = sheet.Range(result).Value2
+    rows = write_rows(excel, tag, destination)
     expected = {"all_buckets": ["left", "atm", "right"], "partial": ["atm", "right"]}.get(sheet.Name, ["atm"])
     helpers.require([r["id"] for r in rows] == expected, f"{sheet.Name} quote order")
     for row in rows:
         verify_row(sheet.Name, row)
+    report = {"rows": rows, "execution": dict(sheet.Range("A7").SpillingToRange.Value2)}
     if sheet.Name == "partial":
         helpers.require(rows[0]["status"] == "SIDE_FAILED" and rows[1]["status"] != "SIDE_FAILED", "Wrong failed bucket")
-        for cell in ("G2", "I2", "J2"):
-            helpers.require(sheet.Range(cell).Text == "", f"{sheet.Name}!{cell} must display blank")
-    return {"rows": rows, "execution": dict(sheet.Range("A7").SpillingToRange.Value2)}
+        checks = sheet.Range("Y2:AB2")
+        checks.Formula2 = (("=ISBLANK(G2)", "=ISBLANK(I2)", "=ISBLANK(J2)", "=COUNTA(G2,I2,J2)"),)
+        checks.Calculate()
+        observed = checks.Value2[0]
+        helpers.require(observed == (True, True, True, 0), f"partial!G2/I2/J2 ISBLANK and COUNTA: {observed}")
+        report["blank_checks"] = observed
+        short_range = sheet.Range("A1:W2")
+        before = short_range.Value2
+        error = excel.Run("MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS", tag, short_range)
+        helpers.require("Destination range must match" in str(error) and short_range.Value2 == before, "Invalid destination changed")
+    return report
 
 
 def verify_release(excel, sheet, request, result, rows):
     request_tag = sheet.Range(request).Value2
     tag = sheet.Range(result).Value2
+    getters = (("ROWS", "AA22", "AA30"), ("EXECUTION", "A7", "BA30"), ("BASEBLOCKS", "D7", "BD30"))
+    before = [(name, after, sheet.Range(address).SpillingToRange.Value2) for name, address, after in getters]
     sheet.UsedRange.ClearContents()
     sheet.Range("AA15").Value2 = request_tag
     erased, = excel.Run("REPOSITORY.ERASE", sheet.Range("AA15"))
     helpers.require(erased == 1, "Expected to erase the request")
-    cell = sheet.Range("A15")
-    cell.Formula2 = f'=MARKETIVSCRIPTREFITRISKRESULT.GET.ROWS("{tag}")'
-    cell.Calculate()
-    helpers.require(read_rows(sheet, "A15") == rows, "Rows changed after request release")
+    destination = destination_range(sheet, 15, len(rows) + 1, len(rows[0]))
+    helpers.require(write_rows(excel, tag, destination) == rows, "Rows changed after request release")
+    for name, address, expected in before:
+        cell = sheet.Range(address)
+        cell.Formula2 = f'=MARKETIVSCRIPTREFITRISKRESULT.GET.{name}("{tag}")'
+        cell.Calculate()
+        helpers.require(cell.SpillingToRange.Value2 == expected, f"{name} changed after request release")
     return erased
 
 
@@ -136,8 +158,8 @@ def run(xll, output):
         slope, se, reference = prices[2:]
         helpers.require(0 < se / 100 <= .001 and abs(slope - reference) / 100 <= .001 + 4.5 * se / 100, f"Flat IV Black check: {prices}")
         evidence["black"] = dict(zip(("plus", "minus", "slope", "standard_error", "reference"), prices))
-        for sheet, _, _ in cases:
-            evidence[sheet.Name] = verify(sheet)
+        for sheet, _, result in cases:
+            evidence[sheet.Name] = verify(excel, sheet, result)
         book.SaveAs(str(output.with_suffix(".xlsx").resolve()), FileFormat=51)
         for sheet, request, result in cases:
             case = evidence[sheet.Name]

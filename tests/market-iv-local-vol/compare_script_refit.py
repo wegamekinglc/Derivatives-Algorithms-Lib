@@ -31,22 +31,20 @@ def capture(path, sdk=False):
     return cases, black
 
 
-def compare_row(case, reference, row, excel):
+def compare_row(case, reference, row):
     if row.keys() != reference.keys():
         raise ValueError(f"{case} fields differ: {row.keys() ^ reference.keys()}")
     for key, expected in reference.items():
         value = row[key]
-        if excel and expected is None and value == "":
-            value = None
         if value != expected or isinstance(value, bool) != isinstance(expected, bool):
             raise ValueError(f"{case} {reference['id']} {key}: {value!r} != {expected!r}")
 
 
-def compare_rows(case, wanted, actual, excel=False):
+def compare_rows(case, wanted, actual):
     if len(actual) != len(wanted):
         raise ValueError(f"{case} row count {len(actual)} != {len(wanted)}")
     for reference, row in zip(wanted, actual):
-        compare_row(case, reference, row, excel)
+        compare_row(case, reference, row)
 
 
 def compare_black(sdk, python, excel):
@@ -69,10 +67,12 @@ def verify(sdk_path, python_path, excel_path):
         raise ValueError("Incomplete quote fixtures")
     for case in sorted(cases):
         compare_rows(case, sdk[case], python[case])
-        compare_rows(case, sdk[case], workbook[case]["rows"], excel=True)
+        compare_rows(case, sdk[case], workbook[case]["rows"])
         if workbook[case]["erased_requests"] != 1:
             raise ValueError(f"{case} missing ownership check")
         print(f"{case}: {len(sdk[case])} rows, {len(sdk[case][0])} fields matched")
+    if workbook["partial"]["blank_checks"] != [True, True, True, 0]:
+        raise ValueError("Missing physical worksheet blanks for partial/atm")
     compare_black(sdk_black, python_black, workbook["black"])
 
 

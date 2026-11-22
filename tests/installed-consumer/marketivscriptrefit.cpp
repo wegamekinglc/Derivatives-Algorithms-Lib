@@ -164,6 +164,21 @@ namespace {
         REQUIRE(row.status_ == "SIDE_FAILED" && row.plus_.failureStage_ == "SAMPLE", "lost payoff failure");
         REQUIRE(row.plus_.failure_.find("InvalidPayoff") != String_::npos, "missing payoff diagnostic");
         REQUIRE(!row.plus_.pv_ && row.minus_.pv_ && !row.slope_ && !row.standardError_, "incorrect payoff failure row");
+
+        // Only the second path of the positive shock ends between 120 and 121.
+        request.product_ = NewScriptProduct("second", request.product_->Dates(),
+                                            {"IF spot() > 120 AND spot() < 121 THEN pay PAYS LOG(-spot()) ELSE pay PAYS spot() END"});
+        Vector_<size_t> counts;
+        for (size_t blocks : {2U, 4U}) {
+            request.blocks_ = blocks;
+            request.pathsPerBlock_ = 4 / blocks;
+            const auto sample = EvaluateMarketIvScriptRefitRisk(request);
+            const auto& failed = sample.rows_.front();
+            REQUIRE(failed.plus_.failureStage_ == "SAMPLE" && failed.minus_.pv_, "expected positive-side failure");
+            counts.push_back(sample.execution_.totalPaths_);
+        }
+        std::cout << "PATHS 2x2=" << counts[0] << " 4x1=" << counts[1] << std::endl;
+        REQUIRE(counts[0] == 10 && counts[1] == 10, "path count must include the failing path");
     }
 } // namespace
 
