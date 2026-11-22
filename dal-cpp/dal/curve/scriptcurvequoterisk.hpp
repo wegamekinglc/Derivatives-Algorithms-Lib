@@ -42,6 +42,28 @@ namespace Dal {
         Vector_<CalibrationDiagnostic_> diagnostics_;
         [[nodiscard]] bool Available() const { return plan_.has_value(); }
     };
+    class CompoundedOisParRateRiskResult_ {
+        struct Values_ {
+            double parRate_;
+            Vector_<> nativeGradient_, sensitivityBpPerBp_, transposeBackwardErrors_;
+        };
+        std::optional<Values_> values_;
+        String_ snapshotIdentity_;
+        Vector_<ScriptCurveQuoteRiskQuote_> quotes_;
+        Vector_<CalibrationDiagnostic_> diagnostics_;
+        [[nodiscard]] const Values_& Values() const;
+        friend class ScriptCurveQuoteRiskSnapshot_;
+
+    public:
+        [[nodiscard]] bool Available() const { return values_.has_value(); }
+        [[nodiscard]] const String_& SnapshotIdentity() const { return snapshotIdentity_; }
+        [[nodiscard]] const Vector_<ScriptCurveQuoteRiskQuote_>& QuoteAxis() const { return quotes_; }
+        [[nodiscard]] const Vector_<CalibrationDiagnostic_>& Diagnostics() const { return diagnostics_; }
+        [[nodiscard]] double ParRate() const { return Values().parRate_; }
+        [[nodiscard]] const Vector_<>& NativeGradient() const { return Values().nativeGradient_; }
+        [[nodiscard]] const Vector_<>& SensitivityBpPerBp() const { return Values().sensitivityBpPerBp_; }
+        [[nodiscard]] const Vector_<>& TransposeBackwardErrors() const { return Values().transposeBackwardErrors_; }
+    };
     struct ScriptCurveQuoteRiskObservation_ {
         int ordinal_ = 0, quoteOrdinal_ = 0;
         String_ id_, instrumentId_, measureId_, sourceIdentity_, definitionIdentity_, bindingIdentity_;
@@ -161,6 +183,10 @@ namespace Dal {
                                                                                   const Handle_<PreparedCompoundedOis_>& tables,
                                                                                   const CurveInstrumentCalibrationSpec_& context,
                                                                                   const CompoundedOisParRateRequest_& request = {}) const;
+        [[nodiscard]] CompoundedOisParRateRiskResult_ ValueCompoundedOisParRateWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                                                             const Handle_<PreparedCompoundedOis_>& tables,
+                                                                                             const CurveInstrumentCalibrationSpec_& context,
+                                                                                             const CompoundedOisParRateRequest_& request = {}) const;
     };
     ScriptCurveQuoteRiskSnapshot_ NewScriptCurveQuoteRiskSnapshot(const CurveInstrumentCalibrationResult_& fit,
                                                                   const ScriptCurveQuoteRiskAccuracy_& accuracy);

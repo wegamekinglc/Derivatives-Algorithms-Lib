@@ -958,10 +958,19 @@ rank, reciprocal condition and response/transpose accuracy remain mandatory.
 Full and PV-only share admission; each PV still checks its own availability.
 Fixed K/N/source imply no direct payoff quote response: raw is currency per
 1.0 decimal quote rate and signed DV01 is `raw*1e-4`, without an extra minus
-sign or notional normalization. ParRate risk, live-quote payoffs, missing tables,
+sign or notional normalization. Live-quote payoffs, missing tables,
 stale/rebound contexts and unregistered PVs remain unavailable; owning
 diagnostics survive their inputs and numeric getters reject unavailable results.
 Calibration report `QuoteRiskAvailable()` and its `/1` schema are unchanged.
+
+For a registered compounded OIS, the core snapshot also exposes
+`ValueCompoundedOisParRateWithQuoteRisk`. Given signed cashflows with present
+value $aK+b$, the baseline is $k^*=-b/a$ in decimal rate. The native tape
+differentiates the quotient at the accepted curve parameters. For the root
+$F(\theta)-Qq=0$, one checked solve of $J^T\lambda=\nabla_\theta k^*$ gives
+$Q^T\lambda$ in bp/bp. The selected buckets require no recalibration. An
+invalid signed annuity, a response above the snapshot backward-error limit,
+or an active outer recording produces an unavailable result with diagnostics.
 
 Rule/capability/compiler identities distinguish new `/2` execution while
 preserving legacy `/1` source and identity values. General script/MC and legacy
