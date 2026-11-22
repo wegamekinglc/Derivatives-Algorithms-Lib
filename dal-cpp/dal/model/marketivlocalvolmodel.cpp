@@ -13,6 +13,8 @@ namespace Dal::AAD {
     namespace {
         using namespace MarketIvLocalVolDetail;
 
+        String_ FrozenValueText(const Date_& date) { return Date::ToString(date); }
+
         template <class T_> String_ FrozenValueText(const T_& value) {
             std::ostringstream text;
             text.precision(std::numeric_limits<double>::max_digits10);
@@ -311,7 +313,11 @@ namespace Dal::AAD {
             return CheckedAdd(buffers, CheckedAdd(mapping, CheckedMultiply(256, OutputCount(definitions))));
         }
 
-        size_t WorkerBytes(const Vector_<SampleDef_>& definitions, size_t dimension) {
+        struct WorkerCapacity_ {
+            size_t retained_, peak_;
+        };
+
+        WorkerCapacity_ MeasureWorkerCapacity(const Vector_<SampleDef_>& definitions, size_t dimension) {
             BufferCapacityBudget_ budget(std::numeric_limits<size_t>::max());
             BufferCapacityScope_ scope(&budget);
             Vector_<> normals(dimension);
@@ -319,7 +325,7 @@ namespace Dal::AAD {
             AllocatePath(definitions, path);
             path.front().modelScratch_.Resize(1);
             path.front().modelFactorScratch_.Resize(1);
-            return budget.CapacityBytes();
+            return {budget.CapacityBytes(), budget.PeakCapacityBytes()};
         }
 
         size_t CoordinatorBytes(size_t workers) {
@@ -362,6 +368,32 @@ namespace Dal::AAD {
     bool MarketIvLocalVolModel_::SupportsIndex(const Index_& index) const { return Supports(index, source_->Configuration()); }
     std::optional<Date_> MarketIvLocalVolModel_::EvaluationDate() const { return source_->Snapshot().Request().market_.EvaluationDate(); }
 
+    void MarketIvLocalVolModel_::ValidateFrozenMarket(const MarketIvMarket_& expected, const String_& field) const {
+        const auto& actual = source_->Snapshot().Request().market_;
+        if (&actual == &expected)
+            return;
+        const auto check = [&](const auto& wanted, const auto& supplied, const String_& path) {
+            if (wanted != supplied)
+                Fail("MarketIvSourceMismatch", "Sample", field + path, FrozenValueText(wanted), FrozenValueText(supplied));
+        };
+        check(expected.EvaluationDate(), actual.EvaluationDate(), "/evaluation_date");
+        check(expected.Spot(), actual.Spot(), "/spot");
+        check(expected.CarryMode(), actual.CarryMode(), "/carry_mode");
+        if (expected.IsFlatCarry()) {
+            check(expected.Rate(), actual.Rate(), "/rate");
+            check(expected.DividendYield(), actual.DividendYield(), "/dividend_yield");
+        }
+        check(expected.Terms().size(), actual.Terms().size(), "/terms");
+        for (size_t i = 0; i < expected.Terms().size(); ++i) {
+            const auto& lhs = expected.Terms()[i];
+            const auto& rhs = actual.Terms()[i];
+            const auto term = "/terms/" + String_(std::to_string(i));
+            check(lhs.expiry_, rhs.expiry_, term + "/expiry");
+            check(lhs.forward_, rhs.forward_, term + "/forward");
+            check(lhs.discount_, rhs.discount_, term + "/discount");
+        }
+    }
+
     void MarketIvLocalVolModel_::ValidateRequest(bool aad, bool exercise, const std::optional<Date_>& date, const String_& rsg, size_t workers) {
         if (aad)
             Fail("DerivativeUnavailable", "Prepare", "/simulation/enable_aad", "passive Price", "true");
@@ -402,7 +434,10 @@ namespace Dal::AAD {
         next->preparationPeak_ = CheckedAdd(CheckedAdd(budget.PeakCapacityBytes(), anchorsBytes), oldBytes);
         REQUIRE(next->delegate_->SimDim() == next->execution_.simulationDimension_, "InvalidMarketIvLocalVolRequest: planned/delegate grid mismatch");
         scope.Close();
-        next->execution_.perWorkerNumericBytes_ = WorkerBytes(definitions, next->execution_.simulationDimension_);
+        const auto worker = MeasureWorkerCapacity(definitions, next->execution_.simulationDimension_);
+        next->execution_.perWorkerNumericBytes_ = worker.retained_;
+        next->preparationPeak_ =
+            std::max(next->preparationPeak_, CheckedAdd(CheckedAdd(next->execution_.sharedNumericBytes_, oldBytes), worker.peak_));
         CheckLimit(next->execution_.perWorkerNumericBytes_, workerEstimate, "/ledger/per_worker_numeric_bytes", "Prepare");
         next->execution_.workers_ = workers_;
         next->execution_.plannedWorkspaceBytes_ = planned;
@@ -424,6 +459,10 @@ namespace Dal::AAD {
         state_->initialized_ = true;
     }
     size_t MarketIvLocalVolModel_::SimDim() const { return state_ ? state_->execution_.simulationDimension_ : 0; }
+    const Vector_<>& MarketIvLocalVolModel_::SimulationTimes() const {
+        REQUIRE(state_, "InvalidMarketIvLocalVolRequest: Allocate before inspecting coordinates");
+        return state_->delegate_->SimulationTimes();
+    }
     void MarketIvLocalVolModel_::GeneratePath(const Vector_<>& normals, Scenario_<>* path) const {
         REQUIRE(state_ && state_->initialized_, "InvalidMarketIvLocalVolRequest: Init before GeneratePath");
         state_->delegate_->GeneratePath(normals, path);
@@ -458,6 +497,10 @@ namespace Dal::AAD {
     MarketIvLocalVolExecution_ MarketIvLocalVolModel_::Execution() const {
         REQUIRE(state_, "InvalidMarketIvLocalVolRequest: Allocate before inspection");
         return state_->execution_;
+    }
+    size_t MarketIvLocalVolModel_::PreparationPeakBytes() const {
+        REQUIRE(state_, "InvalidMarketIvLocalVolRequest: Allocate before inspection");
+        return state_->preparationPeak_;
     }
     void MarketIvLocalVolModel_::ValidatePaths(size_t paths, const String_& rsg) {
         CheckPathAddress(paths, SimDim(), rsg);

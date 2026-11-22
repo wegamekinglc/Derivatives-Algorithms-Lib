@@ -1,12 +1,15 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/math/compensatedsum.hpp>
 #include <dal/model/marketivlocalvolinternal.hpp>
 #include <dal/model/marketivlocalvolmodel.hpp>
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
+#include <dal/script/batchstatistics_internal.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/marketivlocalvol.hpp>
 #include <dal/script/plannedpreparation.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/storage/canonicaljson_internal.hpp>
 
 namespace Dal::Script {
@@ -69,7 +72,7 @@ namespace Dal::Script {
             return rows;
         }
 
-        size_t RefitWorkspaceReservation(const MarketIvScriptRefitRequest_& request) {
+        size_t RefitWorkspaceReservation(const MarketIvScriptRefitRequest_& request, size_t scenarios) {
             constexpr MarketIvLocalVolDetail::BudgetField_ bytes{"Preflight", "/budget/workspace_bytes"};
             // Reserve the configured numeric envelopes for a base and one pair at a time.
             const auto& fit = request.snapshot_.Execution();
@@ -80,8 +83,8 @@ namespace Dal::Script {
                                               std::max(grid.workspaceBudgetBytes_, model.workspaceBudgetBytes_));
             const size_t working = std::max(
                 {bytes.Add(fit.plannedWorkspaceBytes_, fit.plannedNumericPayloadBytes_), building, bytes.Multiply(3, model.workspaceBudgetBytes_)});
-            const size_t rows = bytes.Multiply(request.quoteIds_.size(), sizeof(MarketIvScriptRefitRow_));
-            const size_t means = bytes.Multiply(request.blocks_, 3 * sizeof(double));
+            const size_t rows = bytes.Multiply(request.quoteIds_.size(), sizeof(MarketIvScriptRefitRow_) + sizeof(MarketIvScriptPairedPvs_));
+            const size_t means = bytes.Multiply(request.blocks_, bytes.Multiply(scenarios, sizeof(double)));
             const size_t reserved = bytes.Add(bytes.Add(fit.plannedNumericPayloadBytes_, models), bytes.Add(working, bytes.Add(rows, means)));
             bytes.Check(reserved, request.budget_.workspaceBudgetBytes_);
             return reserved;
@@ -106,7 +109,7 @@ namespace Dal::Script {
             const size_t fitRows = fitBudget.Multiply(refits, request.snapshot_.Request().settings_.maxModelRowEvaluations_);
             fitBudget.Check(fitRows, budget.maxModelRowEvaluations_);
 
-            const size_t bytes = RefitWorkspaceReservation(request);
+            const size_t bytes = RefitWorkspaceReservation(request, scenarios);
             return {refits, scenarios, scenarios, paths, totalPaths, fitRows, bytes};
         }
     } // namespace
@@ -123,9 +126,159 @@ namespace Dal::Script {
         auto base = BuildMarketIvLocalVolModelData("refit-base", grid, request.model_);
         AAD::MarketIvLocalVolModel_ model(*base);
         model.ValidatePaths(work.pathsPerScenario_, request.simulation_.rsg_);
-        const auto prepared = Detail::PrepareWithFrozenFixings(*request.product_, &model, request.valuation_, request.simulation_);
-        request.valuation_ = prepared.Settings();
-        return {std::move(request), std::move(rows), work, std::move(base)};
+        auto prepared =
+            std::make_shared<PreparedScript_>(Detail::PrepareWithFrozenFixings(*request.product_, &model, request.valuation_, request.simulation_));
+        request.valuation_ = prepared->Settings();
+        return {std::move(request), std::move(rows), work, std::move(base), std::move(prepared)};
+    }
+
+    namespace {
+        void CheckSamplingTimes(const Vector_<>& expected, const Vector_<>& times, const String_& modelField) {
+            if (times.size() != expected.size())
+                MarketIvLocalVolDetail::Fail("MarketIvCoordinateMismatch", "Sample", modelField + "/simulation/times",
+                                             String_(std::to_string(expected.size())), String_(std::to_string(times.size())));
+            for (size_t i = 0; i < times.size(); ++i)
+                if (times[i] != expected[i])
+                    MarketIvLocalVolDetail::Fail("MarketIvCoordinateMismatch", "Sample",
+                                                 modelField + "/simulation/times/" + String_(std::to_string(i)), ToString(expected[i]),
+                                                 ToString(times[i]));
+        }
+
+        struct PayoffMean_ {
+            // A power of two leaves room for any size_t path count without rounding individual normal terms.
+            static constexpr double SCALE = .5 / (1. + static_cast<double>(std::numeric_limits<size_t>::max()));
+            Dal::Detail::CompensatedSum_ scaled_, tiny_;
+            size_t count_ = 0;
+
+            void operator+=(double value) {
+                ++count_;
+                if (std::abs(value) < std::numeric_limits<double>::min() / SCALE)
+                    tiny_.Add(value);
+                else
+                    scaled_.Add(value * SCALE);
+            }
+
+            [[nodiscard]] double Mean() const {
+                const double sum = scaled_.Value();
+                if (std::abs(sum) < 1.)
+                    return (sum / SCALE + tiny_.Value()) / count_;
+                // Here even size_t::max tiny terms are below one ulp. Bound final rounding at the largest finite payoff.
+                constexpr double LIMIT = std::numeric_limits<double>::max() * SCALE;
+                return std::clamp(sum / count_, -LIMIT, LIMIT) / SCALE;
+            }
+        };
+
+        MarketIvScriptBlockPvs_
+        SampleBlocks(const PreparedScript_& product, const AAD::MarketIvLocalVolModel_& model, size_t blocks, size_t paths, size_t* totalPaths) {
+            const auto& simulation = product.Simulation();
+            Detail::DoubleSimulationState_<PreparedScript_> state(product, model, simulation.rsg_, simulation.useBb_, simulation.normalPrecision_);
+            MarketIvScriptBlockPvs_ pvs{Vector_<>(blocks)};
+            PayoffMean_ scenario;
+            const auto sample = [&](auto* evaluator, const auto& evaluate) {
+                for (size_t b = 0; b < blocks; ++b) {
+                    const PathBatch_ batch{b * paths, paths};
+                    const auto block = Detail::EvaluateDoubleBatch<PayoffMean_>(model, &state, evaluator, batch, product.PayOffIdx(), evaluate);
+                    pvs.blockMeans_[b] = block.Mean();
+                    scenario += pvs.blockMeans_[b];
+                    *totalPaths += block.count_;
+                }
+            };
+            if (simulation.compiled_.value_or(DEFAULT_COMPILED)) {
+                const auto& program = product.CompiledProgram();
+                sample(&state.compiledState_, [&](const auto& path, auto& eval) { program.Evaluate(path, eval); });
+            } else
+                sample(&state.evaluator_, [&](const auto& path, auto& eval) { product.Evaluate(path, eval); });
+            pvs.mean_ = scenario.Mean();
+            return pvs;
+        }
+
+        size_t AdditionalModelBytes(const MarketIvScriptModelPair_& pair, const Handle_<MarketIvLocalVolModelData_>& base) {
+            const auto plus = pair.plus_->ConstructionExecution().numericPayloadBytes_ - pair.plus_->SharedNumericPayloadBytes(*base);
+            // Each source owns its grid and retains one fit. Shared portions of a side are therefore nested.
+            const auto sharedMinus = std::max(pair.minus_->SharedNumericPayloadBytes(*base), pair.minus_->SharedNumericPayloadBytes(*pair.plus_));
+            const auto minus = pair.minus_->ConstructionExecution().numericPayloadBytes_ - sharedMinus;
+            return MarketIvLocalVolDetail::CheckedAdd(plus, minus);
+        }
+
+        MarketIvScriptBlockPvs_ SampleScenario(const MarketIvScriptRefitPlan_& plan,
+                                               const MarketIvLocalVolModelData_& data,
+                                               const String_& modelField,
+                                               BufferCapacityBudget_* workspace,
+                                               MarketIvScriptSamplingResult_* result) {
+            const auto& request = plan.request_;
+            const auto& product = *plan.prepared_;
+            const auto config = data.Configuration();
+            MarketIvLocalVolDetail::CheckLimit(config.workspaceBudgetBytes_, request.model_.workspaceBudgetBytes_,
+                                               modelField + "/settings/workspace_budget_bytes", "Sample");
+            MarketIvLocalVolDetail::CheckLimit(data.ConstructionExecution().numericPayloadBytes_, request.model_.numericPayloadBudgetBytes_,
+                                               modelField + "/settings/numeric_payload_budget_bytes", "Sample");
+            if (config.factor_ != result->factor_)
+                MarketIvLocalVolDetail::Fail("MarketIvCoordinateMismatch", "Sample", modelField + "/simulation/factor", result->factor_,
+                                             config.factor_);
+            const auto frozen = plan.baseModel_->Configuration();
+            REQUIRE(config.index_ == frozen.index_ && config.currency_ == frozen.currency_,
+                    "InvalidMarketIvRequest: /models must use the frozen index and PV currency");
+            AAD::MarketIvLocalVolModel_ model(data);
+            model.ValidateFrozenMarket(request.snapshot_.Request().market_, modelField + "/market");
+            model.ValidateRequest(false, false, request.valuation_.evaluationDate_, request.simulation_.rsg_);
+            model.ValidatePaths(plan.work_.pathsPerScenario_, request.simulation_.rsg_);
+            ++result->scenarios_;
+            if (product.AllExpired())
+                return {Vector_<>(request.blocks_, 0.)};
+            {
+                // Allocate has its own capacity ledger. Charge its peak and its retained shared state in their respective phases.
+                Dal::Detail::BufferCapacitySuspension_ separateModelLedger;
+                model.Allocate(product.TimeLine(), product.DefLine());
+                model.Init(product.TimeLine(), product.DefLine());
+            }
+            const auto execution = model.Execution();
+            constexpr MarketIvLocalVolDetail::BudgetField_ bytes{"Sample", "/budget/workspace_bytes"};
+            const auto preparationPeak = bytes.Add(workspace->CapacityBytes(), model.PreparationPeakBytes());
+            bytes.Check(preparationPeak, workspace->LimitBytes());
+            result->peakWorkspaceBytes_ = std::max(result->peakWorkspaceBytes_, preparationPeak);
+            const auto shared = BufferCapacityScope_::ForWorker(workspace, execution.sharedNumericBytes_);
+            if (result->simulationTimes_.empty())
+                result->simulationTimes_ = model.SimulationTimes();
+            else
+                CheckSamplingTimes(result->simulationTimes_, model.SimulationTimes(), modelField);
+
+            return SampleBlocks(product, model, request.blocks_, request.pathsPerBlock_, &result->totalPaths_);
+        }
+    } // namespace
+
+    MarketIvScriptSamplingResult_
+    SampleMarketIvScriptModelPairs(const MarketIvScriptRefitPlan_& plan,
+                                   const std::function<MarketIvScriptModelPair_(const MarketIvScriptRefitRow_&)>& models) {
+        REQUIRE(plan.prepared_ && plan.baseModel_ && models,
+                "InvalidMarketIvRequest: /models requires the prepared plan and a pair per selected quote");
+        BufferCapacityBudget_ workspace(plan.work_.reservedWorkspaceBytes_);
+        BufferCapacityScope_ scope(&workspace, plan.baseModel_->ConstructionExecution().numericPayloadBytes_);
+        MarketIvScriptSamplingResult_ result;
+        result.factor_ = plan.baseModel_->Configuration().factor_;
+        result.useBb_ = plan.prepared_->Simulation().useBb_;
+        result.pathsPerBlock_ = plan.request_.pathsPerBlock_;
+        result.rows_.reserve(plan.rows_.size());
+        result.base_ = SampleScenario(plan, *plan.baseModel_, "/models/base", &workspace, &result);
+        for (const auto& quote : plan.rows_) {
+            const auto pair = [&] {
+                Dal::Detail::BufferCapacitySuspension_ separateModelLedger;
+                return models(quote);
+            }();
+            REQUIRE(pair.plus_ && pair.minus_, "InvalidMarketIvRequest: /models requires both fixed sides for " + quote.id_);
+            const auto payload = BufferCapacityScope_::ForWorker(&workspace, AdditionalModelBytes(pair, plan.baseModel_));
+            result.rows_.emplace_back();
+            auto& row = result.rows_.back();
+            const auto field = "/models/" + quote.id_;
+            row.plus_ = SampleScenario(plan, *pair.plus_, field + "/plus", &workspace, &result);
+            row.minus_ = SampleScenario(plan, *pair.minus_, field + "/minus", &workspace, &result);
+            const auto slope = [&](size_t b) { return (row.plus_.blockMeans_[b] - row.minus_.blockMeans_[b]) / (2. * quote.step_); };
+            for (size_t b = 0; b < plan.request_.blocks_; ++b)
+                row.slope_ += slope(b) / plan.request_.blocks_;
+            row.standardError_ = BatchStatisticsInternal::StandardError(plan.request_.blocks_, [&](size_t b) { return slope(b) - row.slope_; });
+            REQUIRE2(std::isfinite(row.slope_) && std::isfinite(row.standardError_), "InvalidPayoff: non-finite paired slope or error", ScriptError_);
+        }
+        result.peakWorkspaceBytes_ = std::max(result.peakWorkspaceBytes_, workspace.PeakCapacityBytes());
+        return result;
     }
 
     MarketIvLocalVolExecution_ InspectMarketIvLocalVolExecution(const ScriptProductData_& product,
