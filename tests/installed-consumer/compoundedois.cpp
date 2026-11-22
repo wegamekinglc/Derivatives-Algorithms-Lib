@@ -120,23 +120,23 @@ namespace {
         const auto snapshot = NewScriptCurveQuoteRiskSnapshot(Fit(spec), {{1e-12, 1e-12}, 1e-10, 1e-12, 1e-12, pvOnly});
         return ValueCompoundedOisParRateWithQuoteRisk(NewCompoundedOisScriptInstrument(tables), tables, snapshot, spec, {{"long", "short"}});
     }
-    void VerifyParRate() {
-        for (const bool pvOnly : {false, true}) {
-            const auto result = LookbackRisk(false, pvOnly);
-            REQUIRE(result.Available() && !result.SnapshotIdentity().empty(), "Installed owning ParRate result");
-            const auto summary = ScriptCurveQuoteRiskTable(result, "Summary"), buckets = ScriptCurveQuoteRiskTable(result, "Sensitivity");
-            REQUIRE(Cell::ToString(summary(3, 1)) == result.SnapshotIdentity(), "Installed snapshot identity");
-            REQUIRE(std::abs(Cell::ToDouble(summary(2, 1)) - .01856212179263) < 1e-12, "Installed decimal par rate");
-            REQUIRE(buckets.Rows() == 3 && buckets.Cols() == 3 && Cell::ToString(buckets(0, 2)) == "sensitivity_bp_per_bp", "Installed bucket units");
-            REQUIRE(Cell::ToString(buckets(1, 1)) == "long" && Cell::ToString(buckets(2, 1)) == "short", "Installed selected quote order");
-            REQUIRE(Cell::ToDouble(buckets(1, 0)) == 1 && Cell::ToDouble(buckets(2, 0)) == 0, "Installed snapshot ordinals");
-            REQUIRE(std::abs(Cell::ToDouble(buckets(1, 2)) - .87138316352446) < 1e-10 &&
-                        std::abs(Cell::ToDouble(buckets(2, 2)) + .27115795540455) < 1e-10,
-                    "Installed signed Lookback buckets");
-            std::cout << std::setprecision(14) << "Lookback pv_only=" << pvOnly << " rate=" << result.ParRate()
-                      << " long=" << result.SensitivityBpPerBp()[0] << " short=" << result.SensitivityBpPerBp()[1]
-                      << " snapshot=" << result.SnapshotIdentity() << '\n';
-        }
+    void VerifyAvailableParRate(bool pvOnly) {
+        const auto result = LookbackRisk(false, pvOnly);
+        REQUIRE(result.Available() && !result.SnapshotIdentity().empty(), "Installed owning ParRate result");
+        const auto summary = ScriptCurveQuoteRiskTable(result, "Summary"), buckets = ScriptCurveQuoteRiskTable(result, "Sensitivity");
+        REQUIRE(Cell::ToString(summary(3, 1)) == result.SnapshotIdentity(), "Installed snapshot identity");
+        REQUIRE(std::abs(Cell::ToDouble(summary(2, 1)) - .01856212179263) < 1e-12, "Installed decimal par rate");
+        REQUIRE(buckets.Rows() == 3 && buckets.Cols() == 3 && Cell::ToString(buckets(0, 2)) == "sensitivity_bp_per_bp", "Installed bucket units");
+        REQUIRE(Cell::ToString(buckets(1, 1)) == "long" && Cell::ToString(buckets(2, 1)) == "short", "Installed selected quote order");
+        REQUIRE(Cell::ToDouble(buckets(1, 0)) == 1 && Cell::ToDouble(buckets(2, 0)) == 0, "Installed snapshot ordinals");
+        REQUIRE(std::abs(Cell::ToDouble(buckets(1, 2)) - .87138316352446) < 1e-10 &&
+                    std::abs(Cell::ToDouble(buckets(2, 2)) + .27115795540455) < 1e-10,
+                "Installed signed Lookback buckets");
+        std::cout << std::setprecision(14) << "Lookback pv_only=" << pvOnly << " rate=" << result.ParRate()
+                  << " long=" << result.SensitivityBpPerBp()[0] << " short=" << result.SensitivityBpPerBp()[1]
+                  << " snapshot=" << result.SnapshotIdentity() << '\n';
+    }
+    void VerifyUnavailableParRate() {
         const auto failure = LookbackRisk(true, false);
         REQUIRE(!failure.Available() && !failure.SnapshotIdentity().empty(), "Installed owning unavailable result");
         const auto summary = ScriptCurveQuoteRiskTable(failure, "Summary"), buckets = ScriptCurveQuoteRiskTable(failure, "Sensitivity");
@@ -192,7 +192,9 @@ int main() {
     try {
         Dal::RegisterAll_::Init();
 #ifdef DAL_TEST_PUBLIC_OIS
-        VerifyParRate();
+        VerifyAvailableParRate(false);
+        VerifyAvailableParRate(true);
+        VerifyUnavailableParRate();
 #endif
         for (const Dal::String_ mode : {"None", "Lookback", "ObservationShift", "Lockout"}) {
             const auto owned = Run(mode);

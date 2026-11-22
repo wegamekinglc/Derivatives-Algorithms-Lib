@@ -13,37 +13,63 @@ helpers = import_module("run-compounded-ois")
 Ref = helpers.Ref
 
 
-def populate(sheet, high_floor):
-    row = 1
+class SheetInputs:
+    def __init__(self, sheet):
+        self.sheet = sheet
+        self.row = 1
 
-    def table(rows):
-        nonlocal row
-        top = row
+    def table(self, rows):
+        top = self.row
         for values in rows:
             for column, value in enumerate(values, 1):
-                cell = sheet.Cells(row, column + 16)
+                cell = self.sheet.Cells(self.row, column + 16)
                 if isinstance(value, Ref):
                     cell.Formula2 = "=" + value
                 else:
                     cell.Value2 = value
-            row += 1
-        address = sheet.Range(sheet.Cells(top, 17), sheet.Cells(row - 1, 16 + len(rows[0]))).Address
-        row += 1
+            self.row += 1
+        address = self.sheet.Range(self.sheet.Cells(top, 17), self.sheet.Cells(self.row - 1, 16 + len(rows[0]))).Address
+        self.row += 1
         return Ref(address)
 
-    def call(name, *args):
-        nonlocal row
-        cell = sheet.Cells(row, 17)
+    def call(self, name, *args):
+        cell = self.sheet.Cells(self.row, 17)
         arguments = ",".join(str(arg) if isinstance(arg, Ref) else json.dumps(arg) for arg in args)
         cell.Formula2 = f"={name}({arguments})"
-        row += 2
+        self.row += 2
         return Ref(cell.Address)
+
+
+def day(d):
+    return helpers.serial(3, d)
+
+
+def prepare(inputs, name, fixed, periods, convention_fields, high_floor, calendar, valuation):
+    call, table = inputs.call, inputs.table
+    fixed_leg = call("COMPOUNDEDOISFIXEDLEG.NEW", table([["start", "end", "payment", "accrual"]] +
+                     [[day(a), day(b), day(p), (b-a)/365] for a, b, p in fixed]))
+    coupons = call("COMPOUNDEDOISCOUPONS.NEW", table([["coupon_id", "start", "end", "payment"]] +
+                   [[key, day(a), day(b), day(p)] for key, (a, b, p) in zip(("first", "second"), periods)]))
+    convention = call("COMPOUNDEDOISOBSERVATIONCONVENTION.NEW", table(convention_fields))
+    fields = [["instrument_id", name], ["direction", "PayFixed"], ["discount_route", "USD.OIS"],
+              ["projection_route", "USD.SOFR"], ["fixing_index", "USD-SOFR"], ["notional", 100.], ["coupon", .02],
+              ["currency", "USD"], ["collateral_currency", "USD"], ["collateral_type", "OIS"],
+              ["observation_basis", "ACT_360"], ["fixed_basis", "ACT_365F"], ["calendar", calendar],
+              ["fixed_leg", fixed_leg], ["coupons", coupons], ["rule_id", "dal.compounded-ois-cashflows/2"],
+              ["observation_convention", convention]]
+    if high_floor:
+        fields.append(["min_abs_annuity", 100.])
+    spec = call("COMPOUNDEDOISSCRIPTSPEC.NEW", table(fields))
+    prepared = call("COMPOUNDEDOIS.PREPARE", spec, valuation)
+    return prepared, call("COMPOUNDEDOISSCRIPTINSTRUMENT.NEW", prepared)
+
+
+def populate(sheet, high_floor):
+    inputs = SheetInputs(sheet)
+    call, table = inputs.call, inputs.table
 
     def dates(days):
         return call("CALIBRATIONDATES.NEW", table([[day(d)] for d in days]))
-
-    def day(d):
-        return helpers.serial(3, d)
 
     fixings = call("MARKETFIXINGSNAPSHOT.NEW", table([["USD-SOFR"]]), table([[helpers.serial(2, 29)]]), table([[-.012]]))
     valuation = call("SCRIPTVALUATIONSETTINGS.NEW", "risk", table([["evaluation_date", day(1)]]), fixings)
@@ -55,31 +81,17 @@ def populate(sheet, high_floor):
         ["id", "projection", "collateral", "tenor", "overnight", "use_target_curve"],
         ["USD.OIS", False, "OIS", "", False, True], ["USD.SOFR", True, "OIS", "", True, False]]))
     market = call("CURVEINSTRUMENTMARKET.NEW", table([["routes", routes]]))
+    short = [(1, 6, 6)]
+    long = [*short, (6, 12, 13)]
     tables, observations = [], []
-    for name, quote in [("short", .030179570014802), ("long", .0362870928259698), ("registered-par", None)]:
-        registered = quote is None
-        periods = [(1, 6, 6)] if name == "short" else [(1, 6, 6), (6, 11 if registered else 12, 13)]
-        fixed = [(1, 11, 15)] if registered else periods
-        fixed_leg = call("COMPOUNDEDOISFIXEDLEG.NEW", table([["start", "end", "payment", "accrual"]] +
-                         [[day(a), day(b), day(p), (b-a)/365] for a, b, p in fixed]))
-        coupons = call("COMPOUNDEDOISCOUPONS.NEW", table([["coupon_id", "start", "end", "payment"]] +
-                       [[key, day(a), day(b), day(p)] for key, (a, b, p) in zip(("first", "second"), periods)]))
-        convention = call("COMPOUNDEDOISOBSERVATIONCONVENTION.NEW", table(
-            [["mode", "Lookback"], ["lookback_business_days", 1]] if registered else [["mode", "None"]]))
-        fields = [["instrument_id", name], ["direction", "PayFixed"], ["discount_route", "USD.OIS"],
-                  ["projection_route", "USD.SOFR"], ["fixing_index", "USD-SOFR"], ["notional", 100.], ["coupon", .02],
-                  ["currency", "USD"], ["collateral_currency", "USD"], ["collateral_type", "OIS"],
-                  ["observation_basis", "ACT_360"], ["fixed_basis", "ACT_365F"], ["calendar", calendar],
-                  ["fixed_leg", fixed_leg], ["coupons", coupons], ["rule_id", "dal.compounded-ois-cashflows/2"],
-                  ["observation_convention", convention]]
-        if high_floor and registered:
-            fields.append(["min_abs_annuity", 100.])
-        spec = call("COMPOUNDEDOISSCRIPTSPEC.NEW", table(fields))
-        tables.append(call("COMPOUNDEDOIS.PREPARE", spec, valuation))
-        instrument = call("COMPOUNDEDOISSCRIPTINSTRUMENT.NEW", tables[-1])
-        if not registered:
-            market_quote = call("CALIBRATIONMARKETQUOTE.NEW", name, quote, "Rate")
-            observations.append(call("CALIBRATIONOBSERVATION.NEW", name, instrument, "ParRate", market_quote, 1e-13))
+    for name, quote, periods in [("short", .030179570014802, short), ("long", .0362870928259698, long)]:
+        prepared, instrument = prepare(inputs, name, periods, periods, [["mode", "None"]], False, calendar, valuation)
+        tables.append(prepared)
+        market_quote = call("CALIBRATIONMARKETQUOTE.NEW", name, quote, "Rate")
+        observations.append(call("CALIBRATIONOBSERVATION.NEW", name, instrument, "ParRate", market_quote, 1e-13))
+    registered, instrument = prepare(inputs, "registered-par", [(1, 11, 15)], [*short, (6, 11, 13)],
+                                     [["mode", "Lookback"], ["lookback_business_days", 1]], high_floor, calendar, valuation)
+    tables.append(registered)
     seed = call("CALIBRATIONNUMBERS.NEW", table([[-.0003], [-.002]]))
     solver = call("CURVEINSTRUMENTSOLVER.NEW", table([["initial_guess_per_node", seed]]))
     context = call("CURVEINSTRUMENTCALIBRATIONSPEC.NEW", table([["solver", solver],
@@ -93,11 +105,11 @@ def populate(sheet, high_floor):
         ["min_reciprocal_condition", 1e-10], ["response_backward_error_limit", 1e-12], ["relative_pivot_tolerance", 1e-12]]))
     snapshot = call("SCRIPTCURVEQUOTERISKSNAPSHOT.NEW", fit, accuracy)
     ids = call("SCRIPTCURVEQUOTEIDS.NEW", table([["long"], ["short"]]))
-    result = call("COMPOUNDEDOISPARRATE.VALUEWITHQUOTERISK", instrument, tables[-1], snapshot, context, ids)
+    result = call("COMPOUNDEDOISPARRATE.VALUEWITHQUOTERISK", instrument, registered, snapshot, context, ids)
     for address, name in [("A1", "SUMMARY"), ("A7", "SENSITIVITY"), ("A13", "DIAGNOSTICS")]:
         sheet.Range(address).Formula2 = f"=COMPOUNDEDOISPARRATERISKRESULT.GET.{name}({result})"
     sheet.Range("A30").Formula2 = f"=SCRIPTCURVEQUOTERISKSNAPSHOT.GET.SUMMARY({snapshot})"
-    return result, [instrument, tables[-1], snapshot, context, ids, fit]
+    return result, [instrument, registered, snapshot, context, ids, fit]
 
 
 def verify(sheet, high_floor):
@@ -113,6 +125,23 @@ def verify(sheet, high_floor):
             assert abs(cells[key] - value) < (1e-12 if key == "B3" else 1e-10), cells
         assert cells["A14"] is None, cells
     return cells
+
+
+def verify_input_release(excel, sheet, result_address, inputs, evidence):
+    tags = [sheet.Range(address).Value2 for address in inputs]
+    result = sheet.Range(result_address).Value2
+    sheet.UsedRange.ClearContents()
+    tag_range = sheet.Range(f"A1:A{len(tags)}")
+    tag_range.Value2 = tuple((tag,) for tag in tags)
+    erased, = excel.Run("REPOSITORY.ERASE", tag_range)
+    assert erased == len(tags), erased
+    summary = sheet.Range("E1")
+    summary.Formula2 = f'=COMPOUNDEDOISPARRATERISKRESULT.GET.SUMMARY("{result}")'
+    summary.Calculate()
+    identity = sheet.Range("F4").Value2
+    assert identity == evidence["B4"], identity
+    evidence["erased_inputs"] = erased
+    evidence["identity_after_input_release"] = identity
 
 
 def run(xll, output):
@@ -136,20 +165,7 @@ def run(xll, output):
         book.SaveAs(str(output.with_suffix(".xlsx").resolve()), FileFormat=51)
         excel.Calculation = -4135  # Manual during repository lifetime checks.
         for sheet, (result_address, inputs), _ in cases:
-            tags = [sheet.Range(address).Value2 for address in inputs]
-            result = sheet.Range(result_address).Value2
-            sheet.UsedRange.ClearContents()
-            tag_range = sheet.Range(f"A1:A{len(tags)}")
-            tag_range.Value2 = tuple((tag,) for tag in tags)
-            erased, = excel.Run("REPOSITORY.ERASE", tag_range)
-            assert erased == len(tags), erased
-            summary = sheet.Range("E1")
-            summary.Formula2 = f'=COMPOUNDEDOISPARRATERISKRESULT.GET.SUMMARY("{result}")'
-            summary.Calculate()
-            identity = sheet.Range("F4").Value2
-            assert identity == evidence[sheet.Name]["B4"], identity
-            evidence[sheet.Name]["erased_inputs"] = erased
-            evidence[sheet.Name]["identity_after_input_release"] = identity
+            verify_input_release(excel, sheet, result_address, inputs, evidence[sheet.Name])
         output.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     finally:
         if book is not None:
