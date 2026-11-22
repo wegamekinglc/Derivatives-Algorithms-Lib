@@ -67,6 +67,37 @@ cmake --build build/p22 --target dal_market_iv_refit_pair
 build/p22/dal_market_iv_refit_pair
 ```
 
+### Script PV refit risk
+
+```bash
+cmake -S tests/market-iv-local-vol -B build/p24 -DCMAKE_BUILD_TYPE=Release -DDAL_CPP_BUILD_TESTS=ON
+cmake --build build/p24 --target dal_market_iv_refit_pv
+ctest --test-dir build/p24 -R MarketIvRefitPvTest -V
+```
+
+The fixture prices a one-year European call in USD on 2026-11-16 with spot
+100, forward 105, discount .96 and strike 105. The three call quotes at
+strikes 90, 105 and 120 have decimal IV .20. Dupire spot nodes are 80, 100
+and 120, with times 1/8, 1/2 and 1. Each compiled valuation uses factor
+`W_EQ`, MRG32 Precise seed 1024, and three chronological normals per path
+with the bridge off. For path `p` in block `b` of size `N`, interval `j`
+uses scalar draw `3*(b*N+p)+j`, indexed from zero.
+
+The independent driver rebuilds each bumped quote set and Dupire grid, reads
+the scalar stream in order, evolves log spot at the left-endpoint grid vol,
+and discounts the terminal payoff. The coordinate check compares individual
+path PVs for base, plus and minus. The single-bucket check bumps `atm` by
+`s=1e-4` and `5e-5` with 16 blocks of 257 paths. For each step, the side
+means must agree to `1e-12*L` and the paired slope and SE to `1e-12*L/s`,
+where `L=max(1,abs(PV+),abs(PV-))`. The output includes both estimates,
+the slope change from full to half step, and each fit's branch relative to base.
+
+The Black check shifts all three IVs together by ±1e-4, refits each side,
+and compares the directly sampled slope with the discounted Black call's
+central difference. Its fixed budget is 16 blocks of 131072 paths per scenario.
+Both `SE/S0 <= 1e-3` and `abs(estimate-Black)/S0 <= 1e-3 + 4.5*SE/S0`
+must pass. CTest reports a failure if the budget falls short.
+
 ### PDE and Monte Carlo qualification
 
 Long calculations are explicit. The completed qualification budget is sealed;
