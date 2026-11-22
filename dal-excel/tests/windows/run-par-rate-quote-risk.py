@@ -11,6 +11,7 @@ import win32com.client
 
 helpers = import_module("run-compounded-ois")
 Ref = helpers.Ref
+require = helpers.require
 
 
 class SheetInputs:
@@ -114,16 +115,16 @@ def populate(sheet, high_floor):
 
 def verify(sheet, high_floor):
     cells = {key: sheet.Range(key).Value2 for key in ("B2", "B3", "B4", "A8", "B8", "C8", "A9", "B9", "C9", "A14", "D14")}
-    assert cells["B2"] == ("Unavailable" if high_floor else "Available"), cells
-    assert cells["B4"] == sheet.Range("B34").Value2, cells
-    assert cells["B4"] and (cells["A8"], cells["B8"], cells["A9"], cells["B9"]) == (1, "long", 0, "short"), cells
+    require(cells["B2"] == ("Unavailable" if high_floor else "Available"), cells)
+    require(cells["B4"] and cells["B4"] == sheet.Range("B34").Value2, cells)
+    require((cells["A8"], cells["B8"], cells["A9"], cells["B9"]) == (1, "long", 0, "short"), cells)
     if high_floor:
-        assert all(cells[key] in (None, "") for key in ("B3", "C8", "C9")), cells
-        assert (cells["A14"], cells["D14"]) == ("InvalidCalibrationAnnuity", "/annuity"), cells
+        require(all(cells[key] in (None, "") for key in ("B3", "C8", "C9")), cells)
+        require((cells["A14"], cells["D14"]) == ("InvalidCalibrationAnnuity", "/annuity"), cells)
     else:
         for key, value in [("B3", .01856212179263), ("C8", .87138316352446), ("C9", -.27115795540455)]:
-            assert abs(cells[key] - value) < (1e-12 if key == "B3" else 1e-10), cells
-        assert cells["A14"] is None, cells
+            require(abs(cells[key] - value) < (1e-12 if key == "B3" else 1e-10), cells)
+        require(cells["A14"] is None, cells)
     return cells
 
 
@@ -134,14 +135,41 @@ def verify_input_release(excel, sheet, result_address, inputs, evidence):
     tag_range = sheet.Range(f"A1:A{len(tags)}")
     tag_range.Value2 = tuple((tag,) for tag in tags)
     erased, = excel.Run("REPOSITORY.ERASE", tag_range)
-    assert erased == len(tags), erased
+    require(erased == len(tags), f"Erased {erased} of {len(tags)} input handles")
     summary = sheet.Range("E1")
     summary.Formula2 = f'=COMPOUNDEDOISPARRATERISKRESULT.GET.SUMMARY("{result}")'
     summary.Calculate()
     identity = sheet.Range("F4").Value2
-    assert identity == evidence["B4"], identity
+    require(identity == evidence["B4"], f"Snapshot identity after input release: {identity}")
     evidence["erased_inputs"] = erased
     evidence["identity_after_input_release"] = identity
+
+
+def verify_quote_selections(sheet, valuation_inputs):
+    sheet.Range("Z1").Formula2 = '="long"&UNICHAR(12288)&"x"'
+    sheet.Range("AA1").Formula2 = "=SCRIPTCURVEQUOTEIDS.NEW(Z1)"
+    error = sheet.Range("AA1").Value2
+    require("row=1 column=1" in str(error) and "single-byte" in str(error), f"AA1: {error}")
+    sheet.Range("Z4").Value2 = "long"
+    sheet.Range("Z6").Value2 = "short"
+    sheet.Range("AA4").Formula2 = "=SCRIPTCURVEQUOTEIDS.NEW(Z4:Z6)"
+    gap = sheet.Range("AA4").Value2
+    require("row=2 column=1" in str(gap) and "blank" in str(gap), f"AA4: {gap}")
+
+    sheet.Range("Z8").Value2 = "long"
+    sheet.Range("AB8").Value2 = "short"
+    sheet.Range("AC8").Formula2 = "=SCRIPTCURVEQUOTEIDS.NEW(Z8:AB8)"
+    row_gap = sheet.Range("AC8").Value2
+    require("row=1 column=2" in str(row_gap) and "blank" in str(row_gap), f"AC8: {row_gap}")
+
+    sheet.Range("Z10:Z11").Value2 = (("long",), ("short",))
+    sheet.Range("AA10").Formula2 = "=SCRIPTCURVEQUOTEIDS.NEW(Z10:Z13)"
+    arguments = ",".join([*valuation_inputs, "AA10"])
+    sheet.Range("AA11").Formula2 = f"=COMPOUNDEDOISPARRATE.VALUEWITHQUOTERISK({arguments})"
+    sheet.Range("AC10").Formula2 = "=COMPOUNDEDOISPARRATERISKRESULT.GET.SENSITIVITY(AA11)"
+    padded = sheet.Range("AC10:AE12").Value2
+    require(padded == sheet.Range("A7:C9").Value2, f"AC10:AE12: {padded}")
+    return {"AA1": error, "AA4": gap, "AC8": row_gap, "AC10:AE12": padded}
 
 
 def run(xll, output):
@@ -149,7 +177,7 @@ def run(xll, output):
     book = None
     try:
         excel.Visible = excel.DisplayAlerts = False
-        helpers.require(excel.RegisterXLL(str(xll.resolve())), "XLL registration failed")
+        require(excel.RegisterXLL(str(xll.resolve())), "XLL registration failed")
         book = excel.Workbooks.Add()
         book.Worksheets(1).Range("A20").Formula2 = "=INIT.GLOBALDATA(1)"
         evidence = dict(windows=platform.version(), excel_version=excel.Version, excel_build=excel.Build,
@@ -160,8 +188,10 @@ def run(xll, output):
             sheet.Name = name
             cases.append((sheet, populate(sheet, high_floor), high_floor))
         excel.CalculateFullRebuild()
-        for sheet, _, high_floor in cases:
+        for sheet, (_, inputs), high_floor in cases:
             evidence[sheet.Name] = verify(sheet, high_floor)
+            if not high_floor:
+                evidence["selections"] = verify_quote_selections(sheet, inputs[:4])
         book.SaveAs(str(output.with_suffix(".xlsx").resolve()), FileFormat=51)
         excel.Calculation = -4135  # Manual during repository lifetime checks.
         for sheet, (result_address, inputs), _ in cases:

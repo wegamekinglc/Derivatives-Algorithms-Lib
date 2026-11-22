@@ -1,5 +1,7 @@
 #include "__scriptcurvequoterisk.hpp"
 
+#include <algorithm>
+#include <climits>
 #include <functional>
 #include <set>
 
@@ -37,9 +39,8 @@ value is handle StorableScriptCurveQuoteRiskRequest
 public ScriptCurveQuoteIds_New
     Preserve case-sensitive quote selection order
 &inputs
-ids is cell[]
+ids is cell[] or QuoteIds->"ids"
     Ordered text quote IDs
-+const Excel::ScriptSettingsInput_ normalized_ids(xl_ids); xl_ids = normalized_ids.Get();
 &outputs
 value is handle StorableScriptCurveQuoteIds
     Owning result; unavailable table metrics remain blank
@@ -387,6 +388,35 @@ namespace Dal {
         *value = ScriptCurveQuoteRiskTable(Value(result), "Diagnostics");
     }
 #ifdef _WIN32
+    namespace Excel {
+        static Cell_ QuoteIdCell(const OPER_& cell, const String_& location) {
+            REQUIRE(!ScriptInputBlank(&cell), location + "blank quote ID before the end of the selection");
+            REQUIRE(cell.xltype == xltypeStr, location + "expected text quote ID");
+            const auto* text = cell.val.str;
+            REQUIRE(std::all_of(text + 1, text + 1 + text[0], [](wchar_t c) { return c > 0 && c <= UCHAR_MAX; }),
+                    location + "quote ID cannot be represented as single-byte text without NUL");
+            return ToCell(&cell);
+        }
+
+        static Vector_<Cell_> ToCellVector_orQuoteIds(const OPER_* input, const char* argument) {
+            const bool multi = input->xltype == xltypeMulti;
+            const int rows = multi ? input->val.array.rows : 1;
+            const int columns = multi ? input->val.array.columns : 1;
+            const auto* cells = multi ? input->val.array.lparray : input;
+            REQUIRE(rows == 1 || columns == 1, "ScriptCurveQuoteIds_New: expected a single row or column of quote IDs");
+            int count = rows * columns;
+            while (count > 0 && ScriptInputBlank(&cells[count - 1]))
+                --count;
+            REQUIRE(count > 0, "ScriptCurveQuoteIds_New: expected at least one text quote ID");
+            Vector_<Cell_> ids(count);
+            for (int i = 0; i < count; ++i) {
+                const auto location = ScriptSettingLocation("ScriptCurveQuoteIds_New", argument, i / columns + 1, i % columns + 1);
+                ids[i] = QuoteIdCell(cells[i], location);
+            }
+            return ids;
+        }
+    } // namespace Excel
+
 #include <dal-excel/auto/MG_CalibrationInstrument_ValueWithQuoteRisk_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Diagnostics_public.inc>
 #include <dal-excel/auto/MG_CompoundedOisParRateRiskResult_Get_Sensitivity_public.inc>
