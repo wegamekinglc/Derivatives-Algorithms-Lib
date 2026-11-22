@@ -516,13 +516,15 @@ the record owns its bytes after the calibration inputs are destroyed. It adds
 storage proportional to the canonical record only when requested. The getter
 returns `std::string` so comparison preserves case-sensitive byte identity.
 
-The supported transform domains are exact single-curve calibration, simultaneous
+The dense inverse transform domains are exact single-curve calibration, simultaneous
 domestic/foreign/basis XCCY calibration, staged XCCY basis calibration, and
 [generic joint multi-curve calibration](joint-quote-risk.md) with an
 explicit inverse request. The generic joint domain uses v2 fingerprints and
 defines its underdetermined mapping with a fixed initial-Jacobian affine chart;
-the three existing domains retain v1. Ordinary staged multi-curve chain rules
-are excluded. The transform accepts either `ANALYTIC` or `BUMPED` inverse
+the three existing domains retain v1. Sequential discount and forward stages
+use a [block transpose solve](construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting).
+Dense-only consumers report `QUOTE_RISK_DENSE_MAPPING_REQUIRED` for that mapping.
+The dense transform accepts either `ANALYTIC` or `BUMPED` inverse
 construction; an approximate solve or unavailable inverse remains an explicit
 unavailable provenance.
 

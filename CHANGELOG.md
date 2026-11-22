@@ -18,6 +18,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-23
 
+- C++, Python and Excel expose same-currency staged portfolio quote DV01,
+  including the signed buckets in each trade's PV currency.
+  [Sequential multi-curve calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
 - The installed C++ SDK, Python and Excel evaluate script PV risk to
   individual market IV and premium quotes. Results include paired sampling
   errors, fit branches and surviving sides of partial refits.

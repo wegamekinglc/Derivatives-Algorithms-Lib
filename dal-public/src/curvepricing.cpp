@@ -29,6 +29,17 @@ namespace Dal {
         return result;
     }
 
+    RateQuoteRiskProvenance_ BuildStagedMultiCurveQuoteRiskProvenance(const MultiCurveBundleResult_& result,
+                                                                      const RatePricingMarket_& boundMarket,
+                                                                      const RateQuoteRiskProvenanceConfig_& config) {
+        if (result.riskRecord_)
+            return BuildStagedMultiCurveQuoteRiskProvenance(*result.riskRecord_, boundMarket, config);
+        StagedMultiCurveCalibrationRecord_ missing;
+        missing.unavailableStage_ = "bundle";
+        missing.unavailableReason_ = "QUOTE_RISK_STAGED_RECORD_NOT_REQUESTED";
+        return BuildStagedMultiCurveQuoteRiskProvenance(missing, boundMarket, config);
+    }
+
     RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,
                                                                  const CalibrationResult_& result,
                                                                  const CurveCalibrationOptions_& options,

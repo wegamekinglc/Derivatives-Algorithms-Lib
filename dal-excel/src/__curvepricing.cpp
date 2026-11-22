@@ -219,7 +219,7 @@ resultCurrency is string
 componentKeys is string[]
     Component keys, parallel to componentCurves
 componentCurves is handle[]
-    Discount curve handles, parallel to componentKeys
+    Curve handles parallel to componentKeys. A declared unfitted route from a partial staged result leaves that component unavailable.
 &optional
 fixings is handle StorableMarketFixingSnapshot
     Immutable fixing snapshot
@@ -294,6 +294,30 @@ retainCalibrationRecord is cell
 &outputs
 provenance is handle StorableRateQuoteRiskProvenance
     Immutable single-curve provenance; unavailable states retain their stable reason token
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public StagedMultiCurveQuoteRiskProvenance_New
+    Bind sequential discount and forward quote risk to a pricing market
+&inputs
+result is handle StorableMultiCurveCalibrationResult
+    The result of CALIBRATE.MULTICURVE with recordQuoteRisk enabled
+calibrationId is string
+    Identifier used to join and order quote-risk rows
+parameterBlockKeys is string[]
+    Original stage keys stage:0 and stage:1
+componentKeys is string[]
+    Corresponding discount and forecast component keys in the market
+market is handle StorableRatePricingMarket
+    The pricing market with the fitted curves, valuation time and fixings
++argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord);
++Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+&optional
+retainCalibrationRecord is cell
+    TRUE retains the canonical provenance state for inspection
+&outputs
+provenance is handle StorableRateQuoteRiskProvenance
+    Source for RATEPORTFOLIOQUOTERISK.SPILL
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -568,6 +592,10 @@ namespace Dal {
         AddCurveComponents(const Vector_<String_>& componentKeys, const Vector_<Handle_<Storable_>>& componentCurves, RatePricingMarket_* market) {
             REQUIRE(componentKeys.size() == componentCurves.size(), "Rate pricing market component keys and curves must be parallel arrays");
             for (int index = 0; index < static_cast<int>(componentKeys.size()); ++index) {
+                if (handle_cast<StorableUnfittedCurve_>(componentCurves[index])) {
+                    market->curveComponents_.erase(componentKeys[index]);
+                    continue;
+                }
                 const auto* curve = dynamic_cast<const StorableDiscountCurve_*>(componentCurves[index].get());
                 REQUIRE(curve && curve->val_, "Rate pricing market component " + componentKeys[index] + " must be a discount curve handle");
                 market->curveComponents_[componentKeys[index]] = curve->val_;
@@ -1054,6 +1082,20 @@ namespace Dal {
             provenance);
     }
 
+    void StagedMultiCurveQuoteRiskProvenance_New(const Handle_<StorableMultiCurveCalibrationResult_>& result,
+                                                 const String_& calibrationId,
+                                                 const Vector_<String_>& parameterBlockKeys,
+                                                 const Vector_<String_>& componentKeys,
+                                                 const Handle_<StorableRatePricingMarket_>& market,
+                                                 const Cell_& retainCalibrationRecord,
+                                                 Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        REQUIRE(result, "Invalid staged multi-curve calibration result handle");
+        REQUIRE(market, "Invalid rate pricing market handle");
+        auto config = QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys);
+        config.retainCalibrationRecord_ = Excel::CalibrationRecordCapture(retainCalibrationRecord);
+        provenance->reset(new StorableRateQuoteRiskProvenance_(BuildStagedMultiCurveQuoteRiskProvenance(result->val_, market->val_, config)));
+    }
+
     void JointMultiCurveQuoteRiskProvenance_New(const Handle_<StorableJointMultiCurveCalibrationResult_>& result,
                                                 const String_& calibrationId,
                                                 const Vector_<String_>& parameterBlockKeys,
@@ -1158,6 +1200,7 @@ namespace Dal {
 #include <dal-excel/auto/MG_SingleCurveQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_JointXccyQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_JointMultiCurveQuoteRiskProvenance_New_public.inc>
+#include <dal-excel/auto/MG_StagedMultiCurveQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_StagedXccyBasisQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_RateQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_RatePortfolioQuoteRisk_Spill_public.inc>

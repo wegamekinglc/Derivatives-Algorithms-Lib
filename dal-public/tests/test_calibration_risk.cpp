@@ -20,8 +20,10 @@
 #include <dal-cpp/benchmarks/rate_risk_perf/quoteriskbenchfixtures.hpp>
 #include <dal-public/src/calibrationrisk.hpp>
 #include <dal-public/src/calibrationriskrequest.hpp>
+#include <dal-public/src/gsr.hpp>
 
 #include "jointxccyquoteriskfixtures.hpp"
+#include "stagedquoteriskfixture.hpp"
 
 namespace {
     class FlatIVS_ final : public Dal::AAD::IVS_ {
@@ -442,6 +444,18 @@ namespace {
         ASSERT_TRUE(adjacentPass);
     }
 } // namespace
+
+TEST(CalibrationRiskTest, TestStagedSourceReportsDenseCapabilityToPullbackAndGsr) {
+    using namespace Dal;
+    using namespace StagedQuoteRiskTest;
+    const auto fitted = CalibrateMultiCurveBundle(Spec(), true);
+    const auto market = Market(fitted);
+    const auto source = BuildStagedMultiCurveQuoteRiskProvenance(fitted, market, CONFIG);
+    ASSERT_TRUE(source.Available());
+    AssertFailure([&] { NewCalibrationPullback(source); }, "QUOTE_RISK_DENSE_MAPPING_REQUIRED");
+    const GSRCurveData_ snapshot("EUR", TODAY, "EUR", {TODAY, TODAY.AddDays(365)}, {0., -.02}, {}, {});
+    AssertFailure([&] { BuildGSRCurveQuoteRisk(snapshot, market, source, "ESTR"); }, "QUOTE_RISK_DENSE_MAPPING_REQUIRED");
+}
 
 TEST(CalibrationRiskTest, TestSingleValuationSubsecondsRejectStaleConsumers) { AssertSingleSubseconds(false); }
 TEST(CalibrationRiskTest, TestSingleFixingSubsecondsRejectStaleConsumers) { AssertSingleSubseconds(true); }

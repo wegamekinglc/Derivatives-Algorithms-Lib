@@ -21,6 +21,10 @@ namespace Dal {
 
     const Vector_<RateInstrumentType_>& CurvePricingFamilyRegistry();
 
+    RateQuoteRiskProvenance_ BuildStagedMultiCurveQuoteRiskProvenance(const MultiCurveBundleResult_& result,
+                                                                      const RatePricingMarket_& boundMarket,
+                                                                      const RateQuoteRiskProvenanceConfig_& config);
+
     RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,
                                                                  const CalibrationResult_& result,
                                                                  const CurveCalibrationOptions_& options,

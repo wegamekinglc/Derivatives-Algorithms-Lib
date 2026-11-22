@@ -18,7 +18,7 @@ Assemble a rate pricing market from curve components and an optional XCCY market
 <tr><td>valuationTime</td><td>cell</td><td></td><td>Valuation timestamp as an Excel date or date-time cell</td></tr>
 <tr><td>resultCurrency</td><td>string</td><td></td><td>Reported (passthrough) currency code; never the aggregation grouping key</td></tr>
 <tr><td>componentKeys</td><td>vector of strings</td><td></td><td>Component keys, parallel to componentCurves</td></tr>
-<tr><td>componentCurves</td><td>vector of handles</td><td></td><td>Discount curve handles, parallel to componentKeys</td></tr>
+<tr><td>componentCurves</td><td>vector of handles</td><td></td><td>Curve handles parallel to componentKeys. A declared unfitted route from a partial staged result leaves that component unavailable.</td></tr>
 <tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Immutable fixing snapshot</td></tr>
 <tr><td>domesticBlock</td><td>handle of type StorableCurveBlock</td><td>yes</td><td>XCCY domestic curve block (required for XCCY trades)</td></tr>
 <tr><td>foreignBlock</td><td>handle of type StorableCurveBlock</td><td>yes</td><td>XCCY foreign curve block (required for XCCY trades)</td></tr>

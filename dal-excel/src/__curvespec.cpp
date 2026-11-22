@@ -2,7 +2,7 @@
 // Created by wegam on 2026/6/20.
 //
 
-#include "__curve_storable.hpp"
+#include "__curvepricing_test_api.hpp"
 #include "__platform.hpp"
 #include "__settingskeys.hpp"
 #include <dal-public/src/curveprotocol.hpp>
@@ -59,6 +59,56 @@ attribute is string
 value is cell[][]
     The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return
     as an Nx1 column; scalar stats (maxAbsResidual/rmsResidual) return as 1x1.
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CurveCalibrationStage_New
+    Define one stage of a sequential same-currency curve calibration
+&inputs
+today is date
+    Calibration date
+currency is string
+    Currency of the stage
+instruments is handle[]
+    Market instruments in original quote order
+&optional
+knotDates is date[]
+    Explicit knots. When omitted, use distinct instrument start and maturity dates strictly after the valuation date.
+settings is cell[][]
+    &$.Cols() == 2 || $.Empty()\must have two columns (key, value)
+    Stage settings as in CALIBRATE.SINGLECURVE, including curveName, calibrateDiscountCurve, targetTenor, parameterization and tolerance
+&outputs
+stage is handle StorableCurveCalibrationSpec
+    Input stage for CALIBRATE.MULTICURVE
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public Calibrate_MultiCurve
+    Fit a sequential same-currency curve bundle
+&inputs
+stages is handle[]
+    CURVECALIBRATIONSTAGE.NEW handles in calibration order, all with the same liborBasis
+&optional
+recordQuoteRisk is boolean (false)
+    TRUE captures the discount and forward stages for quote risk
+&outputs
+result is handle StorableMultiCurveCalibrationResult
+    The fitted curves and requested risk record
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public MultiCurveCalibrationResult_Get_Curve
+    Extract a fitted curve for use in RATEPRICINGMARKET.NEW
+&inputs
+result is handle StorableMultiCurveCalibrationResult
+    Result of CALIBRATE.MULTICURVE
+role is string
+    Discount or Forward
+route is string
+    Collateral type for Discount (e.g. OIS) or tenor for Forward (e.g. 6M)
+&outputs
+curve is handle
+    Fitted discount or forward curve, or an unfitted route handle for RATEPRICINGMARKET.NEW after a recorded stage failure
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
@@ -144,19 +194,15 @@ namespace Dal {
             }
         }
 
-        void Calibrate_SingleCurve(const Date_& today,
-                                    const String_& ccy,
-                                    const Vector_<Handle_<Storable_>>& instrumentWrappers,
-                                    const Vector_<Date_>& knotDates,
-                                    const Matrix_<Cell_>& settings,
-                                    const Handle_<StorableDiscountCurve_>& discountCurve,
-                                    const Handle_<StorableDiscountCurve_>& baseCurve,
-                                    Handle_<StorableCurveCalibrationResult_>* result) {
+        CurveCalibrationSpecBuilder_ StageBuilder(const Date_& today,
+                                                  const String_& ccy,
+                                                  const Vector_<Handle_<Storable_>>& instrumentWrappers,
+                                                  const Vector_<Date_>& knotDates,
+                                                  const Matrix_<Cell_>& settings) {
             CurveCalibrationSpecBuilder_ builder;
             builder.today_ = today;
             builder.ccy_ = ccy;
 
-            // Convert instrument wrappers to raw handles
             for (const auto& w : instrumentWrappers) {
                 REQUIRE(w, "Invalid instrument handle");
                 auto ycInst = handle_cast<StorableYCInstrument_>(w);
@@ -164,7 +210,6 @@ namespace Dal {
                 builder.instruments_.push_back(ycInst->val_);
             }
 
-            // Set knot dates
             builder.knotDates_ = knotDates;
 
             // Convert Matrix_<Cell_> to Dictionary_ and apply optional settings
@@ -177,6 +222,30 @@ namespace Dal {
                 }
                 ApplySettings(dict, builder);
             }
+            return builder;
+        }
+
+        void CurveCalibrationStage_New(const Date_& today,
+                                       const String_& currency,
+                                       const Vector_<Handle_<Storable_>>& instruments,
+                                       const Vector_<Date_>& knotDates,
+                                       const Matrix_<Cell_>& settings,
+                                       Handle_<StorableCurveCalibrationSpec_>* stage) {
+            auto builder = StageBuilder(today, currency, instruments, knotDates, settings);
+            if (knotDates.empty())
+                builder.knotPolicy_ = CurveKnotPolicy_::Value_::INSTRUMENTS;
+            stage->reset(new StorableCurveCalibrationSpec_(builder.Build()));
+        }
+
+        void Calibrate_SingleCurve(const Date_& today,
+                                   const String_& ccy,
+                                   const Vector_<Handle_<Storable_>>& instrumentWrappers,
+                                   const Vector_<Date_>& knotDates,
+                                   const Matrix_<Cell_>& settings,
+                                   const Handle_<StorableDiscountCurve_>& discountCurve,
+                                   const Handle_<StorableDiscountCurve_>& baseCurve,
+                                   Handle_<StorableCurveCalibrationResult_>* result) {
+            auto builder = StageBuilder(today, ccy, instrumentWrappers, knotDates, settings);
 
             // Optional discount curve for forward-curve calibration, keyed by the
             // calibration's target collateral (defaults to OIS). Forward calibration
@@ -224,10 +293,54 @@ namespace Dal {
                 THROW("Unknown calibration attribute: " + attribute
                       + " (expected marketRates, modelRates, residuals, maxAbsResidual, or rmsResidual)");
         }
+        template <class K_>
+        Handle_<Storable_> StagedCurveHandle(const StorableMultiCurveCalibrationResult_& result, const std::map<K_, Handle_<DiscountCurve_>>& curves,
+                                            const K_& key) {
+            const auto found = curves.find(key);
+            if (found != curves.end())
+                return Handle_<Storable_>(new StorableDiscountCurve_(found->second));
+            REQUIRE(result.unfittedRoutes_.count(key), "Requested route is absent from the calibrated bundle");
+            return Handle_<Storable_>(new StorableUnfittedCurve_(result.val_.riskRecord_->unavailableStage_));
+        }
+    } // namespace
+
+    void
+    Calibrate_MultiCurve(const Vector_<Handle_<Storable_>>& stages, bool recordQuoteRisk, Handle_<StorableMultiCurveCalibrationResult_>* result) {
+        REQUIRE(!stages.empty(), "At least one calibration stage is required");
+        MultiCurveCalibrationSpec_ spec;
+        for (const auto& input : stages) {
+            const auto stage = handle_cast<StorableCurveCalibrationSpec_>(input);
+            REQUIRE(stage, "Expected a CURVECALIBRATIONSTAGE.NEW handle");
+            spec.stages_.push_back(stage->val_);
+        }
+        const auto& first = spec.stages_.front();
+        spec.ccy_ = first.ccy_;
+        spec.liborBasis_ = first.liborBasis_;
+        const String_ bundleBasis(first.liborBasis_.String());
+        for (int i = 1; i < static_cast<int>(spec.stages_.size()); ++i) {
+            const auto& stage = spec.stages_[i];
+            REQUIRE(bundleBasis == stage.liborBasis_.String(),
+                    "CALIBRATE.MULTICURVE requires one liborBasis. stage:" + String::FromInt(i) + " (" + stage.curveName_ + ") uses " +
+                        stage.liborBasis_.String() + " and stage:0 (" + first.curveName_ + ") uses " + bundleBasis);
+        }
+        result->reset(new StorableMultiCurveCalibrationResult_(CalibrateMultiCurveBundle(spec, recordQuoteRisk), spec.stages_));
+    }
+
+    void MultiCurveCalibrationResult_Get_Curve(const Handle_<StorableMultiCurveCalibrationResult_>& result,
+                                               const String_& role,
+                                               const String_& route,
+                                               Handle_<Storable_>* curve) {
+        REQUIRE(result, "Invalid multi-curve calibration result handle");
+        REQUIRE(role == "Discount" || role == "Forward", "Expected Discount or Forward curve role");
+        *curve = role == "Discount" ? StagedCurveHandle(*result, result->val_.discountCurves_, CollateralType_(route))
+                                    : StagedCurveHandle(*result, result->val_.forwardCurves_, PeriodLength_(route));
     }
 #ifdef _WIN32
+#include <dal-excel/auto/MG_Calibrate_MultiCurve_public.inc>
 #include <dal-excel/auto/MG_Calibrate_SingleCurve_public.inc>
 #include <dal-excel/auto/MG_CalibrationResult_Get_Curve_public.inc>
 #include <dal-excel/auto/MG_CalibrationResult_Get_public.inc>
+#include <dal-excel/auto/MG_CurveCalibrationStage_New_public.inc>
+#include <dal-excel/auto/MG_MultiCurveCalibrationResult_Get_Curve_public.inc>
 #endif
 } // namespace Dal

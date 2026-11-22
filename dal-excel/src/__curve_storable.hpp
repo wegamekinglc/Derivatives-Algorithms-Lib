@@ -7,6 +7,8 @@
 #pragma once
 
 #include <memory>
+#include <set>
+#include <variant>
 
 #include "__platform.hpp"
 #include <dal-public/src/curvepricing.hpp>
@@ -95,6 +97,11 @@ namespace Dal {
         void Write(Archive::Store_&) const override {}
     };
 
+    struct StorableUnfittedCurve_ : public Storable_ {
+        explicit StorableUnfittedCurve_(const String_& failedStage) : Storable_("UnfittedCurve", failedStage) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
     struct StorableRateTradeDefinition_ : public Storable_ {
         RateTradeDefinition_ val_;
         explicit StorableRateTradeDefinition_(const RateTradeDefinition_& v) : Storable_("RateTradeDefinition", String_()), val_(v) {}
@@ -129,9 +136,21 @@ namespace Dal {
     };
 
     struct StorableMultiCurveCalibrationResult_ : public Storable_ {
-        MultiCurveCalibrationResult_ val_;
-        explicit StorableMultiCurveCalibrationResult_(const MultiCurveCalibrationResult_& v)
-            : Storable_("MultiCurveCalibrationResult", String_()), val_(v) {}
+        MultiCurveBundleResult_ val_;
+        std::set<std::variant<CollateralType_, PeriodLength_>> unfittedRoutes_;
+        explicit StorableMultiCurveCalibrationResult_(MultiCurveBundleResult_ value, const Vector_<CurveCalibrationSpec_>& stages = {})
+            : Storable_("MultiCurveCalibrationResult", String_()), val_(std::move(value)) {
+            if (val_.riskRecord_ && !val_.riskRecord_->unavailableReason_.empty()) {
+                for (size_t i = val_.diagnostics_.size(); i < stages.size(); ++i) {
+                    if (stages[i].calibrateDiscountCurve_)
+                        unfittedRoutes_.emplace(stages[i].targetCollateral_);
+                    else
+                        unfittedRoutes_.emplace(stages[i].targetTenor_);
+                }
+            }
+        }
+        explicit StorableMultiCurveCalibrationResult_(MultiCurveCalibrationResult_ value)
+            : StorableMultiCurveCalibrationResult_(MultiCurveBundleResult_{std::move(value), {}}) {}
         void Write(Archive::Store_&) const override {}
     };
 

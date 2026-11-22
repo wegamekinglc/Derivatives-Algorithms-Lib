@@ -1,0 +1,42 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>StagedMultiCurveQuoteRiskProvenance_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>StagedMultiCurveQuoteRiskProvenance_New (in Excel: STAGEDMULTICURVEQUOTERISKPROVENANCE.NEW)</h1>
+Bind sequential discount and forward quote risk to a pricing market
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableMultiCurveCalibrationResult</td><td></td><td>The result of CALIBRATE.MULTICURVE with recordQuoteRisk enabled</td></tr>
+<tr><td>calibrationId</td><td>string</td><td></td><td>Identifier used to join and order quote-risk rows</td></tr>
+<tr><td>parameterBlockKeys</td><td>vector of strings</td><td></td><td>Original stage keys stage:0 and stage:1</td></tr>
+<tr><td>componentKeys</td><td>vector of strings</td><td></td><td>Corresponding discount and forecast component keys in the market</td></tr>
+<tr><td>market</td><td>handle of type StorableRatePricingMarket</td><td></td><td>The pricing market with the fitted curves, valuation time and fixings</td></tr>
+<tr><td>retainCalibrationRecord</td><td>cell</td><td>yes</td><td>TRUE retains the canonical provenance state for inspection</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>provenance</td><td>handle of type StorableRateQuoteRiskProvenance</td><td>Source for RATEPORTFOLIOQUOTERISK.SPILL</td></tr>
+</table>
+
+
+
+
+
+

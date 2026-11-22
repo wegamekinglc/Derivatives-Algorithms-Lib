@@ -35,6 +35,11 @@ target_link_libraries(dal_installed_public_ois PRIVATE DAL::public)
 dal_cpp_apply_msvc_runtime(dal_installed_public_ois)
 add_test(NAME dal_installed_public_ois COMMAND dal_installed_public_ois)
 
+add_executable(dal_installed_staged_quote_risk stagedquoterisk.cpp)
+target_link_libraries(dal_installed_staged_quote_risk PRIVATE DAL::public)
+dal_cpp_apply_msvc_runtime(dal_installed_staged_quote_risk)
+add_test(NAME dal_installed_staged_quote_risk COMMAND dal_installed_staged_quote_risk)
+
 add_executable(dal_installed_market_iv_local_vol marketivlocalvol.cpp)
 target_link_libraries(dal_installed_market_iv_local_vol PRIVATE DAL::public)
 dal_cpp_apply_msvc_runtime(dal_installed_market_iv_local_vol)

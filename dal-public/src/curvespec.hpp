@@ -33,6 +33,10 @@ namespace Dal {
         CurveCalibrationDiagnostics_ diagnostics_;
     };
 
+    struct MultiCurveBundleResult_ : MultiCurveCalibrationResult_ {
+        std::shared_ptr<const StagedMultiCurveCalibrationRecord_> riskRecord_;
+    };
+
     struct CurveCalibrationSpecBuilder_ {
         Date_ today_;
         String_ ccy_;
@@ -66,6 +70,7 @@ namespace Dal {
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec, CurveJacobianMode_ jacobianMode);
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options);
     MultiCurveCalibrationResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec);
+    MultiCurveBundleResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec, bool recordQuoteRisk);
     JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec);
     JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec,
                                                                      const JointMultiCurveCalibrationOptions_& options);

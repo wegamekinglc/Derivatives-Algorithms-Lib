@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>Calibrate_MultiCurve</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>Calibrate_MultiCurve (in Excel: CALIBRATE.MULTICURVE)</h1>
+Fit a sequential same-currency curve bundle
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>stages</td><td>vector of handles</td><td></td><td>CURVECALIBRATIONSTAGE.NEW handles in calibration order, all with the same liborBasis</td></tr>
+<tr><td>recordQuoteRisk</td><td>boolean</td><td>yes (default = false)</td><td>TRUE captures the discount and forward stages for quote risk</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableMultiCurveCalibrationResult</td><td>The fitted curves and requested risk record</td></tr>
+</table>
+
+
+
+
+
+

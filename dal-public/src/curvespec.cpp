@@ -54,6 +54,11 @@ namespace Dal {
 
     MultiCurveCalibrationResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec) { return CalibrateMultiCurve(spec); }
 
+    MultiCurveBundleResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec, bool recordQuoteRisk) {
+        auto record = recordQuoteRisk ? std::make_shared<StagedMultiCurveCalibrationRecord_>() : nullptr;
+        return {CalibrateMultiCurve(spec, record.get()), std::move(record)};
+    }
+
     JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec) {
         return CalibrateJointMultiCurveBundle(spec, JointMultiCurveCalibrationOptions_());
     }
