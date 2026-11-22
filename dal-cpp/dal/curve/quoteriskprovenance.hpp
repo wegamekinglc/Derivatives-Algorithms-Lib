@@ -70,6 +70,9 @@ namespace Dal {
 
         explicit RateQuoteRiskProvenance_(const std::shared_ptr<const Data_>& data);
 
+        friend RateQuoteRiskProvenance_ BuildStagedMultiCurveQuoteRiskProvenance(const StagedMultiCurveCalibrationRecord_&,
+                                                                                 const RatePricingMarket_&,
+                                                                                 const RateQuoteRiskProvenanceConfig_&);
         friend RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_&,
                                                                             const CurveCalibrationResult_&,
                                                                             const CurveCalibrationOptions_&,
@@ -99,6 +102,7 @@ namespace Dal {
         [[nodiscard]] const std::map<String_, String_>& ComponentKeyByParameterBlock() const;
         [[nodiscard]] const RateQuoteRiskAxis_& Axis() const;
         [[nodiscard]] const RateQuoteRiskState_& State() const;
+        [[nodiscard]] const StagedMultiCurveCalibrationRecord_* StagedMapping() const;
         [[nodiscard]] const Matrix_<>& EffectiveInverse() const;
         [[nodiscard]] double Tolerance() const;
         [[nodiscard]] const std::string& CalibrationRecord() const;
@@ -106,6 +110,10 @@ namespace Dal {
 
     [[nodiscard]] const String_& RateQuoteRiskAxisFingerprintScheme();
     [[nodiscard]] const String_& RateQuoteRiskStateFingerprintScheme();
+
+    RateQuoteRiskProvenance_ BuildStagedMultiCurveQuoteRiskProvenance(const StagedMultiCurveCalibrationRecord_& record,
+                                                                      const RatePricingMarket_& boundMarket,
+                                                                      const RateQuoteRiskProvenanceConfig_& config);
 
     RateQuoteRiskProvenance_ BuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_& spec,
                                                                      const JointMultiCurveCalibrationResult_& result,

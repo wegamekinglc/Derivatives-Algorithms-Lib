@@ -298,6 +298,9 @@ namespace Dal {
         Vector_<CurveCalibrationStageRecord_> stages_;
         String_ unavailableStage_;
         String_ unavailableReason_;
+        struct Capture_;
+        std::shared_ptr<const Capture_> capture_;
+        void RequireMatchingCapture() const;
     };
 
     std::unique_ptr<Sparse::TriDiagonal_> BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight);

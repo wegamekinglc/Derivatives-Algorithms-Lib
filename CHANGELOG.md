@@ -28,6 +28,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 - Core C++ callers can construct certified local-vol model pairs for one
   script quote bump and inspect per-side fit branches and failures.
   [Script quote refits](docs/models/local-volatility.md#model-pairs-for-script-quote-refits)
+- `curve` — Core rate portfolios can aggregate signed quote DV01 by PV
+  currency from sequential discount and forward fits, including the forward
+  base dependency. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)
+
 - `curve` — Sequential discount and forward calibration records map native
   PV gradients to input-quote derivatives using the forward curve's dependence
   on the fitted discount curve. [Staged calibration](docs/yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting)

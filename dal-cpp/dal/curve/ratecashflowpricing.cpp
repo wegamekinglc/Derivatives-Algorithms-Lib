@@ -2294,6 +2294,8 @@ namespace Dal {
             const auto& axis = provenance.Axis();
             ValidateQuoteRiskRanges(axis.parameterRanges_, static_cast<int>(axis.parameters_.size()));
             ValidateQuoteRiskRanges(axis.residualRanges_, static_cast<int>(axis.quotes_.size()));
+            if (provenance.StagedMapping())
+                return; // Stage factors and their physical axes are checked at capture.
             REQUIRE(provenance.EffectiveInverse().Rows() == static_cast<int>(axis.parameters_.size()) &&
                         provenance.EffectiveInverse().Cols() == static_cast<int>(axis.quotes_.size()),
                     "QUOTE_RISK_PROVENANCE_INVERSE_SHAPE_INVALID");
@@ -2339,6 +2341,13 @@ namespace Dal {
                     if (actual.fingerprint_ != expected.fingerprint_) {
                         AppendProvenanceFailure(provenance, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH", binding->second, expected.fingerprint_,
                                                 actual.fingerprint_.empty() ? String_("MISSING") : actual.fingerprint_, result);
+                        stateMatches = false;
+                        break;
+                    }
+                    const auto* staged = provenance.StagedMapping();
+                    if (staged && market.curveComponents_.at(binding->second) != staged->stages_[rangeIndex].curve_) {
+                        AppendProvenanceFailure(provenance, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH", binding->second, expected.fingerprint_,
+                                                "DIFFERENT_HANDLE", result);
                         stateMatches = false;
                         break;
                     }
@@ -2411,7 +2420,7 @@ namespace Dal {
                                     const Vector_<>& gradient,
                                     RatePortfolioQuoteRisk_* result) {
             const auto& provenance = *prepared.provenance_;
-            RateQuoteRiskInternal::ForEachQuoteAdjoint(provenance, gradient, [&](int i, double sensitivity, double dv01) {
+            const auto append = [&](int i, double sensitivity, double dv01) {
                 const auto& quote = provenance.Axis().quotes_[i];
                 RateQuoteRiskBucket_ bucket;
                 bucket.calibrationId_ = provenance.CalibrationId();
@@ -2424,7 +2433,18 @@ namespace Dal {
                 bucket.dPvDDecimalQuote_ = sensitivity;
                 bucket.dv01_ = dv01;
                 result->buckets_.push_back(std::move(bucket));
-            });
+            };
+            if (const auto* staged = provenance.StagedMapping()) {
+                const auto response = MapStagedQuoteRisk(*staged, gradient);
+                if (!response.unavailableReason_.empty()) {
+                    AppendProvenanceFailure(provenance, response.unavailableReason_, {}, {}, {}, result);
+                    return;
+                }
+                for (int i = 0; i < static_cast<int>(response.sensitivities_.size()); ++i)
+                    append(i, response.sensitivities_[i], 1.e-4 * response.sensitivities_[i]);
+            } else {
+                RateQuoteRiskInternal::ForEachQuoteAdjoint(provenance, gradient, append);
+            }
         }
 
         bool UsablePassivePrice(const RatePricingTradeResult_& passive) { return passive.succeeded_ && std::isfinite(passive.pv_); }
@@ -2455,10 +2475,15 @@ namespace Dal {
                                              RatePortfolioQuoteRisk_* result) {
             if (!item.active_)
                 return;
+            const auto* staged = item.provenance_->StagedMapping();
+            if (staged && trade.instrumentType_ == RateInstrumentType_::Value_::XCCY) {
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, false, {}, "STAGED_MULTI_CURVE_XCCY_TRADE_UNSUPPORTED", result);
+                return;
+            }
             const bool dependencyPlanAvailable = passive.succeeded_ || !passive.dependencyComponentKeys_.empty();
             Vector_<> gradient(item.parameterCount_, 0.0);
             bool structuralZero = true;
-            const bool jointCoordinates = item.provenance_->Kind() == "JOINT_MULTI_CURVE";
+            const bool jointCoordinates = staged || item.provenance_->Kind() == "JOINT_MULTI_CURVE";
             for (const auto& block : item.blocks_) {
                 const bool consumesComponent =
                     sweeper->ConsumesComponent(trade, passive.dependencyComponentKeys_, block.componentKey_, jointCoordinates);
