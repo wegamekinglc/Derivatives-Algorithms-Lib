@@ -63,7 +63,7 @@ def _lookback_risk(high_floor=False, quote_ids=()):
             observations.append(dal.CalibrationObservation_New(name, instrument, "ParRate",
                 dal.CalibrationMarketQuote_New(name, quote, dal.CalibrationValueUnit_(kind="Rate")), 1e-13))
     spec = dal.CurveInstrumentCalibrationSpec_(geometry=geometry, market=market, valuation=valuation,
-                                               observations=observations, compounded_ois=tables)
+        observations=observations, compounded_ois=tables, solver=dal.CurveInstrumentSolver_(initial_guess_per_node=[-.0003, -.002]))
     fit = dal.Calibrate_CurveInstruments(spec, options=dal.CurveInstrumentCalibrationOptions_(jacobian_mode="AAD"))
     snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(fit, dal.ScriptCurveQuoteRiskAccuracy_(residual_absolute_limits=[1e-12, 1e-12],
         min_reciprocal_condition=1e-10, response_backward_error_limit=1e-12, relative_pivot_tolerance=1e-12))

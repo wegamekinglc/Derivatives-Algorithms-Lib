@@ -80,7 +80,9 @@ def populate(sheet, high_floor):
         if not registered:
             market_quote = call("CALIBRATIONMARKETQUOTE.NEW", name, quote, "Rate")
             observations.append(call("CALIBRATIONOBSERVATION.NEW", name, instrument, "ParRate", market_quote, 1e-13))
-    context = call("CURVEINSTRUMENTCALIBRATIONSPEC.NEW", table([
+    seed = call("CALIBRATIONNUMBERS.NEW", table([[-.0003], [-.002]]))
+    solver = call("CURVEINSTRUMENTSOLVER.NEW", table([["initial_guess_per_node", seed]]))
+    context = call("CURVEINSTRUMENTCALIBRATIONSPEC.NEW", table([["solver", solver],
         ["geometry", geometry], ["market", market], ["valuation", valuation],
         ["observations", call("CALIBRATIONOBSERVATIONS.NEW", table([[o] for o in observations]))],
         ["compounded_ois", call("COMPOUNDEDOISPREPARATIONS.NEW", table([[t] for t in tables]))]]))

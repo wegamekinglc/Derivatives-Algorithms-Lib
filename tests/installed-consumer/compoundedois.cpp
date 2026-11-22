@@ -92,6 +92,7 @@ namespace {
         auto spec = BaseContext();
         const Date_ start(2024, 3, 1), middle(2024, 3, 6), end(2024, 3, 12), pay(2024, 3, 13);
         spec.geometry_.knotDates_ = {start, Date_(2024, 3, 5), Date_(2024, 3, 20)};
+        spec.solver_.initialGuessPerNode_ = {-.0003, -.002};
         spec.valuation_.fixings_.reset(new MarketFixingSnapshot_({{"USD-SOFR", {{DateTime_(Date_(2024, 2, 29)), -.012}}}}));
         auto trade = Contract("None");
         trade.fixedLeg_ = {{start, middle, middle, 5. / 365.}};
@@ -144,7 +145,8 @@ namespace {
                 "Installed unavailable rate and slopes must be blank");
         REQUIRE(Cell::ToString(errors(1, 0)) == "InvalidCalibrationAnnuity" && Cell::ToString(errors(1, 3)) == "/annuity",
                 "Installed annuity diagnostic");
-        std::cout << "High floor: " << failure.Diagnostics().front().code_ << " " << *failure.Diagnostics().front().field_ << '\n';
+        std::cout << "High floor: " << failure.Diagnostics().front().code_ << " " << *failure.Diagnostics().front().field_
+                  << " snapshot=" << failure.SnapshotIdentity() << '\n';
     }
     void VerifyAudit(const Handle_<PreparedCompoundedOis_>& tables, const CurveScriptEvaluationResult_& evaluation) {
         const auto prepared = CompoundedOisObservationScheduleTable(tables);
