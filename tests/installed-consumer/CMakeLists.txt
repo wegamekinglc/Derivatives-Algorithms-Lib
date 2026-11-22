@@ -40,6 +40,11 @@ target_link_libraries(dal_installed_market_iv_local_vol PRIVATE DAL::public)
 dal_cpp_apply_msvc_runtime(dal_installed_market_iv_local_vol)
 add_test(NAME dal_installed_market_iv_local_vol COMMAND dal_installed_market_iv_local_vol)
 
+add_executable(dal_installed_market_iv_script_refit marketivscriptrefit.cpp)
+target_link_libraries(dal_installed_market_iv_script_refit PRIVATE DAL::public)
+dal_cpp_apply_msvc_runtime(dal_installed_market_iv_script_refit)
+add_test(NAME dal_installed_market_iv_script_refit COMMAND dal_installed_market_iv_script_refit)
+
 set(benchmark_runtime_command "${CMAKE_COMMAND}"
     -S "${CMAKE_CURRENT_SOURCE_DIR}/benchmark-runtime"
     -B "${CMAKE_CURRENT_BINARY_DIR}/benchmark-runtime"

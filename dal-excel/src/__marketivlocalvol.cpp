@@ -133,6 +133,88 @@ simulation is handle StorableMonteCarloSettings
 table is cell[][]
     table
 -IF-------------------------------------------------------------------------*/
+/*IF--------------------------------------------------------------------------
+public MarketIvScriptRefitRequest_New
+    Script PV risk from complete local-volatility quote refits
+&inputs
+name is string
+    Request name
++argName = "name"; Excel::ValidateRiskRequestText(xl_name, "InvalidMarketIvLocalVolRequest: /name");
++Excel::ValidateMarketIvRange(xl_quote_ids, "quote_ids");
++const Excel::ScriptSettingsInput_ normalized_ids(xl_quote_ids); xl_quote_ids = normalized_ids.Get();
++Excel::ValidateMarketIvRange(xl_steps, "steps");
++const Excel::ScriptSettingsInput_ normalized_steps(xl_steps); xl_steps = normalized_steps.Get();
++Excel::ValidateMarketIvRange(xl_settings, "settings", true);
++const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
+snapshot is handle StorableMarketIvCalibrationSnapshot
+    Certified base fit
+grid is handle StorableMarketIvDupireRequest
+    Dupire grid axes and settings
+model is handle StorableMarketIvLocalVolModelSettings
+    Local-volatility model settings
+product is handle ScriptProductData
+    Script product
+quote_ids is cell[][]+
+    Row or column of original quote IDs
+&optional
+steps is cell[][]+
+    Positive bump sizes in requested ID order
+valuation is handle StorableScriptValuationSettings
+    Valuation date and fixings
+simulation is handle StorableMonteCarloSettings
+    MRG32 Precise simulation settings
+settings is cell[][]+
+    Two columns of sampling counts and budget limits
+&outputs
+request is handle StorableMarketIvScriptRefitRequest
+    Owning refit request
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public MarketIvScriptRefitRiskResult_New
+    Evaluate script PV on the base and independently refitted sides
+&inputs
+name is string
+    Result name
++argName = "name"; Excel::ValidateRiskRequestText(xl_name, "InvalidMarketIvLocalVolRequest: /name");
+request is handle StorableMarketIvScriptRefitRequest
+    Typed quote-refit request
+&outputs
+result is handle StorableMarketIvScriptRefitRiskResult
+    Owning risk result
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public MarketIvScriptRefitRiskResult_Get_Rows
+    Quote PVs, paired slope and standard error, fit branches and failures
+&inputs
+result is handle StorableMarketIvScriptRefitRiskResult
+    Script quote-refit result
+&outputs
+rows is cell[][]
+    One row per selected quote in snapshot order
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public MarketIvScriptRefitRiskResult_Get_Execution
+    Return refit, grid, sampling and workspace counts
+&inputs
+result is handle StorableMarketIvScriptRefitRiskResult
+    Script quote-refit result
+&outputs
+table is cell[][]
+    Execution fields and their values
+-IF-------------------------------------------------------------------------*/
+/*IF--------------------------------------------------------------------------
+public MarketIvScriptRefitRiskResult_Get_BaseBlocks
+    Base mean PV of each sampling block in path order
+&inputs
+result is handle StorableMarketIvScriptRefitRiskResult
+    Script quote-refit result
+&outputs
+means is number[]
+    One base PV mean per independent block
+-IF-------------------------------------------------------------------------*/
 // clang-format on
 
 namespace Dal {
@@ -159,13 +241,14 @@ namespace Dal {
                 Invalid(field, "nonempty text without NUL", "invalid text");
             return text;
         }
-        template <class T_, class F_>
-        bool SetField(const Vector_<MarketIvSettings::Field_<MarketIvLocalVolModelSettings_, T_>>& fields,
+        size_t Count(const Cell_& cell, const String_& field) { return Excel::PayloadBudget(cell, "InvalidMarketIvLocalVolRequest: " + field, ""); }
+        template <class S_, class T_, class F_>
+        bool SetField(const Vector_<MarketIvSettings::Field_<S_, T_>>& fields,
                       const String_& key,
                       const Cell_& cell,
                       const String_& location,
                       F_ convert,
-                      MarketIvLocalVolModelSettings_* settings) {
+                      S_* settings) {
             for (const auto& field : fields)
                 if (key == field.name_) {
                     if (!Cell::IsEmpty(cell))
@@ -179,10 +262,9 @@ namespace Dal {
             return keys.find(key) != keys.end();
         }
         void ApplySetting(const String_& key, const Cell_& value, const String_& field, MarketIvLocalVolModelSettings_* settings) {
-            const auto count = [](const Cell_& c, const String_& f) { return Excel::PayloadBudget(c, "InvalidMarketIvLocalVolRequest: " + f, ""); };
             if (SetField(MarketIvLocalVolFields::TextFields(), key, value, field, Text, settings) ||
                 SetField(MarketIvLocalVolFields::RealFields(), key, value, field, Number, settings) ||
-                SetField(MarketIvLocalVolFields::CountFields(), key, value, field, count, settings))
+                SetField(MarketIvLocalVolFields::CountFields(), key, value, field, Count, settings))
                 return;
             Invalid(field, "known settings key", "unknown key");
         }
@@ -220,6 +302,7 @@ namespace Dal {
             return state.settings_;
         }
         template <class T_> Cell_ ReportCell(const T_& x) { return Cell_(x); }
+        template <class T_> Cell_ ReportCell(const std::optional<T_>& x) { return Excel::OptionalCell(x); }
         Cell_ ReportCell(size_t x) {
             if (x > 9007199254740991ULL)
                 Invalid("/report", "integer at most 2^53-1", String_(std::to_string(x)));
@@ -247,6 +330,55 @@ namespace Dal {
             return table;
         }
     } // namespace
+    void MarketIvScriptRefitRequest_New(const String_& name,
+                                        const Handle_<StorableMarketIvCalibrationSnapshot_>& snapshot,
+                                        const Handle_<StorableMarketIvDupireRequest_>& grid,
+                                        const Handle_<StorableMarketIvLocalVolModelSettings_>& model,
+                                        const Handle_<ScriptProductData_>& product,
+                                        const Matrix_<Cell_>& ids,
+                                        const Matrix_<Cell_>& steps,
+                                        const Handle_<StorableScriptValuationSettings_>& valuation,
+                                        const Handle_<StorableMonteCarloSettings_>& simulation,
+                                        const Matrix_<Cell_>& settings,
+                                        Handle_<StorableMarketIvScriptRefitRequest_>* out) {
+        Required(product, "/product");
+        MarketIvScriptRefitRequest_ request{Required(snapshot, "/snapshot").val_, Required(grid, "/grid").val_, Required(model, "/model").val_,
+                                            product};
+        request.quoteIds_ = Excel::MarketIvQuoteIds(ids);
+        request.steps_ = Excel::MarketIvQuoteSteps(steps);
+        if (valuation)
+            request.valuation_ = valuation->val_;
+        if (simulation)
+            request.simulation_ = simulation->val_;
+        Excel::ReadRows(settings, "MarketIvScriptRefitRequest", "settings",
+                        [&](const String_& key, const Cell_& value, const auto&, const String_& field) {
+                            if (key == "blocks")
+                                request.blocks_ = Count(value, field);
+                            else if (key == "paths_per_block")
+                                request.pathsPerBlock_ = Count(value, field);
+                            else if (!SetField(MarketIvLocalVolFields::RefitBudgetFields(), key, value, field, Count, &request.budget_))
+                                Invalid(field, "known sampling or budget field", key);
+                        });
+        out->reset(new StorableMarketIvScriptRefitRequest_(Text(Cell_(name), "/name"), std::move(request)));
+    }
+    void MarketIvScriptRefitRiskResult_New(const String_& name,
+                                           const Handle_<StorableMarketIvScriptRefitRequest_>& request,
+                                           Handle_<StorableMarketIvScriptRefitRiskResult_>* out) {
+        const auto label = Text(Cell_(name), "/name");
+        out->reset(new StorableMarketIvScriptRefitRiskResult_(label, EvaluateMarketIvScriptRefitRisk(Required(request, "/request").val_)));
+    }
+    void MarketIvScriptRefitRiskResult_Get_Rows(const Handle_<StorableMarketIvScriptRefitRiskResult_>& result, Matrix_<Cell_>* out) {
+        *out = Rows(Required(result, "/result").val_.rows_);
+    }
+    void MarketIvScriptRefitRiskResult_Get_Execution(const Handle_<StorableMarketIvScriptRefitRiskResult_>& result, Matrix_<Cell_>* out) {
+        *out = Fields(Required(result, "/result").val_.execution_);
+    }
+    void MarketIvScriptRefitRiskResult_Get_BaseBlocks(const Handle_<StorableMarketIvScriptRefitRiskResult_>& result, Vector_<>* out) {
+        const auto& means = Required(result, "/result").val_.baseBlockMeans_;
+        REQUIRE(means.size() <= 1048576, "MarketIvBudgetExceeded: base blocks exceed worksheet rows");
+        *out = means;
+    }
+
     void MarketIvLocalVolModelSettings_New(const String_& name, const Matrix_<Cell_>& rows, Handle_<StorableMarketIvLocalVolModelSettings_>* out) {
         const auto label = Text(Cell_(name), "/name");
         auto settings = ReadSettings(rows);
@@ -289,6 +421,30 @@ namespace Dal {
                                                        simulation ? simulation->val_ : MonteCarloSettings_{}));
     }
 #ifdef _WIN32
+    extern "C" __declspec(dllexport) OPER_* xl_MarketIvScriptRefitRiskResult_Write_Rows(const OPER_* result, const OPER_* destination) {
+        ENV_SEED_TYPE(ObjectAccess_);
+        try {
+            const auto handle = Excel::ToHandle<StorableMarketIvScriptRefitRiskResult_>(_env, result);
+            Matrix_<Cell_> rows;
+            MarketIvScriptRefitRiskResult_Get_Rows(handle, &rows);
+            Excel::WriteRange(destination, rows);
+            Excel::Retval_ out;
+            out.Load(rows.Rows());
+            return out.ToXloper();
+        } catch (const std::exception& error) {
+            return Excel::Error(error.what(), "MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS");
+        } catch (...) {
+            return Excel::Error("Unknown error", "MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS");
+        }
+    }
+    namespace {
+        const auto registeredWriteRows = [] {
+            Excel::RegisterCommand("xl_MarketIvScriptRefitRiskResult_Write_Rows", "MARKETIVSCRIPTREFITRISKRESULT.WRITE.ROWS",
+                                   "Write result rows to a worksheet range with empty cells for missing values", "QQU", "result,destination",
+                                   {"Script quote-refit result", "Destination range including the header"});
+            return true;
+        }();
+    } // namespace
     namespace Excel {
         void ValidateMarketIvLocalVolSettingsInput(const OPER_* input) {
             try {
@@ -309,5 +465,10 @@ namespace Dal {
 #include <dal-excel/auto/MG_MarketIvLocalVolModelData_New_public.inc>
 #include <dal-excel/auto/MG_MarketIvLocalVolModelSettings_Get_Configuration_public.inc>
 #include <dal-excel/auto/MG_MarketIvLocalVolModelSettings_New_public.inc>
+#include <dal-excel/auto/MG_MarketIvScriptRefitRequest_New_public.inc>
+#include <dal-excel/auto/MG_MarketIvScriptRefitRiskResult_Get_BaseBlocks_public.inc>
+#include <dal-excel/auto/MG_MarketIvScriptRefitRiskResult_Get_Execution_public.inc>
+#include <dal-excel/auto/MG_MarketIvScriptRefitRiskResult_Get_Rows_public.inc>
+#include <dal-excel/auto/MG_MarketIvScriptRefitRiskResult_New_public.inc>
 #endif
 } // namespace Dal

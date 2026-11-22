@@ -16,6 +16,13 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-23
+
+- The installed C++ SDK, Python and Excel evaluate script PV risk to
+  individual market IV and premium quotes. Results include paired sampling
+  errors, fit branches and surviving sides of partial refits.
+  [Script PV quote risk](docs/models/market-iv-surface.md#script-pv-quote-risk-in-the-sdk-python-and-excel)
+
 ## 2026-11-22
 
 - Core C++ callers can construct certified local-vol model pairs for one

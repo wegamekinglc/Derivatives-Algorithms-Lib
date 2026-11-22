@@ -168,6 +168,7 @@ namespace Dal {
         };
 
         OPER_* Error(const String_& what, const char* arg_name);
+        void WriteRange(const OPER_* destination, const Matrix_<Cell_>& values);
 
         void Register(const String_& dll_name,
                       const String_& c_name,
@@ -177,6 +178,12 @@ namespace Dal {
                       const String_& arg_names,
                       const Vector_<String_>& arg_help,
                       bool volatile);
+        void RegisterCommand(const String_& c_name,
+                             const String_& xl_name,
+                             const String_& help,
+                             const String_& arg_types,
+                             const String_& arg_names,
+                             const Vector_<String_>& arg_help);
     } // namespace Excel
 
     extern "C" {
