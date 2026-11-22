@@ -425,6 +425,7 @@ TEST(CompoundedOisScriptExcelTest, TestTypedConventionScheduleAndOwnedEvaluation
 namespace {
     void CheckExcelV2QuoteRisk(const ExcelV2Case_& sample, bool pvOnly) {
         Handle_<StorableScriptCurveQuoteRiskResult_> result;
+        Handle_<StorableCompoundedOisParRateRiskResult_> par;
         {
             const auto& request = sample.request_->val_;
             CurveInstrumentCalibrationSpec_ raw;
@@ -447,7 +448,17 @@ namespace {
             ASSERT_TRUE(snapshot->val_.RiskAvailable());
             ASSERT_EQ(snapshot->val_.MappingAvailable(), !pvOnly);
             CalibrationInstrument_ValueWithQuoteRisk(sample.instrument_, snapshot, spec, {}, &result);
+            CompoundedOisParRate_ValueWithQuoteRisk(sample.instrument_, sample.tables_, snapshot, spec, {}, &par);
         }
+        Matrix_<Cell_> rows;
+        CompoundedOisParRateRiskResult_Get_Summary(par, &rows);
+        ASSERT_EQ(Cell::ToString(rows(1, 1)), "Available");
+        ASSERT_NEAR(Cell::ToDouble(rows(2, 1)), .025, 1e-12);
+        CompoundedOisParRateRiskResult_Get_Sensitivity(par, &rows);
+        ASSERT_EQ(rows.Cols(), 3);
+        ASSERT_NEAR(Cell::ToDouble(rows(1, 2)), 1., 1e-10);
+        CompoundedOisParRateRiskResult_Get_Diagnostics(par, &rows);
+        ASSERT_EQ(rows.Rows(), 1);
         String_ status;
         ScriptCurveQuoteRiskResult_Get_Status(result, &status);
         ASSERT_EQ(status, "Available");

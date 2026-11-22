@@ -10,8 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("ScriptCurveQuoteIds_New");        
         argName = "ids (input #1)";
-        const Vector_<Cell_> ids = Excel::ToCellVector(xl_ids);
-        const Excel::ScriptSettingsInput_ normalized_ids(xl_ids); xl_ids = normalized_ids.Get();
+        const Vector_<Cell_> ids = Excel::ToCellVector_orQuoteIds(xl_ids, "ids");
         argName = 0;
 		Handle_<StorableScriptCurveQuoteIds_> value;
         ScriptCurveQuoteIds_New(ids, &value);

@@ -302,8 +302,22 @@ floating leg and fixed annuity together. The operation reuses the snapshot
 factorization for one checked transpose response per contract. A settled
 contract or an annuity outside its signed floor returns diagnostics.
 Live-quote payoffs, stale contexts and unregistered contracts are unavailable.
-General script/MC and legacy tenor staging still reject ON/ON2. Public C++,
-Python and Excel expose fixed-coupon Price quote risk and its owning audit.
+General script/MC and legacy tenor staging still reject ON/ON2.
+
+The installed public C++ SDK exposes
+`ValueCompoundedOisParRateWithQuoteRisk(instrument, tables, snapshot, context, request)`.
+Python uses `CompoundedOisParRate_ValueWithQuoteRisk` with an optional keyword
+`request=dal.CompoundedOisParRateRequest_(quote_ids=["long", "short"])`. The
+owning result exposes `par_rate`, `sensitivity_bp_per_bp`, `quote_axis`,
+`snapshot_identity` and `diagnostics`. Check `available` before reading a number.
+
+In Excel, `COMPOUNDEDOISPARRATE.VALUEWITHQUOTERISK` accepts the same four
+required handles and an optional `SCRIPTCURVEQUOTEIDS.NEW` selection.
+Pass the result to `COMPOUNDEDOISPARRATERISKRESULT.GET.SUMMARY`,
+`.GET.SENSITIVITY` or `.GET.DIAGNOSTICS`. These spills use the public
+`ScriptCurveQuoteRiskTable` projections. Summary includes the decimal rate
+and snapshot identity. Sensitivity pairs each original ordinal and quote ID
+with its signed bp/bp slope. Unavailable numeric cells are blank.
 
 Build and run the core `compounded_ois` example under
 `dal-cpp/examples/curves/compounded_ois/`. It uses all four modes and checks
