@@ -1,55 +1,36 @@
 # DAL Full-Suite Test Reference
 
-## Instructions
+Run these commands from the repository root. The initial redirection creates a
+fresh `test_output.txt` for the selected platform.
 
-- Before starting, delete any existing `test_output.txt` in the repository root so it cannot be confused with fresh output.
+## Windows
 
-### Windows
+In Command Prompt, `--full-tests` includes the examples and slow qualification
+cases. CTest excludes the `benchmark` label.
 
-- In a Windows terminal, run the following command to execute the full build-and-test workflow:
-
-```bash
-$ ./build_windows.bat --full-tests > 'test_output.txt' 2>&1
+```bat
+build_windows.bat --full-tests > test_output.txt 2>&1
 ```
 
-- Review the output captured in the root-level `test_output.txt`. The build
-  scripts run CTest, so a representative passing tail looks like:
+## Linux
+
+The build script runs CTest with `-LE "benchmark|examples"`. For full
+non-benchmark coverage, run the enabled example tests from the same build
+tree after the script succeeds. The `examples` label expression matches both
+`examples` and `examples_slow`.
 
 ```bash
-100% tests passed, 0 tests failed out of <N>
-
-Label Time Summary:
-...
-
-Total Test time (real) = <seconds> sec
-```
-
-### Linux
-
-- In a Linux bash shell, run the following command to execute the full build-and-test workflow:
-
-```bash
-$ bash ./build_linux.sh > test_output.txt 2>&1
-```
-
-- Review the output captured in the root-level `test_output.txt`. The build
-  script excludes the `benchmark` CTest label from its normal test pass, so a
-  representative passing tail looks like:
-
-```bash
-100% tests passed, 0 tests failed out of <N>
-
-Label Time Summary:
-...
-
-Total Test time (real) = <seconds> sec
+build_dir=${DAL_BUILD_DIR:-build/${BUILD_TYPE:-Release}-linux}
+bash ./build_linux.sh > test_output.txt 2>&1 &&
+    ctest --test-dir "$build_dir" -L examples -LE benchmark --output-on-failure >> test_output.txt 2>&1
 ```
 
 ## Requirements
 
-- Make sure the full test suite passes. The authoritative acceptance line is:
+Check the command exit status and report the fresh CTest summary for each
+pass from `test_output.txt`. A passing summary has the form
 
-```bash
+```text
 100% tests passed, 0 tests failed out of <N>
 ```
 

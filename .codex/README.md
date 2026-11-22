@@ -20,7 +20,8 @@ non-agent workflows, and active work records.
 
 Use `dal-orchestrator` for end-to-end routing. Use the matching named agent for focused
 specification, API, critique, implementation, testing, review, performance, simplification,
-or documentation work.
+or documentation work. For documentation-only maintenance, route the source
+reconciliation to `dal-doc-writer` and independent verification to `dal-reviewer`.
 
 Delegate only when the user authorizes agents, team execution, parallel work, or subagents.
 Without that authority, read the relevant `.codex/agents/{role}.toml` and follow its contract

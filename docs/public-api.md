@@ -146,8 +146,11 @@ Partials are raw native derivatives. Verified `/1` and `/2` fixed contracts can
 also use the separate [quote-risk snapshot](#same-source-script-curve-quote-risk)
 after all fit and prospective PV tables are registered in `compoundedOis_`
 before calibration. A new/rebound PV requires new evidenced preparation and
-fit context. Price/raw/DV01 retain actual N and direction; live-quote payoffs,
-ParRate risk, stale contexts and unavailable numerics remain rejected.
+fit context. Price/raw/DV01 retain actual N and direction. The Price entry
+rejects a ParRate request. Core C++ callers can request signed bp/bp
+sensitivities through the snapshot's dedicated
+[`ValueCompoundedOisParRateWithQuoteRisk` entry](ccy-curves/compounded-ois.md#registered-price-and-parrate-quote-risk).
+Both operations require a fixed contract and a matching frozen context.
 
 Prepared tables and results own passive data; C++ references require their
 owner to remain alive. Verified `/2` preparation archives do not persist fit
@@ -807,9 +810,10 @@ same-currency joint calibration, respectively. The public
 joint result; its effective inverse request defaults to false. See the
 [generic joint mapping contract](yield-curves/joint-quote-risk.md),
 including the explicit solution-selection semantics for underdetermined systems.
-Ordinary staged multi-curve chain rules do not have a provenance factory. Quote risk also
-requires an available effective inverse; unavailable results retain a stable
-reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
+For sequential discount and forward curves, core C++ provides
+[`MapStagedQuoteRisk` on a two-stage EXACT calibration record](yield-curves/construction.md#sequential-multi-curve-calibration-ois-discounting--tenor-forecasting).
+The portfolio quote-risk calculation requires an available effective inverse.
+Unavailable results retain a stable reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
 `QUOTE_RISK_NOT_AVAILABLE_FOR_SOLVE_MODE`, or
 `QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`.
 
