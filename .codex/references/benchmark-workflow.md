@@ -263,7 +263,11 @@ affect its eligibility; their original measurements and failures remain in the
 combined result. Changed executables,
 missing or shared build modes, missing coverage, process errors and head-only
 absolute cost failures are not eligible.
-Identity drift is a hard error. A repeated timing failure still fails the job.
+Identity drift is a hard error. A relative timing failure still fails the job
+when the same case exceeds the threshold in every confirmation round of both
+attempts. A case that exceeds the threshold only on retry is marked
+`unconfirmed` in the final comparison. The retry must provide samples for
+each initially failing case.
 When a retry occurs, `initial-results.json`, `initial-summary.md` and the original raw
 outputs preserve the first verdict; `retry/` contains the second attempt. The final
 results identify retried targets and combine their new samples with unchanged targets'

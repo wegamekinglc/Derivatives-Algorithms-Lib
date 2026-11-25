@@ -138,18 +138,55 @@ class BenchmarkRegressionTest(unittest.TestCase):
                     self.assertEqual(BENCHMARKS.main(), 1)
                 collect.assert_called_once()
 
-    def test_main_second_relative_failure_still_fails_without_a_third_attempt(self):
+    def test_main_retry_must_confirm_the_same_case(self):
+        for repeated_failure in (False, True):
+            with self.subTest(repeated_failure=repeated_failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for side in ("base", "head"):
+                    self._create_benchmark_binary(root / side, "tape_perf")
+                args = self._args(root, ("tape_perf",))
+                base = {"short full": [100.0] * 20, "multi-mode": [100.0] * 20}
+                initial = {"tape_perf": {"base": base, "head": {**base, "short full": [105.0] * 20}}}
+                retry = {"tape_perf": {"base": base, "head": {
+                    "short full": [105.0 if repeated_failure else 100.0] * 20,
+                    "multi-mode": [106.0] * 20,
+                }}}
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[initial, retry]) as collect, \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    self.assertEqual(BENCHMARKS.main(), int(repeated_failure))
+
+                self.assertEqual(collect.call_count, 2)
+                original = json.loads((args.output_dir / "initial-results.json").read_text())
+                retried = json.loads((args.output_dir / "retry/results.json").read_text())
+                final = json.loads((args.output_dir / "results.json").read_text())
+                self.assertEqual(len(original["failures"]), 1)
+                self.assertIn("tape_perf / short full:", original["failures"][0])
+                self.assertTrue(any("tape_perf / multi-mode:" in failure for failure in retried["failures"]))
+                self.assertEqual(final["failures"], original["failures"] if repeated_failure else [])
+                self.assertEqual(final["samples"], retry)
+                rows = {row["case"]: row for row in final["comparisons"]["tape_perf"]}
+                self.assertTrue(rows["multi-mode"]["passed"])
+                self.assertEqual(rows["multi-mode"]["kind"], "unconfirmed_retry")
+                self.assertIn("| unconfirmed |", (args.output_dir / "summary.md").read_text())
+
+    def test_main_retry_cannot_drop_the_initially_failing_case(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for side in ("base", "head"):
                 self._create_benchmark_binary(root / side)
-            samples = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+            passing = {"other case": [100.0] * 20}
+            initial = {"pde_perf": {
+                "base": {**passing, "case": [100.0] * 20},
+                "head": {**passing, "case": [105.0] * 20},
+            }}
+            retry = {"pde_perf": {"base": passing, "head": passing}}
             with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
-                    mock.patch.object(BENCHMARKS, "collect_samples", return_value=samples) as collect, \
+                    mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[initial, retry]), \
                     mock.patch("sys.stdout", new_callable=io.StringIO):
                 self.assertEqual(BENCHMARKS.main(), 1)
-            self.assertEqual(collect.call_count, 2)
-            self.assertEqual(len(json.loads((root / "results/results.json").read_text())["failures"]), 1)
+            final = json.loads((root / "results/results.json").read_text())
+            self.assertEqual(final["failures"], ["pde_perf: retry is missing initially failing cases: ['case']"])
 
     def test_main_does_not_retry_structural_or_absolute_cost_failures(self):
         relative = {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}

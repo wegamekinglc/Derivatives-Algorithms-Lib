@@ -352,24 +352,30 @@ def compare_benchmark(
     precise_slowdown_limit: float,
     round_size: int,
     round_count: int,
+    retry_cases: set[str] | None = None,
 ) -> tuple[list[dict[str, object]], list[str]]:
     base = min_samples(samples["base"])
     head = min_samples(samples["head"])
-    overhead_failures = (
+    failures = (
         generic_joint_overhead_checks(samples["head"], round_size, round_count)[1]
         if benchmark == "rate_risk_perf" else []
     )
+    common_cases = base.keys() & head.keys()
+    if retry_cases is not None:
+        missing = retry_cases - common_cases
+        if missing:
+            failures.append(f"{benchmark}: retry is missing initially failing cases: {sorted(missing)}")
     if not base:
         # An empty base side means the gated binary itself was absent on the base side (a present
         # binary always parses at least one case row): every head case is unguarded. Report the
         # state distinctly from case-level new coverage so an ungated green run stays visible.
-        return ([not_gated_no_base_row(case, value) for case, value in sorted(head.items())], overhead_failures)
-    migration_permitted, failures, new_coverage = benchmark_case_differences(benchmark, base, head)
-    failures.extend(overhead_failures)
+        return ([not_gated_no_base_row(case, value) for case, value in sorted(head.items())], failures)
+    migration_permitted, coverage_failures, new_coverage = benchmark_case_differences(benchmark, base, head)
+    failures.extend(coverage_failures)
     rows = []
     if migration_permitted:
         rows.append(semantic_migration_row(base, head))
-    for case in sorted(set(base) & set(head)):
+    for case in sorted(common_cases):
         row = comparison_row(
             case,
             samples["base"][case],
@@ -380,7 +386,10 @@ def compare_benchmark(
         )
         rows.append(row)
         if not row["passed"]:
-            failures.append(regression_failure(benchmark, row, threshold_percent))
+            if retry_cases is not None and case not in retry_cases:
+                row.update(passed=True, kind="unconfirmed_retry")
+            else:
+                failures.append(regression_failure(benchmark, row, threshold_percent))
     for case in new_coverage:
         rows.append(new_coverage_row(case, head[case]))
 
@@ -410,6 +419,7 @@ def evaluate(
     precise_slowdown_limit: float,
     round_size: int,
     round_count: int,
+    retry_cases: dict[str, set[str]] | None = None,
 ) -> tuple[dict[str, list[dict[str, object]]], list[str]]:
     comparisons = {}
     failures = []
@@ -421,6 +431,7 @@ def evaluate(
             precise_slowdown_limit,
             round_size,
             round_count,
+            retry_cases.get(benchmark) if retry_cases is not None else None,
         )
         comparisons[benchmark] = rows
         failures.extend(benchmark_failures)
@@ -428,6 +439,8 @@ def evaluate(
 
 
 def result_label(row: dict[str, object]) -> str:
+    if row.get("kind") == "unconfirmed_retry":
+        return "unconfirmed"
     if not row.get("gated", True):
         return "info"
     return "pass" if row["passed"] else "fail"
@@ -568,7 +581,7 @@ def parse_args() -> argparse.Namespace:
 
 def write_results(
     collected: dict, args: argparse.Namespace, output_dir: Path,
-    identities: dict | None = None, retry_benchmarks: list[str] | None = None, prefix: str = "",
+    identities: dict | None = None, retry_cases: dict[str, set[str]] | None = None, prefix: str = "",
 ) -> tuple[dict, list[str], str]:
     comparisons, failures = evaluate(
         collected,
@@ -576,6 +589,7 @@ def write_results(
         args.precise_slowdown_limit,
         args.samples,
         args.confirmation_rounds,
+        retry_cases,
     )
     rng_head = min_samples(collected["rng_perf"]["head"]) if "rng_perf" in collected else {}
     precise_ratio = precise_sobol_ratio(rng_head)
@@ -599,7 +613,7 @@ def write_results(
     }
     if identities is not None:
         results["binary_identity"] = identities
-        results["retry_benchmarks"] = retry_benchmarks or []
+        results["retry_benchmarks"] = list(retry_cases) if retry_cases is not None else []
     (output_dir / "summary.md").write_text(report, encoding="utf-8")
     (output_dir / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     return comparisons, failures, report
@@ -655,12 +669,18 @@ def compare_with_retry(args: argparse.Namespace, collected: dict, identities: di
     retry = collect_samples(args.base_root, args.head_root, targets, args.samples * args.confirmation_rounds, retry_dir)
     verify_binary_identity(args, identities, retry_dir)
     write_results(retry, args, retry_dir, {target: identities[target] for target in targets})
+    retry_cases = {
+        target: {row["case"] for row in comparisons[target] if row["gated"] and not row["passed"]}
+        for target in targets
+    }
     prefix = (
         "## Initial comparison\n\n" + report + "\n## Final comparison after one unchanged-binary retry\n\n"
         f"Retried only {', '.join(targets)} with the original sampling and thresholds. "
-        "Initial results and raw outputs are retained; retry outputs are under `retry/`.\n\n"
+        "A relative timing failure must recur in the same case. Cases exceeding the threshold only on retry "
+        "are marked unconfirmed. Initial results and raw outputs are retained alongside the full retry results "
+        "under `retry/`.\n\n"
     )
-    return write_results({**collected, **retry}, args, args.output_dir, identities, targets, prefix)
+    return write_results({**collected, **retry}, args, args.output_dir, identities, retry_cases, prefix)
 
 
 def main() -> int:
