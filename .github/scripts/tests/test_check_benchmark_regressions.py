@@ -139,8 +139,8 @@ class BenchmarkRegressionTest(unittest.TestCase):
                 collect.assert_called_once()
 
     def test_main_retry_must_confirm_the_same_case(self):
-        for repeated_failure in (False, True):
-            with self.subTest(repeated_failure=repeated_failure), tempfile.TemporaryDirectory() as directory:
+        for retry_ns, repeated_failure in ((100.0, False), (104.0, False), (105.0, True)):
+            with self.subTest(retry_ns=retry_ns), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 for side in ("base", "head"):
                     self._create_benchmark_binary(root / side, "tape_perf")
@@ -148,7 +148,7 @@ class BenchmarkRegressionTest(unittest.TestCase):
                 base = {"short full": [100.0] * 20, "multi-mode": [100.0] * 20}
                 initial = {"tape_perf": {"base": base, "head": {**base, "short full": [105.0] * 20}}}
                 retry = {"tape_perf": {"base": base, "head": {
-                    "short full": [105.0 if repeated_failure else 100.0] * 20,
+                    "short full": [retry_ns] * 20,
                     "multi-mode": [106.0] * 20,
                 }}}
                 with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
@@ -375,6 +375,26 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
 
         self.assertAlmostEqual(rows[0]["delta_percent"], 4.1)
         self.assertEqual(len(failures), 1)
+
+    def test_compare_benchmark_applies_strict_threshold_to_parsed_timings(self):
+        for base, head, unit, passed in (
+            ("100.000", "103.999", "us", True),
+            ("100.000", "104.000", "us", True),
+            ("100.000", "104.001", "us", False),
+            ("3.875", "4.030", "us", True),
+            ("1.025", "1.066", "ns", True),
+        ):
+            with self.subTest(base=base, head=head, unit=unit):
+                samples = {}
+                for side, value in (("base", base), ("head", head)):
+                    timing = f"{value} {unit}"
+                    parsed = BENCHMARKS.parse_benchmark_output(f"case  {timing}  {timing}  {timing}  10")
+                    samples[side] = {"case": [parsed["case"]] * 20}
+
+                rows, failures = BENCHMARKS.compare_benchmark("tape_perf", samples, 4.0, 10.0, 10, 2)
+
+                self.assertEqual(rows[0]["passed"], passed)
+                self.assertEqual(len(failures), 0 if passed else 1)
 
     def test_compare_benchmark_requires_confirmation_round(self):
         samples = {
