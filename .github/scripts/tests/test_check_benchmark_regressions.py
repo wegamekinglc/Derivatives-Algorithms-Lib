@@ -84,6 +84,11 @@ class BenchmarkRegressionTest(unittest.TestCase):
             retry_identical_binaries=retry,
         )
 
+    def _assert_reported_percentages(self, row, expected):
+        percentages = [row["delta_percent"], *row["round_delta_percent"]]
+        self.assertEqual(percentages, [expected] * 3)
+        self.assertTrue(all(isinstance(value, float) for value in percentages))
+
     @classmethod
     def _mixed_args(cls, root):
         for side in ("base", "head"):
@@ -165,6 +170,11 @@ class BenchmarkRegressionTest(unittest.TestCase):
                 self.assertTrue(any("tape_perf / multi-mode:" in failure for failure in retried["failures"]))
                 self.assertEqual(final["failures"], original["failures"] if repeated_failure else [])
                 self.assertEqual(final["samples"], retry)
+                for report_name, results in (("retry", retried), ("final", final)):
+                    with self.subTest(report=report_name):
+                        row = next(row for row in results["comparisons"]["tape_perf"] if row["case"] == "short full")
+                        self.assertEqual(row["passed"], not repeated_failure)
+                        self._assert_reported_percentages(row, retry_ns - 100.0)
                 rows = {row["case"]: row for row in final["comparisons"]["tape_perf"]}
                 self.assertTrue(rows["multi-mode"]["passed"])
                 self.assertEqual(rows["multi-mode"]["kind"], "unconfirmed_retry")
@@ -376,25 +386,32 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
         self.assertAlmostEqual(rows[0]["delta_percent"], 4.1)
         self.assertEqual(len(failures), 1)
 
-    def test_compare_benchmark_applies_strict_threshold_to_parsed_timings(self):
-        for base, head, unit, passed in (
-            ("100.000", "103.999", "us", True),
-            ("100.000", "104.000", "us", True),
-            ("100.000", "104.001", "us", False),
-            ("3.875", "4.030", "us", True),
-            ("1.025", "1.066", "ns", True),
+    def test_main_reports_strict_threshold_for_parsed_timings(self):
+        for base, head, delta, passed in (
+            ("100.000 us", "103.999 us", 3.999, True),
+            ("100.000 us", "104.000 us", 4.0, True),
+            ("100.000 us", "104.001 us", 4.001, False),
+            ("3.875 us", "4.030 us", 4.0, True),
+            ("1.025 ns", "1.066 ns", 4.0, True),
+            ("987.500 us", "1.027 ms", 4.0, True),
         ):
-            with self.subTest(base=base, head=head, unit=unit):
+            with self.subTest(base=base, head=head), tempfile.TemporaryDirectory() as directory:
                 samples = {}
-                for side, value in (("base", base), ("head", head)):
-                    timing = f"{value} {unit}"
+                for side, timing in (("base", base), ("head", head)):
                     parsed = BENCHMARKS.parse_benchmark_output(f"case  {timing}  {timing}  {timing}  10")
                     samples[side] = {"case": [parsed["case"]] * 20}
 
-                rows, failures = BENCHMARKS.compare_benchmark("tape_perf", samples, 4.0, 10.0, 10, 2)
+                args = self._args(Path(directory), ("tape_perf",), retry=False)
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", return_value={"tape_perf": samples}), \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    self.assertEqual(BENCHMARKS.main(), int(not passed))
 
-                self.assertEqual(rows[0]["passed"], passed)
-                self.assertEqual(len(failures), 0 if passed else 1)
+                results = json.loads((args.output_dir / "results.json").read_text())
+                row = results["comparisons"]["tape_perf"][0]
+                self.assertEqual(row["passed"], passed)
+                self.assertEqual(len(results["failures"]), 0 if passed else 1)
+                self._assert_reported_percentages(row, delta)
 
     def test_compare_benchmark_requires_confirmation_round(self):
         samples = {

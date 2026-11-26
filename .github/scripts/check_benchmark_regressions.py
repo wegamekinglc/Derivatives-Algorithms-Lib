@@ -228,10 +228,6 @@ def not_gated_no_base_row(case: str, head_value: float) -> dict[str, object]:
     }
 
 
-def percent_delta(base: float, head: float) -> float:
-    return 100.0 * (head / base - 1.0)
-
-
 def round_minima(
     base: list[float],
     head: list[float],
@@ -258,7 +254,7 @@ def generic_joint_overhead_row(
     case: str, aggregate: list[float], reference: list[float], round_size: int, round_count: int
 ) -> dict[str, object]:
     minima = round_minima(reference, aggregate, round_size, round_count)
-    deltas = [percent_delta(reference_min, aggregate_min) for reference_min, aggregate_min in minima]
+    deltas = [100.0 * (aggregate_min / reference_min - 1.0) for reference_min, aggregate_min in minima]
     return {
         "case": case,
         "aggregate_ns": min(aggregate),
@@ -297,6 +293,10 @@ def generic_joint_overhead_checks(
     return rows, failures
 
 
+def percent_delta(base: Decimal, head: Decimal) -> float:
+    return float(100 * (head - base) / base)
+
+
 def comparison_row(
     case: str,
     base: list[float],
@@ -307,18 +307,21 @@ def comparison_row(
 ) -> dict[str, object]:
     base_value = min(base)
     head_value = min(head)
-    minima = round_minima(base, head, round_size, round_count)
+    minima = [
+        (Decimal(str(base_min)), Decimal(str(head_min)))
+        for base_min, head_min in round_minima(base, head, round_size, round_count)
+    ]
     # Compare the reported decimal timings directly so an exact tie stays a tie.
     threshold_factor = 100 + Decimal(str(threshold_percent))
     exceeds_threshold = all(
-        (100 * Decimal(str(head_min))).compare(threshold_factor * Decimal(str(base_min))) == 1
+        (100 * head_min).compare(threshold_factor * base_min) == 1
         for base_min, head_min in minima
     )
     return {
         "case": case,
         "base_ns": base_value,
         "head_ns": head_value,
-        "delta_percent": percent_delta(base_value, head_value),
+        "delta_percent": percent_delta(Decimal(str(base_value)), Decimal(str(head_value))),
         "round_delta_percent": [percent_delta(base_min, head_min) for base_min, head_min in minima],
         "passed": not exceeds_threshold,
         "gated": True,
