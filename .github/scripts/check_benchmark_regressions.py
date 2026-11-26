@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from decimal import Decimal
 import hashlib
 import json
 import math
@@ -34,7 +35,7 @@ FAST_SOBOL_CASE = "Sobol FillNormal fast (100K x 10D)"
 OLD_PRECISE_SOBOL_CASE = "Sobol FillNormal precise (100K x 10D)"
 PRECISE_SOBOL_CASE = "Sobol FillNormal precise opt-in (100K x 10D)"
 GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT = 20.0
-UNIT_TO_NS = {"ns": 1.0, "us": 1_000.0, "ms": 1_000_000.0, "s": 1_000_000_000.0}
+UNIT_TO_NS = {"ns": 1, "us": 1_000, "ms": 1_000_000, "s": 1_000_000_000}
 NUMBER = r"[0-9]+(?:\.[0-9]+)?"
 ROW = re.compile(
     rf"^(?P<name>\S(?:.*?\S)?)\s+"
@@ -51,7 +52,8 @@ def parse_benchmark_output(output: str) -> dict[str, float]:
     for line in output.splitlines():
         match = ROW.match(line)
         if match:
-            results[match.group("name")] = float(match.group("minimum")) * UNIT_TO_NS[match.group("minimum_unit")]
+            minimum = Decimal(match.group("minimum"))
+            results[match.group("name")] = float(minimum * UNIT_TO_NS[match.group("minimum_unit")])
     if not results:
         raise ValueError("benchmark output contained no result rows")
     return results
@@ -226,20 +228,20 @@ def not_gated_no_base_row(case: str, head_value: float) -> dict[str, object]:
     }
 
 
-def round_deltas(
+def percent_delta(base: float, head: float) -> float:
+    return 100.0 * (head / base - 1.0)
+
+
+def round_minima(
     base: list[float],
     head: list[float],
     round_size: int,
     round_count: int,
-) -> list[float]:
-    deltas = []
-    for round_index in range(round_count):
-        first = round_index * round_size
-        last = first + round_size
-        base_min = min(base[first:last])
-        head_min = min(head[first:last])
-        deltas.append(100.0 * (head_min / base_min - 1.0))
-    return deltas
+) -> list[tuple[float, float]]:
+    return [
+        (min(base[first : first + round_size]), min(head[first : first + round_size]))
+        for first in range(0, round_size * round_count, round_size)
+    ]
 
 
 def invalid_overhead_samples(
@@ -255,7 +257,8 @@ def invalid_overhead_samples(
 def generic_joint_overhead_row(
     case: str, aggregate: list[float], reference: list[float], round_size: int, round_count: int
 ) -> dict[str, object]:
-    deltas = round_deltas(reference, aggregate, round_size, round_count)
+    minima = round_minima(reference, aggregate, round_size, round_count)
+    deltas = [percent_delta(reference_min, aggregate_min) for reference_min, aggregate_min in minima]
     return {
         "case": case,
         "aggregate_ns": min(aggregate),
@@ -304,14 +307,20 @@ def comparison_row(
 ) -> dict[str, object]:
     base_value = min(base)
     head_value = min(head)
-    deltas = round_deltas(base, head, round_size, round_count)
+    minima = round_minima(base, head, round_size, round_count)
+    # Compare the reported decimal timings directly so an exact tie stays a tie.
+    threshold_factor = 100 + Decimal(str(threshold_percent))
+    exceeds_threshold = all(
+        (100 * Decimal(str(head_min))).compare(threshold_factor * Decimal(str(base_min))) == 1
+        for base_min, head_min in minima
+    )
     return {
         "case": case,
         "base_ns": base_value,
         "head_ns": head_value,
-        "delta_percent": 100.0 * (head_value / base_value - 1.0),
-        "round_delta_percent": deltas,
-        "passed": not all(delta > threshold_percent for delta in deltas),
+        "delta_percent": percent_delta(base_value, head_value),
+        "round_delta_percent": [percent_delta(base_min, head_min) for base_min, head_min in minima],
+        "passed": not exceeds_threshold,
         "gated": True,
     }
 
