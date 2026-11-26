@@ -266,12 +266,13 @@ absolute cost failures are not eligible.
 Identity drift is a hard error. A relative timing failure still fails the job
 when the same case exceeds the threshold in every confirmation round of both
 attempts. A case that exceeds the threshold only on retry is marked
-`unconfirmed` in the final comparison. The retry must provide samples for
-each initially failing case.
+`unconfirmed` in the final comparison, with `kind` set to `unconfirmed_retry` in
+JSON. The retry must provide samples for each initially failing case.
 When a retry occurs, `initial-results.json`, `initial-summary.md` and the original raw
-outputs preserve the first verdict; `retry/` contains the second attempt. The final
-results identify retried targets and combine their new samples with unchanged targets'
-initial samples. The summary and workflow warning explicitly disclose the first failure.
+outputs preserve the first verdict. The `retry/` directory contains the second attempt,
+including `retry/results.json`. The final report identifies the retried targets and combines
+their new samples with the other targets' initial samples. The summary and workflow warning
+explicitly disclose the first failure.
 The command-line default keeps the original single-attempt behavior.
 
 The Python gate exposes the same opt-in retry for relative timing failures when both native
@@ -344,6 +345,9 @@ best-of-ten confirmation rounds. Historical same-binary calibration found roughl
 best-of-N noise and a maximum just under 4%; shared-runner single-process swings can be around
 plus or minus 6%. The 4% two-round rule operationalizes that evidence conservatively.
 
+If any round's percentage change is at or below `--threshold-percent`, the
+comparable case passes the native relative timing check for that attempt.
+
 Classify each comparable benchmark case:
 
 - `regression`: every confirmation round is above +4%, or the executable gate reports another
@@ -376,6 +380,13 @@ The report must contain:
 
 Never hide noisy or missing measurements behind an overall pass. Distinguish a failed performance
 acceptance gate from an environment that could not produce a valid measurement.
+
+For a completed native comparison, use the final `results.json` in the output directory.
+An empty top-level `failures` list indicates a pass. Each row in `comparisons[<benchmark>]`
+has a `passed` flag. For comparable cases, `delta_percent` is a JSON number calculated from
+the overall base and head minima. `round_delta_percent` is an array of JSON numbers calculated
+from the minima of each round, in sampling order. The threshold comparison and reported
+percentages use the same decimal timings.
 
 ## Coverage Advisory
 
