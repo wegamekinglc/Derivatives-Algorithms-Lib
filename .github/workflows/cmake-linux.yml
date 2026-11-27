@@ -116,7 +116,7 @@ jobs:
       # .gcno notes gcov needs are only emitted when the compiler runs.
       - name: Setup ccache
         if: matrix.coverage == false
-        uses: hendrikmuhs/ccache-action@dbeefd73e8e2ffc1bbc412570072735eb4db3607 # @v1.2.25
+        uses: hendrikmuhs/ccache-action@e91f31892a1d1b8c44424b1a94c0b7f52d337168 # @v1.2.26
         with:
           key: ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.aad-backend }}
 
@@ -218,7 +218,7 @@ jobs:
         run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@dbeefd73e8e2ffc1bbc412570072735eb4db3607 # @v1.2.25
+        uses: hendrikmuhs/ccache-action@e91f31892a1d1b8c44424b1a94c0b7f52d337168 # @v1.2.26
         with:
           key: ${{ runner.os }}-extended-${{ matrix.lifetime_diagnostics }}-${{ matrix.profiling }}
 
@@ -380,7 +380,7 @@ jobs:
         run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@dbeefd73e8e2ffc1bbc412570072735eb4db3607 # @v1.2.25
+        uses: hendrikmuhs/ccache-action@e91f31892a1d1b8c44424b1a94c0b7f52d337168 # @v1.2.26
         with:
           key: ${{ runner.os }}-warning-clean
 
@@ -436,7 +436,7 @@ jobs:
         run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@dbeefd73e8e2ffc1bbc412570072735eb4db3607 # @v1.2.25
+        uses: hendrikmuhs/ccache-action@e91f31892a1d1b8c44424b1a94c0b7f52d337168 # @v1.2.26
         with:
           key: ${{ runner.os }}-core-only-examples
 
@@ -521,7 +521,7 @@ jobs:
         run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@dbeefd73e8e2ffc1bbc412570072735eb4db3607 # @v1.2.25
+        uses: hendrikmuhs/ccache-action@e91f31892a1d1b8c44424b1a94c0b7f52d337168 # @v1.2.26
         with:
           key: ${{ runner.os }}-sanitizer-${{ matrix.slug }}
 
