@@ -3,8 +3,11 @@
 #include <cmath>
 #include <functional>
 #include <future>
+#include <iomanip>
+#include <iostream>
 #include <limits>
 #include <new>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -207,20 +210,84 @@ TEST(AADForwardOverReverseTest, TestBlackScholesGammaVannaVolgaAgainstAnalyticFo
         const auto first = (log(x[0] / strike) + (rate - q + 0.5 * x[1] * x[1]) * time) / (x[1] * rootTime);
         return x[0] * discounted * NCDF(first) - strike * discount * NCDF(first - x[1] * rootTime);
     };
-    const auto result = EvaluateForwardOverReverse(kernel, {spot, vol}, request);
-    BumpOverAADRequest_ gradientOnly;
-    gradientOnly.directions_ = Matrix_<>(0, 2);
-    const auto native = EvaluateBumpOverAAD(kernel, {spot, vol}, gradientOnly);
+
+    const Vector_<> point{spot, vol};
+    // Start each capacity measurement from the same default tape block allocation.
+    Clear(*Tape());
+    const auto pointwise = EvaluateForwardOverReverse(kernel, point, request);
+    const auto bump = [&](const Vector_<>& steps) {
+        BumpOverAADRequest_ bumpRequest;
+        bumpRequest.directions_ = request.directions_;
+        bumpRequest.steps_ = steps;
+        Clear(*Tape());
+        return EvaluateBumpOverAAD(kernel, point, bumpRequest);
+    };
+    const auto coarse = bump({0.4, 0.002, 0.002});
+    const auto half = bump({0.2, 0.001, 0.001});
+    const auto quarter = bump({0.1, 0.0005, 0.0005});
+    const auto bumpResults = {&coarse, &half, &quarter};
+    Clear(*Tape());
+
     const double price = spot * delta - strike * discount * 0.5 * std::erfc(-d2 / std::sqrt(2.0));
-    ASSERT_NEAR(result.Value(), price, 1e-11);
-    ASSERT_NEAR(result.Gradient()[0], delta, 1e-11);
-    ASSERT_NEAR(result.Gradient()[1], vega, 1e-10);
-    ASSERT_NEAR(result.Gradient()[0], native.Gradient()[0], 1e-12);
-    ASSERT_NEAR(result.Gradient()[1], native.Gradient()[1], 1e-12);
+    ASSERT_NEAR(pointwise.Value(), price, 1e-11);
+    ASSERT_NEAR(pointwise.Gradient()[0], delta, 1e-11);
+    ASSERT_NEAR(pointwise.Gradient()[1], vega, 1e-10);
+    ASSERT_EQ(pointwise.HessianProducts().Rows(), request.directions_.Rows());
+    ASSERT_EQ(pointwise.HessianProducts().Cols(), request.directions_.Cols());
+    ASSERT_EQ(pointwise.Execution().recordings_, 3);
+    ASSERT_EQ(pointwise.Execution().reverseSweeps_, 4);
+    ASSERT_GT(pointwise.Execution().peakTapeBytes_, 0);
+    for (const auto* comparison : bumpResults) {
+        ASSERT_NEAR(comparison->Value(), price, 1e-11);
+        ASSERT_NEAR(comparison->Gradient()[0], pointwise.Gradient()[0], 1e-12);
+        ASSERT_NEAR(comparison->Gradient()[1], pointwise.Gradient()[1], 1e-12);
+        ASSERT_EQ(comparison->HessianProducts().Rows(), request.directions_.Rows());
+        ASSERT_EQ(comparison->HessianProducts().Cols(), request.directions_.Cols());
+        ASSERT_EQ(comparison->Execution().gradientEvaluations_, 7);
+        ASSERT_EQ(comparison->Execution().reverseSweeps_, 7);
+        ASSERT_GT(comparison->Execution().peakTapeBytes_, 0);
+    }
+
     const double expected[3][2] = {{gamma, vanna}, {vanna, volga}, {-2.0 * gamma + 0.5 * vanna, -2.0 * vanna + 0.5 * volga}};
-    for (int row = 0; row < 3; ++row)
-        for (int column = 0; column < 2; ++column)
-            ASSERT_NEAR(result.HessianProducts()(row, column), expected[row][column], 1e-10);
+    const double fineTolerance[3][2] = {{1e-8, 3e-6}, {3e-6, 8e-5}, {1e-6, 2e-5}};
+    const char* const components[3][2] = {
+        {"Gamma", "Vanna (spot direction)"}, {"Vanna (vol direction)", "Volga"}, {"Mixed HVP, spot", "Mixed HVP, vol"}};
+    std::ostringstream report;
+    report << "\nBlack-Scholes HVPs at (spot, vol) = (" << spot << ", " << vol << ") (absolute errors in parentheses)\n"
+           << "| Component | Analytic | Pointwise AD | Centered h | Centered h/2 | Centered h/4 |\n"
+           << "|---|---|---|---|---|---|\n"
+           << std::scientific;
+    for (int row = 0; row < request.directions_.Rows(); ++row) {
+        for (int column = 0; column < request.directions_.Cols(); ++column) {
+            SCOPED_TRACE(components[row][column]);
+            const double analytic = expected[row][column];
+            const double ad = pointwise.HessianProducts()(row, column);
+            const double coarseValue = coarse.HessianProducts()(row, column);
+            const double halfValue = half.HessianProducts()(row, column);
+            const double quarterValue = quarter.HessianProducts()(row, column);
+            ASSERT_NEAR(ad, analytic, 1e-10);
+            ASSERT_NEAR(quarterValue, analytic, fineTolerance[row][column]);
+            ASSERT_NEAR(std::abs(coarseValue - analytic) / std::abs(halfValue - analytic), 4.0, 0.5);
+            ASSERT_NEAR(std::abs(halfValue - analytic) / std::abs(quarterValue - analytic), 4.0, 0.5);
+
+            report << "| " << components[row][column] << " | " << std::setprecision(14) << analytic;
+            for (const double value : {ad, coarseValue, halfValue, quarterValue})
+                report << " | " << std::setprecision(14) << value << " (" << std::setprecision(3) << std::abs(value - analytic) << ')';
+            report << " |\n";
+        }
+    }
+    report << "\n| Route | Step (spot, vol, mixed) | Recordings | Reverse sweeps | Peak tape bytes |\n"
+           << "|---|---|---|---|---|\n"
+           << "| Pointwise AD | - | " << pointwise.Execution().recordings_ << " | " << pointwise.Execution().reverseSweeps_ << " | "
+           << pointwise.Execution().peakTapeBytes_ << " |\n"
+           << std::defaultfloat << std::setprecision(6);
+    for (const auto* comparison : bumpResults) {
+        const auto& steps = comparison->Steps();
+        const auto& execution = comparison->Execution();
+        report << "| Centered | (" << steps[0] << ", " << steps[1] << ", " << steps[2] << ") | " << execution.gradientEvaluations_ << " | "
+               << execution.reverseSweeps_ << " | " << execution.peakTapeBytes_ << " |\n";
+    }
+    std::cout << report.str();
 }
 
 TEST(AADForwardOverReverseTest, TestAllocationFailurePreservesTypeAndCallerMode) {
