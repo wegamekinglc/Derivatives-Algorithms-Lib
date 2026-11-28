@@ -2,8 +2,10 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <exception>
 #include <functional>
+#include <future>
 #include <iomanip>
 #include <initializer_list>
 #include <iostream>
@@ -17,6 +19,7 @@
 #include <dal/math/aad/secondorder.hpp>
 #include <dal/math/aad/sharedsecondorder.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
+#include <dal/math/analytics/detail/conditionalbasketcallrisk.hpp>
 #include <dal/math/analytics/detail/spotcallrisk.hpp>
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/platform/platform.hpp>
@@ -143,21 +146,27 @@ namespace {
     template <bool Smooth_> struct ConditionalBasket_ {
         Vector_<BasketNode_> nodes_;
 
-        template <class T_> T_ operator()(RecordingScope_*, const Vector_<T_>& x) const {
+        template <bool Trace_ = false, class T_>
+        T_ Evaluate(const Vector_<T_>& x, ConditionalBasketDetail::FixedConditionalBasketCall_::Trace_* trace = nullptr) const {
             // One-year maturity with both dividend yields zero.
             const T_ driftA = BASKET_RATE - 0.5 * x[2] * x[2];
             const T_ projectionB = x[3] * x[4];
             const T_ driftB = BASKET_RATE - 0.5 * projectionB * projectionB;
             const T_ stdDev = x[3] * sqrt(1.0 - x[4] * x[4]);
             T_ sum(0.0);
-            for (const auto& node : nodes_) {
+            for (size_t i = 0; i < nodes_.size(); ++i) {
+                const auto& node = nodes_[i];
                 const T_ strike = 2.0 * BASKET_STRIKE - x[0] * exp(driftA + x[2] * node.z_);
                 const T_ forwardB = x[1] * exp(driftB + projectionB * node.z_);
                 const T_ price = node.linear_ ? T_(forwardB - strike) : BlackCall<Smooth_>(forwardB, strike, stdDev);
+                if constexpr (Trace_)
+                    trace->prices_[i] = SecondOrderDetail::Access_::Value(price);
                 sum += node.weight_ * price;
             }
             return 0.5 * std::exp(-BASKET_RATE) * sum;
         }
+
+        template <class T_> T_ operator()(RecordingScope_*, const Vector_<T_>& x) const { return Evaluate(x); }
     };
 
     template <bool Smooth_> ConditionalBasket_<Smooth_> MakeBasket(const Case_& shape, const Vector_<>& coordinateSteps) {
@@ -615,6 +624,103 @@ namespace {
                     shape.pointwiseTolerance_, {xw.recordings_, xw.reverseSweeps_, 0, "unavailable"});
     }
 
+    void CheckCoreBasket(const Case_& shape, const Reference_& ref, const ConditionalBasket_<true>& kernel,
+                         const ConditionalBasketDetail::FixedConditionalBasketCall_& plan) {
+        using Plan = ConditionalBasketDetail::FixedConditionalBasketCall_;
+        const auto sameBits = [](double a, double b) { return std::memcmp(&a, &b, sizeof(double)) == 0; };
+        const auto before = SecondOrderDetail::LastSecondOrderLogicalPeak();
+        const auto reject = [](const auto& run, SecondOrderErrorReason_::Value_ reason, std::optional<size_t> row) {
+            try {
+                run();
+            } catch (const SecondOrderError_& error) {
+                REQUIRE(error.Reason().Switch() == reason && error.DirectionIndex() == row, "fixed basket error type or direction");
+                return error.Stage();
+            }
+            THROW("expected fixed basket request to fail");
+        };
+        auto different = shape.point_;
+        different[0] = std::nextafter(different[0], std::numeric_limits<double>::infinity());
+        const auto one = Prefix(shape.directions_, 1);
+        REQUIRE(reject([&] { (void)plan.Evaluate(different, one); }, SecondOrderErrorReason_::Value_::OUTSIDE_DOMAIN, {}) ==
+                    SecondOrderStage_::Value_::VALIDATION, "uncertified basket point must fail before recording");
+        REQUIRE(reject([&] { (void)plan.Evaluate(shape.point_, shape.directions_); }, SecondOrderErrorReason_::Value_::INVALID_INPUT, {}) ==
+                    SecondOrderStage_::Value_::VALIDATION, "only one direction is eligible for the private basket plan");
+        REQUIRE(SecondOrderDetail::LastSecondOrderLogicalPeak() == before, "basket validation changed the active ledger");
+
+        Plan::Trace_ original{}, composed{};
+        const auto originalPrice = EvaluateSecondOrder([&](const auto& x) { return kernel.template Evaluate<true>(x, &original); },
+                                                       shape.point_, one);
+        const auto core = plan.Evaluate(shape.point_, one, {}, &composed);
+        REQUIRE(sameBits(originalPrice.Value(), core.Value()), "fixed basket primal bits");
+        REQUIRE(composed.statements_ == 53 && composed.edges_ == 377, "fixed basket core graph size");
+        std::cout << "basket_core_graph," << composed.statements_ << ',' << composed.edges_ << '\n';
+        for (size_t i = 0; i < original.prices_.size(); ++i) {
+            REQUIRE(sameBits(original.prices_[i], composed.prices_[i]), "fixed basket per-node primal bits");
+            std::cout << "basket_core_node," << i << ',' << kernel.nodes_[i].linear_ << ',' << std::hexfloat << original.prices_[i] << ','
+                      << composed.prices_[i] << std::defaultfloat << '\n';
+        }
+
+        double worst = 0.0;
+        for (int row = 0; row < shape.directions_.Rows(); ++row) {
+            Matrix_<> direction(1, 5);
+            std::copy(shape.directions_.Row(row).begin(), shape.directions_.Row(row).end(), direction.Row(0).begin());
+            const auto result = plan.Evaluate(shape.point_, direction);
+            REQUIRE(result.Execution().method_ == "NativeBasketComposedAAD" && !result.Execution().safePathActivations_, "fixed basket route");
+            double slope = 0.0;
+            for (int col = 0; col < 5; ++col) {
+                slope += direction(0, col) * ref.gradient_[col];
+                REQUIRE(std::abs(result.Gradient()[col] - ref.gradient_[col]) <= 2e-11, "fixed basket full Vega and correlation gradient");
+                worst = std::max(worst, std::abs(result.HessianProducts()(0, col) - ref.products_(row, col)));
+                std::cout << "basket_core_hvp," << row << ',' << col << ',' << result.HessianProducts()(0, col) << ',' << ref.products_(row, col)
+                          << '\n';
+            }
+            REQUIRE(std::abs(result.DirectionalDerivatives()[0] - slope) <= 2e-11, "fixed basket directional derivative");
+        }
+        REQUIRE(worst <= 2e-11, "fixed basket full HVP");
+        std::cout << "basket_core_hvp_error," << worst << '\n';
+
+        Matrix_<> stress(1, 5, 0.0);
+        stress(0, 0) = 0x1p40;
+        const auto checkReplay = [&](const Matrix_<>& direction, const char* reason) {
+            const auto wide = EvaluateSecondOrder([&](const auto& x) {
+                if (!SecondOrderDetail::activeArena->wide_)
+                    SecondOrderDetail::Promote("force original wide basket for verification");
+                return kernel(nullptr, x);
+            }, shape.point_, direction);
+            const auto protectedResult = plan.Evaluate(shape.point_, direction);
+            const auto& work = protectedResult.Execution();
+            REQUIRE(work.method_ == "NativeBasketScalarReplay" && work.recordings_ == 2 && work.reverseSweeps_ == 1 && work.safePathActivations_ == 1,
+                    "fixed basket protection must replay the scalar kernel");
+            REQUIRE(sameBits(wide.Value(), protectedResult.Value()) && wide.Gradient() == protectedResult.Gradient() &&
+                        wide.DirectionalDerivatives() == protectedResult.DirectionalDerivatives() &&
+                        std::equal(wide.HessianProducts().begin(), wide.HessianProducts().end(), protectedResult.HessianProducts().begin()),
+                    "fixed basket replay must equal the original wide scalar output");
+            REQUIRE(std::strcmp(SecondOrderDetail::LastSecondOrderProtection(), reason) == 0, "fixed basket replay reason");
+            std::cout << "basket_core_protection," << reason << ',' << work.recordings_ << ',' << work.reverseSweeps_ << ','
+                      << work.safePathActivations_ << '\n';
+        };
+        checkReplay(stress, "Black local derivative range");
+        Matrix_<> cancel(1, 5, 0.0);
+        cancel(0, 0) = -shape.point_[0] * (kernel.nodes_[0].z_ - shape.point_[2]);
+        cancel(0, 2) = 1.0;
+        checkReplay(cancel, "Black local derivative cancellation");
+
+        for (const auto* direction : {&one, static_cast<const Matrix_<>*>(&stress)}) {
+            const auto val = [&](const SecondOrderOptions_& options = {}) { return plan.Evaluate(shape.point_, *direction, options); };
+            const auto cold = std::async(std::launch::async, [&] { return val().Execution().peakTapeBytes_; }).get();
+            const auto hot = std::async(std::launch::async, [&] {
+                (void)reject([&] { (void)val({{}, cold - 1}); }, SecondOrderErrorReason_::Value_::BUDGET_EXCEEDED, 0);
+                REQUIRE(val({{}, cold}).Execution().peakTapeBytes_ == cold, "fixed basket cold exact cap");
+                const auto cap = val().Execution().peakTapeBytes_;
+                REQUIRE(val({{}, cap}).Execution().peakTapeBytes_ == cap, "fixed basket hot exact cap");
+                (void)reject([&] { (void)val({{}, cap - 1}); }, SecondOrderErrorReason_::Value_::BUDGET_EXCEEDED, 0);
+                REQUIRE(val().Execution().peakTapeBytes_ == cold, "fixed basket failed cap did not release tape");
+                return cap;
+            }).get();
+            std::cout << "basket_core_cap," << (direction == &one ? "ordinary" : "protected") << ',' << cold << ',' << hot << '\n';
+        }
+    }
+
     template <class K_> void RunS0(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
         if (!options.s0Case_.empty() && options.s0Case_ != shape.name_)
             return;
@@ -632,6 +738,21 @@ namespace {
         for (int count : {1, shape.directions_.Rows()}) {
             if (options.s0Directions_ && options.s0Directions_ != count)
                 continue;
+            if constexpr (std::is_same_v<K_, ConditionalBasket_<true>>) {
+                if (count == 1) {
+                    ConditionalBasketDetail::FixedConditionalBasketCall_::Nodes_ nodes{};
+                    REQUIRE(kernel.nodes_.size() == nodes.size(), "expected the frozen conditional basket quadrature");
+                    std::transform(kernel.nodes_.begin(), kernel.nodes_.end(), nodes.begin(), [](const auto& node) {
+                        return ConditionalBasketDetail::Node_{node.z_, node.weight_, node.linear_};
+                    });
+                    const ConditionalBasketDetail::FixedConditionalBasketCall_ plan(BASKET_STRIKE, BASKET_RATE, nodes, shape.point_);
+                    if (options.verifyOnly_)
+                        CheckCoreBasket(shape, ref, kernel, plan);
+                    const auto evaluate = [&](const auto&, const auto& point, const auto& request) { return plan.Evaluate(point, request.directions_); };
+                    RunS0Directions(shape, ref, options, count, dal, evaluate, xad);
+                    continue;
+                }
+            }
             if constexpr (std::is_same_v<K_, ConditionalBasket_<true>> || std::is_same_v<K_, TapePerfDupire::Kernel_>) {
                 if (options.s0Shared_ && count >= 2) {
                     RunS0Directions(shape, ref, options, count, scalar,
