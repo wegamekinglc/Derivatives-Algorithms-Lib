@@ -15,6 +15,7 @@ namespace Dal::AAD {
     namespace ForwardOverReverseDetail {
         struct NumberAccess_ {
             static const Number_& Primal(const ForwardOverReverseNumber_& value) { return value.primal_; }
+            static Number_& Primal(ForwardOverReverseNumber_& value) { return value.primal_; }
             static const Number_& Tangent(const ForwardOverReverseNumber_& value) { return value.tangent_; }
             static ForwardOverReverseNumber_ Make(Number_ primal, Number_ tangent) {
                 REQUIRE(std::isfinite(Value(primal)) && std::isfinite(Value(tangent)),
@@ -23,8 +24,10 @@ namespace Dal::AAD {
             }
 
             template <class P_, class T_> static FORCE_INLINE ForwardOverReverseNumber_ Make(const P_& primal, const T_& tangent) {
-                // Pair materialization needs just one lookup of the thread's tape.
-                auto* tape = Tape();
+                // The retained pointer is the live default tape after registration.
+                auto* tape = NativeThread::retainedTape;
+                if (!tape)
+                    tape = Tape();
                 auto recordedTangent = Materialize(tangent, tape);
                 auto recordedPrimal = Materialize(primal, tape);
                 return Make(std::move(recordedPrimal), std::move(recordedTangent));
@@ -250,7 +253,14 @@ namespace Dal::AAD {
                 result.gradient_ = ReadGradient(inputs);
             }
             if (directions.Rows() != 0) {
-                recording.ClearAdjoints();
+                if (row == 0) {
+                    // Scalar reverse clears nonleaf adjoints as it consumes them.
+                    // The product reads only the primal input leaves.
+                    for (auto& input : inputs)
+                        NativeOperations_::SetSeed(Access::Primal(input), 0.0);
+                } else {
+                    recording.ClearAdjoints();
+                }
                 NativeOperations_::SetSeed(tangentRoot, 1.0);
                 recording.Reverse();
                 result.product_ = ReadGradient(inputs);
