@@ -136,6 +136,7 @@ TEST(AADSharedSecondOrderTest, TestReplayStartsOnlyForProtectionAndPreservesPoin
             EXPECT_EQ(work.sharedTangentSweeps_, row == 0 ? 0U : 1U);
             EXPECT_EQ(work.sharedReverseSweeps_, row == 0 ? 0U : 1U);
             EXPECT_EQ(work.pointwiseReverseSweeps_, 6U);
+        EXPECT_EQ(work.pointwiseSafePathActivations_, 6U);
             EXPECT_EQ(work.callbackEvaluations_, work.pointwiseRecordings_ + 1);
             EXPECT_EQ(work.retainedTapeBytes_, 0U);
             EXPECT_DOUBLE_EQ(risk.HessianProducts()(row, 0), 0x1p57);
@@ -402,6 +403,129 @@ TEST(AADSharedSecondOrderTest, TestReverseResidualThroughInternalRepeatedOperand
     EXPECT_EQ(work.sharedReverseSweeps_, 2U);
     EXPECT_EQ(work.replayDirections_, 0U);
     EXPECT_EQ(work.pointwiseRecordings_, 0U);
+}
+
+TEST(AADSharedSecondOrderTest, TestCurvatureUsesOrdinaryAdjointResidual) {
+    constexpr double spot = 0x1p-24;
+    const double baseLog = std::log(spot);
+    const auto kernel = [baseLog](const auto& x) {
+        using Number = std::decay_t<decltype(x[0])>;
+        const Number a = log(x[0]) - baseLog;
+        const Number q = a * a;
+        const Number l = 0x1p27 * q;
+        const Number r = (0x1p27 + 1.0) * q;
+        return 0x1p21 * l - ((0x1p27 - 1.0) * 0x1p-6) * r;
+    };
+    Matrix_<> directions(2, 1);
+    directions(0, 0) = 16.0;
+    directions(1, 0) = -0.0;
+    const auto result = EvaluateSharedSecondOrder(kernel, {spot}, directions);
+
+    EXPECT_EQ(result.Value(), 0.0);
+    EXPECT_EQ(result.Gradient(), (Vector_<>{0.0}));
+    EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{0.0, 0.0}));
+    EXPECT_EQ(result.HessianProducts()(0, 0), 0x1p47);
+    EXPECT_EQ(result.HessianProducts()(1, 0), 0.0);
+    EXPECT_TRUE(std::signbit(result.Directions()(1, 0)));
+    EXPECT_FALSE(std::signbit(result.DirectionalDerivatives()[1]));
+    EXPECT_FALSE(std::signbit(result.HessianProducts()(1, 0)));
+    const auto& work = result.Execution();
+    EXPECT_EQ(work.callbackEvaluations_, 1U);
+    EXPECT_EQ(work.sharedRecordings_, 1U);
+    EXPECT_EQ(work.sharedTangentSweeps_, 2U);
+    EXPECT_EQ(work.sharedReverseSweeps_, 2U);
+    EXPECT_EQ(work.replayDirections_, 0U);
+    EXPECT_EQ(work.pointwiseSafePathActivations_, 0U);
+}
+
+TEST(AADSharedSecondOrderTest, TestCurvatureCarriesAdjointLowLimbIntoHvpAccumulation) {
+    const auto kernel = [](const auto& x) {
+        using Number = std::decay_t<decltype(x[0])>;
+        const Number left = x[0] * x[0];
+        const Number right = (0x1p27 + 1.0) * Number(x[0] * x[0]);
+        return left - ((0x1p27 - 1.0) * 0x1p-54) * right;
+    };
+    Matrix_<> directions(2, 1);
+    directions(0, 0) = 0.5;
+    directions(1, 0) = -0.5;
+    const auto result = EvaluateSharedSecondOrder(kernel, {0.0}, directions);
+
+    EXPECT_EQ(result.Value(), 0.0);
+    EXPECT_EQ(result.Gradient(), (Vector_<>{0.0}));
+    EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{0.0, 0.0}));
+    EXPECT_EQ(result.HessianProducts()(0, 0), 0x1p-54);
+    EXPECT_EQ(result.HessianProducts()(1, 0), -0x1p-54);
+    EXPECT_EQ(result.Execution().sharedRecordings_, 1U);
+    EXPECT_EQ(result.Execution().sharedTangentSweeps_, 2U);
+    EXPECT_EQ(result.Execution().sharedReverseSweeps_, 2U);
+    EXPECT_EQ(result.Execution().replayDirections_, 0U);
+}
+
+TEST(AADSharedSecondOrderTest, TestSeedProtectionCoversEveryNonzeroDirection) {
+    const auto kernel = [](const auto& x) { return (x[0] + x[1]) - x[2]; };
+    for (int large : {0, 1}) {
+        SCOPED_TRACE(large);
+        const int small = 1 - large;
+        Matrix_<> directions(2, 3, 0.0);
+        directions(large, 0) = 0x1p56;
+        directions(small, 0) = directions(small, 2) = 1.0;
+        directions(small, 1) = 0x1p-54;
+        const auto result = EvaluateSharedSecondOrder(kernel, {0.0, 0.0, 0.0}, directions);
+
+        EXPECT_EQ(result.Value(), 0.0);
+        EXPECT_EQ(result.Gradient(), (Vector_<>{1.0, 1.0, -1.0}));
+        EXPECT_EQ(result.DirectionalDerivatives()[large], 0x1p56);
+        EXPECT_EQ(result.DirectionalDerivatives()[small], 0x1p-54);
+        for (int row = 0; row < directions.Rows(); ++row)
+            for (int col = 0; col < directions.Cols(); ++col) {
+                EXPECT_EQ(result.HessianProducts()(row, col), 0.0);
+                EXPECT_FALSE(std::signbit(result.HessianProducts()(row, col)));
+            }
+        const auto& work = result.Execution();
+        EXPECT_EQ(work.callbackEvaluations_, 5U);
+        EXPECT_EQ(work.sharedRecordings_, 1U);
+        EXPECT_EQ(work.sharedTangentSweeps_, static_cast<size_t>(large));
+        EXPECT_EQ(work.sharedReverseSweeps_, 0U);
+        EXPECT_EQ(work.replayDirections_, 2U);
+        EXPECT_EQ(work.pointwiseRecordings_, 4U);
+        EXPECT_EQ(work.pointwiseReverseSweeps_, 2U);
+        EXPECT_EQ(work.pointwiseSafePathActivations_, 2U);
+    }
+}
+
+TEST(AADSharedSecondOrderTest, TestReplayGradientIsIndependentOfZeroDirectionPosition) {
+    const auto kernel = [](const auto& x) {
+        using Number = std::decay_t<decltype(x[0])>;
+        const Number l = 0x1p27 * x[0];
+        const Number r = (0x1p27 + 1.0) * x[0];
+        return 0x1p21 * l - ((0x1p27 - 1.0) * 0x1p-6) * r;
+    };
+    for (int zero : {0, 1}) {
+        SCOPED_TRACE(zero);
+        Matrix_<> directions(2, 1);
+        directions(zero, 0) = -0.0;
+        directions(1 - zero, 0) = 0x1p56;
+        const auto result = EvaluateSharedSecondOrder(kernel, {0.0}, directions);
+
+        EXPECT_EQ(result.Value(), 0.0);
+        EXPECT_EQ(result.Gradient(), (Vector_<>{0x1p-6}));
+        EXPECT_EQ(result.DirectionalDerivatives()[1 - zero], 0x1p50);
+        EXPECT_EQ(result.DirectionalDerivatives()[zero], 0.0);
+        EXPECT_EQ(result.HessianProducts()(0, 0), 0.0);
+        EXPECT_EQ(result.HessianProducts()(1, 0), 0.0);
+        EXPECT_TRUE(std::signbit(result.Directions()(zero, 0)));
+        EXPECT_FALSE(std::signbit(result.DirectionalDerivatives()[zero]));
+        EXPECT_FALSE(std::signbit(result.HessianProducts()(zero, 0)));
+        const auto& work = result.Execution();
+        EXPECT_EQ(work.callbackEvaluations_, 4U);
+        EXPECT_EQ(work.sharedRecordings_, 1U);
+        EXPECT_EQ(work.sharedTangentSweeps_, static_cast<size_t>(zero == 0));
+        EXPECT_EQ(work.sharedReverseSweeps_, static_cast<size_t>(zero == 0));
+        EXPECT_EQ(work.replayDirections_, 2U);
+        EXPECT_EQ(work.pointwiseRecordings_, 3U);
+        EXPECT_EQ(work.pointwiseReverseSweeps_, 2U);
+        EXPECT_EQ(work.pointwiseSafePathActivations_, 1U);
+    }
 }
 
 TEST(AADSharedSecondOrderTest, TestOrdinaryRoundingAndExactCancellationStayShared) {

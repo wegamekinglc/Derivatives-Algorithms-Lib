@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <atomic>
 #include <cfenv>
 #include <climits>
@@ -312,9 +313,12 @@ namespace Dal::AAD {
                     Error(Reason::NUMERICAL_FAILURE, "same-point price changed between recordings");
                 recordedPrice = value;
                 const Slot_ slot = Access_::Slot(price, arena);
-                if constexpr (std::is_same_v<F_, ReplayFunction_> && std::is_same_v<T_, double>) {
-                    if (function.protectNonzeroDirections_ && !zero)
-                        Promote("shared tangent propagation needs protected arithmetic");
+                bool publishGradient = row == 0;
+                if constexpr (std::is_same_v<F_, ReplayFunction_>) {
+                    publishGradient = row == function.gradientRow_;
+                    if constexpr (std::is_same_v<T_, double>)
+                        if (!zero || publishGradient)
+                            Promote("shared replay needs protected derivative arithmetic");
                 }
                 const T_ tangent = zero ? T_(0) : Access_::Tangent<T_>(price, arena, slot);
                 arena.liveDirection_ = false;
@@ -328,7 +332,7 @@ namespace Dal::AAD {
                 const auto* const adjoints = arena.Adjoints<T_>().Data();
                 for (size_t i = 0; i < point.size(); ++i) {
                     const double gradient = Publish(adjoints[i].value_);
-                    if (row == 0)
+                    if (publishGradient)
                         output.gradient_[i] = gradient;
                     if (directions.Rows())
                         output.products_(row, static_cast<int>(i)) = zero ? 0.0 : Publish(adjoints[i].tangent_);
@@ -353,8 +357,17 @@ namespace Dal::AAD {
             }
         } // namespace
 
-        double ReplayPrivately(const ReplayFunction_& function, const Vector_<>& point, const Matrix_<>& directions, size_t cap,
+        double ReplayPrivately(ReplayFunction_ function, const Vector_<>& point, const Matrix_<>& directions, size_t cap,
                                DirectionOutput_ output, std::optional<double> recordedPrice) {
+            // Use a protected row for the direction-independent gradient.
+            // For an all-zero request, protect the first row itself.
+            for (int row = 0; row < directions.Rows(); ++row) {
+                const auto seeds = directions.Row(row);
+                if (std::any_of(seeds.begin(), seeds.end(), [](double seed) { return seed != 0.0; })) {
+                    function.gradientRow_ = row;
+                    break;
+                }
+            }
             Arena_ arena;
             arena.BeginRequest(cap);
             const ActiveArena_ active(arena);

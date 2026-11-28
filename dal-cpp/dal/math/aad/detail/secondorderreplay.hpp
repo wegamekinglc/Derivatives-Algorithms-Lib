@@ -21,7 +21,7 @@ namespace Dal::AAD {
         struct ReplayFunction_ {
             const void* object_;
             SecondOrderNumber_ (*call_)(const void*, const Vector_<SecondOrderNumber_>&);
-            bool protectNonzeroDirections_;
+            int gradientRow_ = 0;
 
             SecondOrderNumber_ operator()(const Vector_<SecondOrderNumber_>& point) const { return call_(object_, point); }
         };
@@ -34,7 +34,7 @@ namespace Dal::AAD {
         };
 
         // The caller holds the recording lock and owns all inputs and result buffers.
-        double ReplayPrivately(const ReplayFunction_& function, const Vector_<>& point, const Matrix_<>& directions, size_t cap,
+        double ReplayPrivately(ReplayFunction_ function, const Vector_<>& point, const Matrix_<>& directions, size_t cap,
                                DirectionOutput_ output, std::optional<double> recordedPrice);
     } // namespace SecondOrderDetail
 } // namespace Dal::AAD

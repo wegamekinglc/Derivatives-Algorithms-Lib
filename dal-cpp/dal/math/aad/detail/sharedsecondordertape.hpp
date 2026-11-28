@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <exception>
 #include <limits>
@@ -15,7 +16,13 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         Slot_ left_, right_;
         // Binary operators have zero left-left curvature. A unary node
         // uses the otherwise unused right weight for its curvature.
-        double dl_, rightWeightOrCurvature_, dlr_, drr_;
+        double dl_, rightWeightOrCurvature_, dlr_;
+
+        // Only division has negative mixed curvature, and it is the only
+        // binary primitive with nonzero right-right curvature.
+        [[nodiscard]] FORCE_INLINE double RightCurvature() const {
+            return dlr_ < 0.0 ? -2.0 * (rightWeightOrCurvature_ * dl_) : 0.0;
+        }
     };
 
     struct Local_ {
@@ -125,7 +132,9 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             RecordingError(Reason::CAPACITY_EXCEEDED, "shared graph slot limit exceeded");
         if (size_ == nodes_.capacity_)
             GrowNodes();
-        nodes_.values_[size_++] = {node.left_, node.right_, node.dl_, node.right_ ? node.dr_ : node.dll_, node.dlr_, node.drr_};
+        const Node_ stored{node.left_, node.right_, node.dl_, node.right_ ? node.dr_ : node.dll_, node.dlr_};
+        assert(!node.right_ || (node.dll_ == 0.0 && node.drr_ == stored.RightCurvature()));
+        nodes_.values_[size_++] = stored;
         return Bind(value, static_cast<Slot_>(inputs_ + size_));
     }
 
