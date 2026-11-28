@@ -630,6 +630,8 @@ namespace {
             const auto n = static_cast<size_t>(count);
             CheckS0Xad(xw, n, dw.numericPayloadBytes_);
             CheckS0Dal(shape, ref, request, dal, ad);
+            std::cout << "s0_owned," << shape.name_ << ',' << count << ',' << dw.numericPayloadBytes_ << ',' << dw.method_ << ',' << xw.method_
+                      << '\n';
         });
         VerifyRoute(shape, ref, request.directions_, "xad_s0", xv.risk_.price_, xv.risk_.gradient_, xv.risk_.directional_, xv.risk_.products_,
                     shape.pointwiseTolerance_, {xw.recordings_, xw.reverseSweeps_, 0, "unavailable"});
