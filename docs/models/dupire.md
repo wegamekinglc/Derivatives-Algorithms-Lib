@@ -286,16 +286,15 @@ memory also includes the plan, metadata and other retained arenas.
 In the single-threaded GCC Release benchmark on an i9-13900HX under WSL2, the
 registered routine one- and three-direction requests both meet the frozen
 DAL-to-XAD 1.8.0 latency limits of 1.10 at P50 and 1.15 at P95 in two qualified
-rounds. The one-direction P50/P95 ratios are 1.069/1.088 and 1.058/1.096.
-The three-direction ratios are 1.079/1.139 and 1.073/1.096. Protection cases
+rounds. The one-direction P50/P95 ratios are 1.069/1.140 and 1.066/1.041.
+The three-direction ratios are 1.097/1.120 and 1.080/1.136. Protection cases
 have separate numerical, execution-count and capacity checks.
 
-Five of the six benchmark groups meet both latency limits. The other passing
-groups are the independently priced Black–Scholes one- and three-direction
-requests and the six-direction conditional basket. The one-direction
-conditional basket exceeds the limits on the default path. Its experimental
-quadrature fold exceeds the P50 limit in the two rounds selected by the
-confirmation rule.
+All six benchmark groups meet both latency limits in those same two rounds.
+The other four groups are the independently priced Black–Scholes one- and
+three-direction requests and the fixed-plan conditional basket one- and
+six-direction requests. The basket uses the private core evaluator with
+compensated quadrature tangents for one direction and shared AAD for six.
 
 ## See Also
 
