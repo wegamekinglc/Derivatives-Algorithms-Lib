@@ -1,5 +1,7 @@
 #pragma once
 
+#include <dal/platform/host.hpp>
+
 #include <dal/math/aad/detail/secondordertape.hpp>
 
 namespace Dal::AAD::SecondOrderDetail {
@@ -243,30 +245,36 @@ namespace Dal::AAD::SecondOrderDetail {
         }
     };
 
-    template <class T_, bool Active_> struct Leaf_ {
+    template <class T_, class Edges_> struct Prepared_ {
         Dual_<T_> dual_;
+        Edges_ edges_;
+        static constexpr bool active_ = Edges_::active_;
+    };
+
+    template <class T_, bool Active_> struct LeafEdges_ {
         Slot_ slot_;
         static constexpr bool active_ = Active_;
+        static constexpr size_t preparationBytes_ = sizeof(Prepared_<T_, LeafEdges_>);
         template <bool Root_> void Push(Weight_<T_> weight, EdgeWriter_<T_>& scratch) const { scratch.AddEdge(slot_, weight); }
     };
 
-    template <class T_, class A_> struct UnaryPrepared_ {
-        Dual_<T_> dual_;
+    template <class T_, class A_> struct UnaryEdges_ {
         Weight_<T_> weight_;
         A_ input_;
         static constexpr bool active_ = A_::active_;
+        static constexpr size_t preparationBytes_ = sizeof(Dual_<T_>) + sizeof(Weight_<T_>) + A_::preparationBytes_;
 
         template <bool Root_> void Push(Weight_<T_> weight, EdgeWriter_<T_>& scratch) const {
             input_.template Push<false>(Root_ ? weight_ : Compose(weight, weight_), scratch);
         }
     };
 
-    template <class T_, class A_, class B_> struct BinaryPrepared_ {
-        Dual_<T_> dual_;
+    template <class T_, class A_, class B_> struct BinaryEdges_ {
         Weight_<T_> leftWeight_, rightWeight_;
         A_ left_;
         B_ right_;
         static constexpr bool active_ = A_::active_ || B_::active_;
+        static constexpr size_t preparationBytes_ = sizeof(Dual_<T_>) + 2 * sizeof(Weight_<T_>) + A_::preparationBytes_ + B_::preparationBytes_;
 
         template <bool Root_> void Push(Weight_<T_> weight, EdgeWriter_<T_>& scratch) const {
             if constexpr (A_::active_)
@@ -282,27 +290,27 @@ namespace Dal::AAD::SecondOrderDetail {
         return value;
     }
 
-    template <class T_> void CheckOperand(double v) {
+    template <class T_> FORCE_INLINE void CheckOperand(double v) {
         FinitePrimal(v);
         if constexpr (std::is_same_v<T_, double>)
             (void)Guard(v);
     }
 
-    template <class T_> auto Prepare(const SecondOrderNumber_&, Arena_&) -> Leaf_<T_, true>;
-    template <class T_> auto Prepare(const Constant_&, Arena_&) -> Leaf_<T_, false>;
+    template <class T_> FORCE_INLINE auto Prepare(const SecondOrderNumber_&, Arena_&) -> Prepared_<T_, LeafEdges_<T_, true>>;
+    template <class T_> FORCE_INLINE auto Prepare(const Constant_&, Arena_&) -> Prepared_<T_, LeafEdges_<T_, false>>;
     template <class T_, class Op_, class A_> auto Prepare(const Unary_<Op_, A_>&, Arena_&);
     template <class T_, class Op_, class A_, class B_> auto Prepare(const Binary_<Op_, A_, B_>&, Arena_&);
 
-    template <class T_> auto Prepare(const SecondOrderNumber_& value, Arena_& arena) -> Leaf_<T_, true> {
+    template <class T_> FORCE_INLINE auto Prepare(const SecondOrderNumber_& value, Arena_& arena) -> Prepared_<T_, LeafEdges_<T_, true>> {
         const auto slot = Access_::Slot(value, arena);
         const auto primal = Access_::Value(value);
         CheckOperand<T_>(primal);
-        return {{primal, Access_::Tangent<T_>(value, arena, slot)}, slot};
+        return {{primal, Access_::Tangent<T_>(value, arena, slot)}, {slot}};
     }
 
-    template <class T_> auto Prepare(const Constant_& value, Arena_&) -> Leaf_<T_, false> {
+    template <class T_> FORCE_INLINE auto Prepare(const Constant_& value, Arena_&) -> Prepared_<T_, LeafEdges_<T_, false>> {
         CheckOperand<T_>(value.value_);
-        return {{value.value_, T_(0)}, PASSIVE};
+        return {{value.value_, T_(0)}, {PASSIVE}};
     }
 
     template <class T_, class Op_, class A_> auto Prepare(const Unary_<Op_, A_>& expression, Arena_& arena) {
@@ -310,7 +318,8 @@ namespace Dal::AAD::SecondOrderDetail {
         const auto local = expression.op_.Apply(a.dual_);
         if constexpr (std::is_same_v<T_, Wide_>)
             FinitePrimal(local.result_.value_);
-        return UnaryPrepared_<T_, decltype(a)>{local.result_, local.weight_, std::move(a)};
+        using Edges = UnaryEdges_<T_, decltype(a.edges_)>;
+        return Prepared_<T_, Edges>{local.result_, {local.weight_, std::move(a.edges_)}};
     }
 
     template <class T_, class Op_, class A_, class B_> auto Prepare(const Binary_<Op_, A_, B_>& expression, Arena_& arena) {
@@ -319,23 +328,24 @@ namespace Dal::AAD::SecondOrderDetail {
         const auto local = Op_::template Apply<decltype(a)::active_, decltype(b)::active_>(a.dual_, b.dual_);
         if constexpr (std::is_same_v<T_, Wide_>)
             FinitePrimal(local.result_.value_);
-        return BinaryPrepared_<T_, decltype(a), decltype(b)>{local.result_, local.left_, local.right_, std::move(a), std::move(b)};
+        using Edges = BinaryEdges_<T_, decltype(a.edges_), decltype(b.edges_)>;
+        return Prepared_<T_, Edges>{local.result_, {local.left_, local.right_, std::move(a.edges_), std::move(b.edges_)}};
     }
 
-    template <class T_, size_t N_, class E_> SecondOrderNumber_ Append(Arena_& arena, const E_& expression, size_t temporary) {
-        const auto result = expression.dual_;
+    template <class T_, size_t N_, class Emit_>
+    SecondOrderNumber_ Append(Arena_& arena, const Dual_<T_>& result, size_t temporary, const Emit_& emit) {
         static_assert(N_ < PASSIVE, "second-order expression exceeds the edge index range");
         constexpr auto n = static_cast<Slot_>(N_);
         if (arena.slots_ >= PASSIVE - 1 || arena.edges_ >= PASSIVE - n)
             Error(Reason::CAPACITY_EXCEEDED, "second-order slot or edge limit exceeded");
         auto& weights = arena.template Weights<T_>();
         const auto edgeEnd = arena.edges_ + n;
-        if ((arena.statements_ >= arena.statement_.capacity_) | (edgeEnd > arena.rhs_.capacity_) | (edgeEnd > weights.capacity_)) {
+        if ((arena.statements_ >= arena.statement_.capacity_) | (edgeEnd > arena.edgeCapacity_)) {
             const Scratch_ duringGrowth(arena, temporary);
             arena.template GrowStatement<T_>(edgeEnd);
         }
         EdgeWriter_<T_> edges{arena.rhs_.Data() + arena.edges_, weights.Data() + arena.edges_};
-        expression.template Push<true>({T_(1), T_(0)}, edges);
+        emit(edges);
         if (edges.size_ == 0)
             return SecondOrderNumber_(result.value_);
         const auto slot = arena.slots_;
@@ -354,13 +364,39 @@ namespace Dal::AAD::SecondOrderDetail {
     }
 
     template <class T_, class E_> SecondOrderNumber_ Materialize(Arena_& arena, const E_& expression) {
-        using Prepared = decltype(Prepare<T_>(expression, arena));
-        constexpr size_t temporary = sizeof(EdgeWriter_<T_>) + sizeof(Prepared);
-        arena.Account(temporary);
+        using Edges = decltype(Prepare<T_>(expression, arena).edges_);
+        // Forward preparation can need a dual at each node. The returned
+        // recipe keeps just the root dual and composes edges in source order.
+        constexpr size_t temporary = sizeof(EdgeWriter_<T_>) + Edges::preparationBytes_;
+        arena.AccountTemporary(temporary);
         const auto value = Prepare<T_>(expression, arena);
-        auto recorded = Append<T_, Leaves<E_>()>(arena, value, temporary);
+        auto recorded =
+            Append<T_, Leaves<E_>()>(arena, value.dual_, temporary, [&](auto& edges) { value.edges_.template Push<true>({T_(1), T_(0)}, edges); });
         arena.AccountLogical<T_>(false, temporary);
         return recorded;
+    }
+
+    template <class E_> constexpr bool IsLeaf = std::is_same_v<E_, SecondOrderNumber_> || std::is_same_v<E_, Constant_>;
+
+    template <class E_> SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const E_& expression) { return Materialize<double>(arena, expression); }
+
+    template <class Op_, class A_, class B_, std::enable_if_t<IsLeaf<A_> && IsLeaf<B_>, int> = 0>
+    FORCE_INLINE SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const Binary_<Op_, A_, B_>& expression) {
+        using Left = decltype(Prepare<double>(expression.left_, arena));
+        using Right = decltype(Prepare<double>(expression.right_, arena));
+        constexpr size_t temporary = sizeof(EdgeWriter_<double>) + sizeof(BinaryValue_<double>) + sizeof(Left) + sizeof(Right);
+        arena.AccountTemporary(temporary);
+        const auto left = Prepare<double>(expression.left_, arena);
+        const auto right = Prepare<double>(expression.right_, arena);
+        const auto local = Op_::template Apply<Left::active_, Right::active_>(left.dual_, right.dual_);
+        const auto result = Append<double, Leaves<Binary_<Op_, A_, B_>>()>(arena, local.result_, temporary, [&](auto& edges) {
+            if constexpr (Left::active_)
+                edges.AddEdge(left.edges_.slot_, local.left_);
+            if constexpr (Right::active_)
+                edges.AddEdge(right.edges_.slot_, local.right_);
+        });
+        arena.AccountLogical<double>(false, temporary);
+        return result;
     }
 
     template <class E_>
@@ -382,7 +418,7 @@ namespace Dal::AAD::SecondOrderDetail {
         try {
             if (arena->wide_)
                 return MaterializeProtected(*arena, expression);
-            return Materialize<double>(*arena, expression);
+            return MaterializeNarrow(*arena, expression);
         } catch (const Retry_&) {
             throw;
         } catch (...) {

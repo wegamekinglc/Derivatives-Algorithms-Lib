@@ -49,6 +49,36 @@ TEST(AADSecondOrderTest, ReturnsOwningGradientAndProductsInOneSweepPerDirection)
     EXPECT_EQ(risk.Execution().safePathActivations_, 0U);
 }
 
+TEST(AADSecondOrderTest, MaterializesScalarProductsBeforeRebindingAndPreservesOperandErrors) {
+    const Matrix_<> seed(1, 1, 2.0);
+    const auto risk = EvaluateSecondOrder(
+        [](const auto& x) -> SecondOrderNumber_ {
+            auto scaled = x[0];
+            scaled = -2.0 * scaled;
+            scaled *= scaled;
+            const SecondOrderNumber_ half = scaled * 0.5;
+            return half + SecondOrderNumber_(3.0);
+        },
+        {3.0}, seed);
+    EXPECT_DOUBLE_EQ(risk.Value(), 21.0);
+    EXPECT_DOUBLE_EQ(risk.Gradient()[0], 12.0);
+    EXPECT_DOUBLE_EQ(risk.DirectionalDerivatives()[0], 24.0);
+    EXPECT_DOUBLE_EQ(risk.HessianProducts()(0, 0), 8.0);
+    EXPECT_EQ(risk.Execution().safePathActivations_, 0U);
+
+    const SecondOrderFunction_ invalid = [](const auto& x) -> SecondOrderNumber_ {
+        const double infinity = std::numeric_limits<double>::infinity();
+        try {
+            const SecondOrderNumber_ product = infinity * x[0];
+            return product;
+        } catch (const SecondOrderError_&) {
+            return x[0];
+        }
+    };
+    CheckError([&] { (void)EvaluateSecondOrder(invalid, {0.0}, seed); }, Reason::NUMERICAL_FAILURE, Stage::RECORDING, 0);
+    EXPECT_DOUBLE_EQ(EvaluateSecondOrder(square, {2.0}, seed).Value(), 4.0);
+}
+
 TEST(AADSecondOrderTest, PreservesTermsThroughCancellationAndExtremeAdjoints) {
     for (double c : {-1e16, 1e308}) {
         const Vector_<> point{0.5, -c};

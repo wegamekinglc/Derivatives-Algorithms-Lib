@@ -97,6 +97,7 @@ namespace Dal::AAD {
             wideAdjoint_ = {};
             wideTangent_ = {};
             live_ = 0;
+            edgeCapacity_ = admittedTemporary_ = 0;
         }
 
         void Arena_::BeginRequest(size_t cap) {
@@ -113,7 +114,7 @@ namespace Dal::AAD {
             }
             cap_ = cap;
             peak_ = live_;
-            logicalPeak_ = scratch_ = 0;
+            logicalPeak_ = scratch_ = admittedTemporary_ = 0;
             stage_ = Stage::VALIDATION;
             protection_ = "";
             direction_.reset();
@@ -125,6 +126,7 @@ namespace Dal::AAD {
             ++generation_;
             slots_ = statements_ = edges_ = 0;
             wide_ = wide;
+            edgeCapacity_ = std::min(rhs_.capacity_, wide ? wideWeight_.capacity_ : weight_.capacity_);
             retry_ = false;
             liveDirection_ = true;
             stage_ = Stage::RECORDING;

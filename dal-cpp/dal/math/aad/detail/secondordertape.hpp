@@ -102,7 +102,9 @@ namespace Dal::AAD::SecondOrderDetail {
         Block_<Weight_<double>> weight_, adjoint_;
         Block_<Weight_<Wide_>> wideWeight_, wideAdjoint_;
         Block_<Wide_> wideTangent_;
+        size_t edgeCapacity_ = 0;
         size_t cap_ = std::numeric_limits<size_t>::max(), live_ = 0, peak_ = 0, logicalPeak_ = 0, scratch_ = 0;
+        size_t admittedTemporary_ = 0;
         bool wide_ = false, retry_ = false, liveDirection_ = false;
         bool poisoned_ = false;
         const char* protection_ = "";
@@ -120,6 +122,15 @@ namespace Dal::AAD::SecondOrderDetail {
             if (additional > cap_ - already)
                 BudgetFailure(additional);
             peak_ = std::max(peak_, already + additional);
+        }
+
+        // Between changes to the buffers or persistent scratch, a smaller
+        // temporary fits the same cap and cannot raise the request peak.
+        void AccountTemporary(size_t bytes) {
+            if (bytes <= admittedTemporary_)
+                return;
+            Account(bytes);
+            admittedTemporary_ = bytes;
         }
 
         template <class T_> void AccountLogical(bool reversing = false, size_t temporary = 0) {
@@ -140,7 +151,9 @@ namespace Dal::AAD::SecondOrderDetail {
         void GrowStatement(Slot_ end) {
             Ensure(statement_, statements_, statements_ + 1);
             Ensure(rhs_, edges_, end);
-            Ensure(Weights<T_>(), edges_, end);
+            auto& weights = Weights<T_>();
+            Ensure(weights, edges_, end);
+            edgeCapacity_ = std::min(rhs_.capacity_, weights.capacity_);
         }
 
         template <class T_> void Ensure(Block_<T_>& block, size_t used, size_t needed) {
@@ -152,6 +165,7 @@ namespace Dal::AAD::SecondOrderDetail {
                 if (used)
                     std::copy_n(block.Data(), used, memory.get());
                 live_ += (next - block.capacity_) * sizeof(T_);
+                admittedTemporary_ = 0;
                 block.data_ = std::move(memory);
                 block.capacity_ = next;
             } catch (...) {
@@ -191,8 +205,12 @@ namespace Dal::AAD::SecondOrderDetail {
         Scratch_(Arena_& arena, size_t bytes) : arena_(arena), bytes_(bytes) {
             arena_.Account(bytes);
             arena_.scratch_ += bytes;
+            arena_.admittedTemporary_ = 0;
         }
-        ~Scratch_() { arena_.scratch_ -= bytes_; }
+        ~Scratch_() {
+            arena_.scratch_ -= bytes_;
+            arena_.admittedTemporary_ = 0;
+        }
     };
 
     struct Access_ {
