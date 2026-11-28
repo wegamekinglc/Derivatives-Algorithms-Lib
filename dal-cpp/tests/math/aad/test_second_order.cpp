@@ -79,6 +79,24 @@ TEST(AADSecondOrderTest, MaterializesScalarProductsBeforeRebindingAndPreservesOp
     EXPECT_DOUBLE_EQ(EvaluateSecondOrder(square, {2.0}, seed).Value(), 4.0);
 }
 
+TEST(AADSecondOrderTest, RejectsAFailedRightSubtreeAfterPreparingTheLeftSubtree) {
+    const Matrix_<> seed(1, 1, 1.0);
+    const SecondOrderFunction_ evaluate = [](const auto& x) -> SecondOrderNumber_ {
+        try {
+            const SecondOrderNumber_ price = (x[0] * x[0] + x[0]) / (x[0] - 2.0);
+            return price;
+        } catch (const SecondOrderError_&) {
+            return x[0];
+        }
+    };
+    CheckError([&] { (void)EvaluateSecondOrder(evaluate, {2.0}, seed); }, Reason::OUTSIDE_DOMAIN, Stage::RECORDING, 0);
+    const auto risk = EvaluateSecondOrder(evaluate, {3.0}, seed);
+    EXPECT_DOUBLE_EQ(risk.Value(), 12.0);
+    EXPECT_DOUBLE_EQ(risk.Gradient()[0], -5.0);
+    EXPECT_DOUBLE_EQ(risk.DirectionalDerivatives()[0], -5.0);
+    EXPECT_DOUBLE_EQ(risk.HessianProducts()(0, 0), 12.0);
+}
+
 TEST(AADSecondOrderTest, PreservesTermsThroughCancellationAndExtremeAdjoints) {
     for (double c : {-1e16, 1e308}) {
         const Vector_<> point{0.5, -c};

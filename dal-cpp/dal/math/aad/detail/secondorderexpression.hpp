@@ -284,6 +284,22 @@ namespace Dal::AAD::SecondOrderDetail {
         }
     };
 
+    template <class T_, class E_> struct EdgesFor_;
+    template <class T_> struct EdgesFor_<T_, SecondOrderNumber_> {
+        using Type_ = LeafEdges_<T_, true>;
+    };
+    template <class T_> struct EdgesFor_<T_, Constant_> {
+        using Type_ = LeafEdges_<T_, false>;
+    };
+    template <class T_, class E_> using ExpressionEdges_ = typename EdgesFor_<T_, E_>::Type_;
+
+    template <class T_, class Op_, class A_> struct EdgesFor_<T_, Unary_<Op_, A_>> {
+        using Type_ = UnaryEdges_<T_, ExpressionEdges_<T_, A_>>;
+    };
+    template <class T_, class Op_, class A_, class B_> struct EdgesFor_<T_, Binary_<Op_, A_, B_>> {
+        using Type_ = BinaryEdges_<T_, ExpressionEdges_<T_, A_>, ExpressionEdges_<T_, B_>>;
+    };
+
     inline double FinitePrimal(double value) {
         if (!std::isfinite(value))
             Error(Reason::NUMERICAL_FAILURE, "nonfinite primal value");
@@ -295,11 +311,6 @@ namespace Dal::AAD::SecondOrderDetail {
         if constexpr (std::is_same_v<T_, double>)
             (void)Guard(v);
     }
-
-    template <class T_> FORCE_INLINE auto Prepare(const SecondOrderNumber_&, Arena_&) -> Prepared_<T_, LeafEdges_<T_, true>>;
-    template <class T_> FORCE_INLINE auto Prepare(const Constant_&, Arena_&) -> Prepared_<T_, LeafEdges_<T_, false>>;
-    template <class T_, class Op_, class A_> auto Prepare(const Unary_<Op_, A_>&, Arena_&);
-    template <class T_, class Op_, class A_, class B_> auto Prepare(const Binary_<Op_, A_, B_>&, Arena_&);
 
     template <class T_> FORCE_INLINE auto Prepare(const SecondOrderNumber_& value, Arena_& arena) -> Prepared_<T_, LeafEdges_<T_, true>> {
         const auto slot = Access_::Slot(value, arena);
@@ -313,23 +324,35 @@ namespace Dal::AAD::SecondOrderDetail {
         return {{value.value_, T_(0)}, {PASSIVE}};
     }
 
-    template <class T_, class Op_, class A_> auto Prepare(const Unary_<Op_, A_>& expression, Arena_& arena) {
-        auto a = Prepare<T_>(expression.input_, arena);
-        const auto local = expression.op_.Apply(a.dual_);
-        if constexpr (std::is_same_v<T_, Wide_>)
-            FinitePrimal(local.result_.value_);
-        using Edges = UnaryEdges_<T_, decltype(a.edges_)>;
-        return Prepared_<T_, Edges>{local.result_, {local.weight_, std::move(a.edges_)}};
+    template <class T_, class E_, bool Active_> FORCE_INLINE Dual_<T_> Prepare(const E_& expression, Arena_& arena, LeafEdges_<T_, Active_>& edges) {
+        const auto leaf = Prepare<T_>(expression, arena);
+        edges = leaf.edges_;
+        return leaf.dual_;
     }
 
-    template <class T_, class Op_, class A_, class B_> auto Prepare(const Binary_<Op_, A_, B_>& expression, Arena_& arena) {
-        auto a = Prepare<T_>(expression.left_, arena);
-        auto b = Prepare<T_>(expression.right_, arena);
-        const auto local = Op_::template Apply<decltype(a)::active_, decltype(b)::active_>(a.dual_, b.dual_);
+    template <class T_, class Op_, class A_, class B_, class L_, class R_>
+    Dual_<T_> Prepare(const Binary_<Op_, A_, B_>& expression, Arena_& arena, BinaryEdges_<T_, L_, R_>& edges);
+
+    template <class T_, class Op_, class A_, class E_>
+    Dual_<T_> Prepare(const Unary_<Op_, A_>& expression, Arena_& arena, UnaryEdges_<T_, E_>& edges) {
+        const auto operand = Prepare<T_>(expression.input_, arena, edges.input_);
+        const auto local = expression.op_.Apply(operand);
         if constexpr (std::is_same_v<T_, Wide_>)
             FinitePrimal(local.result_.value_);
-        using Edges = BinaryEdges_<T_, decltype(a.edges_), decltype(b.edges_)>;
-        return Prepared_<T_, Edges>{local.result_, {local.left_, local.right_, std::move(a.edges_), std::move(b.edges_)}};
+        edges.weight_ = local.weight_;
+        return local.result_;
+    }
+
+    template <class T_, class Op_, class A_, class B_, class L_, class R_>
+    Dual_<T_> Prepare(const Binary_<Op_, A_, B_>& expression, Arena_& arena, BinaryEdges_<T_, L_, R_>& edges) {
+        const auto left = Prepare<T_>(expression.left_, arena, edges.left_);
+        const auto right = Prepare<T_>(expression.right_, arena, edges.right_);
+        const auto local = Op_::template Apply<L_::active_, R_::active_>(left, right);
+        if constexpr (std::is_same_v<T_, Wide_>)
+            FinitePrimal(local.result_.value_);
+        edges.leftWeight_ = local.left_;
+        edges.rightWeight_ = local.right_;
+        return local.result_;
     }
 
     template <class T_, size_t N_, class Emit_>
@@ -364,14 +387,13 @@ namespace Dal::AAD::SecondOrderDetail {
     }
 
     template <class T_, class E_> SecondOrderNumber_ Materialize(Arena_& arena, const E_& expression) {
-        using Edges = decltype(Prepare<T_>(expression, arena).edges_);
-        // Forward preparation can need a dual at each node. The returned
-        // recipe keeps just the root dual and composes edges in source order.
+        using Edges = ExpressionEdges_<T_, E_>;
+        // Keep the preparation charge for each subtree's dual and weights.
         constexpr size_t temporary = sizeof(EdgeWriter_<T_>) + Edges::preparationBytes_;
         arena.AccountTemporary(temporary);
-        const auto value = Prepare<T_>(expression, arena);
-        auto recorded =
-            Append<T_, Leaves<E_>()>(arena, value.dual_, temporary, [&](auto& edges) { value.edges_.template Push<true>({T_(1), T_(0)}, edges); });
+        Edges recipe;
+        const auto value = Prepare<T_>(expression, arena, recipe);
+        auto recorded = Append<T_, Leaves<E_>()>(arena, value, temporary, [&](auto& edges) { recipe.template Push<true>({T_(1), T_(0)}, edges); });
         arena.AccountLogical<T_>(false, temporary);
         return recorded;
     }
