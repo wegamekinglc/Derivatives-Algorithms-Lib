@@ -254,15 +254,18 @@ namespace Dal::AAD::SecondOrderDetail {
     template <class T_, bool Active_> struct LeafEdges_ {
         Slot_ slot_;
         static constexpr bool active_ = Active_;
-        static constexpr size_t preparationBytes_ = sizeof(Prepared_<T_, LeafEdges_>);
         template <bool Root_> void Push(Weight_<T_> weight, EdgeWriter_<T_>& scratch) const { scratch.AddEdge(slot_, weight); }
     };
+
+    template <class E_> constexpr size_t PreparationBytes = E_::preparationBytes_;
+    template <class T_, bool Active_>
+    constexpr size_t PreparationBytes<LeafEdges_<T_, Active_>> = sizeof(Prepared_<T_, LeafEdges_<T_, Active_>>);
 
     template <class T_, class A_> struct UnaryEdges_ {
         Weight_<T_> weight_;
         A_ input_;
         static constexpr bool active_ = A_::active_;
-        static constexpr size_t preparationBytes_ = sizeof(Dual_<T_>) + sizeof(Weight_<T_>) + A_::preparationBytes_;
+        static constexpr size_t preparationBytes_ = sizeof(Dual_<T_>) + sizeof(Weight_<T_>) + PreparationBytes<A_>;
 
         template <bool Root_> void Push(Weight_<T_> weight, EdgeWriter_<T_>& scratch) const {
             input_.template Push<false>(Root_ ? weight_ : Compose(weight, weight_), scratch);
@@ -274,7 +277,7 @@ namespace Dal::AAD::SecondOrderDetail {
         A_ left_;
         B_ right_;
         static constexpr bool active_ = A_::active_ || B_::active_;
-        static constexpr size_t preparationBytes_ = sizeof(Dual_<T_>) + 2 * sizeof(Weight_<T_>) + A_::preparationBytes_ + B_::preparationBytes_;
+        static constexpr size_t preparationBytes_ = sizeof(Dual_<T_>) + 2 * sizeof(Weight_<T_>) + PreparationBytes<A_> + PreparationBytes<B_>;
 
         template <bool Root_> void Push(Weight_<T_> weight, EdgeWriter_<T_>& scratch) const {
             if constexpr (A_::active_)
@@ -389,7 +392,7 @@ namespace Dal::AAD::SecondOrderDetail {
     template <class T_, class E_> SecondOrderNumber_ Materialize(Arena_& arena, const E_& expression) {
         using Edges = ExpressionEdges_<T_, E_>;
         // Keep the preparation charge for each subtree's dual and weights.
-        constexpr size_t temporary = sizeof(EdgeWriter_<T_>) + Edges::preparationBytes_;
+        constexpr size_t temporary = sizeof(EdgeWriter_<T_>) + PreparationBytes<Edges>;
         arena.AccountTemporary(temporary);
         Edges recipe;
         const auto value = Prepare<T_>(expression, arena, recipe);
