@@ -215,6 +215,7 @@ namespace Dal::AAD::SecondOrderDetail {
     };
 
     struct Access_ {
+        static void SetMethod(SecondOrderResult_* result, const char* method) { result->execution_.method_ = method; }
         static double Value(const SecondOrderNumber_& value) { return value.value_; }
         static Slot_ Slot(const SecondOrderNumber_& value, const Arena_& arena) {
             if (value.arenaId_ == 0)

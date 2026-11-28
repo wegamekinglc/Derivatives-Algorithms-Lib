@@ -165,10 +165,12 @@ dal_apply_platform_options(dal_cpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
     set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp
+        dal/math/analytics/spotcallrisk.cpp
         dal/math/aad/sharedsecondorder.cpp
         dal/model/dupirequotesecondorder.cpp
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 elseif(MSVC)
+    set_source_files_properties(dal/math/analytics/spotcallrisk.cpp PROPERTIES COMPILE_OPTIONS "/fp:strict")
     set_source_files_properties(dal/math/aad/sharedsecondorder.cpp PROPERTIES COMPILE_OPTIONS "/fp:strict")
     set_source_files_properties(dal/model/dupirequotesecondorder.cpp PROPERTIES COMPILE_OPTIONS "/fp:strict")
 endif()
@@ -211,6 +213,7 @@ endif()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/dal/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dal
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+        PATTERN "spotcallrisk.hpp" EXCLUDE
         PATTERN "eigenbridge.hpp" EXCLUDE)
 
 install(TARGETS dal_cpp

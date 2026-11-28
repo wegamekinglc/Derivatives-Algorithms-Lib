@@ -17,6 +17,7 @@
 #include <dal/math/aad/secondorder.hpp>
 #include <dal/math/aad/sharedsecondorder.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
+#include <dal/math/analytics/detail/spotcallrisk.hpp>
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/platform/platform.hpp>
 
@@ -620,6 +621,14 @@ namespace {
         const auto scalar = [plan = &kernel](const auto& x) { return (*plan)(nullptr, x); };
         const SecondOrderFunction_ dal = scalar;
         const TapePerfXad::OwnedFunction_ xad = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
+        if constexpr (std::is_same_v<K_, BlackScholes_<true>>) {
+            const SpotCallDetail::FixedSpotCall_ plan(BS_STRIKE, BS_TIME, BS_RATE, BS_DIVIDEND);
+            const auto evaluate = [&](const auto&, const auto& point, const auto& request) { return plan.Evaluate(point, request.directions_); };
+            for (int count : {1, shape.directions_.Rows()})
+                if (!options.s0Directions_ || options.s0Directions_ == count)
+                    RunS0Directions(shape, ref, options, count, dal, evaluate, xad);
+            return;
+        }
         for (int count : {1, shape.directions_.Rows()}) {
             if (options.s0Directions_ && options.s0Directions_ != count)
                 continue;

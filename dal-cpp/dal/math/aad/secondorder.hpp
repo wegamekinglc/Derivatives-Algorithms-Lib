@@ -111,6 +111,7 @@ namespace Dal::AAD {
         SecondOrderExecution_ execution_;
 
         friend SecondOrderResult_ EvaluateSecondOrder(const SecondOrderFunction_&, const Vector_<>&, const Matrix_<>&, const SecondOrderOptions_&);
+        friend struct SecondOrderDetail::Access_;
         SecondOrderResult_() = default;
 
     public:
