@@ -39,3 +39,10 @@ endif()
 
 add_test(NAME tape_perf COMMAND tape_perf)
 set_tests_properties(tape_perf PROPERTIES LABELS "benchmark")
+
+set(dupire_verify_args --second-order --dupire --verify-only)
+if(DAL_CPP_XAD_BENCHMARK_SOURCE)
+    list(APPEND dupire_verify_args --with-xad)
+endif()
+add_test(NAME tape_perf_dupire_verify COMMAND tape_perf ${dupire_verify_args})
+set_tests_properties(tape_perf_dupire_verify PROPERTIES LABELS "benchmark")

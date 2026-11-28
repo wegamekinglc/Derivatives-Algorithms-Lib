@@ -17,6 +17,8 @@
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/platform/platform.hpp>
 
+#include "dupirereference.hpp"
+#include "dupiresecondorder.hpp"
 #include "secondorderperf.hpp"
 #if defined(DAL_TAPE_PERF_WITH_XAD)
 #include "secondorderxad.hpp"
@@ -46,6 +48,10 @@ namespace {
         int callsPerBatch_;
         double pointwiseTolerance_;
         double centeredTolerance_;
+        double priceTolerance_ = 1e-11;
+        double firstOrderTolerance_ = 5e-8;
+        bool absoluteDerivatives_ = false;
+        int rollSteps_ = 0;
     };
 
     struct Reference_ {
@@ -226,6 +232,10 @@ namespace {
         return result;
     }
 
+    double Tolerance(const Case_& shape, double tolerance, double expected) {
+        return shape.absoluteDerivatives_ ? tolerance : tolerance * std::max(1.0, std::abs(expected));
+    }
+
     void
     Verify(const Case_& shape, const Reference_& ref, int count, const ForwardOverReverseResult_& pointwise, const BumpOverAADResult_& centered) {
         const auto& pointwiseWork = pointwise.Execution();
@@ -238,7 +248,7 @@ namespace {
         REQUIRE(pointwiseWork.recordings_ == n && pointwiseWork.reverseSweeps_ == n + 1 && centeredWork.gradientEvaluations_ == 1 + 2 * n &&
                     centeredWork.reverseSweeps_ == 1 + 2 * n,
                 "second-order benchmark unexpected tape work");
-        REQUIRE(std::abs(ref.price_ - pointwise.Value()) <= 1e-11 && std::abs(ref.price_ - centered.Value()) <= 1e-11,
+        REQUIRE(std::abs(ref.price_ - pointwise.Value()) <= shape.priceTolerance_ && std::abs(ref.price_ - centered.Value()) <= shape.priceTolerance_,
                 "second-order benchmark price differs from independent reference");
         REQUIRE(std::abs(ref.products_(0, 1)) > 1e-6, "second-order benchmark single direction needs a nonzero cross term");
         double pointwiseError = 0.0, centeredError = 0.0;
@@ -249,9 +259,9 @@ namespace {
                 const double adError = std::abs(ad - expected), bumpError = std::abs(bump - expected);
                 std::cout << "hvp," << shape.name_ << ',' << n << ',' << row << ',' << column << ',' << centered.Steps()[row] << ',' << expected
                           << ',' << ad << ',' << bump << '\n';
-                REQUIRE(adError <= shape.pointwiseTolerance_ * std::max(1.0, std::abs(expected)),
+                REQUIRE(adError <= Tolerance(shape, shape.pointwiseTolerance_, expected),
                         "second-order benchmark pointwise HVP differs from reference");
-                REQUIRE(bumpError <= shape.centeredTolerance_ * std::max(1.0, std::abs(expected)),
+                REQUIRE(bumpError <= Tolerance(shape, shape.centeredTolerance_, expected),
                         "second-order benchmark centered HVP differs from reference");
                 pointwiseError = std::max(pointwiseError, adError);
                 centeredError = std::max(centeredError, bumpError);
@@ -318,7 +328,6 @@ namespace {
                   << ',' << adP95 << ',' << adMin << ',' << bumpMedian << ',' << bumpP95 << ',' << bumpMin << ',' << adMedian / bumpMedian << '\n';
     }
 
-#if defined(DAL_TAPE_PERF_WITH_XAD)
     Vector_<> ProjectGradient(const Vector_<>& gradient, const Matrix_<>& directions) {
         Vector_<> slopes(directions.Rows(), 0.0);
         for (int row = 0; row < directions.Rows(); ++row)
@@ -354,13 +363,12 @@ namespace {
                     products.Cols() == directions.Cols(),
                 "second-order route output shape mismatch");
         const double priceError = std::abs(price - ref.price_);
-        REQUIRE(priceError <= 1e-11, "second-order route price mismatch");
-        const auto check = [](double actual, double expected, double tolerance) {
+        REQUIRE(priceError <= shape.priceTolerance_, "second-order route price mismatch");
+        const auto check = [&](double actual, double expected, double tolerance) {
             const double error = std::abs(actual - expected);
-            REQUIRE(error <= tolerance * std::max(1.0, std::abs(expected)), "second-order route derivative differs from its independent reference");
+            REQUIRE(error <= Tolerance(shape, tolerance, expected), "second-order route derivative differs from its independent reference");
             return error;
         };
-        constexpr double FIRST_ORDER_TOLERANCE = 5e-8;
         const auto printOutput = [&](const char* kind, int row, int column, double expected, double value) {
             std::cout << "output," << shape.name_ << ',' << directions.Rows() << ',' << name << ',' << kind << ',' << row << ',' << column << ','
                       << expected << ',' << value << '\n';
@@ -368,11 +376,11 @@ namespace {
         printOutput("price", 0, 0, ref.price_, price);
         double gradientError = 0.0, directionalError = 0.0, productError = 0.0;
         for (int column = 0; column < directions.Cols(); ++column) {
-            gradientError = std::max(gradientError, check(gradient[column], ref.gradient_[column], FIRST_ORDER_TOLERANCE));
+            gradientError = std::max(gradientError, check(gradient[column], ref.gradient_[column], shape.firstOrderTolerance_));
             printOutput("gradient", 0, column, ref.gradient_[column], gradient[column]);
         }
         for (int row = 0; row < directions.Rows(); ++row) {
-            directionalError = std::max(directionalError, check(directional[row], expectedSlopes[row], FIRST_ORDER_TOLERANCE));
+            directionalError = std::max(directionalError, check(directional[row], expectedSlopes[row], shape.firstOrderTolerance_));
             printOutput("directional", row, 0, expectedSlopes[row], directional[row]);
             for (int column = 0; column < directions.Cols(); ++column) {
                 productError = std::max(productError, check(products(row, column), ref.products_(row, column), hvpTolerance));
@@ -382,8 +390,28 @@ namespace {
         std::cout << "metric," << shape.name_ << ',' << directions.Rows() << ',' << name << ',' << priceError << ',' << gradientError << ','
                   << directionalError << ',' << productError << ',' << work.recordings_ << ',' << work.sweeps_ << ',' << work.bytes_ << ','
                   << work.byteKind_ << '\n';
+        if (shape.rollSteps_ != 0)
+            std::cout << "dupire_work," << directions.Rows() << ',' << name << ',' << work.recordings_ << ',' << work.recordings_ << ','
+                      << work.recordings_ * shape.rollSteps_ << '\n';
     }
 
+    void VerifyNativeRoutes(const Case_& shape,
+                            const Reference_& ref,
+                            const Matrix_<>& directions,
+                            const ForwardOverReverseResult_& pointwise,
+                            const CenteredOutput_& centered) {
+        const auto& adWork = pointwise.Execution();
+        const auto& bumpWork = centered.native_.Execution();
+        Verify(shape, ref, directions.Rows(), pointwise, centered.native_);
+        VerifyRoute(shape, ref, directions, "pointwise", pointwise.Value(), pointwise.Gradient(), pointwise.DirectionalDerivatives(),
+                    pointwise.HessianProducts(), shape.pointwiseTolerance_,
+                    {adWork.recordings_, adWork.reverseSweeps_, adWork.peakTapeBytes_, "dal_allocated_peak"});
+        VerifyRoute(shape, ref, directions, "centered", centered.native_.Value(), centered.native_.Gradient(), centered.directional_,
+                    centered.native_.HessianProducts(), shape.centeredTolerance_,
+                    {bumpWork.gradientEvaluations_, bumpWork.reverseSweeps_, bumpWork.peakTapeBytes_, "dal_allocated_peak"});
+    }
+
+#if defined(DAL_TAPE_PERF_WITH_XAD)
     template <class P_, class B_, class X_>
     void MeasureTriplets(const Case_& shape, int directions, const P_& pointwise, const B_& centered, const X_& xad, bool reverseOrder) {
         Clear(*Tape());
@@ -410,6 +438,8 @@ namespace {
             for (size_t route : order(i))
                 samples[route][i] = measure(route);
         REQUIRE(TapeCapacity() == initialCapacity, "second-order benchmark tape grew after warmup");
+        if (shape.rollSteps_ != 0)
+            std::cout << "dupire_warm_dal_tape_bytes," << directions << ',' << initialCapacity << '\n';
         for (size_t i = 0; i < samples[0].size(); ++i) {
             const auto ordering = order(i);
             std::cout << "tri_sample," << shape.name_ << ',' << directions << ',' << 1 + i / PAIRS_PER_ROUND << ',' << 1 + i % PAIRS_PER_ROUND << ','
@@ -434,30 +464,17 @@ namespace {
                     bool reverseOrder) {
         TapePerfXad::Workspace_ workspace;
         const auto xad = [&]() { return workspace.Evaluate(kernel, shape.point_, directions); };
-        const auto centeredWithDirectional = [&]() {
-            auto native = centered();
-            auto directional = ProjectGradient(native.Gradient(), directions);
-            return CenteredOutput_{std::move(native), std::move(directional)};
-        };
         Clear(*Tape());
         const auto pointwiseValue = pointwise();
         Clear(*Tape());
-        const auto centeredValue = centeredWithDirectional();
+        const auto centeredValue = centered();
         const auto xadValue = workspace.Evaluate(kernel, shape.point_, directions, true);
-        const auto& adWork = pointwiseValue.Execution();
-        const auto& bumpWork = centeredValue.native_.Execution();
         const size_t n = static_cast<size_t>(directions.Rows());
-        Verify(shape, ref, directions.Rows(), pointwiseValue, centeredValue.native_);
-        VerifyRoute(shape, ref, directions, "pointwise", pointwiseValue.Value(), pointwiseValue.Gradient(), pointwiseValue.DirectionalDerivatives(),
-                    pointwiseValue.HessianProducts(), shape.pointwiseTolerance_,
-                    {adWork.recordings_, adWork.reverseSweeps_, adWork.peakTapeBytes_, "dal_allocated_peak"});
-        VerifyRoute(shape, ref, directions, "centered", centeredValue.native_.Value(), centeredValue.native_.Gradient(), centeredValue.directional_,
-                    centeredValue.native_.HessianProducts(), shape.centeredTolerance_,
-                    {bumpWork.gradientEvaluations_, bumpWork.reverseSweeps_, bumpWork.peakTapeBytes_, "dal_allocated_peak"});
+        VerifyNativeRoutes(shape, ref, directions, pointwiseValue, centeredValue);
         VerifyRoute(shape, ref, directions, "xad", xadValue.price_, xadValue.gradient_, xadValue.directional_, xadValue.products_,
                     shape.pointwiseTolerance_, {n, n, xadValue.maxLogicalBytes_, "xad_max_logical_after_sweep"});
         if (!verifyOnly)
-            MeasureTriplets(shape, directions.Rows(), pointwise, centeredWithDirectional, xad, reverseOrder);
+            MeasureTriplets(shape, directions.Rows(), pointwise, centered, xad, reverseOrder);
     }
 #endif
 
@@ -473,26 +490,69 @@ namespace {
             bumpRequest.steps_ = Vector_<>(shape.steps_.begin(), shape.steps_.begin() + count);
             const auto pointwise = [&]() { return EvaluateForwardOverReverse(pointwiseKernel, shape.point_, adRequest); };
             const auto centered = [&]() { return EvaluateBumpOverAAD(centeredKernel, shape.point_, bumpRequest); };
+            const auto centeredWithDirectional = [&]() {
+                auto native = centered();
+                auto directional = ProjectGradient(native.Gradient(), adRequest.directions_);
+                return CenteredOutput_{std::move(native), std::move(directional)};
+            };
 #if defined(DAL_TAPE_PERF_WITH_XAD)
             if (withXad) {
-                RunWithXad(shape, ref, kernel, adRequest.directions_, pointwise, centered, verifyOnly, centeredFirst);
+                RunWithXad(shape, ref, kernel, adRequest.directions_, pointwise, centeredWithDirectional, verifyOnly, centeredFirst);
                 continue;
             }
 #endif
             Clear(*Tape());
             const auto ad = pointwise();
             Clear(*Tape());
+            if (shape.rollSteps_ != 0) {
+                VerifyNativeRoutes(shape, ref, adRequest.directions_, ad, centeredWithDirectional());
+                if (!verifyOnly)
+                    Measure(shape, count, pointwise, centeredWithDirectional, centeredFirst);
+                continue;
+            }
             const auto bump = centered();
             Verify(shape, ref, count, ad, bump);
             if (!verifyOnly)
                 Measure(shape, count, pointwise, centered, centeredFirst);
         }
     }
+
+    void RunDupire(bool verifyOnly, bool centeredFirst, bool withXad) {
+        namespace D = TapePerfDupire;
+        const Case_ shape{"dupire_quote", D::QuoteSpreads(), D::Directions(), Vector_<>(3, D::QUOTE_STEP), 1, 2e-2, 1e-1, 2e-6, 2e-4,
+                          true,           D::TIME_STEPS};
+        Reference_ ref{D::Reference::PRICE, Matrix_<>(shape.directions_.Rows(), shape.directions_.Cols()), D::Reference::REFINEMENT,
+                       Vector_<>(D::Reference::VEGA.begin(), D::Reference::VEGA.end())};
+        for (int row = 0; row < ref.products_.Rows(); ++row)
+            for (int column = 0; column < ref.products_.Cols(); ++column)
+                ref.products_(row, column) = D::Reference::PRODUCTS[row][column];
+        const D::Kernel_ kernel;
+        D::Qualify(kernel, shape.point_, shape.directions_);
+        const NativeScalarFunction_ scalarKernel = std::cref(kernel);
+        std::cout << "# dupire_gradient_step,step,max_abs_hvp_error,volga,volga_abs_error\n"
+                  << "# dupire_work,directions,route,calibrations,rollbacks,rollback_steps\n";
+        for (double step : {2.0 * D::QUOTE_STEP, D::QUOTE_STEP, 0.5 * D::QUOTE_STEP}) {
+            BumpOverAADRequest_ request;
+            request.directions_ = shape.directions_;
+            request.steps_ = Vector_<>(shape.directions_.Rows(), step);
+            const auto result = EvaluateBumpOverAAD(scalarKernel, shape.point_, request);
+            double maxError = 0.0;
+            for (int row = 0; row < ref.products_.Rows(); ++row)
+                for (int column = 0; column < ref.products_.Cols(); ++column) {
+                    const double error = std::abs(ref.products_(row, column) - result.HessianProducts()(row, column));
+                    REQUIRE(std::isfinite(error), "Dupire benchmark step study requires finite HVPs");
+                    maxError = std::max(maxError, error);
+                }
+            const double volga = result.HessianProducts()(0, 3);
+            std::cout << "dupire_gradient_step," << step << ',' << maxError << ',' << volga << ',' << std::abs(volga - ref.products_(0, 3)) << '\n';
+        }
+        Run(shape, kernel, ref, verifyOnly, centeredFirst, withXad);
+    }
 } // namespace
 
 int RunSecondOrderBenchmarks(int argc, char** argv) {
     try {
-        bool verifyOnly = false, centeredFirst = false, withXad = false;
+        bool verifyOnly = false, centeredFirst = false, withXad = false, dupire = false;
         for (int arg = 1; arg < argc; ++arg) {
             const std::string option = argv[arg];
             if (option == "--verify-only" && !verifyOnly)
@@ -501,13 +561,33 @@ int RunSecondOrderBenchmarks(int argc, char** argv) {
                 centeredFirst = true;
             else if (option == "--with-xad" && !withXad)
                 withXad = true;
+            else if (option == "--dupire" && !dupire)
+                dupire = true;
             else
-                THROW("expected --second-order [--verify-only] [--centered-first] [--with-xad]");
+                THROW("expected --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad]");
         }
 #if !defined(DAL_TAPE_PERF_WITH_XAD)
         REQUIRE(!withXad, "--with-xad requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
 #endif
         RegisterAll_::Init();
+        std::cout << std::setprecision(17) << "# hvp,case,directions,direction_index,coordinate_index,bump_step,reference,pointwise,centered\n"
+                  << "# accuracy,case,directions,reference_price,reference_stencil_max_disagreement,pointwise_max_abs_error,centered_max_abs_error\n"
+                  << "# "
+                     "work,case,directions,pointwise_recordings,pointwise_sweeps,pointwise_peak_bytes,centered_recordings,centered_sweeps,centered_"
+                     "peak_bytes\n"
+                  << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
+                  << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
+                     "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
+        if (withXad || dupire)
+            std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
+                         "recordings,sweeps,tape_bytes,tape_byte_kind\n"
+                      << "# output,case,directions,route,kind,row,column,reference,value\n"
+                      << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
+                      << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
+        if (dupire) {
+            RunDupire(verifyOnly, centeredFirst, withXad);
+            return 0;
+        }
         const Case_ small{"black_scholes", {103.0, 0.24}, Directions({-2.0, 0.5}), {0.1, 0.0005, 0.0005}, 256, 1e-10, 2.5e-5};
         const Case_ basket{"conditional_basket",
                            {100.0, 120.0, 0.20, 0.30, 0.40},
@@ -519,20 +599,6 @@ int RunSecondOrderBenchmarks(int argc, char** argv) {
         const Vector_<> coordinateSteps{0.2, 0.2, 0.002, 0.002, 0.002};
         const auto conditional = MakeBasket(basket, coordinateSteps);
         const auto basketRef = BasketReference(conditional, basket, coordinateSteps);
-        std::cout << std::setprecision(17) << "# hvp,case,directions,direction_index,coordinate_index,bump_step,reference,pointwise,centered\n"
-                  << "# accuracy,case,directions,reference_price,reference_stencil_max_disagreement,pointwise_max_abs_error,centered_max_abs_error\n"
-                  << "# "
-                     "work,case,directions,pointwise_recordings,pointwise_sweeps,pointwise_peak_bytes,centered_recordings,centered_sweeps,centered_"
-                     "peak_bytes\n"
-                  << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
-                  << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
-                     "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
-        if (withXad)
-            std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
-                         "recordings,sweeps,tape_bytes,tape_byte_kind\n"
-                      << "# output,case,directions,route,kind,row,column,reference,value\n"
-                      << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
-                      << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
         Run(small, BlackScholes_{}, BlackScholesReference(small), verifyOnly, centeredFirst, withXad);
         Run(basket, conditional, basketRef, verifyOnly, centeredFirst, withXad);
         return 0;
