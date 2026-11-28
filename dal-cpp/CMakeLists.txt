@@ -286,6 +286,13 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/externals/rapidjson/include")
     dal_apply_platform_options(dal_cpp_tests)
 
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
+        # The fixed-plan Dupire tests instantiate the passive oracle here and
+        # compare its rollback bit-for-bit with dupirequotesecondorder.cpp.
+        set_property(SOURCE tests/model/test_dupire_quote_second_order.cpp
+            APPEND PROPERTY COMPILE_OPTIONS "-ffp-contract=off")
+    endif()
+
     # Instrumented startup and listing can exceed CMake's five-second default.
     gtest_discover_tests(dal_cpp_tests DISCOVERY_TIMEOUT 60)
     set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
