@@ -13,6 +13,10 @@
 
 namespace Dal::AAD {
 
+    namespace ForwardOverReverseDetail {
+        struct NumberAccess_;
+    } // namespace ForwardOverReverseDetail
+
     FORCE_INLINE Tape_* Tape() {
         thread_local Tape_ tape(Tape_::ThreadDefault_{});
         return &tape;
@@ -487,8 +491,7 @@ namespace Dal::AAD {
             return CreateMultiNode<0>();
         }
 
-        template <class E_> void FromExpr(const Expression_<E_>& e) {
-            Tape_* tape = Tape();
+        template <class E_> void FromExpr(const Expression_<E_>& e, Tape_* tape = Tape()) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
             static_cast<const E_&>(e).ValidateOperands(tape, "Number.Materialize");
 #endif
@@ -563,6 +566,7 @@ namespace Dal::AAD {
         friend double& Adjoint(const Number_&);
         friend struct NativeOperations_;
         friend struct NativeRecordedOperation_;
+        friend struct ForwardOverReverseDetail::NumberAccess_;
 
         template <class E_>
         FORCE_INLINE Number_& operator+=(const Expression_<E_>& e) {

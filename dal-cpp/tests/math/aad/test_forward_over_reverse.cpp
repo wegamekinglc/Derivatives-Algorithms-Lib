@@ -142,6 +142,50 @@ TEST(AADForwardOverReverseTest, TestZeroTangentsAndPassiveIntegerPowersRetainCur
     ASSERT_DOUBLE_EQ(tiny.HessianProducts()(0, 0), 2e-200);
 }
 
+TEST(AADForwardOverReverseTest, TestZeroSeedsShareLeafWithoutDiscardingSignedZero) {
+    size_t registeredNodes = 0;
+    bool negativeZero = false;
+    const auto result = EvaluateForwardOverReverse(
+        [&](RecordingScope_*, const auto& x) {
+            registeredNodes = Tape()->nodes_.OccupiedSlots();
+            negativeZero = std::signbit(x[1].DirectionalDerivative());
+            return x[0] * x[1];
+        },
+        {2.0, 3.0}, Direction({0.0, -0.0}));
+    ASSERT_EQ(registeredNodes, 4);
+    ASSERT_TRUE(negativeZero);
+    ASSERT_EQ(result.Gradient(), (Vector_<>{3.0, 2.0}));
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 0.0);
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.0);
+}
+
+TEST(AADForwardOverReverseTest, TestNormalCdfRetainsTailCutoffAndTinyDirection) {
+    constexpr double direction = 1e-200;
+    for (double x : {-std::nextafter(10.0, 11.0), -10.0, 10.0, std::nextafter(10.0, 11.0)}) {
+        SCOPED_TRACE(x);
+        const auto result =
+            EvaluateForwardOverReverse([](RecordingScope_*, const auto& input) { return NCDF(input[0]); }, {x}, Direction({direction}));
+        const double density = std::abs(x) <= 10.0 ? std::exp(-0.5 * x * x) / std::sqrt(2.0 * std::acos(-1.0)) : 0.0;
+        ASSERT_DOUBLE_EQ(result.Gradient()[0], density);
+        ASSERT_DOUBLE_EQ(result.DirectionalDerivatives()[0], direction * density);
+        ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), direction * (-x * density));
+    }
+}
+
+TEST(AADForwardOverReverseTest, TestPrimalGradientRetainsItsAccumulationOrder) {
+    const auto result = EvaluateForwardOverReverse(
+        [](RecordingScope_*, const auto& x) {
+            const auto small = x[0] + 1.0;
+            const auto plus = 1e16 * x[0];
+            const auto minus = -1e16 * x[0];
+            return plus + minus + small;
+        },
+        {0.0}, Direction({1.0}));
+    ASSERT_DOUBLE_EQ(result.Gradient()[0], 1.0);
+    ASSERT_DOUBLE_EQ(result.DirectionalDerivatives()[0], 1.0);
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 0.0);
+}
+
 TEST(AADForwardOverReverseTest, TestActivePowersAgainstIndependentMixedDerivatives) {
     ForwardOverReverseRequest_ request;
     request.directions_ = Matrix_<>(2, 2, 0.0);
