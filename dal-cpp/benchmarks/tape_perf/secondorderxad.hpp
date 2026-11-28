@@ -55,6 +55,35 @@ namespace TapePerfXad {
     class Workspace_ {
         Tape_ tape_{false};
 
+        static void PackRow(int row, const Dal::Vector_<Active_>& x, const Active_& price, Result_* result, bool check) {
+            if (row == 0) {
+                result->price_ = xad::value(xad::value(price));
+                for (int column = 0; column < static_cast<int>(x.size()); ++column) {
+                    result->gradient_[column] = xad::value(xad::derivative(x[column]));
+                    if (check) {
+                        REQUIRE(std::isfinite(result->gradient_[column]), "XAD S0 nonfinite gradient");
+                    }
+                }
+            }
+            result->directional_[row] = xad::derivative(xad::value(price));
+            for (int column = 0; column < static_cast<int>(x.size()); ++column) {
+                result->products_(row, column) = xad::derivative(xad::derivative(x[column]));
+                if (check) {
+                    REQUIRE(std::isfinite(result->products_(row, column)), "XAD S0 nonfinite HVP");
+                }
+            }
+        }
+
+        static void CheckRecorded(int row, const Active_& price, const Result_& result, OwnedExecution_* work) {
+            if (work) {
+                REQUIRE(std::isfinite(result.price_) && std::isfinite(result.directional_[row]), "XAD S0 nonfinite price or directional derivative");
+                REQUIRE(xad::value(xad::value(price)) == result.price_, "XAD S0 price changed across directions");
+                ++work->recordings_;
+                ++work->callbackEvaluations_;
+                ++work->reverseSweeps_;
+            }
+        }
+
         template <class K_>
         Result_ Record(const K_& kernel,
                        const Dal::Vector_<>& point,
@@ -90,29 +119,9 @@ namespace TapePerfXad {
                 tape_.computeAdjoints();
                 reverse.Finish();
                 Span_ pack(Phase::REDUCE);
-                if (row == 0) {
-                    result.price_ = xad::value(xad::value(price));
-                    for (int column = 0; column < inputs; ++column) {
-                        result.gradient_[column] = xad::value(xad::derivative(x[column]));
-                        if (work)
-                            REQUIRE(std::isfinite(result.gradient_[column]), "XAD S0 nonfinite gradient");
-                    }
-                }
-                result.directional_[row] = xad::derivative(xad::value(price));
-                for (int column = 0; column < inputs; ++column) {
-                    result.products_(row, column) = xad::derivative(xad::derivative(x[column]));
-                    if (work)
-                        REQUIRE(std::isfinite(result.products_(row, column)), "XAD S0 nonfinite HVP");
-                }
+                PackRow(row, x, price, &result, work != nullptr);
                 pack.Finish();
-                if (work) {
-                    REQUIRE(std::isfinite(result.price_) && std::isfinite(result.directional_[row]),
-                            "XAD S0 nonfinite price or directional derivative");
-                    REQUIRE(xad::value(xad::value(price)) == result.price_, "XAD S0 price changed across directions");
-                    ++work->recordings_;
-                    ++work->callbackEvaluations_;
-                    ++work->reverseSweeps_;
-                }
+                CheckRecorded(row, price, result, work);
                 if (measureMemory)
                     result.maxLogicalBytes_ = std::max(result.maxLogicalBytes_, tape_.getMemory());
                 if (counts)

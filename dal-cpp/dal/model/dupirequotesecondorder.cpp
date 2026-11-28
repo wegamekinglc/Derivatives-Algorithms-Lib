@@ -124,22 +124,26 @@ namespace Dal::DupireSecondOrderDetail {
         (void)RequirePositive(value, field, " at calibration strike index " + std::to_string(strike) + ", maturity index " + std::to_string(time));
     }
 
+    namespace {
+        void CertifyDominance(Bound_ dominance, int step, int space, Margins_& margins) {
+            if (!(dominance.Lower() > 0.0) || !std::isfinite(dominance.Upper()))
+                (void)RequirePositive(dominance, "row diagonal dominance", PdeNode(step, space));
+            margins.diagonalMargin_ = std::min(margins.diagonalMargin_, dominance.Lower());
+        }
+    } // namespace
+
     void CertifyRow(Bound_ lower, Bound_ diagonal, Bound_ upper, int step, int space, Margins_& margins) {
         if (lower.value_ > 0.0 || upper.value_ > 0.0)
             ValidationError(Reason::OUTSIDE_DOMAIN, "positive off-diagonal coefficient" + PdeNode(step, space));
         if (!(lower.Upper() <= 0.0 && upper.Upper() <= 0.0))
             ValidationError(Reason::NUMERICAL_FAILURE, "off-diagonal sign is unresolved" + PdeNode(step, space));
-        const Bound_ dominance = diagonal + lower + upper;
-        if (!(dominance.Lower() > 0.0) || !std::isfinite(dominance.Upper()))
-            (void)RequirePositive(dominance, "row diagonal dominance", PdeNode(step, space));
-        margins.diagonalMargin_ = std::min(margins.diagonalMargin_, dominance.Lower());
-
+        CertifyDominance(diagonal + lower + upper, step, space, margins);
         // With |c'| < 1 at the previous row, b - |a| bounds the
         // next pivot. Reserve roundoff for pivot and normalized upper.
         const Bound_ pivot = space == 0 ? diagonal : diagonal + lower;
         const double pivotLower = pivot.Lower() - 8.0 * EPSILON * (std::abs(diagonal.value_) + std::abs(lower.value_));
         const double normalizedMargin = 1.0 + upper.Lower() / pivotLower - 8.0 * EPSILON;
-        if (!(pivotLower > 0.0 && normalizedMargin > 0.0) || !std::isfinite(pivotLower))
+        if (!(normalizedMargin > 0.0 && PositiveFinite(pivotLower)))
             ValidationError(Reason::NUMERICAL_FAILURE, "Thomas pivot or normalized upper is unresolved" + PdeNode(step, space));
         margins.pivotLower_ = std::min(margins.pivotLower_, pivotLower);
         margins.normalizedMargin_ = std::min(margins.normalizedMargin_, normalizedMargin);
@@ -151,15 +155,21 @@ namespace Dal::DupireSecondOrderDetail {
         minimum = std::min(minimum, value);
     }
 
+    namespace {
+        void CheckPdeStep(double diffusion, double drift) {
+            if (!(PositiveFinite(diffusion) && PositiveFinite(drift)))
+                ValidationError(Reason::NUMERICAL_FAILURE, "unresolved PDE step size");
+        }
+    } // namespace
+
     Kernel_::Kernel_(double callStrike, double halfWidth)
         : diffusion_(0.0), drift_(0.0), lowerBoundaryMargin_(std::numeric_limits<double>::infinity()), upperBoundaryMargin_(lowerBoundaryMargin_) {
-        if (!(std::isfinite(callStrike) && callStrike > 0.0 && std::isfinite(halfWidth) && halfWidth > 0.0))
+        if (!(PositiveFinite(callStrike) && PositiveFinite(halfWidth)))
             ValidationError(Reason::INVALID_INPUT, "strike and PDE half-width must be finite and positive");
         const double dx = (2.0 * halfWidth) / (SPACE_NODES - 1);
         diffusion_ = DT / (dx * dx);
         drift_ = DT / (2.0 * dx);
-        if (!std::isfinite(diffusion_) || !std::isfinite(drift_) || !(diffusion_ > 0.0 && drift_ > 0.0))
-            ValidationError(Reason::NUMERICAL_FAILURE, "unresolved PDE step size");
+        CheckPdeStep(diffusion_, drift_);
         for (int step = 0; step <= TIME_STEPS; ++step) {
             const double tau = step * DT;
             const double lower = SPOT * std::exp(-halfWidth - DIVIDEND * tau);
@@ -176,6 +186,25 @@ namespace Dal::DupireSecondOrderDetail {
                 time_[step - 1] = Bracket(LOCAL_TIMES, 1.0 - (step - 0.5) * DT);
             }
         }
+        PrepareStencils();
+        std::array<double, LOCAL_STRIKES.size()> logSpots;
+        for (size_t j = 0; j < logSpots.size(); ++j)
+            logSpots[j] = std::log(LOCAL_STRIKES[j] / SPOT);
+        for (int row = 0; row < INTERIOR; ++row) {
+            const double x = -halfWidth + dx * (row + 1);
+            space_[row] = Bracket(logSpots, x);
+            payoff_[row] = std::max(SPOT * std::exp(x) - callStrike, 0.0);
+        }
+    }
+
+    namespace {
+        bool UsesFixedCells(const Stencil_& stencil) {
+            return stencil.base_.strikes_.SameCell(stencil.strikeMinus_.strikes_) && stencil.base_.strikes_.SameCell(stencil.strikePlus_.strikes_) &&
+                   stencil.base_.times_.SameCell(stencil.timeMinus_.times_) && stencil.base_.times_.SameCell(stencil.timePlus_.times_);
+        }
+    } // namespace
+
+    void Kernel_::PrepareStencils() {
         for (size_t t = 0; t < LOCAL_TIMES.size(); ++t) {
             const double time = LOCAL_TIMES[t], ht = 1e-4 * time;
             for (int row = FIRST[t]; row <= LAST[t]; ++row) {
@@ -189,22 +218,12 @@ namespace Dal::DupireSecondOrderDetail {
                            PrepareCall(strike, time + ht),
                            PrepareCall(strike - hk, time),
                            PrepareCall(strike + hk, time)};
-                if (!(stencil.base_.strikes_.SameCell(stencil.strikeMinus_.strikes_) &&
-                      stencil.base_.strikes_.SameCell(stencil.strikePlus_.strikes_) && stencil.base_.times_.SameCell(stencil.timeMinus_.times_) &&
-                      stencil.base_.times_.SameCell(stencil.timePlus_.times_)))
+                if (!UsesFixedCells(stencil))
                     ValidationError(Reason::OUTSIDE_DOMAIN, "quote interpolation knot inside stencil at strike index " + std::to_string(row) +
                                                                 ", maturity index " + std::to_string(t));
                 strikeMargin_ = std::min(strikeMargin_, Distance(QUOTE_STRIKES, strike) - hk);
                 timeMargin_ = std::min(timeMargin_, Distance(QUOTE_TIMES, time) - ht);
             }
-        }
-        std::array<double, LOCAL_STRIKES.size()> logSpots;
-        for (size_t j = 0; j < logSpots.size(); ++j)
-            logSpots[j] = std::log(LOCAL_STRIKES[j] / SPOT);
-        for (int row = 0; row < INTERIOR; ++row) {
-            const double x = -halfWidth + dx * (row + 1);
-            space_[row] = Bracket(logSpots, x);
-            payoff_[row] = std::max(SPOT * std::exp(x) - callStrike, 0.0);
         }
     }
 
@@ -220,26 +239,32 @@ namespace Dal::DupireSecondOrderDetail {
         return margins;
     }
 
+    namespace {
+        void CheckDirectionScale(const Vector_<AAD::SecondOrderNumber_>& quotes, const Thomas::Tape::Arena_& arena) {
+            // The plan already certifies diagonal dominance and pivot margins.
+            // Restrict seed scale and spread before checking derivative arithmetic
+            // during the solve. The scalar wide replay uses the submitted seed.
+            double maxSeed = 0.0, minSeed = std::numeric_limits<double>::infinity();
+            for (const auto& quote : quotes) {
+                const auto slot = Thomas::Tape::Access_::Slot(quote, arena);
+                const auto seed = std::abs(Thomas::Tape::Access_::Tangent<double>(quote, arena, slot));
+                if (seed != 0.0) {
+                    maxSeed = std::max(maxSeed, seed);
+                    minSeed = std::min(minSeed, seed);
+                }
+            }
+            if (maxSeed > 0x1p20 || (maxSeed != 0.0 && (maxSeed < 0x1p-20 || minSeed < 0x1p-20 * maxSeed)))
+                Thomas::Tape::Promote("Dupire Thomas direction range");
+        }
+    } // namespace
+
     AAD::SecondOrderNumber_ Kernel_::RollbackSingleDirection(const Vector_<AAD::SecondOrderNumber_>& quotes, PrimalTrace_* trace) const {
         using namespace Thomas;
         auto& arena = *Tape::activeArena;
         if (arena.wide_)
             return (*this)(nullptr, quotes);
 
-        // The plan already certifies diagonal dominance and pivot margins.
-        // Restrict seed scale and spread before checking derivative arithmetic
-        // during the solve. The scalar wide replay uses the submitted seed.
-        double maxSeed = 0.0, minSeed = std::numeric_limits<double>::infinity();
-        for (const auto& quote : quotes) {
-            const auto slot = Tape::Access_::Slot(quote, arena);
-            const auto seed = std::abs(Tape::Access_::Tangent<double>(quote, arena, slot));
-            if (seed != 0.0) {
-                maxSeed = std::max(maxSeed, seed);
-                minSeed = std::min(minSeed, seed);
-            }
-        }
-        if (maxSeed > 0x1p20 || (maxSeed != 0.0 && (maxSeed < 0x1p-20 || minSeed < 0x1p-20 * maxSeed)))
-            Tape::Promote("Dupire Thomas direction range");
+        CheckDirectionScale(quotes, arena);
 
         using Number = AAD::SecondOrderNumber_;
         using Work = Rollback_<INTERIOR, TIME_STEPS, 33>;
@@ -252,7 +277,7 @@ namespace Dal::DupireSecondOrderDetail {
         const auto work = std::unique_ptr<Work>(new Work);
         const auto coefficients = [&](size_t step, const auto& makeFactor) {
             const auto& t = time_[step];
-            if (step == 0 || !t.SameCell(time_[step - 1]) || t.weight_ != time_[step - 1].weight_)
+            if (ChangesFactor(step))
                 makeFactor([&](size_t i) {
                     const Number vol = t.left_ == t.right_ ? slices[t.left_][i]
                                                            : Number(slices[t.left_][i] + (slices[t.right_][i] - slices[t.left_][i]) * t.weight_);
@@ -278,18 +303,24 @@ namespace Dal {
     DupireQuoteSecondOrderPlan_::DupireQuoteSecondOrderPlan_(std::shared_ptr<const Data_> data) : data_(std::move(data)) {}
     const Vector_<DupireQuoteCoordinate_>& DupireQuoteSecondOrderPlan_::InputAxis() const { return data_->axis_; }
 
+    namespace {
+        void ValidateRequestTerms(const DupireEuropeanCall_& call, const DupireEuropeanCallPdeGrid_& grid) {
+            RequireNearestRounding("PrepareDupireEuropeanCallQuoteRisk");
+            if (!(PositiveFinite(call.strike_) && PositiveFinite(call.maturity_)))
+                ValidationError(Reason::INVALID_INPUT, "strike and maturity must be finite and positive");
+            if (!PositiveFinite(grid.logSpotHalfWidth_))
+                ValidationError(Reason::INVALID_INPUT, "logSpotHalfWidth must be finite and positive");
+            if (grid.spaceNodes_ < 3 || grid.spaceNodes_ % 2 == 0)
+                ValidationError(Reason::INVALID_INPUT, "spaceNodes must be odd and at least three");
+            if (grid.timeSteps_ <= 0)
+                ValidationError(Reason::INVALID_INPUT, "timeSteps must be positive");
+        }
+    } // namespace
+
     DupireQuoteSecondOrderPlan_ PrepareDupireEuropeanCallQuoteRisk(const DupireCalibrationSnapshot_& calibration,
                                                                    const DupireEuropeanCall_& call,
                                                                    const DupireEuropeanCallPdeGrid_& grid) {
-        RequireNearestRounding("PrepareDupireEuropeanCallQuoteRisk");
-        if (!(std::isfinite(call.strike_) && call.strike_ > 0.0 && std::isfinite(call.maturity_) && call.maturity_ > 0.0))
-            ValidationError(Reason::INVALID_INPUT, "strike and maturity must be finite and positive");
-        if (!(std::isfinite(grid.logSpotHalfWidth_) && grid.logSpotHalfWidth_ > 0.0))
-            ValidationError(Reason::INVALID_INPUT, "logSpotHalfWidth must be finite and positive");
-        if (grid.spaceNodes_ < 3 || grid.spaceNodes_ % 2 == 0)
-            ValidationError(Reason::INVALID_INPUT, "spaceNodes must be odd and at least three");
-        if (grid.timeSteps_ <= 0)
-            ValidationError(Reason::INVALID_INPUT, "timeSteps must be positive");
+        ValidateRequestTerms(call, grid);
 
         Registered(call.strike_ == STRIKE, "strike");
         Registered(call.maturity_ == 1.0, "maturity");

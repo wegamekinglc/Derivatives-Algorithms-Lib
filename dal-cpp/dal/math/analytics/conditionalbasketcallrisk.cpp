@@ -69,11 +69,18 @@ namespace Dal::ConditionalBasketDetail {
             Tape::Weight_<double> forward_, strike_, deviation_;
         };
 
-        Local_ Weights(BlackPoint_ p, const Input_& f, const Input_& k, const Input_& u) {
-            constexpr double high = 0x1p20, low = 0x1p-20;
-            if (!(p.forward_ >= low && p.forward_ <= high && p.strike_ >= low && p.strike_ <= high && p.deviation_ >= low && p.deviation_ <= high &&
-                  std::abs(u.dot_) <= high && std::abs(p.d1_) <= 20.0 && std::abs(p.d2_) <= 20.0 && std::abs(f.dot_) <= high &&
-                  std::abs(k.dot_) <= high))
+        inline bool InBlackScale(double value) { return value >= 0x1p-20 && value <= 0x1p20; }
+
+        inline bool BothBelow(double a, double b, double high) { return std::abs(a) <= high && std::abs(b) <= high; }
+
+        inline bool InBlackRange(const BlackPoint_& p, double fDot, double kDot, double uDot) {
+            constexpr double high = 0x1p20;
+            return InBlackScale(p.forward_) && InBlackScale(p.strike_) && InBlackScale(p.deviation_) && std::abs(uDot) <= high &&
+                   std::abs(p.d1_) <= 20.0 && std::abs(p.d2_) <= 20.0 && BothBelow(fDot, kDot, high);
+        }
+
+        Local_ Weights(const BlackPoint_& p, const Input_& f, const Input_& k, const Input_& u) {
+            if (!InBlackRange(p, f.dot_, k.dot_, u.dot_))
                 Tape::Promote("Black local derivative range");
 
             constexpr double invRootTwo = 0.7071067811865475244;
@@ -134,6 +141,36 @@ namespace Dal::ConditionalBasketDetail {
                     Tape::Guard(AddProtected(outer.tangent_ * inner.value_, outer.value_ * inner.tangent_))};
         }
 
+        FORCE_INLINE Number_ AppendBasketNode(Tape::Arena_& arena,
+                                              const BasketInputs_& inputs,
+                                              double quadrature,
+                                              bool linear,
+                                              size_t temporary,
+                                              const Input_& previous,
+                                              const Leg_& first,
+                                              const Leg_& second,
+                                              const Local_& local,
+                                              const Tape::Dual_<double>& accumulated) {
+            const auto fWeight = ScaleQuadrature(local.forward_, quadrature), aWeight = ScaleQuadrature(local.strike_, -quadrature);
+            const auto uWeight = ScaleQuadrature(local.deviation_, quadrature);
+            std::array<Tape::Weight_<double>, 3> firstWeights, secondWeights;
+            for (size_t i = 0; i < 3; ++i) {
+                firstWeights[i] = ComposeLeg(aWeight, first.weights_[i]);
+                secondWeights[i] = ComposeLeg(fWeight, second.weights_[i]);
+            }
+            return Tape::Append<double, 8>(arena, accumulated, temporary, [&](auto& edges) {
+                edges.AddEdge(previous.slot_, {1.0, 0.0});
+                for (size_t i = 0; i < 3; ++i)
+                    edges.AddEdge(inputs.second_[i].slot_, secondWeights[i]);
+                for (size_t i = 0; i < 3; ++i)
+                    edges.AddEdge(inputs.first_[i].slot_, firstWeights[i]);
+                if (!linear)
+                    edges.AddEdge(inputs.deviation_.slot_, uWeight);
+            });
+        }
+
+        inline bool ValidQuadratureWeight(double weight) { return weight >= 0x1p-120 && weight <= 1.0; }
+
         template <bool Trace_>
         Number_ AccumulateBasketNode(const Number_& sum,
                                      const BasketInputs_& inputs,
@@ -152,7 +189,7 @@ namespace Dal::ConditionalBasketDetail {
                                          sizeof(Input_) + sizeof(Tape::Dual_<double>) + 7 * sizeof(Tape::Weight_<double>);
             try {
                 arena.AccountTemporary(temporary);
-                if (!(quadrature >= 0x1p-120 && quadrature <= 1.0))
+                if (!ValidQuadratureWeight(quadrature))
                     Tape::Promote("Black quadrature weight range");
                 const auto previous = Read(sum, arena);
                 const auto first = Leg(inputs.first_, node), second = Leg(inputs.second_, node);
@@ -165,22 +202,7 @@ namespace Dal::ConditionalBasketDetail {
                                                     exercise, inputs.deviation_);
                 const Tape::Dual_<double> accumulated{previous.value_ + quadrature * local.result_.value_,
                                                       tangent->Accumulate(previous.dot_, quadrature, local.result_.tangent_)};
-                const auto fWeight = ScaleQuadrature(local.forward_, quadrature), aWeight = ScaleQuadrature(local.strike_, -quadrature);
-                const auto uWeight = ScaleQuadrature(local.deviation_, quadrature);
-                std::array<Tape::Weight_<double>, 3> firstWeights, secondWeights;
-                for (size_t i = 0; i < 3; ++i) {
-                    firstWeights[i] = ComposeLeg(aWeight, first.weights_[i]);
-                    secondWeights[i] = ComposeLeg(fWeight, second.weights_[i]);
-                }
-                const auto result = Tape::Append<double, 8>(arena, accumulated, temporary, [&](auto& edges) {
-                    edges.AddEdge(previous.slot_, {1.0, 0.0});
-                    for (size_t i = 0; i < 3; ++i)
-                        edges.AddEdge(inputs.second_[i].slot_, secondWeights[i]);
-                    for (size_t i = 0; i < 3; ++i)
-                        edges.AddEdge(inputs.first_[i].slot_, firstWeights[i]);
-                    if (!linear)
-                        edges.AddEdge(inputs.deviation_.slot_, uWeight);
-                });
+                const auto result = AppendBasketNode(arena, inputs, quadrature, linear, temporary, previous, first, second, local, accumulated);
                 arena.AccountLogical<double>(false, temporary);
                 if constexpr (Trace_)
                     *trace = local.result_.value_;
@@ -198,16 +220,33 @@ namespace Dal::ConditionalBasketDetail {
             if (std::fegetround() != FE_TONEAREST)
                 Validation(Tape::Reason::UNSUPPORTED_OPERATION, "fixed conditional basket requires round-to-nearest");
         }
+        bool SmoothPoint(const Vector_<>& point) {
+            return point[0] > 0.0 && point[1] > 0.0 && point[2] > 0.0 && point[3] > 0.0 && std::abs(point[4]) < 1.0;
+        }
+
+        void ValidateTerms(double strike, double rate, const Vector_<>& point) {
+            if (point.size() != 5 || !std::isfinite(strike) || !std::isfinite(rate) ||
+                !std::all_of(point.begin(), point.end(), [](double x) { return std::isfinite(x); }))
+                Validation(Tape::Reason::INVALID_INPUT, "fixed conditional basket requires five finite inputs and finite contract terms");
+            if (!(strike > 0.0 && SmoothPoint(point)))
+                Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed conditional basket requires smooth positive spots, vols and strike");
+        }
+
+        void ValidateNode(const Node_& node, double strike, const Vector_<>& point, double driftA, double driftB, double projectionB) {
+            if (!(std::isfinite(node.z_) && ValidQuadratureWeight(node.weight_)))
+                Validation(Tape::Reason::OUTSIDE_DOMAIN, "unresolved fixed basket quadrature weight or node");
+            const double exercise = 2.0 * strike - point[0] * std::exp(driftA + point[2] * node.z_);
+            const double forward = point[1] * std::exp(driftB + projectionB * node.z_);
+            if (!(std::isfinite(exercise) && std::isfinite(forward) && forward > 0.0 && (node.linear_ ? exercise < 0.0 : exercise > 0.0)))
+                Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed conditional basket node does not match its smooth branch");
+        }
+
     } // namespace
 
     FixedConditionalBasketCall_::FixedConditionalBasketCall_(double strike, double rate, const Nodes_& nodes, const Vector_<>& point)
         : strike_(strike), rate_(rate), nodes_(nodes), point_(point) {
         RequireNearest();
-        if (point.size() != 5 || !std::isfinite(strike) || !std::isfinite(rate) ||
-            !std::all_of(point.begin(), point.end(), [](double x) { return std::isfinite(x); }))
-            Validation(Tape::Reason::INVALID_INPUT, "fixed conditional basket requires five finite inputs and finite contract terms");
-        if (!(strike > 0.0 && point[0] > 0.0 && point[1] > 0.0 && point[2] > 0.0 && point[3] > 0.0 && std::abs(point[4]) < 1.0))
-            Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed conditional basket requires smooth positive spots, vols and strike");
+        ValidateTerms(strike, rate, point);
         discount_ = 0.5 * std::exp(-rate);
         if (!(discount_ > 0.0) || !std::isfinite(discount_))
             Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed conditional basket discount is outside the finite positive range");
@@ -216,30 +255,26 @@ namespace Dal::ConditionalBasketDetail {
         const double deviation = point[3] * std::sqrt(1.0 - point[4] * point[4]);
         if (!(std::isfinite(deviation) && deviation > 0.0))
             Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed conditional basket requires positive conditional deviation");
-        for (const auto& node : nodes_) {
-            if (!(std::isfinite(node.z_) && node.weight_ >= 0x1p-120 && node.weight_ <= 1.0))
-                Validation(Tape::Reason::OUTSIDE_DOMAIN, "unresolved fixed basket quadrature weight or node");
-            const double exercise = 2.0 * strike - point[0] * std::exp(driftA + point[2] * node.z_);
-            const double forward = point[1] * std::exp(driftB + projectionB * node.z_);
-            if (!(std::isfinite(exercise) && std::isfinite(forward) && forward > 0.0 && (node.linear_ ? exercise < 0.0 : exercise > 0.0)))
-                Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed conditional basket node does not match its smooth branch");
-        }
+        for (const auto& node : nodes_)
+            ValidateNode(node, strike, point, driftA, driftB, projectionB);
     }
 
-    template <bool TraceNodes_> Number_ FixedConditionalBasketCall_::Record(const Vector_<Number_>& x, Trace_* trace) const {
-        const Number_ driftA = rate_ - 0.5 * x[2] * x[2];
-        const Number_ projectionB = x[3] * x[4];
-        const Number_ driftB = rate_ - 0.5 * projectionB * projectionB;
-        const Number_ deviation = x[3] * sqrt(1.0 - x[4] * x[4]);
-        auto& arena = *Tape::activeArena;
-        Number_ sum(0.0);
-        Number_ price;
-        if (arena.wide_) {
+    namespace {
+        template <bool TraceNodes_>
+        Number_ WideSum(double strike,
+                        const FixedConditionalBasketCall_::Nodes_& nodes,
+                        const Vector_<Number_>& x,
+                        const Number_& driftA,
+                        const Number_& driftB,
+                        const Number_& projectionB,
+                        const Number_& deviation,
+                        FixedConditionalBasketCall_::Trace_* trace) {
+            Number_ sum(0.0);
             static constexpr double invRootTwo = 0.7071067811865475244;
             const auto cdf = [](const Number_& z) -> Number_ { return 0.5 * erfc(-invRootTwo * z); };
-            for (size_t i = 0; i < nodes_.size(); ++i) {
-                const auto& node = nodes_[i];
-                const Number_ exercise = 2.0 * strike_ - x[0] * exp(driftA + x[2] * node.z_);
+            for (size_t i = 0; i < nodes.size(); ++i) {
+                const auto& node = nodes[i];
+                const Number_ exercise = 2.0 * strike - x[0] * exp(driftA + x[2] * node.z_);
                 const Number_ forward = x[1] * exp(driftB + projectionB * node.z_);
                 if (node.linear_) {
                     if constexpr (TraceNodes_)
@@ -254,7 +289,20 @@ namespace Dal::ConditionalBasketDetail {
                     trace->prices_[i] = Tape::Access_::Value(nodePrice);
                 sum += node.weight_ * nodePrice;
             }
-            price = discount_ * sum;
+            return sum;
+        }
+    } // namespace
+
+    template <bool TraceNodes_> Number_ FixedConditionalBasketCall_::Record(const Vector_<Number_>& x, Trace_* trace) const {
+        const Number_ driftA = rate_ - 0.5 * x[2] * x[2];
+        const Number_ projectionB = x[3] * x[4];
+        const Number_ driftB = rate_ - 0.5 * projectionB * projectionB;
+        const Number_ deviation = x[3] * sqrt(1.0 - x[4] * x[4]);
+        auto& arena = *Tape::activeArena;
+        Number_ sum(0.0);
+        Number_ price;
+        if (arena.wide_) {
+            price = discount_ * WideSum<TraceNodes_>(strike_, nodes_, x, driftA, driftB, projectionB, deviation, trace);
         } else {
             const Tape::Scratch_ storage(arena, sizeof(BasketInputs_) + sizeof(QuadratureTangent_));
             const BasketInputs_ inputs{{Read(x[0], arena), Read(driftA, arena), Read(x[2], arena)},

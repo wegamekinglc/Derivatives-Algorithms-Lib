@@ -157,14 +157,18 @@ namespace Dal::AAD::SecondOrderDetail {
     struct FixedPower_ {
         double exponent_;
 
+        static void ValidateExponent(double base, double p) {
+            if (!std::isfinite(p) || (base < 0.0 && p != std::trunc(p)) || (base == 0.0 && (p < 0.0 || p != std::trunc(p))))
+                Error(Reason::OUTSIDE_DOMAIN, "pow requires positive base or an admissible integer exponent");
+        }
+
         template <class T_> UnaryValue_<T_> Apply(Dual_<T_> a) const {
             const double p = exponent_;
             if (p == 0.0)
                 return {{1.0, T_(0)}, {T_(0), T_(0)}};
             if (p == 1.0)
                 return {a, {T_(1), T_(0)}};
-            if (!std::isfinite(p) || (a.value_ < 0.0 && p != std::trunc(p)) || (a.value_ == 0.0 && (p < 0.0 || p != std::trunc(p))))
-                Error(Reason::OUTSIDE_DOMAIN, "pow requires positive base or an admissible integer exponent");
+            ValidateExponent(a.value_, p);
             if (a.value_ == 0.0)
                 return Local(0.0, T_(0), p == 2.0 ? Mul(T_(2), a.tangent_) : T_(0), a.tangent_);
             const T_ w = Mul(T_(p), Power<T_>(a.value_, p - 1.0));

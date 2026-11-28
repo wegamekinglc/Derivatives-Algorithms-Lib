@@ -360,6 +360,28 @@ TEST(DupireQuoteSecondOrderTest, ThomasTangentEliminationReplaysBeforeLosingTheP
     }
 }
 
+namespace {
+    std::array<SecondOrderNumber_, 3> ThomasProbeBand(double lower, double diagonal, double upper) {
+        return {SecondOrderNumber_(lower), SecondOrderNumber_(diagonal), SecondOrderNumber_(upper)};
+    }
+
+    void TryThomasSubstitution(Tape::Arena_& arena, bool transpose, bool firstRow, double coupling, const Matrix_<>& directions) {
+        using namespace DupireSecondOrderDetail::Thomas;
+        Factor_<2> factor;
+        const bool lower = transpose && firstRow;
+        factor.Set(arena, 0, ThomasProbeBand(0.0, firstRow ? 2.0 : 1.0, lower ? 0.0 : -coupling));
+        factor.Set(arena, 1, ThomasProbeBand(lower ? -coupling : 0.0, firstRow ? 1.0 : 2.0, 0.0));
+        const int target = firstRow ? 0 : 1;
+        Row_<2> rhs{directions(0, target), directions(0, 1 - target)};
+        if (transpose) {
+            factor.Transpose(&rhs);
+        } else {
+            factor.Forward<true>(&rhs);
+        }
+        ADD_FAILURE() << "unsafe substitution completed with " << rhs[target];
+    }
+} // namespace
+
 TEST(DupireQuoteSecondOrderTest, ThomasBackSubstitutionAndBothTransposeSubstitutionsProtectResiduals) {
     using namespace DupireSecondOrderDetail::Thomas;
     using Number = SecondOrderNumber_;
@@ -383,18 +405,7 @@ TEST(DupireQuoteSecondOrderTest, ThomasBackSubstitutionAndBothTransposeSubstitut
                     auto& arena = *Tape::activeArena;
                     if (arena.wide_)
                         return 0.5 * (q[0] + coupling * q[1]);
-                    Factor_<2> factor;
-                    const bool lower = probe.transpose_ && probe.firstRow_;
-                    factor.Set(arena, 0, {Number(0), Number(probe.firstRow_ ? 2.0 : 1.0), Number(lower ? 0.0 : -coupling)});
-                    factor.Set(arena, 1, {Number(lower ? -coupling : 0.0), Number(probe.firstRow_ ? 1.0 : 2.0), Number(0)});
-                    Row_<2> rhs{directions(0, 0), directions(0, 1)};
-                    if (!probe.firstRow_)
-                        std::swap(rhs[0], rhs[1]);
-                    if (probe.transpose_)
-                        factor.Transpose(&rhs);
-                    else
-                        factor.Forward<true>(&rhs);
-                    ADD_FAILURE() << "unsafe substitution completed with " << rhs[probe.firstRow_ ? 0 : 1];
+                    TryThomasSubstitution(arena, probe.transpose_, probe.firstRow_, coupling, directions);
                     return Number(0.0);
                 },
                 {0.0, 0.0}, directions);
@@ -636,6 +647,25 @@ TEST(DupireQuoteSecondOrderTest, PrivateQualificationRejectsBadBoundaryAndUnreso
                     "PDE step 4, space index 7");
 }
 
+namespace {
+    void FlattenCalibration(const DupireSecondOrderDetail::Kernel_& kernel,
+                            const Vector_<>& quotes,
+                            const DupireSecondOrderDetail::Surface_<double>& local,
+                            Vector_<>* flatVols,
+                            Matrix_<>* jacobian,
+                            const Matrix_<>& noDirections) {
+        const int strikes = static_cast<int>(DupireSecondOrderDetail::LOCAL_STRIKES.size());
+        const int times = static_cast<int>(DupireSecondOrderDetail::LOCAL_TIMES.size());
+        for (int t = 0; t < times; ++t)
+            for (int k = 0; k < strikes; ++k) {
+                const int cell = t * strikes + k;
+                (*flatVols)[cell] = local[t][k];
+                const auto calibrated = EvaluateSecondOrder([&](const auto& x) { return kernel.Calibrate(x)[t][k]; }, quotes, noDirections);
+                std::copy(calibrated.Gradient().begin(), calibrated.Gradient().end(), jacobian->Row(cell).begin());
+            }
+    }
+} // namespace
+
 TEST(DupireQuoteSecondOrderTest, IncludesBothCalibrationAndPricingCurvature) {
     using namespace DupireSecondOrderDetail;
     const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(), Call(), {0.8, 81, 64});
@@ -646,13 +676,7 @@ TEST(DupireQuoteSecondOrderTest, IncludesBothCalibrationAndPricingCurvature) {
     Vector_<> flatVols(strikes * times);
     Matrix_<> jacobian(strikes * times, quotes.size());
     const Matrix_<> noDirections(0, static_cast<int>(quotes.size()));
-    for (int t = 0; t < times; ++t)
-        for (int k = 0; k < strikes; ++k) {
-            const int cell = t * strikes + k;
-            flatVols[cell] = local[t][k];
-            const auto calibrated = EvaluateSecondOrder([&](const auto& x) { return kernel.Calibrate(x)[t][k]; }, quotes, noDirections);
-            std::copy(calibrated.Gradient().begin(), calibrated.Gradient().end(), jacobian.Row(cell).begin());
-        }
+    FlattenCalibration(kernel, quotes, local, &flatVols, &jacobian, noDirections);
 
     const auto pricing = [&](const Vector_<SecondOrderNumber_>& vols) {
         Surface_<SecondOrderNumber_> grid;

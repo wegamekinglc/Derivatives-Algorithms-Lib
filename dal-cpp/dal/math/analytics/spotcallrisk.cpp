@@ -20,23 +20,42 @@ namespace Dal::SpotCallDetail {
         }
 
         bool InRange(double value) { return value >= 0x1p-20 && value <= 0x1p20; }
+
+        void ValidateTerms(double strike, double time, double rate, double dividend) {
+            if (std::fegetround() != FE_TONEAREST)
+                Validation(Tape::Reason::UNSUPPORTED_OPERATION, "fixed spot call terms require round-to-nearest");
+            if (!std::isfinite(strike) || !std::isfinite(time) || !std::isfinite(rate) || !std::isfinite(dividend))
+                Validation(Tape::Reason::INVALID_INPUT, "fixed spot call terms must be finite");
+            if (!(strike > 0.0 && time > 0.0))
+                Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed spot call requires positive strike and expiry");
+        }
+
+        bool PositiveFinite(double value) { return std::isfinite(value) && value > 0.0; }
+
+        bool ValidAxis(int axis) { return axis >= 0 && axis <= 1; }
+
+        bool ValidAxes(const std::array<int, 2>& axes) { return ValidAxis(axes[0]) && ValidAxis(axes[1]) && (axes[0] != 1 || axes[1] != 1); }
+
+        inline bool InDerivativeRange(double forwardPv, double strikePv, double u, double d1, double d2, double sDot, double sigmaDot) {
+            return InRange(forwardPv) && InRange(strikePv) && InRange(u) && std::abs(d1) <= 20.0 && std::abs(d2) <= 20.0 &&
+                   std::abs(sDot) <= 0x1p20 && std::abs(sigmaDot) <= 0x1p20;
+        }
+
+        inline bool InInputRange(double s, double sigma, double spotDiscount, double rootTime) {
+            return InRange(s) && InRange(sigma) && InRange(spotDiscount) && InRange(rootTime);
+        }
     } // namespace
 
     FixedSpotCall_::FixedSpotCall_(double strike, double time, double rate, double dividend, std::array<int, 2> axes)
         : strike_(strike), time_(time), axes_(axes) {
-        if (std::fegetround() != FE_TONEAREST)
-            Validation(Tape::Reason::UNSUPPORTED_OPERATION, "fixed spot call terms require round-to-nearest");
-        if (!std::isfinite(strike) || !std::isfinite(time) || !std::isfinite(rate) || !std::isfinite(dividend))
-            Validation(Tape::Reason::INVALID_INPUT, "fixed spot call terms must be finite");
-        if (!(strike > 0.0 && time > 0.0))
-            Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed spot call requires positive strike and expiry");
+        ValidateTerms(strike, time, rate, dividend);
         carry_ = rate - dividend;
         rootTime_ = std::sqrt(time);
         spotDiscount_ = std::exp(-dividend * time);
         strikePv_ = strike * std::exp(-rate * time);
-        if (!(std::isfinite(carry_) && std::isfinite(spotDiscount_) && spotDiscount_ > 0.0 && std::isfinite(strikePv_) && strikePv_ > 0.0))
+        if (!(std::isfinite(carry_) && PositiveFinite(spotDiscount_) && PositiveFinite(strikePv_)))
             Validation(Tape::Reason::OUTSIDE_DOMAIN, "fixed spot call terms have unresolved carry or discount");
-        if (axes_[0] < 0 || axes_[0] > 1 || axes_[1] < 0 || axes_[1] > 1 || (axes_[0] == 1 && axes_[1] == 1))
+        if (!ValidAxes(axes_))
             Validation(Tape::Reason::INVALID_INPUT, "fixed spot call axes must reference its one or two coordinates");
     }
 
@@ -60,8 +79,7 @@ namespace Dal::SpotCallDetail {
             const double sDot = Tape::Access_::Tangent<double>(spot, arena, spotSlot), sigmaDot = Tape::Access_::Tangent<double>(vol, arena, volSlot);
             const double forwardPv = s * spotDiscount_, u = sigma * rootTime_;
             const double d1 = D1(s, sigma), d2 = d1 - u;
-            if (!(InRange(s) && InRange(sigma) && InRange(spotDiscount_) && InRange(rootTime_) && InRange(forwardPv) && InRange(strikePv_) &&
-                  InRange(u) && std::abs(d1) <= 20.0 && std::abs(d2) <= 20.0 && std::abs(sDot) <= 0x1p20 && std::abs(sigmaDot) <= 0x1p20))
+            if (!InInputRange(s, sigma, spotDiscount_, rootTime_) || !InDerivativeRange(forwardPv, strikePv_, u, d1, d2, sDot, sigmaDot))
                 Tape::Promote("Spot call derivative range");
 
             constexpr double invRootTwo = 0.7071067811865475244, invRootTwoPi = 0.39894228040143267794;

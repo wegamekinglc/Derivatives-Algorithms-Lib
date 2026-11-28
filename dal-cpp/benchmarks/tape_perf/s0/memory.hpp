@@ -53,6 +53,16 @@ namespace TapePerfS0 {
         }
     };
 
+    inline std::string MemoryField(const std::optional<size_t>& value) { return value ? std::to_string(*value) : "unavailable"; }
+
+    template <class E_> void WarmMemory(const Ledger_& ledger, const E_& evaluate, bool hot) {
+        if (!hot)
+            return;
+        for (int i = 0; i < 3; ++i)
+            (void)evaluate([] {});
+        ledger.ResetPeak();
+    }
+
     template <class F_> void MeasureMemory(const char* name, int directions, MemoryRequest_ request, const F_& withBackend) {
         const Ledger_ ledger;
         AllocationSnapshot_ created{}, before{}, after{};
@@ -64,11 +74,7 @@ namespace TapePerfS0 {
                 ledger.Start();
                 withBackend([&](const auto& evaluate) {
                     created = ledger.Snapshot();
-                    if (request.hot_) {
-                        for (int i = 0; i < 3; ++i)
-                            (void)evaluate([] {});
-                        ledger.ResetPeak();
-                    }
+                    WarmMemory(ledger, evaluate, request.hot_);
                     before = ledger.Snapshot();
                     risk = evaluate([&] { resultLive = ledger.Snapshot().live_; });
                     after = ledger.Snapshot();
@@ -92,9 +98,8 @@ namespace TapePerfS0 {
                   << ',' << created.live_ << ',' << created.alignedBytes_ << ',' << before.live_ << ',' << after.peak_ << ',' << resultLive << ','
                   << after.live_ << ',' << afterBackend << ',' << end.live_ << ',' << after.largest_ << ',' << after.aligned_ << ','
                   << end.allocations_ << ',' << end.frees_ << ',' << end.reallocInPlace_ << ',' << end.reallocMoved_ << ',' << end.reallocFailed_
-                  << ',' << (risk.cleanup_ ? std::to_string(*risk.cleanup_) : "unavailable") << ',' << risk.logical_ << ',' << risk.logicalKind_
-                  << ',' << rss << ',' << (risk.tapePeak_ ? std::to_string(*risk.tapePeak_) : "unavailable") << ','
-                  << (risk.retained_ ? std::to_string(*risk.retained_) : "unavailable") << '\n';
+                  << ',' << MemoryField(risk.cleanup_) << ',' << risk.logical_ << ',' << risk.logicalKind_ << ',' << rss << ','
+                  << MemoryField(risk.tapePeak_) << ',' << MemoryField(risk.retained_) << '\n';
         REQUIRE(resultLive > after.live_, "S0 memory ledger did not observe the owning result release");
         REQUIRE(end.live_ == 0 && end.allocations_ == end.frees_, "S0 memory ledger did not close after backend and thread destruction");
     }

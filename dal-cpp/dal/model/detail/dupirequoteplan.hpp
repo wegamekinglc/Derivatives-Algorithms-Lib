@@ -99,9 +99,24 @@ namespace Dal::DupireSecondOrderDetail {
         }
     };
 
+    inline bool PositiveFinite(double value) { return std::isfinite(value) && value > 0.0; }
+
     struct Stencil_ {
         double strike_ = 0.0, strikeStep_ = 0.0, timeStep_ = 0.0;
         StencilCall_ base_, timeMinus_, timePlus_, strikeMinus_, strikePlus_;
+
+        void CheckMargins(
+            double mid, double left, double right, double centered, double ckk, double numerator, double scaledVariance, Margins_& margins) const {
+            const double scale = std::abs(left) + std::abs(right) + 2.0 * std::abs(mid);
+            const double resolution = centered / (std::numeric_limits<double>::epsilon() * scale);
+            const double variance = scaledVariance / (strike_ * strike_);
+            REQUIRE(std::isfinite(resolution) && resolution > 8.0 && PositiveFinite(ckk) && PositiveFinite(numerator) && PositiveFinite(variance),
+                    "Dupire benchmark stencil is outside its smooth resolved domain");
+            margins.curvatureUlps_ = std::min(margins.curvatureUlps_, resolution);
+            margins.ckk_ = std::min(margins.ckk_, ckk);
+            margins.numerator_ = std::min(margins.numerator_, numerator);
+            margins.variance_ = std::min(margins.variance_, variance);
+        }
 
         template <class T_> T_ LocalVol(const Dal::Vector_<T_>& quotes, Margins_* margins, int strikeIndex, int timeIndex) const {
             using std::sqrt;
@@ -124,16 +139,7 @@ namespace Dal::DupireSecondOrderDetail {
                 CertifyCalibration(scaledVariance / (strike_ * strike_), "local variance", strikeIndex, timeIndex, margins->varianceLower_);
             if constexpr (std::is_same_v<T_, double>) {
                 if (margins) {
-                    const double scale = std::abs(left) + std::abs(right) + 2.0 * std::abs(mid);
-                    const double resolution = centered / (std::numeric_limits<double>::epsilon() * scale);
-                    const double variance = scaledVariance / (strike_ * strike_);
-                    REQUIRE(std::isfinite(resolution) && resolution > 8.0 && std::isfinite(ckk) && ckk > 0.0 && std::isfinite(numerator) &&
-                                numerator > 0.0 && std::isfinite(variance) && variance > 0.0,
-                            "Dupire benchmark stencil is outside its smooth resolved domain");
-                    margins->curvatureUlps_ = std::min(margins->curvatureUlps_, resolution);
-                    margins->ckk_ = std::min(margins->ckk_, ckk);
-                    margins->numerator_ = std::min(margins->numerator_, numerator);
-                    margins->variance_ = std::min(margins->variance_, variance);
+                    CheckMargins(mid, left, right, centered, ckk, numerator, scaledVariance, *margins);
                 }
             }
             return sqrt(scaledVariance) / strike_;
@@ -148,6 +154,8 @@ namespace Dal::DupireSecondOrderDetail {
         std::array<Bracket_, TIME_STEPS> time_;
         std::array<double, INTERIOR> payoff_;
         std::array<double, TIME_STEPS> rightBoundary_;
+        void PrepareStencils();
+
         double diffusion_, drift_;
         double lowerBoundaryMargin_, upperBoundaryMargin_;
         double strikeMargin_ = std::numeric_limits<double>::infinity();
@@ -184,8 +192,84 @@ namespace Dal::DupireSecondOrderDetail {
 
         using PrimalTrace_ = std::array<std::array<double, INTERIOR>, TIME_STEPS>;
 
+    private:
+        bool ChangesFactor(size_t step) const {
+            return step == 0 || !time_[step].SameCell(time_[step - 1]) || time_[step].weight_ != time_[step - 1].weight_;
+        }
+
+        template <class T_> using Slices_ = std::array<std::array<T_, INTERIOR>, LOCAL_TIMES.size()>;
+
+        template <class T_> FORCE_INLINE void CheckPivot(const T_& pivot, int step, int i, Margins_* margins) const {
+            if constexpr (std::is_same_v<T_, Bound_>)
+                CertifyActualPivot(pivot.value_, step, i, margins->pivot_);
+            if constexpr (std::is_same_v<T_, double>) {
+                if (margins) {
+                    REQUIRE(PositiveFinite(pivot), "Dupire benchmark requires a positive Thomas pivot");
+                    margins->pivot_ = std::min(margins->pivot_, pivot);
+                }
+            }
+        }
+
+        template <class T_>
+        FORCE_INLINE void FactorStep(const Slices_<T_>& slices,
+                                     int step,
+                                     const Bracket_& t,
+                                     Margins_* margins,
+                                     std::array<T_, INTERIOR>& lower,
+                                     std::array<T_, INTERIOR>& invPivot,
+                                     std::array<T_, INTERIOR - 1>& scaledUpper,
+                                     T_& boundaryUpper) const {
+            for (int i = 0; i < INTERIOR; ++i) {
+                const T_ vol =
+                    t.left_ == t.right_ ? slices[t.left_][i] : T_(slices[t.left_][i] + (slices[t.right_][i] - slices[t.left_][i]) * t.weight_);
+                const T_ diffusion = 0.5 * vol * vol;
+                const T_ drift = RATE - DIVIDEND - diffusion;
+                lower[i] = drift_ * drift - diffusion_ * diffusion;
+                T_ upper = -drift_ * drift - diffusion_ * diffusion;
+                T_ pivot = 1.0 + RATE * DT + (2.0 * diffusion_) * diffusion;
+                if constexpr (std::is_same_v<T_, Bound_>)
+                    CertifyRow(lower[i], pivot, upper, step, i, *margins);
+                if (i != 0)
+                    pivot -= lower[i] * scaledUpper[i - 1];
+                CheckPivot(pivot, step, i, margins);
+                invPivot[i] = 1.0 / pivot;
+                if (i + 1 != INTERIOR)
+                    scaledUpper[i] = upper * invPivot[i];
+                else
+                    boundaryUpper = std::move(upper);
+            }
+        }
+
+        template <class T_>
+        FORCE_INLINE void Substitute(int step,
+                                     const std::array<T_, INTERIOR>& lower,
+                                     const std::array<T_, INTERIOR>& invPivot,
+                                     const std::array<T_, INTERIOR - 1>& scaledUpper,
+                                     const T_& boundaryUpper,
+                                     Dal::Vector_<T_>& values) const {
+            for (int i = 0; i < INTERIOR; ++i) {
+                if (i + 1 == INTERIOR)
+                    values[i] -= boundaryUpper * rightBoundary_[step];
+                if (i != 0)
+                    values[i] -= lower[i] * values[i - 1];
+                values[i] *= invPivot[i];
+            }
+            for (int i = INTERIOR - 2; i >= 0; --i)
+                values[i] -= scaledUpper[i] * values[i + 1];
+        }
+
+        template <class T_> static void TraceRollback(const Dal::Vector_<T_>& values, int step, PrimalTrace_* trace) {
+            if constexpr (std::is_same_v<T_, double>)
+                if (trace)
+                    std::copy(values.begin(), values.end(), (*trace)[step].begin());
+            if constexpr (std::is_same_v<T_, AAD::SecondOrderNumber_>)
+                if (trace)
+                    std::transform(values.begin(), values.end(), (*trace)[step].begin(), AAD::SecondOrderDetail::Access_::Value);
+        }
+
+    public:
         template <class T_> T_ Rollback(const Surface_<T_>& vols, Margins_* margins = nullptr, PrimalTrace_* trace = nullptr) const {
-            std::array<std::array<T_, INTERIOR>, LOCAL_TIMES.size()> slices;
+            Slices_<T_> slices;
             for (size_t t = 0; t < LOCAL_TIMES.size(); ++t)
                 for (int i = 0; i < INTERIOR; ++i)
                     slices[t][i] = Interpolate<T_>(vols[t], space_[i]);
@@ -200,49 +284,11 @@ namespace Dal::DupireSecondOrderDetail {
                 const auto& t = time_[step];
                 // Equal passive interpolation plans give exactly the same
                 // active matrix. Reuse its factors within this recording.
-                if (step == 0 || !t.SameCell(time_[step - 1]) || t.weight_ != time_[step - 1].weight_) {
-                    for (int i = 0; i < INTERIOR; ++i) {
-                        const T_ vol = t.left_ == t.right_ ? slices[t.left_][i]
-                                                           : T_(slices[t.left_][i] + (slices[t.right_][i] - slices[t.left_][i]) * t.weight_);
-                        const T_ diffusion = 0.5 * vol * vol;
-                        const T_ drift = RATE - DIVIDEND - diffusion;
-                        lower[i] = drift_ * drift - diffusion_ * diffusion;
-                        T_ upper = -drift_ * drift - diffusion_ * diffusion;
-                        T_ pivot = 1.0 + RATE * DT + (2.0 * diffusion_) * diffusion;
-                        if constexpr (std::is_same_v<T_, Bound_>)
-                            CertifyRow(lower[i], pivot, upper, step, i, *margins);
-                        if (i != 0)
-                            pivot -= lower[i] * scaledUpper[i - 1];
-                        if constexpr (std::is_same_v<T_, Bound_>)
-                            CertifyActualPivot(pivot.value_, step, i, margins->pivot_);
-                        if constexpr (std::is_same_v<T_, double>) {
-                            if (margins) {
-                                REQUIRE(std::isfinite(pivot) && pivot > 0.0, "Dupire benchmark requires a positive Thomas pivot");
-                                margins->pivot_ = std::min(margins->pivot_, pivot);
-                            }
-                        }
-                        invPivot[i] = 1.0 / pivot;
-                        if (i + 1 != INTERIOR)
-                            scaledUpper[i] = upper * invPivot[i];
-                        else
-                            boundaryUpper = std::move(upper);
-                    }
+                if (ChangesFactor(step)) {
+                    FactorStep(slices, step, t, margins, lower, invPivot, scaledUpper, boundaryUpper);
                 }
-                for (int i = 0; i < INTERIOR; ++i) {
-                    if (i + 1 == INTERIOR)
-                        values[i] -= boundaryUpper * rightBoundary_[step];
-                    if (i != 0)
-                        values[i] -= lower[i] * values[i - 1];
-                    values[i] *= invPivot[i];
-                }
-                for (int i = INTERIOR - 2; i >= 0; --i)
-                    values[i] -= scaledUpper[i] * values[i + 1];
-                if constexpr (std::is_same_v<T_, double>)
-                    if (trace)
-                        std::copy(values.begin(), values.end(), (*trace)[step].begin());
-                if constexpr (std::is_same_v<T_, AAD::SecondOrderNumber_>)
-                    if (trace)
-                        std::transform(values.begin(), values.end(), (*trace)[step].begin(), AAD::SecondOrderDetail::Access_::Value);
+                Substitute(step, lower, invPivot, scaledUpper, boundaryUpper, values);
+                TraceRollback(values, step, trace);
             }
             return values[INTERIOR / 2];
         }

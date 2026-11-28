@@ -277,11 +277,58 @@ namespace Dal::AAD {
 
             double Publish(double value) { return FinitePrimal(value); }
 
-            double Publish(Wide_ value) {
+            double Publish(const Wide_& value) {
                 const long double total = value.Value();
                 if (!std::isfinite(total) || std::abs(total) > std::numeric_limits<double>::max())
                     Error(Reason::NUMERICAL_FAILURE, "protected derivative exceeds the finite double range");
                 return static_cast<double>(total);
+            }
+
+            void CheckRecording(Arena_& arena) {
+                if (arena.recordingFailure_)
+                    std::rethrow_exception(arena.recordingFailure_);
+                if (arena.retry_)
+                    Promote();
+            }
+
+            double RecordPrice(const SecondOrderNumber_& price, std::optional<double>& recordedPrice) {
+                const double value = FinitePrimal(Access_::Value(price));
+                if (recordedPrice && *recordedPrice != value)
+                    Error(Reason::NUMERICAL_FAILURE, "same-point price changed between recordings");
+                recordedPrice = value;
+                return value;
+            }
+
+            template <class T_, class F_> bool PublishGradient(const F_& function, int row, bool zero) {
+                bool publishGradient = row == 0;
+                if constexpr (std::is_same_v<F_, ReplayFunction_>) {
+                    publishGradient = row == function.gradientRow_;
+                    if constexpr (std::is_same_v<T_, double>)
+                        if (!zero || publishGradient)
+                            Promote("shared replay needs protected derivative arithmetic");
+                }
+                return publishGradient;
+            }
+
+            template <class T_>
+            void PublishDirection(Arena_& arena,
+                                  bool hasDirections,
+                                  int row,
+                                  size_t inputs,
+                                  bool zero,
+                                  bool publishGradient,
+                                  const T_& tangent,
+                                  DirectionOutput_ output) {
+                if (hasDirections)
+                    output.directional_[row] = zero ? 0.0 : Publish(tangent);
+                const auto* const adjoints = arena.Adjoints<T_>().Data();
+                for (size_t i = 0; i < inputs; ++i) {
+                    const double gradient = Publish(adjoints[i].value_);
+                    if (publishGradient)
+                        output.gradient_[i] = gradient;
+                    if (hasDirections)
+                        output.products_(row, static_cast<int>(i)) = zero ? 0.0 : Publish(adjoints[i].tangent_);
+                }
             }
 
             template <class T_, class F_>
@@ -306,23 +353,11 @@ namespace Dal::AAD {
                 ++output.work_.recordings_;
                 ++output.work_.callbackEvaluations_;
                 const auto price = function(inputs);
-                if (arena.recordingFailure_)
-                    std::rethrow_exception(arena.recordingFailure_);
-                if (arena.retry_)
-                    Promote();
+                CheckRecording(arena);
                 arithmetic.Check();
-                const double value = FinitePrimal(Access_::Value(price));
-                if (recordedPrice && *recordedPrice != value)
-                    Error(Reason::NUMERICAL_FAILURE, "same-point price changed between recordings");
-                recordedPrice = value;
+                const double value = RecordPrice(price, recordedPrice);
                 const Slot_ slot = Access_::Slot(price, arena);
-                bool publishGradient = row == 0;
-                if constexpr (std::is_same_v<F_, ReplayFunction_>) {
-                    publishGradient = row == function.gradientRow_;
-                    if constexpr (std::is_same_v<T_, double>)
-                        if (!zero || publishGradient)
-                            Promote("shared replay needs protected derivative arithmetic");
-                }
+                const bool publishGradient = PublishGradient<T_>(function, row, zero);
                 const T_ tangent = zero ? T_(0) : Access_::Tangent<T_>(price, arena, slot);
                 arena.liveDirection_ = false;
                 arena.stage_ = Stage::REVERSE;
@@ -330,16 +365,7 @@ namespace Dal::AAD {
                 Reverse<T_>(arena, slot);
                 arithmetic.Check();
                 arena.stage_ = Stage::RESULT;
-                if (directions.Rows())
-                    output.directional_[row] = zero ? 0.0 : Publish(tangent);
-                const auto* const adjoints = arena.Adjoints<T_>().Data();
-                for (size_t i = 0; i < point.size(); ++i) {
-                    const double gradient = Publish(adjoints[i].value_);
-                    if (publishGradient)
-                        output.gradient_[i] = gradient;
-                    if (directions.Rows())
-                        output.products_(row, static_cast<int>(i)) = zero ? 0.0 : Publish(adjoints[i].tangent_);
-                }
+                PublishDirection(arena, directions.Rows() != 0, row, point.size(), zero, publishGradient, tangent, output);
                 return value;
             }
 
@@ -402,30 +428,46 @@ namespace Dal::AAD {
         return CheckedMultiply(sizeof(double), CheckedAdd(CheckedAdd(CheckedAdd(1, axis), matrix), directions));
     }
 
+    namespace {
+        void ValidateCoordinates(const Vector_<>& point, const Matrix_<>& directions) {
+            using namespace SecondOrderDetail;
+            for (size_t i = 0; i < point.size(); ++i)
+                if (!std::isfinite(point[i]))
+                    Access_::Fail(Reason::INVALID_INPUT, Stage::VALIDATION, {}, "point[" + std::to_string(i) + "] must be finite");
+            for (int row = 0; row < directions.Rows(); ++row)
+                for (int col = 0; col < directions.Cols(); ++col)
+                    if (!std::isfinite(directions(row, col)))
+                        Access_::Fail(Reason::INVALID_INPUT, Stage::VALIDATION, static_cast<size_t>(row),
+                                      "directions(" + std::to_string(row) + "," + std::to_string(col) + ") must be finite");
+        }
+
+        size_t ValidateRequest(const SecondOrderFunction_& function,
+                               const Vector_<>& point,
+                               const Matrix_<>& directions,
+                               const SecondOrderOptions_& options) {
+            using namespace SecondOrderDetail;
+            const auto* const legacy = NativeThread::retainedTape;
+            if (legacy && (legacy->nodes_.OccupiedSlots() || legacy->HasReverseEventState()))
+                Error(Reason::LIFECYCLE, "existing legacy tape must be empty");
+            const auto bytes = SecondOrderPayloadBytes(point.size(), directions.Rows());
+            if (!function || directions.Cols() != static_cast<int>(point.size()))
+                Error(Reason::INVALID_INPUT, "callback and directions with one column per input are required");
+            if (options.numericPayloadBudgetBytes_ && bytes > *options.numericPayloadBudgetBytes_)
+                Access_::Fail(Reason::BUDGET_EXCEEDED, Stage::VALIDATION, {},
+                              "numeric payload requires " + std::to_string(bytes) + " bytes with cap " +
+                                  std::to_string(*options.numericPayloadBudgetBytes_));
+            ValidateCoordinates(point, directions);
+            return bytes;
+        }
+    } // namespace
+
     SecondOrderResult_ EvaluateSecondOrder(const SecondOrderFunction_& function,
                                            const Vector_<>& point,
                                            const Matrix_<>& directions,
                                            const SecondOrderOptions_& options) {
         using namespace SecondOrderDetail;
         const Exclusive_ exclusive;
-        const auto* const legacy = NativeThread::retainedTape;
-        if (legacy && (legacy->nodes_.OccupiedSlots() || legacy->HasReverseEventState()))
-            Error(Reason::LIFECYCLE, "existing legacy tape must be empty");
-        const auto bytes = SecondOrderPayloadBytes(point.size(), directions.Rows());
-        if (!function || directions.Cols() != static_cast<int>(point.size()))
-            Error(Reason::INVALID_INPUT, "callback and directions with one column per input are required");
-        if (options.numericPayloadBudgetBytes_ && bytes > *options.numericPayloadBudgetBytes_)
-            Access_::Fail(Reason::BUDGET_EXCEEDED, Stage::VALIDATION, {},
-                          "numeric payload requires " + std::to_string(bytes) + " bytes with cap " +
-                              std::to_string(*options.numericPayloadBudgetBytes_));
-        for (size_t i = 0; i < point.size(); ++i)
-            if (!std::isfinite(point[i]))
-                Access_::Fail(Reason::INVALID_INPUT, Stage::VALIDATION, {}, "point[" + std::to_string(i) + "] must be finite");
-        for (int row = 0; row < directions.Rows(); ++row)
-            for (int col = 0; col < directions.Cols(); ++col)
-                if (!std::isfinite(directions(row, col)))
-                    Access_::Fail(Reason::INVALID_INPUT, Stage::VALIDATION, static_cast<size_t>(row),
-                                  "directions(" + std::to_string(row) + "," + std::to_string(col) + ") must be finite");
+        const auto bytes = ValidateRequest(function, point, directions, options);
 
         auto& arena = RetainedArena();
         const auto settings = options;

@@ -63,6 +63,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         [[nodiscard]] Number_ Bind(double value, Slot_ slot) const { return {value, slot, identity_}; }
         [[nodiscard]] Operand_ Read(const Number_& number);
         Number_ Append(double value, Local_ local);
+        void CheckWeights(const Local_& node);
 
         static FORCE_INLINE bool IsNarrow(double value) {
             const double magnitude = std::abs(value);
@@ -112,6 +113,16 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         return {number.value_, slot};
     }
 
+    FORCE_INLINE void Tape_::CheckWeights(const Local_& node) {
+        CheckNarrow(node.dl_);
+        CheckNarrow(node.dll_);
+        if (node.right_) {
+            CheckNarrow(node.dr_);
+            CheckNarrow(node.dlr_);
+            CheckNarrow(node.drr_);
+        }
+    }
+
     FORCE_INLINE Number_ Tape_::Append(double value, Local_ node) {
         CheckNarrow(value);
         if (!node.left_) {
@@ -121,13 +132,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         }
         if (!node.left_)
             return Number_(value);
-        CheckNarrow(node.dl_);
-        CheckNarrow(node.dll_);
-        if (node.right_) {
-            CheckNarrow(node.dr_);
-            CheckNarrow(node.dlr_);
-            CheckNarrow(node.drr_);
-        }
+        CheckWeights(node);
         if (inputs_ + size_ >= std::numeric_limits<Slot_>::max() - 1)
             RecordingError(Reason::CAPACITY_EXCEEDED, "shared graph slot limit exceeded");
         if (size_ == nodes_.capacity_)

@@ -10,13 +10,16 @@ namespace Dal::DupireSecondOrderDetail::Thomas {
     namespace Tape = AAD::SecondOrderDetail;
     using Pair_ = Tape::Weight_<double>;
 
+    inline bool LostDerivative(double sum, double accumulated, double term) {
+        return (sum == accumulated || sum == term) && std::min(std::abs(accumulated), std::abs(term)) > 0x1p-48;
+    }
+
     inline double Accumulate(double accumulated, double term) {
         const double sum = accumulated + term;
         const double scale = std::max(std::abs(accumulated), std::abs(term));
         if (!(scale <= 0x1p48) || (sum != 0.0 && std::abs(sum) < 0x1p-900))
             Tape::Promote("Dupire Thomas derivative range");
-        if (accumulated != 0.0 && term != 0.0 &&
-            (std::abs(sum) <= 0x1p-38 * scale || ((sum == accumulated || sum == term) && std::min(std::abs(accumulated), std::abs(term)) > 0x1p-48)))
+        if (accumulated != 0.0 && term != 0.0 && (std::abs(sum) <= 0x1p-38 * scale || LostDerivative(sum, accumulated, term)))
             Tape::Promote("Dupire Thomas derivative cancellation");
         return sum;
     }
@@ -169,12 +172,7 @@ namespace Dal::DupireSecondOrderDetail::Thomas {
         History_<N_, S_> values_, tangents_;
 
         template <class C_>
-        AAD::SecondOrderNumber_ Evaluate(Tape::Arena_& arena,
-                                         const Row_<N_>& payoff,
-                                         const std::array<double, S_>& right,
-                                         size_t center,
-                                         const C_& coefficients,
-                                         History_<N_, S_>* trace = nullptr) {
+        FORCE_INLINE void Forward(Tape::Arena_& arena, const Row_<N_>& payoff, const std::array<double, S_>& right, const C_& coefficients) {
             size_t groups = 0;
             const Row_<N_> zero{};
             for (size_t step = 0; step < S_; ++step) {
@@ -191,6 +189,31 @@ namespace Dal::DupireSecondOrderDetail::Thomas {
             }
             if (groups != G_)
                 Tape::Promote("Dupire Thomas coefficient group outside fixed plan");
+        }
+
+        FORCE_INLINE void SeedCalibration(Pair_* adjoints) const {
+            for (size_t group = 0; group < G_; ++group) {
+                const auto& factor = factors_[group];
+                for (size_t band = 0; band < 3; ++band)
+                    for (size_t i = band == 0 ? 1 : 0; i < N_; ++i) {
+                        const auto slot = factor.slots_[band][i];
+                        if (slot == Tape::PASSIVE)
+                            continue;
+                        auto& destination = adjoints[slot];
+                        const auto seed = factor.seeds_[band][i];
+                        destination = {Accumulate(destination.value_, seed.value_), Accumulate(destination.tangent_, seed.tangent_)};
+                    }
+            }
+        }
+
+        template <class C_>
+        AAD::SecondOrderNumber_ Evaluate(Tape::Arena_& arena,
+                                         const Row_<N_>& payoff,
+                                         const std::array<double, S_>& right,
+                                         size_t center,
+                                         const C_& coefficients,
+                                         History_<N_, S_>* trace = nullptr) {
+            Forward(arena, payoff, right, coefficients);
             if (trace)
                 *trace = values_;
             Row_<N_> adjoint{}, adjointDot{};
@@ -206,18 +229,7 @@ namespace Dal::DupireSecondOrderDetail::Thomas {
             const auto root = arena.slots_;
             arena.Ensure(buffer, 0, static_cast<size_t>(root) + 1);
             std::fill_n(buffer.Data(), static_cast<size_t>(root) + 1, Pair_{0.0, 0.0});
-            for (size_t group = 0; group < groups; ++group) {
-                const auto& factor = factors_[group];
-                for (size_t band = 0; band < 3; ++band)
-                    for (size_t i = band == 0 ? 1 : 0; i < N_; ++i) {
-                        const auto slot = factor.slots_[band][i];
-                        if (slot == Tape::PASSIVE)
-                            continue;
-                        auto& destination = buffer.Data()[slot];
-                        const auto seed = factor.seeds_[band][i];
-                        destination = {Accumulate(destination.value_, seed.value_), Accumulate(destination.tangent_, seed.tangent_)};
-                    }
-            }
+            SeedCalibration(buffer.Data());
             ++arena.slots_;
             arena.adjointsSeeded_ = true;
             arena.AccountLogical<double>(true);

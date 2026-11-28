@@ -290,6 +290,12 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         DAL_SHARED_FMA_SWEEP void PropagateBlock(Slot_ root, int first, const Floating_& arithmetic) {
             Propagate<3>(root, first, first == 0, arithmetic);
         }
+        template <size_t L_> std::array<bool, L_> SeedTangents(int first, Lanes_ tangent);
+        template <size_t L_>
+        void
+        PublishProducts(Slot_ root, int first, bool makeGradient, const std::array<bool, L_>& zero, Lanes_ gradient, Lanes_ tangent, Lanes_ product);
+        template <size_t L_> void PublishDirections(Slot_ root, int first, const std::array<bool, L_>& zero, Lanes_ tangent);
+        Operand_ RecordShared(const Kernel_& kernel, const Floating_& arithmetic);
         void Execute(const Kernel_& kernel);
 
         SharedSecondOrderResult_ Finish() {
@@ -300,30 +306,22 @@ namespace Dal::AAD::SharedSecondOrderDetail {
     };
 
     template <size_t L_>
-    void Request_::Propagate(Slot_ root, int first, bool makeGradient, const Floating_& arithmetic) {
-        auto& tape = tape_;
-        auto& work = result_.execution_;
-        const auto slots = 1 + tape.inputs_ + tape.size_;
-        auto* const scratch = tape.scratch_.values_.get();
-        const Lanes_ gradient{scratch, scratch + slots};
-        const auto lanes = slots * L_;
-        const Lanes_ tangent{gradient.low_ + slots, gradient.low_ + slots + lanes};
-        // A fan-out can read a tangent after other parents have already
-        // contributed to the same slot's HVP. Both low limbs must stay live.
-        const Lanes_ product{tangent.low_ + lanes, tangent.low_ + 2 * lanes};
-        const Node_* nodes = tape.nodes_.values_.get();
-        std::array<bool, L_> zero;
-        zero.fill(true);
-        tangent.Clear((tape.inputs_ + 1) * L_);
-        for (size_t i = 0; i < tape.inputs_; ++i) {
-            for (size_t lane = 0; lane < L_; ++lane) {
-                const double seed = result_.directions_(first + static_cast<int>(lane), static_cast<int>(i));
-                tape.CheckNarrow(seed);
-                tangent.high_[(i + 1) * L_ + lane] = seed;
-                zero[lane] &= seed == 0.0;
-            }
+    FORCE_INLINE void ReverseBinary(const Node_& node, size_t out, size_t left, size_t right, Lanes_ tangent, Lanes_ product, Twofold_ bar) {
+        const double drr = node.RightCurvature();
+        // Keep occurrence order for repeated operands, including x*x.
+        for (size_t lane = 0; lane < L_; ++lane) {
+            const auto dot = product.Read(out * L_ + lane);
+            const auto dl = Multiply(node.dlr_, tangent.Read(right + lane));
+            auto dr = Multiply(node.dlr_, tangent.Read(left + lane));
+            if (drr != 0.0)
+                dr = NormalizeReverse(Add(dr, Multiply(drr, tangent.Read(right + lane))));
+            Accumulate(product, left + lane, node.dl_, dot, bar, dl);
+            Accumulate(product, right + lane, node.rightWeightOrCurvature_, dot, bar, dr);
         }
-        ++work.sharedTangentSweeps_;
+    }
+
+    template <size_t L_> FORCE_INLINE void ForwardNodes(const Tape_& tape, Lanes_ tangent) {
+        const auto* nodes = tape.nodes_.values_.get();
         for (size_t i = 0; i < tape.size_; ++i) {
             const auto& node = nodes[i];
             const auto left = static_cast<size_t>(node.left_) * L_, right = static_cast<size_t>(node.right_) * L_;
@@ -340,9 +338,20 @@ namespace Dal::AAD::SharedSecondOrderDetail {
                 }
             }
         }
-        if (arithmetic.Faulted())
-            throw Retry_{};
-        ++work.sharedReverseSweeps_;
+    }
+
+    template <size_t L_> FORCE_INLINE void ReverseUnary(const Node_& node, size_t out, size_t left, Lanes_ tangent, Lanes_ product, Twofold_ bar) {
+        for (size_t lane = 0; lane < L_; ++lane) {
+            const auto dot = product.Read(out * L_ + lane);
+            const auto local = Multiply(node.rightWeightOrCurvature_, tangent.Read(left + lane));
+            Accumulate(product, left + lane, node.dl_, dot, bar, local);
+        }
+    }
+
+    template <size_t L_>
+    FORCE_INLINE void
+    ReverseNodes(const Tape_& tape, Slot_ root, bool makeGradient, size_t slots, size_t lanes, Lanes_ gradient, Lanes_ tangent, Lanes_ product) {
+        const auto* nodes = tape.nodes_.values_.get();
         if (makeGradient) {
             gradient.Clear(slots);
             if (root)
@@ -362,28 +371,43 @@ namespace Dal::AAD::SharedSecondOrderDetail {
                 if (node.right_) {
                     if (makeGradient)
                         AccumulateAdjoint(gradient, node.right_, node.rightWeightOrCurvature_, bar);
-                    const double drr = node.RightCurvature();
-                    // Keep occurrence order for repeated operands, including x*x.
-                    for (size_t lane = 0; lane < L_; ++lane) {
-                        const auto dot = product.Read(out * L_ + lane);
-                        const auto dl = Multiply(node.dlr_, tangent.Read(right + lane));
-                        auto dr = Multiply(node.dlr_, tangent.Read(left + lane));
-                        if (drr != 0.0)
-                            dr = NormalizeReverse(Add(dr, Multiply(drr, tangent.Read(right + lane))));
-                        Accumulate(product, left + lane, node.dl_, dot, bar, dl);
-                        Accumulate(product, right + lane, node.rightWeightOrCurvature_, dot, bar, dr);
-                    }
+                    ReverseBinary<L_>(node, out, left, right, tangent, product, bar);
                 } else {
-                    for (size_t lane = 0; lane < L_; ++lane) {
-                        const auto dot = product.Read(out * L_ + lane);
-                        const auto local = Multiply(node.rightWeightOrCurvature_, tangent.Read(left + lane));
-                        Accumulate(product, left + lane, node.dl_, dot, bar, local);
-                    }
+                    ReverseUnary<L_>(node, out, left, tangent, product, bar);
                 }
             }
         }
-        if (arithmetic.Faulted())
-            throw Retry_{};
+    }
+
+    template <size_t L_> FORCE_INLINE std::array<bool, L_> Request_::SeedTangents(int first, Lanes_ tangent) {
+        auto& tape = tape_;
+        std::array<bool, L_> zero;
+        zero.fill(true);
+        tangent.Clear((tape.inputs_ + 1) * L_);
+        for (size_t i = 0; i < tape.inputs_; ++i) {
+            for (size_t lane = 0; lane < L_; ++lane) {
+                const double seed = result_.directions_(first + static_cast<int>(lane), static_cast<int>(i));
+                tape.CheckNarrow(seed);
+                tangent.high_[(i + 1) * L_ + lane] = seed;
+                zero[lane] &= seed == 0.0;
+            }
+        }
+        return zero;
+    }
+
+    template <size_t L_> FORCE_INLINE void Request_::PublishDirections(Slot_ root, int first, const std::array<bool, L_>& zero, Lanes_ tangent) {
+        for (size_t lane = 0; lane < L_; ++lane) {
+            const double direction = zero[lane] ? 0.0 : tangent.high_[static_cast<size_t>(root) * L_ + lane];
+            if (!Tape_::IsNarrow(direction))
+                throw Retry_{};
+            result_.directional_[first + static_cast<int>(lane)] = direction;
+        }
+    }
+
+    template <size_t L_>
+    FORCE_INLINE void Request_::PublishProducts(
+        Slot_ root, int first, bool makeGradient, const std::array<bool, L_>& zero, Lanes_ gradient, Lanes_ tangent, Lanes_ product) {
+        const auto& tape = tape_;
         for (size_t i = 0; i < tape.inputs_; ++i) {
             if (makeGradient) {
                 if (!Tape_::IsNarrow(gradient.high_[i + 1]))
@@ -399,12 +423,52 @@ namespace Dal::AAD::SharedSecondOrderDetail {
                 result_.products_(first + static_cast<int>(lane), static_cast<int>(i)) = hvp;
             }
         }
-        for (size_t lane = 0; lane < L_; ++lane) {
-            const double direction = zero[lane] ? 0.0 : tangent.high_[static_cast<size_t>(root) * L_ + lane];
-            if (!Tape_::IsNarrow(direction))
-                throw Retry_{};
-            result_.directional_[first + static_cast<int>(lane)] = direction;
+        PublishDirections<L_>(root, first, zero, tangent);
+    }
+
+    template <size_t L_> void Request_::Propagate(Slot_ root, int first, bool makeGradient, const Floating_& arithmetic) {
+        auto& tape = tape_;
+        auto& work = result_.execution_;
+        const auto slots = 1 + tape.inputs_ + tape.size_;
+        auto* const scratch = tape.scratch_.values_.get();
+        const Lanes_ gradient{scratch, scratch + slots};
+        const auto lanes = slots * L_;
+        const Lanes_ tangent{gradient.low_ + slots, gradient.low_ + slots + lanes};
+        // A fan-out can read a tangent after other parents have already
+        // contributed to the same slot's HVP. Both low limbs must stay live.
+        const Lanes_ product{tangent.low_ + lanes, tangent.low_ + 2 * lanes};
+        const auto zero = SeedTangents<L_>(first, tangent);
+        ++work.sharedTangentSweeps_;
+        ForwardNodes<L_>(tape, tangent);
+        if (arithmetic.Faulted())
+            throw Retry_{};
+        ++work.sharedReverseSweeps_;
+        ReverseNodes<L_>(tape, root, makeGradient, slots, lanes, gradient, tangent, product);
+        if (arithmetic.Faulted())
+            throw Retry_{};
+        PublishProducts<L_>(root, first, makeGradient, zero, gradient, tangent, product);
+    }
+
+    Operand_ Request_::RecordShared(const Kernel_& kernel, const Floating_& arithmetic) {
+        auto& work = result_.execution_;
+        const ActiveGraph_ recording(tape_);
+        ++work.sharedRecordings_;
+        Vector_<Number_> inputs;
+        inputs.reserve(tape_.inputs_);
+        for (size_t i = 0; i < tape_.inputs_; ++i) {
+            const double value = result_.point_[i];
+            tape_.CheckNarrow(value);
+            inputs.push_back(tape_.Bind(value, static_cast<Slot_>(i + 1)));
         }
+        ++work.callbackEvaluations_;
+        const auto price = kernel.shared_(kernel.object_, inputs);
+        if (tape_.failure_)
+            tape_.RethrowRecordingFailure();
+        if (tape_.promote_)
+            tape_.Promote();
+        const auto root = tape_.Read(price);
+        arithmetic.Check(tape_);
+        return root;
     }
 
     void Request_::Execute(const Kernel_& kernel) {
@@ -413,26 +477,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         std::optional<double> trustedPrice;
         try {
             const Floating_ arithmetic;
-            Operand_ root;
-            {
-                const ActiveGraph_ recording(tape_);
-                ++work.sharedRecordings_;
-                Vector_<Number_> inputs;
-                inputs.reserve(tape_.inputs_);
-                for (size_t i = 0; i < tape_.inputs_; ++i) {
-                    const double value = result_.point_[i];
-                    tape_.CheckNarrow(value);
-                    inputs.push_back(tape_.Bind(value, static_cast<Slot_>(i + 1)));
-                }
-                ++work.callbackEvaluations_;
-                const auto price = kernel.shared_(kernel.object_, inputs);
-                if (tape_.failure_)
-                    tape_.RethrowRecordingFailure();
-                if (tape_.promote_)
-                    tape_.Promote();
-                root = tape_.Read(price);
-                arithmetic.Check(tape_);
-            }
+            const auto root = RecordShared(kernel, arithmetic);
             trustedPrice = root.value_;
             result_.value_ = root.value_;
             const auto recordingBytes = tape_.size_ * sizeof(Node_) + tape_.reservedInputs_;
@@ -472,9 +517,17 @@ namespace Dal::AAD::SharedSecondOrderDetail {
 
     void Run(Request_& request, const Kernel_& kernel) { request.Execute(kernel); }
 
-    SharedSecondOrderResult_ Evaluate(const void* kernel, WithKernel_ own, const Vector_<>& point, const Matrix_<>& directions,
-                                      const SecondOrderOptions_& options) {
-        const SecondOrderDetail::Exclusive_ exclusive;
+    void ValidateSharedCoordinates(const Vector_<>& point, const Matrix_<>& directions) {
+        for (double x : point)
+            if (!std::isfinite(x))
+                Fail(Reason::INVALID_INPUT, Stage::VALIDATION, "shared graph requires a finite point");
+        for (int row = 0; row < directions.Rows(); ++row)
+            for (int col = 0; col < directions.Cols(); ++col)
+                if (!std::isfinite(directions(row, col)))
+                    Fail(Reason::INVALID_INPUT, Stage::VALIDATION, "shared graph requires finite directions", static_cast<size_t>(row));
+    }
+
+    size_t ValidateSharedRequest(const Vector_<>& point, const Matrix_<>& directions, const SecondOrderOptions_& options) {
         const auto* const legacy = NativeThread::retainedTape;
         if (legacy && (legacy->nodes_.OccupiedSlots() || legacy->HasReverseEventState()))
             Fail(Reason::LIFECYCLE, Stage::VALIDATION, "existing legacy tape must be empty");
@@ -483,13 +536,14 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             Fail(Reason::INVALID_INPUT, Stage::VALIDATION, "shared graph requires at least two directions and one column per input");
         if (options.numericPayloadBudgetBytes_ && payload > *options.numericPayloadBudgetBytes_)
             Fail(Reason::BUDGET_EXCEEDED, Stage::VALIDATION, "shared graph owning result exceeds the payload cap");
-        for (double x : point)
-            if (!std::isfinite(x))
-                Fail(Reason::INVALID_INPUT, Stage::VALIDATION, "shared graph requires a finite point");
-        for (int row = 0; row < directions.Rows(); ++row)
-            for (int col = 0; col < directions.Cols(); ++col)
-                if (!std::isfinite(directions(row, col)))
-                    Fail(Reason::INVALID_INPUT, Stage::VALIDATION, "shared graph requires finite directions", static_cast<size_t>(row));
+        ValidateSharedCoordinates(point, directions);
+        return payload;
+    }
+
+    SharedSecondOrderResult_
+    Evaluate(const void* kernel, WithKernel_ own, const Vector_<>& point, const Matrix_<>& directions, const SecondOrderOptions_& options) {
+        const SecondOrderDetail::Exclusive_ exclusive;
+        const auto payload = ValidateSharedRequest(point, directions, options);
 
         auto& tape = RetainedTape();
         bool cleanupStarted = false;

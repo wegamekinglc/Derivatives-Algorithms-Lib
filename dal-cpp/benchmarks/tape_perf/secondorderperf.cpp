@@ -283,21 +283,11 @@ namespace {
         return shape.absoluteDerivatives_ ? tolerance : tolerance * std::max(1.0, std::abs(expected));
     }
 
-    void
-    Verify(const Case_& shape, const Reference_& ref, int count, const ForwardOverReverseResult_& pointwise, const BumpOverAADResult_& centered) {
+    void VerifyProducts(
+        const Case_& shape, const Reference_& ref, size_t n, const ForwardOverReverseResult_& pointwise, const BumpOverAADResult_& centered) {
         const auto& pointwiseWork = pointwise.Execution();
         const auto& centeredWork = centered.Execution();
         const auto& products = pointwise.HessianProducts();
-        const auto n = static_cast<size_t>(count);
-        REQUIRE(products.Rows() == count && centered.HessianProducts().Rows() == count && products.Cols() == ref.products_.Cols() &&
-                    centered.HessianProducts().Cols() == ref.products_.Cols(),
-                "second-order benchmark unexpected HVP shape");
-        REQUIRE(pointwiseWork.recordings_ == n && pointwiseWork.reverseSweeps_ == n + 1 && centeredWork.gradientEvaluations_ == 1 + 2 * n &&
-                    centeredWork.reverseSweeps_ == 1 + 2 * n,
-                "second-order benchmark unexpected tape work");
-        REQUIRE(std::abs(ref.price_ - pointwise.Value()) <= shape.priceTolerance_ && std::abs(ref.price_ - centered.Value()) <= shape.priceTolerance_,
-                "second-order benchmark price differs from independent reference");
-        REQUIRE(std::abs(ref.products_(0, 1)) > 1e-6, "second-order benchmark single direction needs a nonzero cross term");
         double pointwiseError = 0.0, centeredError = 0.0;
         for (int row = 0; row < products.Rows(); ++row) {
             for (int column = 0; column < products.Cols(); ++column) {
@@ -319,6 +309,25 @@ namespace {
                   << "work," << shape.name_ << ',' << n << ',' << pointwiseWork.recordings_ << ',' << pointwiseWork.reverseSweeps_ << ','
                   << pointwiseWork.peakTapeBytes_ << ',' << centeredWork.gradientEvaluations_ << ',' << centeredWork.reverseSweeps_ << ','
                   << centeredWork.peakTapeBytes_ << '\n';
+    }
+
+    bool HasShape(const Matrix_<>& matrix, int rows, int cols) { return matrix.Rows() == rows && matrix.Cols() == cols; }
+
+    void
+    Verify(const Case_& shape, const Reference_& ref, int count, const ForwardOverReverseResult_& pointwise, const BumpOverAADResult_& centered) {
+        const auto& pointwiseWork = pointwise.Execution();
+        const auto& centeredWork = centered.Execution();
+        const auto& products = pointwise.HessianProducts();
+        const auto n = static_cast<size_t>(count);
+        REQUIRE(HasShape(products, count, ref.products_.Cols()) && HasShape(centered.HessianProducts(), count, ref.products_.Cols()),
+                "second-order benchmark unexpected HVP shape");
+        REQUIRE(pointwiseWork.recordings_ == n && pointwiseWork.reverseSweeps_ == n + 1 && centeredWork.gradientEvaluations_ == 1 + 2 * n &&
+                    centeredWork.reverseSweeps_ == 1 + 2 * n,
+                "second-order benchmark unexpected tape work");
+        REQUIRE(std::abs(ref.price_ - pointwise.Value()) <= shape.priceTolerance_ && std::abs(ref.price_ - centered.Value()) <= shape.priceTolerance_,
+                "second-order benchmark price differs from independent reference");
+        REQUIRE(std::abs(ref.products_(0, 1)) > 1e-6, "second-order benchmark single direction needs a nonzero cross term");
+        VerifyProducts(shape, ref, n, pointwise, centered);
     }
 
     size_t TapeCapacity() {
@@ -461,6 +470,11 @@ namespace {
 #if defined(DAL_TAPE_PERF_WITH_XAD)
     bool S0Memory(S0_ mode) { return mode != S0_::PAIR && mode != S0_::AA && mode != S0_::NONE; }
 
+    bool SmoothNormalMatches(double value, double slope, double direction, double product, double expectedValue, double density, double hvp) {
+        const auto near = [](double actual, double expected) { return std::abs(actual - expected) <= 2e-13 * std::abs(expected); };
+        return near(value, expectedValue) && near(slope, density) && near(direction, density) && near(product, hvp);
+    }
+
     void VerifySmoothNormal() {
         const SecondOrderFunction_ dal = [](const auto& x) { return SmoothCdf(x[0]); };
         const TapePerfXad::OwnedFunction_ xad = [](RecordingScope_*, const auto& x) { return SmoothCdf(x[0]); };
@@ -474,11 +488,10 @@ namespace {
                 const long double s = z;
                 const double value = 0.5L * std::erfc(-s / std::sqrt(2.0L));
                 const double density = std::exp(-s * s / 2.0L) / std::sqrt(2.0L * std::acos(-1.0L));
-                const auto near = [](double actual, double expected) { return std::abs(actual - expected) <= 2e-13 * std::abs(expected); };
-                REQUIRE(near(native.Value(), value) && near(other.risk_.price_, value) && near(native.Gradient()[0], density) &&
-                            near(other.risk_.gradient_[0], density) && near(native.DirectionalDerivatives()[0], density) &&
-                            near(other.risk_.directional_[0], density) && near(native.HessianProducts()(0, 0), -z * density) &&
-                            near(other.risk_.products_(0, 0), -z * density),
+                REQUIRE(SmoothNormalMatches(native.Value(), native.Gradient()[0], native.DirectionalDerivatives()[0], native.HessianProducts()(0, 0),
+                                            value, density, -z * density) &&
+                            SmoothNormalMatches(other.risk_.price_, other.risk_.gradient_[0], other.risk_.directional_[0],
+                                                other.risk_.products_(0, 0), value, density, -z * density),
                         "S0 smooth normal value or weight mismatch");
                 std::cout << "s0_normal," << z << ',' << value << ',' << density << ',' << -z * density << '\n';
             }
@@ -551,8 +564,84 @@ namespace {
         });
     }
 
+    template <class F_>
+    void CheckS0Dal(
+        const Case_& shape, const Reference_& ref, const ForwardOverReverseRequest_& request, const F_& dal, const SharedSecondOrderResult_& ad) {
+        const auto& dw = ad.Execution();
+        const auto n = static_cast<size_t>(request.directions_.Rows());
+        const auto blocks = n / 3 + n % 3;
+        REQUIRE(dw.callbackEvaluations_ == 1 && dw.sharedRecordings_ == 1 && dw.sharedTangentSweeps_ == blocks && dw.sharedReverseSweeps_ == blocks &&
+                    !dw.replayDirections_ && !dw.pointwiseRecordings_,
+                "S0 shared graph replayed or did unexpected work");
+        const SecondOrderFunction_ pointwise = dal;
+        REQUIRE(ad.Value() == EvaluateSecondOrder(pointwise, shape.point_, request.directions_).Value(),
+                "S0 shared and pointwise price differs at the fixed point");
+        VerifyRoute(shape, ref, request.directions_, "shared_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(), ad.HessianProducts(),
+                    shape.pointwiseTolerance_, {dw.sharedRecordings_, dw.sharedReverseSweeps_, dw.peakTapeBytes_, "shared_tape_capacity"});
+    }
+
+    template <class F_>
+    void CheckS0Dal(const Case_& shape, const Reference_& ref, const ForwardOverReverseRequest_& request, const F_&, const SecondOrderResult_& ad) {
+        const auto& dw = ad.Execution();
+        const auto n = static_cast<size_t>(request.directions_.Rows());
+        REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n && dw.safePathActivations_ == 0,
+                std::string("S0 pointwise execution fields do not match the fixed request. Protection: ") +
+                    SecondOrderDetail::LastSecondOrderProtection());
+        VerifyRoute(shape, ref, request.directions_, "dal_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(), ad.HessianProducts(),
+                    shape.pointwiseTolerance_, {dw.recordings_, dw.reverseSweeps_, dw.peakTapeBytes_, "dal_tape_capacity"});
+    }
+
+    template <class Work_> void CheckS0Xad(const Work_& work, size_t n, size_t payload) {
+        REQUIRE(work.callbackEvaluations_ == n && work.recordings_ == n && work.reverseSweeps_ == n && work.numericPayloadBytes_ == payload &&
+                    !work.peakTapeBytes_ && !work.cleanupReserveBytes_,
+                "S0 XAD execution fields do not match the fixed request");
+    }
+
     template <class F_, class E_>
-    void RunS0Directions(const Case_& shape, const Reference_& ref, const Options_& options, int count, const F_& dal, const E_& engine,
+    void VerifyS0Directions(const Case_& shape,
+                            const Reference_& ref,
+                            const F_& dal,
+                            const E_& engine,
+                            const ForwardOverReverseRequest_& request,
+                            const TapePerfXad::OwnedFunction_& xad,
+                            TapePerfXad::Workspace_& workspace) {
+        const auto count = request.directions_.Rows();
+        const auto withExpiredSources = [&](const auto& function, const auto& engine) {
+            auto sourcePoint = shape.point_;
+            auto sourceRequest = request;
+            auto sourceFunction = function;
+            auto result = engine(sourceFunction, sourcePoint, sourceRequest);
+            sourcePoint.Fill(0.0);
+            sourceRequest.directions_.Fill(0.0);
+            return result;
+        };
+        const auto dalResult = withExpiredSources(dal, engine);
+        const auto xv = withExpiredSources(xad, [&](const auto& f, const auto& p, const auto& r) { return workspace.EvaluateOwning(f, p, r); });
+        const auto& xw = xv.execution_;
+        const auto& expected = request.directions_;
+        const auto sameDirections = [&](const Matrix_<>& actual) {
+            return HasShape(actual, expected.Rows(), expected.Cols()) &&
+                   std::equal(expected.Data(), expected.Data() + expected.Rows() * expected.Cols(), actual.Data());
+        };
+        VisitS0Risk(dalResult, [&](const auto& ad) {
+            const auto& dw = ad.Execution();
+            REQUIRE(ad.Point() == shape.point_ && xv.point_ == shape.point_ && sameDirections(ad.Directions()) && sameDirections(xv.directions_),
+                    "S0 point and directions must remain owning after source destruction");
+            const auto n = static_cast<size_t>(count);
+            CheckS0Xad(xw, n, dw.numericPayloadBytes_);
+            CheckS0Dal(shape, ref, request, dal, ad);
+        });
+        VerifyRoute(shape, ref, request.directions_, "xad_s0", xv.risk_.price_, xv.risk_.gradient_, xv.risk_.directional_, xv.risk_.products_,
+                    shape.pointwiseTolerance_, {xw.recordings_, xw.reverseSweeps_, 0, "unavailable"});
+    }
+
+    template <class F_, class E_>
+    void RunS0Directions(const Case_& shape,
+                         const Reference_& ref,
+                         const Options_& options,
+                         int count,
+                         const F_& dal,
+                         const E_& engine,
                          const TapePerfXad::OwnedFunction_& xad) {
         ForwardOverReverseRequest_ request;
         request.directions_ = Prefix(shape.directions_, count);
@@ -573,55 +662,85 @@ namespace {
             }
             return;
         }
-        const auto withExpiredSources = [&](const auto& function, const auto& engine) {
-            auto sourcePoint = shape.point_;
-            auto sourceRequest = request;
-            auto sourceFunction = function;
-            auto result = engine(sourceFunction, sourcePoint, sourceRequest);
-            sourcePoint.Fill(0.0);
-            sourceRequest.directions_.Fill(0.0);
-            return result;
+        VerifyS0Directions(shape, ref, dal, engine, request, xad, workspace);
+    }
+
+    template <class Reject_>
+    void CheckCoreBasketCaps(const Case_& shape,
+                             const ConditionalBasketDetail::FixedConditionalBasketCall_& plan,
+                             const Matrix_<>& one,
+                             const Matrix_<>& stress,
+                             const Reject_& reject) {
+        for (const auto* direction : {&one, static_cast<const Matrix_<>*>(&stress)}) {
+            const auto val = [&](const SecondOrderOptions_& options = {}) { return plan.Evaluate(shape.point_, *direction, options); };
+            const auto cold = std::async(std::launch::async, [&] { return val().Execution().peakTapeBytes_; }).get();
+            const auto hot = std::async(std::launch::async, [&] {
+                                 (void)reject([&] { (void)val({{}, cold - 1}); }, SecondOrderErrorReason_::Value_::BUDGET_EXCEEDED, 0);
+                                 REQUIRE(val({{}, cold}).Execution().peakTapeBytes_ == cold, "fixed basket cold exact cap");
+                                 const auto cap = val().Execution().peakTapeBytes_;
+                                 REQUIRE(val({{}, cap}).Execution().peakTapeBytes_ == cap, "fixed basket hot exact cap");
+                                 (void)reject([&] { (void)val({{}, cap - 1}); }, SecondOrderErrorReason_::Value_::BUDGET_EXCEEDED, 0);
+                                 REQUIRE(val().Execution().peakTapeBytes_ == cold, "fixed basket failed cap did not release tape");
+                                 return cap;
+                             }).get();
+            std::cout << "basket_core_cap," << (direction == &one ? "ordinary" : "protected") << ',' << cold << ',' << hot << '\n';
+        }
+    }
+
+    template <class SameBits_>
+    Matrix_<> CheckCoreBasketReplay(const Case_& shape,
+                                    const ConditionalBasket_<true>& kernel,
+                                    const ConditionalBasketDetail::FixedConditionalBasketCall_& plan,
+                                    const SameBits_& sameBits) {
+        Matrix_<> stress(1, 5, 0.0);
+        stress(0, 0) = 0x1p40;
+        const auto checkReplay = [&](const Matrix_<>& direction, const char* reason) {
+            const auto wide = EvaluateSecondOrder(
+                [&](const auto& x) {
+                    if (!SecondOrderDetail::activeArena->wide_)
+                        SecondOrderDetail::Promote("force original wide basket for verification");
+                    return kernel(nullptr, x);
+                },
+                shape.point_, direction);
+            const auto protectedResult = plan.Evaluate(shape.point_, direction);
+            const auto& work = protectedResult.Execution();
+            REQUIRE(work.method_ == "NativeBasketScalarReplay" && work.recordings_ == 2 && work.reverseSweeps_ == 1 && work.safePathActivations_ == 1,
+                    "fixed basket protection must replay the scalar kernel");
+            REQUIRE(sameBits(wide.Value(), protectedResult.Value()) && wide.Gradient() == protectedResult.Gradient() &&
+                        wide.DirectionalDerivatives() == protectedResult.DirectionalDerivatives() &&
+                        std::equal(wide.HessianProducts().begin(), wide.HessianProducts().end(), protectedResult.HessianProducts().begin()),
+                    "fixed basket replay must equal the original wide scalar output");
+            REQUIRE(std::strcmp(SecondOrderDetail::LastSecondOrderProtection(), reason) == 0, "fixed basket replay reason");
+            std::cout << "basket_core_protection," << reason << ',' << work.recordings_ << ',' << work.reverseSweeps_ << ','
+                      << work.safePathActivations_ << '\n';
         };
-        const auto dalResult = withExpiredSources(dal, engine);
-        const auto xv = withExpiredSources(xad, [&](const auto& f, const auto& p, const auto& r) { return workspace.EvaluateOwning(f, p, r); });
-        const auto& xw = xv.execution_;
-        const auto& expected = request.directions_;
-        const auto sameDirections = [&](const Matrix_<>& actual) {
-            return actual.Rows() == expected.Rows() && actual.Cols() == expected.Cols() &&
-                   std::equal(expected.Data(), expected.Data() + expected.Rows() * expected.Cols(), actual.Data());
-        };
-        VisitS0Risk(dalResult, [&](const auto& ad) {
-            const auto& dw = ad.Execution();
-            REQUIRE(ad.Point() == shape.point_ && xv.point_ == shape.point_ && sameDirections(ad.Directions()) && sameDirections(xv.directions_),
-                    "S0 point and directions must remain owning after source destruction");
-            const auto n = static_cast<size_t>(count);
-            REQUIRE(xw.callbackEvaluations_ == n && xw.recordings_ == n && xw.reverseSweeps_ == n &&
-                        xw.numericPayloadBytes_ == dw.numericPayloadBytes_ && !xw.peakTapeBytes_ && !xw.cleanupReserveBytes_,
-                    "S0 XAD execution fields do not match the fixed request");
-            if constexpr (std::is_same_v<std::decay_t<decltype(ad)>, SharedSecondOrderResult_>) {
-                const auto blocks = n / 3 + n % 3;
-                REQUIRE(dw.callbackEvaluations_ == 1 && dw.sharedRecordings_ == 1 && dw.sharedTangentSweeps_ == blocks &&
-                            dw.sharedReverseSweeps_ == blocks && !dw.replayDirections_ && !dw.pointwiseRecordings_,
-                        "S0 shared graph replayed or did unexpected work");
-                const SecondOrderFunction_ pointwise = dal;
-                REQUIRE(ad.Value() == EvaluateSecondOrder(pointwise, shape.point_, request.directions_).Value(),
-                        "S0 shared and pointwise price differs at the fixed point");
-                VerifyRoute(shape, ref, request.directions_, "shared_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(),
-                            ad.HessianProducts(), shape.pointwiseTolerance_,
-                            {dw.sharedRecordings_, dw.sharedReverseSweeps_, dw.peakTapeBytes_, "shared_tape_capacity"});
-            } else {
-                REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n && dw.safePathActivations_ == 0,
-                        std::string("S0 pointwise execution fields do not match the fixed request. Protection: ") +
-                            SecondOrderDetail::LastSecondOrderProtection());
-                VerifyRoute(shape, ref, request.directions_, "dal_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(),
-                            ad.HessianProducts(), shape.pointwiseTolerance_,
-                            {dw.recordings_, dw.reverseSweeps_, dw.peakTapeBytes_, "dal_tape_capacity"});
+        checkReplay(stress, "Black local derivative range");
+        Matrix_<> cancel(1, 5, 0.0);
+        cancel(0, 0) = -shape.point_[0] * (kernel.nodes_[0].z_ - shape.point_[2]);
+        cancel(0, 2) = 1.0;
+        checkReplay(cancel, "Black local derivative cancellation");
+        return stress;
+    }
+
+    void CheckCoreBasketProducts(const Case_& shape, const Reference_& ref, const ConditionalBasketDetail::FixedConditionalBasketCall_& plan) {
+        double worst = 0.0;
+        for (int row = 0; row < shape.directions_.Rows(); ++row) {
+            Matrix_<> direction(1, 5);
+            std::copy(shape.directions_.Row(row).begin(), shape.directions_.Row(row).end(), direction.Row(0).begin());
+            const auto result = plan.Evaluate(shape.point_, direction);
+            REQUIRE(result.Execution().method_ == "NativeBasketComposedAAD" && !result.Execution().safePathActivations_, "fixed basket route");
+            double slope = 0.0;
+            for (int col = 0; col < 5; ++col) {
+                slope += direction(0, col) * ref.gradient_[col];
+                REQUIRE(std::abs(result.Gradient()[col] - ref.gradient_[col]) <= 2e-11, "fixed basket full Vega and correlation gradient");
+                worst = std::max(worst, std::abs(result.HessianProducts()(0, col) - ref.products_(row, col)));
+                std::cout << "basket_core_hvp," << row << ',' << col << ',' << result.HessianProducts()(0, col) << ',' << ref.products_(row, col)
+                          << '\n';
             }
-            std::cout << "s0_owned," << shape.name_ << ',' << count << ',' << dw.numericPayloadBytes_ << ',' << dw.method_ << ',' << xw.method_
-                      << '\n';
-        });
-        VerifyRoute(shape, ref, request.directions_, "xad_s0", xv.risk_.price_, xv.risk_.gradient_, xv.risk_.directional_, xv.risk_.products_,
-                    shape.pointwiseTolerance_, {xw.recordings_, xw.reverseSweeps_, 0, "unavailable"});
+            REQUIRE(std::abs(result.DirectionalDerivatives()[0] - slope) <= 2e-11, "fixed basket directional derivative");
+        }
+        REQUIRE(worst <= 2e-11, "fixed basket full HVP");
+        std::cout << "basket_core_hvp_error," << worst << '\n';
     }
 
     void CheckCoreBasket(const Case_& shape, const Reference_& ref, const ConditionalBasket_<true>& kernel,
@@ -660,64 +779,70 @@ namespace {
                       << composed.prices_[i] << std::defaultfloat << '\n';
         }
 
-        double worst = 0.0;
-        for (int row = 0; row < shape.directions_.Rows(); ++row) {
-            Matrix_<> direction(1, 5);
-            std::copy(shape.directions_.Row(row).begin(), shape.directions_.Row(row).end(), direction.Row(0).begin());
-            const auto result = plan.Evaluate(shape.point_, direction);
-            REQUIRE(result.Execution().method_ == "NativeBasketComposedAAD" && !result.Execution().safePathActivations_, "fixed basket route");
-            double slope = 0.0;
-            for (int col = 0; col < 5; ++col) {
-                slope += direction(0, col) * ref.gradient_[col];
-                REQUIRE(std::abs(result.Gradient()[col] - ref.gradient_[col]) <= 2e-11, "fixed basket full Vega and correlation gradient");
-                worst = std::max(worst, std::abs(result.HessianProducts()(0, col) - ref.products_(row, col)));
-                std::cout << "basket_core_hvp," << row << ',' << col << ',' << result.HessianProducts()(0, col) << ',' << ref.products_(row, col)
-                          << '\n';
+        CheckCoreBasketProducts(shape, ref, plan);
+        const auto stress = CheckCoreBasketReplay(shape, kernel, plan, sameBits);
+        CheckCoreBasketCaps(shape, plan, one, stress, reject);
+    }
+
+    void RunS0Basket(const Case_& shape,
+                     const ConditionalBasket_<true>& kernel,
+                     const Reference_& ref,
+                     const Options_& options,
+                     const SecondOrderFunction_& dal,
+                     const TapePerfXad::OwnedFunction_& xad) {
+        ConditionalBasketDetail::FixedConditionalBasketCall_::Nodes_ nodes{};
+        REQUIRE(kernel.nodes_.size() == nodes.size(), "expected the frozen conditional basket quadrature");
+        std::transform(kernel.nodes_.begin(), kernel.nodes_.end(), nodes.begin(),
+                       [](const auto& node) { return ConditionalBasketDetail::Node_{node.z_, node.weight_, node.linear_}; });
+        const ConditionalBasketDetail::FixedConditionalBasketCall_ plan(BASKET_STRIKE, BASKET_RATE, nodes, shape.point_);
+        if (options.verifyOnly_)
+            CheckCoreBasket(shape, ref, kernel, plan);
+        const auto evaluate = [&](const auto&, const auto& point, const auto& request) { return plan.Evaluate(point, request.directions_); };
+        RunS0Directions(shape, ref, options, 1, dal, evaluate, xad);
+    }
+
+    bool SelectDirections(const Options_& options, int count) { return !options.s0Directions_ || options.s0Directions_ == count; }
+
+    void RunS0Spot(
+        const Case_& shape, const Reference_& ref, const Options_& options, const SecondOrderFunction_& dal, const TapePerfXad::OwnedFunction_& xad) {
+        const SpotCallDetail::FixedSpotCall_ plan(BS_STRIKE, BS_TIME, BS_RATE, BS_DIVIDEND);
+        const auto evaluate = [&](const auto&, const auto& point, const auto& request) { return plan.Evaluate(point, request.directions_); };
+        for (int count : {1, shape.directions_.Rows()})
+            if (SelectDirections(options, count))
+                RunS0Directions(shape, ref, options, count, dal, evaluate, xad);
+    }
+
+    template <class K_> constexpr bool SupportsS0Shared = std::is_same_v<K_, ConditionalBasket_<true>> || std::is_same_v<K_, TapePerfDupire::Kernel_>;
+
+    bool UseS0Shared(const Options_& options, int count) { return options.s0Shared_ && count >= 2; }
+
+    template <class K_, class F_>
+    void RunS0OtherDirections(const Case_& shape,
+                              const K_& kernel,
+                              const Reference_& ref,
+                              const Options_& options,
+                              const F_& scalar,
+                              const SecondOrderFunction_& dal,
+                              const TapePerfXad::OwnedFunction_& xad) {
+        for (int count : {1, shape.directions_.Rows()}) {
+            if (!SelectDirections(options, count))
+                continue;
+            if constexpr (std::is_same_v<K_, ConditionalBasket_<true>>) {
+                if (count == 1) {
+                    RunS0Basket(shape, kernel, ref, options, dal, xad);
+                    continue;
+                }
             }
-            REQUIRE(std::abs(result.DirectionalDerivatives()[0] - slope) <= 2e-11, "fixed basket directional derivative");
-        }
-        REQUIRE(worst <= 2e-11, "fixed basket full HVP");
-        std::cout << "basket_core_hvp_error," << worst << '\n';
-
-        Matrix_<> stress(1, 5, 0.0);
-        stress(0, 0) = 0x1p40;
-        const auto checkReplay = [&](const Matrix_<>& direction, const char* reason) {
-            const auto wide = EvaluateSecondOrder([&](const auto& x) {
-                if (!SecondOrderDetail::activeArena->wide_)
-                    SecondOrderDetail::Promote("force original wide basket for verification");
-                return kernel(nullptr, x);
-            }, shape.point_, direction);
-            const auto protectedResult = plan.Evaluate(shape.point_, direction);
-            const auto& work = protectedResult.Execution();
-            REQUIRE(work.method_ == "NativeBasketScalarReplay" && work.recordings_ == 2 && work.reverseSweeps_ == 1 && work.safePathActivations_ == 1,
-                    "fixed basket protection must replay the scalar kernel");
-            REQUIRE(sameBits(wide.Value(), protectedResult.Value()) && wide.Gradient() == protectedResult.Gradient() &&
-                        wide.DirectionalDerivatives() == protectedResult.DirectionalDerivatives() &&
-                        std::equal(wide.HessianProducts().begin(), wide.HessianProducts().end(), protectedResult.HessianProducts().begin()),
-                    "fixed basket replay must equal the original wide scalar output");
-            REQUIRE(std::strcmp(SecondOrderDetail::LastSecondOrderProtection(), reason) == 0, "fixed basket replay reason");
-            std::cout << "basket_core_protection," << reason << ',' << work.recordings_ << ',' << work.reverseSweeps_ << ','
-                      << work.safePathActivations_ << '\n';
-        };
-        checkReplay(stress, "Black local derivative range");
-        Matrix_<> cancel(1, 5, 0.0);
-        cancel(0, 0) = -shape.point_[0] * (kernel.nodes_[0].z_ - shape.point_[2]);
-        cancel(0, 2) = 1.0;
-        checkReplay(cancel, "Black local derivative cancellation");
-
-        for (const auto* direction : {&one, static_cast<const Matrix_<>*>(&stress)}) {
-            const auto val = [&](const SecondOrderOptions_& options = {}) { return plan.Evaluate(shape.point_, *direction, options); };
-            const auto cold = std::async(std::launch::async, [&] { return val().Execution().peakTapeBytes_; }).get();
-            const auto hot = std::async(std::launch::async, [&] {
-                (void)reject([&] { (void)val({{}, cold - 1}); }, SecondOrderErrorReason_::Value_::BUDGET_EXCEEDED, 0);
-                REQUIRE(val({{}, cold}).Execution().peakTapeBytes_ == cold, "fixed basket cold exact cap");
-                const auto cap = val().Execution().peakTapeBytes_;
-                REQUIRE(val({{}, cap}).Execution().peakTapeBytes_ == cap, "fixed basket hot exact cap");
-                (void)reject([&] { (void)val({{}, cap - 1}); }, SecondOrderErrorReason_::Value_::BUDGET_EXCEEDED, 0);
-                REQUIRE(val().Execution().peakTapeBytes_ == cold, "fixed basket failed cap did not release tape");
-                return cap;
-            }).get();
-            std::cout << "basket_core_cap," << (direction == &one ? "ordinary" : "protected") << ',' << cold << ',' << hot << '\n';
+            if constexpr (SupportsS0Shared<K_>) {
+                if (UseS0Shared(options, count)) {
+                    RunS0Directions(shape, ref, options, count, scalar,
+                                    [](const auto& f, const auto& p, const auto& r) { return EvaluateSharedSecondOrder(f, p, r.directions_); },
+                                    xad);
+                    continue;
+                }
+            }
+            RunS0Directions(shape, ref, options, count, dal,
+                            [](const auto& f, const auto& p, const auto& r) { return EvaluateSecondOrder(f, p, r.directions_); }, xad);
         }
     }
 
@@ -728,42 +853,10 @@ namespace {
         const SecondOrderFunction_ dal = scalar;
         const TapePerfXad::OwnedFunction_ xad = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
         if constexpr (std::is_same_v<K_, BlackScholes_<true>>) {
-            const SpotCallDetail::FixedSpotCall_ plan(BS_STRIKE, BS_TIME, BS_RATE, BS_DIVIDEND);
-            const auto evaluate = [&](const auto&, const auto& point, const auto& request) { return plan.Evaluate(point, request.directions_); };
-            for (int count : {1, shape.directions_.Rows()})
-                if (!options.s0Directions_ || options.s0Directions_ == count)
-                    RunS0Directions(shape, ref, options, count, dal, evaluate, xad);
+            RunS0Spot(shape, ref, options, dal, xad);
             return;
         }
-        for (int count : {1, shape.directions_.Rows()}) {
-            if (options.s0Directions_ && options.s0Directions_ != count)
-                continue;
-            if constexpr (std::is_same_v<K_, ConditionalBasket_<true>>) {
-                if (count == 1) {
-                    ConditionalBasketDetail::FixedConditionalBasketCall_::Nodes_ nodes{};
-                    REQUIRE(kernel.nodes_.size() == nodes.size(), "expected the frozen conditional basket quadrature");
-                    std::transform(kernel.nodes_.begin(), kernel.nodes_.end(), nodes.begin(), [](const auto& node) {
-                        return ConditionalBasketDetail::Node_{node.z_, node.weight_, node.linear_};
-                    });
-                    const ConditionalBasketDetail::FixedConditionalBasketCall_ plan(BASKET_STRIKE, BASKET_RATE, nodes, shape.point_);
-                    if (options.verifyOnly_)
-                        CheckCoreBasket(shape, ref, kernel, plan);
-                    const auto evaluate = [&](const auto&, const auto& point, const auto& request) { return plan.Evaluate(point, request.directions_); };
-                    RunS0Directions(shape, ref, options, count, dal, evaluate, xad);
-                    continue;
-                }
-            }
-            if constexpr (std::is_same_v<K_, ConditionalBasket_<true>> || std::is_same_v<K_, TapePerfDupire::Kernel_>) {
-                if (options.s0Shared_ && count >= 2) {
-                    RunS0Directions(shape, ref, options, count, scalar,
-                                    [](const auto& f, const auto& p, const auto& r) { return EvaluateSharedSecondOrder(f, p, r.directions_); },
-                                    xad);
-                    continue;
-                }
-            }
-            RunS0Directions(shape, ref, options, count, dal,
-                            [](const auto& f, const auto& p, const auto& r) { return EvaluateSecondOrder(f, p, r.directions_); }, xad);
-        }
+        RunS0OtherDirections(shape, kernel, ref, options, scalar, dal, xad);
     }
 
     void RunS0DupireProduct(const Case_& shape, const Reference_& reference, const Options_& options,
@@ -776,9 +869,10 @@ namespace {
         const auto axis = plan.InputAxis();
         const auto evaluate = [&](const auto&, const auto&, const auto& request) {
             const auto result = EvaluateDupireQuoteSecondOrder(plan, axis, request.directions_);
-            if (options.verifyOnly_)
+            if (options.verifyOnly_) {
                 REQUIRE(result.Risk().Value() == DupireSecondOrderDetail::PlanAccess_::Margins(plan).price_,
                         "public Dupire price differs from the certified binary64 price");
+            }
             return result;
         };
         if (options.verifyOnly_) {
@@ -790,7 +884,7 @@ namespace {
                       << m.diagonalMargin_ << ',' << m.pivot_ << ',' << m.pivotLower_ << ',' << m.normalizedMargin_ << ',' << m.price_ << '\n';
         }
         for (int count : {1, shape.directions_.Rows()})
-            if (!options.s0Directions_ || options.s0Directions_ == count)
+            if (SelectDirections(options, count))
                 RunS0Directions(shape, reference, options, count, scalar, evaluate, xad);
     }
 
@@ -852,6 +946,55 @@ namespace {
         std::cout << "first_metric," << shape.name_ << ',' << route << ',' << std::abs(ref.price_ - result.price_) << ',' << error << '\n';
     }
 
+    template <class D_, class X_, class DT_, class XT_>
+    void ProfileFirst(const Case_& shape, bool reverseOrder, const D_& dal, const X_& xad, const DT_& dalTwice, const XT_& xadTwice) {
+        for (size_t i = 0; i < Samples_{}.size(); ++i) {
+            for (size_t j = 0; j < 4; ++j) {
+                const size_t route = (i / 2 + ((reverseOrder != (i % 2 != 0)) ? 3 - j : j)) % 4;
+                if (route == 0)
+                    ProfileBatch(shape, 0, "dal_first", i, dal);
+                else if (route == 1)
+                    ProfileBatch(shape, 0, "xad_first", i, xad);
+                else if (route == 2)
+                    ProfileBatch(shape, 0, "dal_repeat", i, dalTwice);
+                else
+                    ProfileBatch(shape, 0, "xad_repeat", i, xadTwice);
+            }
+        }
+    }
+
+    template <class R_> bool SameFirstRisk(const R_& actual, const R_& expected) {
+        return actual.price_ == expected.price_ && actual.gradient_ == expected.gradient_;
+    }
+
+    bool SameGraphSize(const Counts_& before, const Counts_& replay) {
+        return before.statements_ == replay.statements_ && before.edges_ == replay.edges_;
+    }
+
+    template <class K_, class D_, class X_, class DR_, class XR_>
+    void DiagnoseFirst(const Case_& shape,
+                       const K_& kernel,
+                       TapePerfXad::FirstOrderWorkspace_& workspace,
+                       bool reverseOrder,
+                       const D_& dal,
+                       const X_& xad,
+                       const DR_& dalCheck,
+                       const XR_& xadCheck,
+                       const Counts_& dalCounts,
+                       const Counts_& xadCounts) {
+        Counts_ dalTwiceCounts, xadTwiceCounts;
+        const auto dalTwice = [&]() { return TapePerfComparison::DalFirst(kernel, shape.point_, nullptr, 2); };
+        const auto xadTwice = [&]() { return workspace.Evaluate(kernel, shape.point_, nullptr, 2); };
+        const auto dalRepeated = TapePerfComparison::DalFirst(kernel, shape.point_, &dalTwiceCounts, 2);
+        const auto xadRepeated = workspace.Evaluate(kernel, shape.point_, &xadTwiceCounts, 2);
+        REQUIRE(SameFirstRisk(dalRepeated, dalCheck) && SameFirstRisk(xadRepeated, xadCheck), "AAD comparison repeat sweep changed its result");
+        REQUIRE(SameGraphSize(dalCounts, dalTwiceCounts) && SameGraphSize(xadCounts, xadTwiceCounts),
+                "AAD comparison repeat sweep changed recording size");
+        PrintCounts(shape, 0, "dal_repeat", dalTwiceCounts, "dal_allocated_peak");
+        PrintCounts(shape, 0, "xad_repeat", xadTwiceCounts, "xad_logical_after_sweep");
+        ProfileFirst(shape, reverseOrder, dal, xad, dalTwice, xadTwice);
+    }
+
     template <class K_>
     void RunFirst(const Case_& shape, const K_& kernel, const Reference_& ref, bool verifyOnly, bool reverseOrder, bool diagnostics) {
         TapePerfXad::FirstOrderWorkspace_ workspace;
@@ -872,32 +1015,7 @@ namespace {
             (void)TimeBatch(xad, shape.callsPerBatch_);
         }
         if (diagnostics) {
-            Counts_ dalTwiceCounts, xadTwiceCounts;
-            const auto dalTwice = [&]() { return TapePerfComparison::DalFirst(kernel, shape.point_, nullptr, 2); };
-            const auto xadTwice = [&]() { return workspace.Evaluate(kernel, shape.point_, nullptr, 2); };
-            const auto dalRepeated = TapePerfComparison::DalFirst(kernel, shape.point_, &dalTwiceCounts, 2);
-            const auto xadRepeated = workspace.Evaluate(kernel, shape.point_, &xadTwiceCounts, 2);
-            REQUIRE(dalRepeated.price_ == dalCheck.price_ && dalRepeated.gradient_ == dalCheck.gradient_ && xadRepeated.price_ == xadCheck.price_ &&
-                        xadRepeated.gradient_ == xadCheck.gradient_,
-                    "AAD comparison repeat sweep changed its result");
-            REQUIRE(dalCounts.statements_ == dalTwiceCounts.statements_ && dalCounts.edges_ == dalTwiceCounts.edges_ &&
-                        xadCounts.statements_ == xadTwiceCounts.statements_ && xadCounts.edges_ == xadTwiceCounts.edges_,
-                    "AAD comparison repeat sweep changed recording size");
-            PrintCounts(shape, 0, "dal_repeat", dalTwiceCounts, "dal_allocated_peak");
-            PrintCounts(shape, 0, "xad_repeat", xadTwiceCounts, "xad_logical_after_sweep");
-            for (size_t i = 0; i < Samples_{}.size(); ++i) {
-                for (size_t j = 0; j < 4; ++j) {
-                    const size_t route = (i / 2 + ((reverseOrder != (i % 2 != 0)) ? 3 - j : j)) % 4;
-                    if (route == 0)
-                        ProfileBatch(shape, 0, "dal_first", i, dal);
-                    else if (route == 1)
-                        ProfileBatch(shape, 0, "xad_first", i, xad);
-                    else if (route == 2)
-                        ProfileBatch(shape, 0, "dal_repeat", i, dalTwice);
-                    else
-                        ProfileBatch(shape, 0, "xad_repeat", i, xadTwice);
-                }
-            }
+            DiagnoseFirst(shape, kernel, workspace, reverseOrder, dal, xad, dalCheck, xadCheck, dalCounts, xadCounts);
             return;
         }
         const size_t initialCapacity = TapeCapacity();
@@ -918,6 +1036,33 @@ namespace {
                       << xadSamples[i] << '\n';
     }
 
+    template <class Order_>
+    void PrintTriplets(const Case_& shape,
+                       int directions,
+                       size_t initialCapacity,
+                       const std::array<Samples_, 3>& samples,
+                       const std::array<const char*, 3>& NAMES,
+                       const Order_& order) {
+        if (shape.rollSteps_ != 0)
+            std::cout << "dupire_warm_dal_tape_bytes," << directions << ',' << initialCapacity << '\n';
+        for (size_t i = 0; i < samples[0].size(); ++i) {
+            const auto ordering = order(i);
+            std::cout << "tri_sample," << shape.name_ << ',' << directions << ',' << 1 + i / PAIRS_PER_ROUND << ',' << 1 + i % PAIRS_PER_ROUND << ','
+                      << NAMES[ordering[0]] << ',' << NAMES[ordering[1]] << ',' << NAMES[ordering[2]] << ',' << shape.callsPerBatch_ << ','
+                      << samples[0][i] << ',' << samples[1][i] << ',' << samples[2][i] << '\n';
+        }
+        for (size_t route = 0; route < samples.size(); ++route) {
+            const auto [median, p95, minimum] = Summary(samples[route]);
+            std::cout << "tri_summary," << shape.name_ << ',' << directions << ',' << NAMES[route] << ',' << median << ',' << p95 << ',' << minimum
+                      << '\n';
+        }
+    }
+
+    std::array<size_t, 3> TripletOrder(size_t index, bool reverseOrder) {
+        const size_t first = index / 2 % 3, second = (first + 1) % 3, third = (first + 2) % 3;
+        return (reverseOrder != (index % 2 != 0)) ? std::array{third, second, first} : std::array{first, second, third};
+    }
+
     template <class P_, class B_, class X_>
     void
     MeasureTriplets(const Case_& shape, int directions, const P_& pointwise, const B_& centered, const X_& xad, bool reverseOrder, bool diagnostics) {
@@ -930,10 +1075,7 @@ namespace {
         const size_t initialCapacity = TapeCapacity();
         std::array<Samples_, 3> samples{};
         constexpr std::array<const char*, 3> NAMES{"pointwise", "centered", "xad"};
-        const auto order = [reverseOrder](size_t index) {
-            const size_t first = index / 2 % 3, second = (first + 1) % 3, third = (first + 2) % 3;
-            return (reverseOrder != (index % 2 != 0)) ? std::array{third, second, first} : std::array{first, second, third};
-        };
+        const auto order = [reverseOrder](size_t index) { return TripletOrder(index, reverseOrder); };
         const auto measure = [&](size_t route, size_t sample) {
             const auto batch = [&](const auto& f) {
                 if (!diagnostics)
@@ -953,20 +1095,35 @@ namespace {
         REQUIRE(TapeCapacity() == initialCapacity, "second-order benchmark tape grew after warmup");
         if (diagnostics)
             return;
-        if (shape.rollSteps_ != 0)
-            std::cout << "dupire_warm_dal_tape_bytes," << directions << ',' << initialCapacity << '\n';
-        for (size_t i = 0; i < samples[0].size(); ++i) {
-            const auto ordering = order(i);
-            std::cout << "tri_sample," << shape.name_ << ',' << directions << ',' << 1 + i / PAIRS_PER_ROUND << ',' << 1 + i % PAIRS_PER_ROUND << ','
-                      << NAMES[ordering[0]] << ',' << NAMES[ordering[1]] << ',' << NAMES[ordering[2]] << ',' << shape.callsPerBatch_ << ','
-                      << samples[0][i] << ',' << samples[1][i] << ',' << samples[2][i] << '\n';
-        }
-        for (size_t route = 0; route < samples.size(); ++route) {
-            const auto [median, p95, minimum] = Summary(samples[route]);
-            std::cout << "tri_summary," << shape.name_ << ',' << directions << ',' << NAMES[route] << ',' << median << ',' << p95 << ',' << minimum
-                      << '\n';
-        }
+        PrintTriplets(shape, directions, initialCapacity, samples, NAMES, order);
     }
+
+#if defined(DAL_ENABLE_AAD_PROFILING)
+    template <class K_, class P_, class B_>
+    void DiagnoseSecond(const Case_& shape,
+                        const K_& kernel,
+                        const Matrix_<>& directions,
+                        const P_& pointwise,
+                        const B_& centered,
+                        TapePerfXad::Workspace_& workspace,
+                        const ForwardOverReverseResult_& pointwiseValue,
+                        const CenteredOutput_& centeredValue) {
+        const auto n = static_cast<size_t>(directions.Rows());
+        const auto dalCounts = CountReverseGraphs(pointwise);
+        const auto centeredCounts = CountReverseGraphs(centered);
+        Counts_ xadCounts;
+        (void)workspace.Evaluate(kernel, shape.point_, directions, false, &xadCounts);
+        const auto& adWork = pointwiseValue.Execution();
+        const auto& bumpWork = centeredValue.native_.Execution();
+        REQUIRE(dalCounts.recordings_ == adWork.recordings_ && dalCounts.sweeps_ == adWork.reverseSweeps_ &&
+                    centeredCounts.recordings_ == bumpWork.gradientEvaluations_ && centeredCounts.sweeps_ == bumpWork.reverseSweeps_ &&
+                    xadCounts.recordings_ == n && xadCounts.sweeps_ == n,
+                "AAD comparison unexpected diagnostic tape work");
+        PrintCounts(shape, directions.Rows(), "pointwise", dalCounts, "dal_allocated_after_active_root");
+        PrintCounts(shape, directions.Rows(), "centered", centeredCounts, "dal_allocated_after_active_root");
+        PrintCounts(shape, directions.Rows(), "xad", xadCounts, "xad_logical_after_sweep");
+    }
+#endif
 
     template <class K_, class P_, class B_>
     void RunWithXad(const Case_& shape,
@@ -990,38 +1147,15 @@ namespace {
         VerifyRoute(shape, ref, directions, "xad", xadValue.price_, xadValue.gradient_, xadValue.directional_, xadValue.products_,
                     shape.pointwiseTolerance_, {n, n, xadValue.maxLogicalBytes_, "xad_max_logical_after_sweep"});
 #if defined(DAL_ENABLE_AAD_PROFILING)
-        if (diagnostics) {
-            const auto dalCounts = CountReverseGraphs(pointwise);
-            const auto centeredCounts = CountReverseGraphs(centered);
-            Counts_ xadCounts;
-            (void)workspace.Evaluate(kernel, shape.point_, directions, false, &xadCounts);
-            const auto& adWork = pointwiseValue.Execution();
-            const auto& bumpWork = centeredValue.native_.Execution();
-            REQUIRE(dalCounts.recordings_ == adWork.recordings_ && dalCounts.sweeps_ == adWork.reverseSweeps_ &&
-                        centeredCounts.recordings_ == bumpWork.gradientEvaluations_ && centeredCounts.sweeps_ == bumpWork.reverseSweeps_ &&
-                        xadCounts.recordings_ == n && xadCounts.sweeps_ == n,
-                    "AAD comparison unexpected diagnostic tape work");
-            PrintCounts(shape, directions.Rows(), "pointwise", dalCounts, "dal_allocated_after_active_root");
-            PrintCounts(shape, directions.Rows(), "centered", centeredCounts, "dal_allocated_after_active_root");
-            PrintCounts(shape, directions.Rows(), "xad", xadCounts, "xad_logical_after_sweep");
-        }
+        if (diagnostics)
+            DiagnoseSecond(shape, kernel, directions, pointwise, centered, workspace, pointwiseValue, centeredValue);
 #endif
         if (!verifyOnly)
             MeasureTriplets(shape, directions.Rows(), pointwise, centered, xad, reverseOrder, diagnostics);
     }
 #endif
 
-    template <class K_> void Run(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
-#if defined(DAL_TAPE_PERF_WITH_XAD)
-        if (options.s0_ != S0_::NONE) {
-            RunS0(shape, kernel, ref, options);
-            return;
-        }
-        if (options.firstOrder_) {
-            RunFirst(shape, kernel, ref, options.verifyOnly_, options.centeredFirst_, options.diagnostics_);
-            return;
-        }
-#endif
+    template <class K_> void RunLegacy(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
         const NativeDirectionalFunction_ pointwiseKernel = std::cref(kernel);
         const NativeScalarFunction_ centeredKernel = std::cref(kernel);
         for (int count : {1, shape.directions_.Rows()}) {
@@ -1060,47 +1194,22 @@ namespace {
         }
     }
 
-    void RunDupire(const Options_& options) {
-        namespace D = TapePerfDupire;
-        const bool s0 = options.s0_ != S0_::NONE;
-        const Case_ shape{"dupire_quote",
-                          D::QuoteSpreads(),
-                          D::Directions(),
-                          Vector_<>(3, D::QUOTE_STEP),
-                          1,
-                          s0 ? 1e-5 : 2e-2,
-                          1e-1,
-                          s0 ? 2e-7 : 2e-6,
-                          s0 ? 2e-6 : 2e-4,
-                          true,
-                          D::TIME_STEPS};
-        Reference_ ref{D::Reference::PRICE, Matrix_<>(shape.directions_.Rows(), shape.directions_.Cols()), D::Reference::REFINEMENT,
-                       Vector_<>(D::Reference::VEGA.begin(), D::Reference::VEGA.end())};
-        for (int row = 0; row < ref.products_.Rows(); ++row)
-            for (int column = 0; column < ref.products_.Cols(); ++column)
-                ref.products_(row, column) = D::Reference::PRODUCTS[row][column];
-        const D::Kernel_ kernel;
-        if (!s0 || options.verifyOnly_)
-            D::Qualify(kernel, shape.point_, shape.directions_);
-        if (s0 && options.verifyOnly_) {
-            REQUIRE(D::Reference::REFINEMENT <= 2e-6, "S0 Dupire reference did not stabilize");
-            std::cout << "s0_dupire_spread" << std::hexfloat;
-            for (double spread : shape.point_)
-                std::cout << ',' << spread;
-            std::cout << std::defaultfloat << '\n';
-        }
+    template <class K_> void Run(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
 #if defined(DAL_TAPE_PERF_WITH_XAD)
-        if (s0 && options.s0Shared_) {
-            const auto plan = PrepareDupireEuropeanCallQuoteRisk(D::Snapshot(shape.point_), {D::STRIKE, 1.0, "EQ", Ccy_("USD")},
-                                                               {D::HALF_WIDTH, D::SPACE_NODES, D::TIME_STEPS});
-            RunS0DupireProduct(shape, ref, options, plan);
+        if (options.s0_ != S0_::NONE) {
+            RunS0(shape, kernel, ref, options);
+            return;
+        }
+        if (options.firstOrder_) {
+            RunFirst(shape, kernel, ref, options.verifyOnly_, options.centeredFirst_, options.diagnostics_);
             return;
         }
 #endif
-        if (options.firstOrder_ || s0) {
-            Run(shape, kernel, ref, options);
-            return;
-        }
+        RunLegacy(shape, kernel, ref, options);
+    }
+
+    void CheckDupireGradientSteps(const Case_& shape, const Reference_& ref, const TapePerfDupire::Kernel_& kernel) {
+        namespace D = TapePerfDupire;
         const NativeScalarFunction_ scalarKernel = std::cref(kernel);
         std::cout << "# dupire_gradient_step,step,max_abs_hvp_error,volga,volga_abs_error\n"
                   << "# dupire_work,directions,route,calibrations,rollbacks,rollback_steps\n";
@@ -1119,128 +1228,240 @@ namespace {
             const double volga = result.HessianProducts()(0, 3);
             std::cout << "dupire_gradient_step," << step << ',' << maxError << ',' << volga << ',' << std::abs(volga - ref.products_(0, 3)) << '\n';
         }
+    }
+
+    Reference_ DupireReference(const Case_& shape) {
+        namespace D = TapePerfDupire;
+        Reference_ ref{D::Reference::PRICE, Matrix_<>(shape.directions_.Rows(), shape.directions_.Cols()), D::Reference::REFINEMENT,
+                       Vector_<>(D::Reference::VEGA.begin(), D::Reference::VEGA.end())};
+        for (int row = 0; row < ref.products_.Rows(); ++row)
+            for (int column = 0; column < ref.products_.Cols(); ++column)
+                ref.products_(row, column) = D::Reference::PRODUCTS[row][column];
+        return ref;
+    }
+
+    void VerifyDupireSetup(const Case_& shape, const TapePerfDupire::Kernel_& kernel, bool s0, bool verifyOnly) {
+        namespace D = TapePerfDupire;
+        if (!s0 || verifyOnly)
+            D::Qualify(kernel, shape.point_, shape.directions_);
+        if (s0 && verifyOnly) {
+            REQUIRE(D::Reference::REFINEMENT <= 2e-6, "S0 Dupire reference did not stabilize");
+            std::cout << "s0_dupire_spread" << std::hexfloat;
+            for (double spread : shape.point_)
+                std::cout << ',' << spread;
+            std::cout << std::defaultfloat << '\n';
+        }
+    }
+
+    bool CheckLegacyDupireSteps(const Options_& options, bool s0) { return !options.firstOrder_ && !s0; }
+
+    void RunDupire(const Options_& options) {
+        namespace D = TapePerfDupire;
+        const bool s0 = options.s0_ != S0_::NONE;
+        const Case_ shape{"dupire_quote",
+                          D::QuoteSpreads(),
+                          D::Directions(),
+                          Vector_<>(3, D::QUOTE_STEP),
+                          1,
+                          s0 ? 1e-5 : 2e-2,
+                          1e-1,
+                          s0 ? 2e-7 : 2e-6,
+                          s0 ? 2e-6 : 2e-4,
+                          true,
+                          D::TIME_STEPS};
+        const auto ref = DupireReference(shape);
+        const D::Kernel_ kernel;
+        VerifyDupireSetup(shape, kernel, s0, options.verifyOnly_);
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+        if (s0 && options.s0Shared_) {
+            const auto plan = PrepareDupireEuropeanCallQuoteRisk(D::Snapshot(shape.point_), {D::STRIKE, 1.0, "EQ", Ccy_("USD")},
+                                                                 {D::HALF_WIDTH, D::SPACE_NODES, D::TIME_STEPS});
+            RunS0DupireProduct(shape, ref, options, plan);
+            return;
+        }
+#endif
+        if (CheckLegacyDupireSteps(options, s0))
+            CheckDupireGradientSteps(shape, ref, kernel);
         Run(shape, kernel, ref, options);
+    }
+
+    bool ReadFlag(Options_& options, const std::string& option) {
+        using Flag = std::pair<const char*, bool Options_::*>;
+        static constexpr std::array flags{Flag{"--verify-only", &Options_::verifyOnly_}, Flag{"--centered-first", &Options_::centeredFirst_},
+                                          Flag{"--with-xad", &Options_::withXad_}, Flag{"--dupire", &Options_::dupire_},
+                                          Flag{"--diagnostics", &Options_::diagnostics_}};
+        for (const auto& [name, flag] : flags) {
+            if (option == name && !(options.*flag)) {
+                options.*flag = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool ReadS0Mode(Options_& options, const std::string& option) {
+        if (options.s0_ != S0_::NONE)
+            return false;
+        using Mode = std::pair<const char*, S0_>;
+        static constexpr std::array modes{Mode{"--s0", S0_::PAIR},
+                                          Mode{"--s0-aa", S0_::AA},
+                                          Mode{"--s0-dal-cold", S0_::DAL_COLD},
+                                          Mode{"--s0-dal-hot", S0_::DAL_HOT},
+                                          Mode{"--s0-xad-cold", S0_::XAD_COLD},
+                                          Mode{"--s0-xad-hot", S0_::XAD_HOT}};
+        for (const auto& [name, mode] : modes) {
+            if (option == name) {
+                options.s0_ = mode;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool ReadS0Selector(Options_& options, const std::string& option) {
+        if (option == "--s0-shared") {
+            options.s0Shared_ = true;
+        } else if (option.rfind("--s0-case=", 0) == 0 && options.s0Case_.empty()) {
+            options.s0Case_ = option.substr(10);
+        } else if (option.rfind("--s0-directions=", 0) == 0 && options.s0Directions_ == 0) {
+            const auto n = option.substr(16);
+            REQUIRE(n == "1" || n == "3" || n == "6", "expected S0 directions 1, 3, or 6");
+            options.s0Directions_ = std::stoi(n);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    Options_ ReadComparisonOptions(int argc, char** argv, bool firstOrder) {
+        Options_ options;
+        options.firstOrder_ = firstOrder;
+        for (int arg = 1; arg < argc; ++arg) {
+            const std::string option = argv[arg];
+            if (!ReadFlag(options, option) && !ReadS0Mode(options, option) && !ReadS0Selector(options, option))
+                THROW("expected --first-order or --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad] [--diagnostics] [--s0 "
+                      "mode]");
+        }
+        return options;
+    }
+
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+    void ValidateS0Case(Options_& options, bool selected) {
+        const auto& name = options.s0Case_;
+        if (name == "dupire_quote")
+            options.dupire_ = true;
+        if (!selected)
+            return;
+        REQUIRE(name == "dupire_quote" || name == "black_scholes" || name == "conditional_basket", "unknown S0 case");
+        const auto allowed = name == "conditional_basket" ? 6 : 3;
+        REQUIRE(options.dupire_ == (name == "dupire_quote") && (options.s0Directions_ <= 1 || options.s0Directions_ == allowed),
+                "S0 case and direction mismatch");
+    }
+
+    void ValidateS0Timing(const Options_& options, bool s0) {
+        REQUIRE(!s0 || (!options.firstOrder_ && !options.diagnostics_ && !ProfilingAvailable()), "S0 requires second order, profiling OFF");
+    }
+
+    void ValidateS0Options(Options_& options, bool s0) {
+        ValidateS0Timing(options, s0);
+        const bool complete = !options.verifyOnly_ && !options.s0Case_.empty() && options.s0Directions_ != 0;
+        REQUIRE(!S0Memory(options.s0_) || complete, "S0 memory requires exactly one case and direction count");
+        ValidateS0Case(options, s0 && (!options.s0Case_.empty() || options.s0Directions_ != 0));
+    }
+#endif
+
+    bool HasS0Selectors(const Options_& options) { return !options.s0Case_.empty() || options.s0Directions_ != 0 || options.s0Shared_; }
+
+    void ValidateDiagnostics(const Options_& options) {
+        const bool canDiagnose = ProfilingAvailable() && options.withXad_;
+        REQUIRE(!options.diagnostics_ || canDiagnose, "--diagnostics requires DAL_ENABLE_AAD_PROFILING=ON and XAD");
+    }
+
+    void ValidateComparisonOptions(Options_& options, bool s0) {
+        REQUIRE(s0 || !HasS0Selectors(options), "S0 selectors require an S0 mode");
+#if !defined(DAL_TAPE_PERF_WITH_XAD)
+        REQUIRE(!options.withXad_ && !options.firstOrder_ && !s0, "XAD comparison requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
+#else
+        ValidateS0Options(options, s0);
+#endif
+        options.withXad_ = options.withXad_ || options.firstOrder_ || s0;
+        ValidateDiagnostics(options);
+    }
+
+    void PrintRiskHeaders(bool firstOrder) {
+        if (firstOrder)
+            std::cout << "# first_output,case,route,kind,coordinate,reference,value\n"
+                      << "# first_metric,case,route,price_error,gradient_max_abs_error\n"
+                      << "# first_sample,case,round,pair,first,calls_per_batch,dal_ns,xad_ns\n";
+        else
+            std::cout
+                << "# hvp,case,directions,direction_index,coordinate_index,bump_step,reference,pointwise,centered\n"
+                << "# "
+                   "accuracy,case,directions,reference_price,reference_stencil_max_disagreement,pointwise_max_abs_error,centered_max_abs_error\n"
+                << "# "
+                   "work,case,directions,pointwise_recordings,pointwise_sweeps,pointwise_peak_bytes,centered_recordings,centered_sweeps,centered_"
+                   "peak_bytes\n"
+                << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
+                << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
+                   "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
+    }
+
+    void PrintComparisonHeaders(const Options_& options) {
+        const bool firstOrder = options.firstOrder_;
+        if (options.diagnostics_ || firstOrder)
+            std::cout << "# "
+                         "tape_counts,case,directions,route,recordings,sweeps,stored_statements,stored_edges,statement_visits,edge_slots,bytes,"
+                         "byte_kind\n";
+        if (options.diagnostics_ && !options.verifyOnly_)
+            std::cout << "# phase_sample,case,directions,route,batch,calls_per_batch,price_record_ns,reverse_ns,setup_cleanup_ns,pack_ns,total_ns,"
+                         "unattributed_ns\n";
+        PrintRiskHeaders(firstOrder);
+        if (!firstOrder && (options.withXad_ || options.dupire_))
+            std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
+                         "recordings,sweeps,tape_bytes,tape_byte_kind\n"
+                      << "# output,case,directions,route,kind,row,column,reference,value\n"
+                      << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
+                      << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
+    }
+
+    void RunVanillaCases(const Options_& options, bool s0) {
+        const Case_ small{"black_scholes", {103.0, 0.24}, Directions({-2.0, 0.5}), {0.1, 0.0005, 0.0005}, 256, 1e-10, 2.5e-5};
+        const Case_ basket{"conditional_basket",
+                           {100.0, 120.0, 0.20, 0.30, 0.40},
+                           Directions({-2.0, 0.75, 0.20, -0.15, 0.35}),
+                           {0.05, 0.05, 0.0002, 0.0002, 0.0002, 0.0005},
+                           16,
+                           2e-6,
+                           5e-5};
+        const Vector_<> coordinateSteps{0.2, 0.2, 0.002, 0.002, 0.002};
+        const auto bsRef = BlackScholesReference(small);
+        if (s0) {
+            Run(small, BlackScholes_<true>{}, bsRef, options);
+            Run(basket, MakeBasket<true>(basket, coordinateSteps), S0BasketReference(basket), options);
+        } else {
+            const auto conditional = MakeBasket<false>(basket, coordinateSteps);
+            Run(small, BlackScholes_<false>{}, bsRef, options);
+            Run(basket, conditional, BasketReference(conditional, basket, coordinateSteps), options);
+        }
     }
 
     int RunComparison(int argc, char** argv, bool firstOrder) {
         try {
-            Options_ options;
-            options.firstOrder_ = firstOrder;
-            for (int arg = 1; arg < argc; ++arg) {
-                const std::string option = argv[arg];
-                if (option == "--verify-only" && !options.verifyOnly_)
-                    options.verifyOnly_ = true;
-                else if (option == "--centered-first" && !options.centeredFirst_)
-                    options.centeredFirst_ = true;
-                else if (option == "--with-xad" && !options.withXad_)
-                    options.withXad_ = true;
-                else if (option == "--dupire" && !options.dupire_)
-                    options.dupire_ = true;
-                else if (option == "--diagnostics" && !options.diagnostics_)
-                    options.diagnostics_ = true;
-                else if (option == "--s0" && options.s0_ == S0_::NONE)
-                    options.s0_ = S0_::PAIR;
-                else if (option == "--s0-shared")
-                    options.s0Shared_ = true;
-                else if (option == "--s0-aa" && options.s0_ == S0_::NONE)
-                    options.s0_ = S0_::AA;
-                else if (option == "--s0-dal-cold" && options.s0_ == S0_::NONE)
-                    options.s0_ = S0_::DAL_COLD;
-                else if (option == "--s0-dal-hot" && options.s0_ == S0_::NONE)
-                    options.s0_ = S0_::DAL_HOT;
-                else if (option == "--s0-xad-cold" && options.s0_ == S0_::NONE)
-                    options.s0_ = S0_::XAD_COLD;
-                else if (option == "--s0-xad-hot" && options.s0_ == S0_::NONE)
-                    options.s0_ = S0_::XAD_HOT;
-                else if (option.rfind("--s0-case=", 0) == 0 && options.s0Case_.empty())
-                    options.s0Case_ = option.substr(10);
-                else if (option.rfind("--s0-directions=", 0) == 0 && options.s0Directions_ == 0) {
-                    const auto n = option.substr(16);
-                    REQUIRE(n == "1" || n == "3" || n == "6", "expected S0 directions 1, 3, or 6");
-                    options.s0Directions_ = std::stoi(n);
-                } else
-                    THROW("expected --first-order or --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad] [--diagnostics] [--s0 "
-                          "mode]");
-            }
+            auto options = ReadComparisonOptions(argc, argv, firstOrder);
             const bool s0 = options.s0_ != S0_::NONE;
-            REQUIRE(s0 || (options.s0Case_.empty() && options.s0Directions_ == 0 && !options.s0Shared_), "S0 selectors require an S0 mode");
-#if !defined(DAL_TAPE_PERF_WITH_XAD)
-            REQUIRE(!options.withXad_ && !firstOrder && !s0, "XAD comparison requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
-#else
-            REQUIRE(!s0 || (!firstOrder && !options.diagnostics_ && !ProfilingAvailable()), "S0 requires second order, profiling OFF");
-            const bool memory = S0Memory(options.s0_);
-            REQUIRE(!memory || (!options.verifyOnly_ && !options.s0Case_.empty() && options.s0Directions_ != 0),
-                    "S0 memory requires exactly one case and direction count");
-            if (options.s0Case_ == "dupire_quote")
-                options.dupire_ = true;
-            if (s0 && (!options.s0Case_.empty() || options.s0Directions_ != 0)) {
-                REQUIRE(options.s0Case_ == "dupire_quote" || options.s0Case_ == "black_scholes" || options.s0Case_ == "conditional_basket",
-                        "unknown S0 case");
-                REQUIRE(options.dupire_ == (options.s0Case_ == "dupire_quote") &&
-                            (options.s0Directions_ <= 1 || options.s0Directions_ == (options.s0Case_ == "conditional_basket" ? 6 : 3)),
-                        "S0 case and direction mismatch");
-            }
-#endif
-            options.withXad_ = options.withXad_ || firstOrder || s0;
-            REQUIRE(!options.diagnostics_ || (ProfilingAvailable() && options.withXad_),
-                    "--diagnostics requires DAL_ENABLE_AAD_PROFILING=ON and XAD");
+            ValidateComparisonOptions(options, s0);
             RegisterAll_::Init();
             std::cout << std::setprecision(17);
 #if defined(DAL_TAPE_PERF_WITH_XAD)
             if (s0 && options.verifyOnly_ && !options.dupire_)
                 VerifySmoothNormal();
 #endif
-            if (options.diagnostics_ || firstOrder)
-                std::cout << "# "
-                             "tape_counts,case,directions,route,recordings,sweeps,stored_statements,stored_edges,statement_visits,edge_slots,bytes,"
-                             "byte_kind\n";
-            if (options.diagnostics_ && !options.verifyOnly_)
-                std::cout
-                    << "# phase_sample,case,directions,route,batch,calls_per_batch,price_record_ns,reverse_ns,setup_cleanup_ns,pack_ns,total_ns,"
-                       "unattributed_ns\n";
-            if (firstOrder)
-                std::cout << "# first_output,case,route,kind,coordinate,reference,value\n"
-                          << "# first_metric,case,route,price_error,gradient_max_abs_error\n"
-                          << "# first_sample,case,round,pair,first,calls_per_batch,dal_ns,xad_ns\n";
-            else
-                std::cout
-                    << "# hvp,case,directions,direction_index,coordinate_index,bump_step,reference,pointwise,centered\n"
-                    << "# "
-                       "accuracy,case,directions,reference_price,reference_stencil_max_disagreement,pointwise_max_abs_error,centered_max_abs_error\n"
-                    << "# "
-                       "work,case,directions,pointwise_recordings,pointwise_sweeps,pointwise_peak_bytes,centered_recordings,centered_sweeps,centered_"
-                       "peak_bytes\n"
-                    << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
-                    << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
-                       "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
-            if (!firstOrder && (options.withXad_ || options.dupire_))
-                std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
-                             "recordings,sweeps,tape_bytes,tape_byte_kind\n"
-                          << "# output,case,directions,route,kind,row,column,reference,value\n"
-                          << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
-                          << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
+            PrintComparisonHeaders(options);
             if (options.dupire_) {
                 RunDupire(options);
                 return 0;
             }
-            const Case_ small{"black_scholes", {103.0, 0.24}, Directions({-2.0, 0.5}), {0.1, 0.0005, 0.0005}, 256, 1e-10, 2.5e-5};
-            const Case_ basket{"conditional_basket",
-                               {100.0, 120.0, 0.20, 0.30, 0.40},
-                               Directions({-2.0, 0.75, 0.20, -0.15, 0.35}),
-                               {0.05, 0.05, 0.0002, 0.0002, 0.0002, 0.0005},
-                               16,
-                               2e-6,
-                               5e-5};
-            const Vector_<> coordinateSteps{0.2, 0.2, 0.002, 0.002, 0.002};
-            const auto bsRef = BlackScholesReference(small);
-            if (s0) {
-                Run(small, BlackScholes_<true>{}, bsRef, options);
-                Run(basket, MakeBasket<true>(basket, coordinateSteps), S0BasketReference(basket), options);
-            } else {
-                const auto conditional = MakeBasket<false>(basket, coordinateSteps);
-                Run(small, BlackScholes_<false>{}, bsRef, options);
-                Run(basket, conditional, BasketReference(conditional, basket, coordinateSteps), options);
-            }
+            RunVanillaCases(options, s0);
             return 0;
         } catch (const std::exception& error) {
             std::cerr << error.what() << '\n';

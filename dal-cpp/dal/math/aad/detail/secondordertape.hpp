@@ -21,7 +21,7 @@ namespace Dal::AAD::SecondOrderDetail {
     // The two limbs retain absorbed terms through cancellation. The extended
     // exponent range also keeps the local derivative of erfc in the tail.
     struct Wide_ {
-        long double hi_, lo_;
+        long double hi_ = 0.0L, lo_ = 0.0L;
 
         Wide_() = default;
         Wide_(long double value) : hi_(value), lo_(0.0L) {}
@@ -34,23 +34,23 @@ namespace Dal::AAD::SecondOrderDetail {
         return {sum, (a - (sum - fromB)) + (b - fromB)};
     }
 
-    inline Wide_ operator+(Wide_ a, Wide_ b) {
+    inline Wide_ operator+(const Wide_& a, const Wide_& b) {
         const auto sum = AddWide(a.hi_, b.hi_);
         return AddWide(sum.hi_, sum.lo_ + (a.lo_ + b.lo_));
     }
-    inline Wide_ operator-(Wide_ a) { return {-a.hi_, -a.lo_}; }
-    inline Wide_ operator-(Wide_ a, Wide_ b) { return a + (-b); }
-    inline Wide_ operator*(Wide_ a, Wide_ b) {
+    inline Wide_ operator-(const Wide_& a) { return {-a.hi_, -a.lo_}; }
+    inline Wide_ operator-(const Wide_& a, const Wide_& b) { return a + (-b); }
+    inline Wide_ operator*(const Wide_& a, const Wide_& b) {
         const auto product = a.hi_ * b.hi_;
         const auto residual = std::fma(a.hi_, b.hi_, -product);
         return AddWide(product, residual + (a.hi_ * b.lo_ + a.lo_ * b.hi_) + a.lo_ * b.lo_);
     }
-    inline Wide_ operator/(Wide_ a, Wide_ b) {
+    inline Wide_ operator/(const Wide_& a, const Wide_& b) {
         const auto quotient = a.hi_ / b.hi_;
         const auto residual = a - b * Wide_(quotient);
         return AddWide(quotient, residual.Value() / b.hi_);
     }
-    inline bool Zero(Wide_ a) { return a.hi_ == 0.0L && a.lo_ == 0.0L; }
+    inline bool Zero(const Wide_& a) { return a.hi_ == 0.0L && a.lo_ == 0.0L; }
     inline bool Zero(double a) { return a == 0.0; }
 
     inline double Guard(double value) {
@@ -70,9 +70,9 @@ namespace Dal::AAD::SecondOrderDetail {
 
     inline double Mul(double a, double b) { return a * b; }
 
-    inline Wide_ Add(Wide_ a, Wide_ b) { return a + b; }
-    inline Wide_ Mul(Wide_ a, Wide_ b) { return a * b; }
-    inline Wide_ Guard(Wide_ value) { return value; }
+    inline Wide_ Add(const Wide_& a, const Wide_& b) { return a + b; }
+    inline Wide_ Mul(const Wide_& a, const Wide_& b) { return a * b; }
+    inline Wide_ Guard(const Wide_& value) { return value; }
 
     template <class T_> struct Weight_ {
         T_ value_, tangent_;
