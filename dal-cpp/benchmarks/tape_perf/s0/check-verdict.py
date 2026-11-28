@@ -1,8 +1,11 @@
 import argparse
 import csv
 import json
+from collections import Counter
 from pathlib import Path
+from unittest.mock import patch
 
+from collect import run_timing
 from verdict import GROUPS, P1_FIELDS, P3_FIELDS, judge_p1, judge_p3
 
 
@@ -42,6 +45,36 @@ def p3_rows():
                                strict=True))
 
 
+def check_confirmation_run(path, rows):
+    logs = {}
+    fields = ("kind", "case", "directions", "batch", "first", "calls", "a_ns", "b_ns")
+    for row in rows:
+        scope = "dupire" if row["case"] == "dupire_quote" else "vanilla"
+        name = f"r{row['round']}-p{int(row['process']):02d}-{row['kind']}-{scope}"
+        logs.setdefault(name, []).append("s0_pair," + ",".join(str(row[c]) for c in fields))
+    calls = Counter()
+    path.mkdir(parents=True, exist_ok=True)
+
+    def run(name, *_args):
+        if name.startswith("verify-"):
+            return ""
+        r = int(name.split("-", 1)[0][1:])
+        if r == 3 and not calls[r]:
+            (path / "first-two-rounds.csv").write_bytes((path / "paired.csv").read_bytes())
+            (path / "first-two-verdict.json").write_bytes((path / "verdict.json").read_bytes())
+        calls[r] += 1
+        return "\n".join(logs.get(name, ()))
+
+    with patch("collect.output", return_value=""):
+        run_timing(run, path, 3)
+    assert calls == {1: 40, 2: 40, 3: 40}, calls
+    pending = json.loads((path / "first-two-verdict.json").read_text())
+    assert pending["needs_confirmation"] and pending["selected_rounds"] == []
+    final = json.loads((path / "verdict.json").read_text())
+    assert not final["needs_confirmation"]
+    return pending, final
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
@@ -76,7 +109,34 @@ def main():
     assert {case: r["verdict"] for case, r in result.items()} == {
         "equal": "pass", "cross-a": "pass", "cross-b": "pass", "sustained": "regression", "missing": "insufficient", "unseen": "insufficient",
     }
+    shuffled = sorted(rows, key=lambda row: int(row["process"]) % 2)
+    assert judge_p3(shuffled, cases=("unseen",)) == result
     results["first-order"] = result
+
+    empty = [row for row in p1_rows([flat] * 3, [flat] * 3) if row["round"] != 2]
+    pending, final = check_confirmation_run(args.output / "empty-second-round", empty)
+    assert pending["rounds"]["2"]["eligible"] is False and pending["rounds"]["2"]["ratios"] == {}
+    assert final["rounds"]["1"]["eligible"] and final["rounds"]["3"]["eligible"]
+    assert final["verdict"] == "insufficient" and final["selected_rounds"] == []
+    assert not judge_p1([row for row in empty if row["round"] == 1], attempted_rounds=3)["needs_confirmation"]
+    results["empty-second-round"] = final
+
+    duplicate = list(p1_rows([flat] * 3, [(94, 95), flat, flat]))
+    # Replay the reviewer's A/A scenario with an additional copy of the first pair.
+    duplicate.insert(1, duplicate[0])
+    pending, final = check_confirmation_run(args.output / "duplicate-pair", duplicate)
+    assert any("duplicate pair" in reason for reason in pending["rounds"]["1"]["reasons"])
+    assert final["verdict"] == "pass" and final["selected_rounds"] == [2, 3]
+    quiet = [dict(row, a_ns=100) if row["kind"] == "aa" else row for row in duplicate]
+    assert judge_p1(quiet)["selected_rounds"] == [2, 3]
+    results["duplicate-pair"] = final
+
+    unordered = write(args.output / "first-order-no-alternation.csv", P3_FIELDS,
+                      (dict(row, first="candidate") for row in rows if row["case"] == "sustained"))
+    result = judge_p3(unordered)
+    assert result["sustained"]["verdict"] == "insufficient", result
+    results["first-order-no-alternation"] = result
+
     (args.output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"{len(results)} synthetic CSV checks passed")
 

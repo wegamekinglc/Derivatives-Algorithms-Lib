@@ -48,7 +48,7 @@ def run_timing(run, out, rounds):
                         rows.append((k, case, directions, r, p, batch, first, calls, a_ns, b_ns))
         (out / f"vmstat-after-{r}.txt").write_text(output("vmstat", "-n", "1", "3"))
         write_csv(out / "paired.csv", P1_FIELDS, rows)
-        result = judge_p1([dict(zip(P1_FIELDS, row)) for row in rows])
+        result = judge_p1([dict(zip(P1_FIELDS, row)) for row in rows], attempted_rounds=r)
         (out / "verdict.json").write_text(json.dumps(result, indent=2) + "\n")
         print(f"P1 completed round {r}: {result['verdict']}", flush=True)
         if r >= 2 and not result["needs_confirmation"]:

@@ -37,9 +37,9 @@ def ratios(pairs, symmetric):
     return tuple(a / b for a, b in values)
 
 
-def p1_rounds(rows, processes=10, batches=20):
+def p1_rounds(rows, processes=10, batches=20, *, attempted_rounds=None):
     slots = {(p, b) for p in range(1, processes + 1) for b in range(1, batches + 1)}
-    rounds = {}
+    rounds, faults = {}, {}
     for row in rows:
         r, process, batch = (int(row[c]) for c in ("round", "process", "batch"))
         group = row["case"], int(row["directions"])
@@ -47,15 +47,24 @@ def p1_rounds(rows, processes=10, batches=20):
         if r not in (1, 2, 3) or kind not in ("aa", "comparison") or group not in GROUPS:
             raise ValueError(f"unexpected P1 row {row}")
         table = rounds.setdefault(r, {}).setdefault((kind, group), {})
-        if (process, batch) not in slots or (process, batch) in table:
-            raise ValueError(f"duplicate or unexpected pair {row}")
+        if (process, batch) not in slots:
+            raise ValueError(f"unexpected pair {row}")
+        if (process, batch) in table:
+            faults.setdefault(r, []).append(f"{kind} {group[0]}/{group[1]}: duplicate pair at process {process}, batch {batch}")
+            continue
         if row["first"] not in ("A", "B") or int(row["calls"]) != GROUPS[group]:
             raise ValueError(f"unexpected order or batch size {row}")
         table[process, batch] = row["first"], (duration(row["a_ns"]), duration(row["b_ns"]))
 
+    observed_rounds = max(rounds, default=0)
+    if attempted_rounds is None:
+        attempted_rounds = observed_rounds
+    elif not observed_rounds <= attempted_rounds <= 3:
+        raise ValueError("attempted rounds must include the observed rounds and stay within the three-round limit")
+
     summaries = {}
-    for r in range(1, max(rounds, default=0) + 1):
-        invalid, results = [], {}
+    for r in range(1, attempted_rounds + 1):
+        invalid, results = faults.get(r, []), {}
         for group in GROUPS:
             group_name = f"{group[0]}/{group[1]}"
             for kind in ("aa", "comparison"):
@@ -77,8 +86,8 @@ def p1_rounds(rows, processes=10, batches=20):
     return summaries
 
 
-def judge_p1(rows, processes=10, batches=20):
-    rounds = p1_rounds(rows, processes, batches)
+def judge_p1(rows, processes=10, batches=20, *, attempted_rounds=None):
+    rounds = p1_rounds(rows, processes, batches, attempted_rounds=attempted_rounds)
     attempts = {}
     for first in (1, 2):
         second = first + 1
@@ -113,14 +122,14 @@ def judge_p3(rows, processes=10, cases=()):
         table = tables.setdefault((row["case"], r), {})
         if r not in (1, 2) or not 1 <= p <= processes or p in table or row["first"] not in ("candidate", "baseline"):
             raise ValueError(f"duplicate or unexpected P3 pair {row}")
-        table[p] = tuple(duration(row[f"{arm}_ns"]) for arm in ("candidate", "baseline"))
+        table[p] = row["first"], duration(row["candidate_ns"]), duration(row["baseline_ns"])
     result = {}
     for case in sorted(set(cases) | {case for case, _ in tables}):
         rounds = [tables.get((case, r), {}) for r in (1, 2)]
-        if any(len(r) != processes for r in rounds):
+        if any(len(r) != processes or any(r[p][0] == r[p - 1][0] for p in range(2, processes + 1)) for r in rounds):
             result[case] = {"verdict": "insufficient", "round_minimum_ratios": []}
         else:
-            ratios_by_round = [min(a) / min(b) for a, b in (zip(*r.values()) for r in rounds)]
+            ratios_by_round = [min(a) / min(b) for _, a, b in (zip(*r.values()) for r in rounds)]
             result[case] = {"verdict": "regression" if all(x > P3_LIMIT for x in ratios_by_round) else "pass",
                             "round_minimum_ratios": list(map(str, ratios_by_round))}
     return result
@@ -131,10 +140,14 @@ def main():
     parser.add_argument("rule", choices=("p1", "p3"))
     parser.add_argument("csv")
     parser.add_argument("--case", action="append", default=[])
+    parser.add_argument("--attempted-rounds", type=int, choices=range(1, 4),
+                        help="P1 replay: number of rounds attempted, including rounds with no samples")
     args = parser.parse_args()
+    if args.rule == "p3" and args.attempted_rounds is not None:
+        parser.error("--attempted-rounds applies to P1")
     with open(args.csv, newline="") as source:
         rows = list(csv.DictReader(source))
-    result = judge_p1(rows) if args.rule == "p1" else judge_p3(rows, cases=args.case)
+    result = judge_p1(rows, attempted_rounds=args.attempted_rounds) if args.rule == "p1" else judge_p3(rows, cases=args.case)
     print(json.dumps(result, indent=2))
 
 
