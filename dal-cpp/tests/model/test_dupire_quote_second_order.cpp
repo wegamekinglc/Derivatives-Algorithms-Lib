@@ -4,8 +4,14 @@
 #include <array>
 #include <cfenv>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <string>
+#include <string_view>
+
+#if defined(__x86_64__) || defined(_M_X64)
+#include <xmmintrin.h>
+#endif
 
 #include <dal/model/detail/dupirequoteplan.hpp>
 #include <dal/model/dupirequotesecondorder.hpp>
@@ -46,7 +52,26 @@ namespace {
 
     DupireEuropeanCall_ Call() { return {105.0, 1.0, "EQ", Ccy_("USD")}; }
 
-    template <class F_> void CheckValidation(F_&& fn, Reason reason, const char* location) {
+    class RestoreFloatingEnvironment_ {
+        std::fenv_t environment_{};
+        const int status_ = std::fegetenv(&environment_);
+#if defined(__x86_64__) || defined(_M_X64)
+        const unsigned mxcsr_ = _mm_getcsr();
+#endif
+
+    public:
+        ~RestoreFloatingEnvironment_() {
+            if (Saved())
+                (void)std::fesetenv(&environment_);
+#if defined(__x86_64__) || defined(_M_X64)
+            _mm_setcsr(mxcsr_);
+#endif
+        }
+
+        [[nodiscard]] bool Saved() const { return status_ == 0; }
+    };
+
+    template <class F_> void CheckValidation(F_&& fn, Reason reason, std::string_view location) {
         try {
             fn();
             FAIL() << "expected typed validation failure";
@@ -60,46 +85,99 @@ namespace {
 } // namespace
 
 TEST(DupireQuoteSecondOrderTest, CanonicalizesQuoteZeroButRetainsDirectionZero) {
-    for (double zero : {0.0, -0.0}) {
-        const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(false, false, zero), Call(), {0.8, 81, 64});
-        Matrix_<> direction(1, 6, 0.0);
-        direction(0, 2) = -0.0;
-        const auto result = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction);
-        EXPECT_EQ(result.Risk().Point()[2], 0.0);
-        EXPECT_FALSE(std::signbit(result.Risk().Point()[2]));
-        EXPECT_TRUE(std::signbit(result.Risk().Directions()(0, 2)));
+    const auto positive = Snapshot(false, false, 0.0);
+    const auto negative = Snapshot(false, false, -0.0);
+    const auto positivePlan = PrepareDupireEuropeanCallQuoteRisk(positive, Call(), {0.8, 81, 64});
+    const auto negativePlan = PrepareDupireEuropeanCallQuoteRisk(negative, Call(), {0.8, 81, 64});
+    for (int rows : {1, 3}) {
+        Matrix_<> directions(rows, 6, 0.0);
+        directions(0, 3) = 1.0;
+        directions(0, 2) = -0.0;
+        const auto before = EvaluateDupireQuoteSecondOrder(positivePlan, positivePlan.InputAxis(), directions);
+        const auto after = EvaluateDupireQuoteSecondOrder(negativePlan, negativePlan.InputAxis(), directions);
+        const auto& a = before.Risk();
+        const auto& b = after.Risk();
+        EXPECT_EQ(a.Value(), b.Value());
+        EXPECT_EQ(a.Gradient(), b.Gradient());
+        EXPECT_EQ(a.DirectionalDerivatives(), b.DirectionalDerivatives());
+        EXPECT_TRUE(std::equal(a.HessianProducts().begin(), a.HessianProducts().end(), b.HessianProducts().begin()));
+        for (const auto* risk : {&a, &b}) {
+            const auto& backendPoint = risk->Pointwise() ? risk->Pointwise()->Point() : risk->Shared()->Point();
+            EXPECT_EQ(risk->Point()[2], 0.0);
+            EXPECT_FALSE(std::signbit(risk->Point()[2]));
+            EXPECT_EQ(backendPoint[2], 0.0);
+            EXPECT_FALSE(std::signbit(backendPoint[2]));
+            EXPECT_TRUE(std::signbit(risk->Directions()(0, 2)));
+        }
     }
-    for (double neighbor : {std::nextafter(0.0, -1.0), std::nextafter(0.0, 1.0)}) {
-        const auto snapshot = Snapshot(false, false, neighbor);
-        CheckValidation([&] { (void)PrepareDupireEuropeanCallQuoteRisk(snapshot, Call(), {0.8, 81, 64}); }, Reason::OUTSIDE_DOMAIN, "quote:2");
+    EXPECT_FALSE(std::signbit(positive.Inputs().quoteSpreads_(1, 0)));
+    EXPECT_TRUE(std::signbit(negative.Inputs().quoteSpreads_(1, 0)));
+}
+
+TEST(DupireQuoteSecondOrderTest, RejectsSubnormalSpreadsBeforeRecordingWithOrWithoutDaz) {
+    const RestoreFloatingEnvironment_ restore;
+    ASSERT_TRUE(restore.Saved());
+    ASSERT_EQ(std::fesetround(FE_TONEAREST), 0);
+#if defined(__x86_64__) || defined(_M_X64)
+    constexpr unsigned DAZ = 1u << 6;
+    _mm_setcsr(_mm_getcsr() & ~DAZ);
+#endif
+    constexpr double smallest = std::numeric_limits<double>::denorm_min();
+    const std::array<double, 2> neighbors{smallest, -smallest};
+    const std::array<DupireCalibrationSnapshot_, 2> snapshots{Snapshot(false, false, neighbors[0]), Snapshot(false, false, neighbors[1])};
+    for (size_t i = 0; i < snapshots.size(); ++i)
+        ASSERT_EQ(std::memcmp(&snapshots[i].Inputs().quoteSpreads_.Data()[2], &neighbors[i], sizeof(double)), 0);
+
+    const auto reject = [&] {
+        const auto nativeBefore = SecondOrderDetail::LastSecondOrderLogicalPeak();
+        const auto sharedBefore = SharedSecondOrderDetail::LastLogicalPeak();
+        for (const auto& snapshot : snapshots)
+            CheckValidation([&] { (void)PrepareDupireEuropeanCallQuoteRisk(snapshot, Call(), {0.8, 81, 64}); }, Reason::OUTSIDE_DOMAIN, "quote:2");
+        EXPECT_EQ(SecondOrderDetail::LastSecondOrderLogicalPeak(), nativeBefore);
+        EXPECT_EQ(SharedSecondOrderDetail::LastLogicalPeak(), sharedBefore);
+        EXPECT_EQ(std::fegetround(), FE_TONEAREST);
+    };
+    reject();
+#if defined(__x86_64__) || defined(_M_X64)
+    const unsigned beforeDaz = _mm_getcsr();
+    {
+        SCOPED_TRACE("MXCSR.DAZ enabled");
+        const RestoreFloatingEnvironment_ restoreDaz;
+        ASSERT_TRUE(restoreDaz.Saved());
+        _mm_setcsr(beforeDaz | DAZ);
+        ASSERT_NE(_mm_getcsr() & DAZ, 0U);
+        reject();
+        EXPECT_EQ(_mm_getcsr(), beforeDaz | DAZ);
     }
+    EXPECT_EQ(_mm_getcsr(), beforeDaz);
+#endif
 }
 
 TEST(DupireQuoteSecondOrderTest, RejectsOtherRoundingModesBeforeRecordingAndKeepsThePlan) {
+    const RestoreFloatingEnvironment_ restore;
+    ASSERT_TRUE(restore.Saved());
     const auto snapshot = Snapshot();
     const auto prepare = [&] { return PrepareDupireEuropeanCallQuoteRisk(snapshot, Call(), {0.8, 81, 64}); };
     const auto plan = prepare();
-    struct Restore_ {
-        int mode_ = std::fegetround();
-        ~Restore_() { (void)std::fesetround(mode_); }
-    } restore;
     const auto nativeBefore = SecondOrderDetail::LastSecondOrderLogicalPeak();
     const auto sharedBefore = SharedSecondOrderDetail::LastLogicalPeak();
-    for (int mode : {FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
+    for (const auto& [mode, name] :
+         {std::pair{FE_DOWNWARD, "FE_DOWNWARD"}, std::pair{FE_UPWARD, "FE_UPWARD"}, std::pair{FE_TOWARDZERO, "FE_TOWARDZERO"}}) {
         ASSERT_EQ(std::fesetround(mode), 0);
-        CheckValidation([&] { (void)prepare(); }, Reason::UNSUPPORTED_OPERATION, "FE_TONEAREST");
+        CheckValidation([&] { (void)prepare(); }, Reason::UNSUPPORTED_OPERATION,
+                        std::string("PrepareDupireEuropeanCallQuoteRisk requires FE_TONEAREST, current mode is ") + name);
         EXPECT_EQ(std::fegetround(), mode);
-        for (int rows : {1, 3}) {
+        for (int rows : {0, 1, 3}) {
             const Matrix_<> direction(rows, 6, 1.0);
             CheckValidation([&] { (void)EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction, {0, 0}); }, Reason::UNSUPPORTED_OPERATION,
-                            "FE_TONEAREST");
+                            std::string("EvaluateDupireQuoteSecondOrder requires FE_TONEAREST, current mode is ") + name);
             EXPECT_EQ(std::fegetround(), mode);
         }
         EXPECT_EQ(SecondOrderDetail::LastSecondOrderLogicalPeak(), nativeBefore);
         EXPECT_EQ(SharedSecondOrderDetail::LastLogicalPeak(), sharedBefore);
     }
     ASSERT_EQ(std::fesetround(FE_TONEAREST), 0);
-    for (int rows : {1, 3}) {
+    for (int rows : {0, 1, 3}) {
         const auto risk = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), Matrix_<>(rows, 6, 1.0));
         EXPECT_EQ(risk.Risk().Value(), DupireSecondOrderDetail::PlanAccess_::Margins(plan).price_);
         EXPECT_EQ(std::fegetround(), FE_TONEAREST);

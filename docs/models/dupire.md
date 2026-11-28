@@ -217,11 +217,14 @@ multiple directions.
 
 The quote identity accepts both signs of zero and returns the canonical
 `+0.0` at the registered zero in `Risk().Point()`. Nonzero spreads must match
-exactly. Direction seeds preserve their sign, including `-0.0`.
+the registered binary64 representation exactly, including subnormals.
+Direction seeds preserve their sign, including `-0.0`.
 Prepare and evaluate check `FE_TONEAREST` on the calling thread before
-recording. A different mode raises `UNSUPPORTED_OPERATION/VALIDATION` with
-no direction index. The check preserves the caller's mode, and the plan can
-be reused after the caller restores `FE_TONEAREST`.
+recording. A different mode or a failed query raises
+`UNSUPPORTED_OPERATION/VALIDATION` with no direction index. The message
+identifies the entry point and the active mode or query failure. The check
+preserves the caller's mode, and the plan can be reused after the caller
+restores `FE_TONEAREST`.
 
 ## See Also
 

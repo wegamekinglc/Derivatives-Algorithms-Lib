@@ -1,5 +1,8 @@
 #include <cfenv>
+#include <climits>
+#include <cstring>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 #include <dal/model/detail/dupirequoteplan.hpp>
@@ -10,9 +13,46 @@ namespace Dal::DupireSecondOrderDetail {
     }
 
     namespace {
-        void RequireNearestRounding() {
-            if (std::fegetround() != FE_TONEAREST)
-                ValidationError(Reason::UNSUPPORTED_OPERATION, "fixed Dupire quote risk requires FE_TONEAREST");
+        std::string RoundingModeName(int mode) {
+            switch (mode) {
+#if defined(FE_DOWNWARD)
+            case FE_DOWNWARD:
+                return "FE_DOWNWARD";
+#endif
+#if defined(FE_UPWARD)
+            case FE_UPWARD:
+                return "FE_UPWARD";
+#endif
+#if defined(FE_TOWARDZERO)
+            case FE_TOWARDZERO:
+                return "FE_TOWARDZERO";
+#endif
+            default:
+                return std::to_string(mode);
+            }
+        }
+
+        [[noreturn]] void ReportRoundingMode(const char* entry, int mode) {
+            const auto requirement = std::string(entry) + " requires FE_TONEAREST, ";
+            ValidationError(Reason::UNSUPPORTED_OPERATION,
+                            requirement + (mode < 0 ? "fegetround() failed" : "current mode is " + RoundingModeName(mode)));
+        }
+
+        void RequireNearestRounding(const char* entry) {
+            const int mode = std::fegetround();
+            if (mode != FE_TONEAREST)
+                ReportRoundingMode(entry, mode);
+        }
+
+        bool MatchesRegisteredSpread(const double& actual, const double& registered) {
+            static_assert(sizeof(double) * CHAR_BIT == 64 && std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::digits == 53 &&
+                              std::numeric_limits<double>::max_exponent == 1024,
+                          "Fixed Dupire quote identity requires binary64");
+            // Compare object representations so DAZ cannot treat a subnormal
+            // as zero. The registered point uses the positive zero spelling.
+            constexpr double POSITIVE_ZERO = 0.0, NEGATIVE_ZERO = -0.0;
+            return std::memcmp(&actual, &registered, sizeof(double)) == 0 ||
+                   (std::memcmp(&registered, &POSITIVE_ZERO, sizeof(double)) == 0 && std::memcmp(&actual, &NEGATIVE_ZERO, sizeof(double)) == 0);
         }
 
         std::string PdeNode(int step, int space) { return " at PDE step " + std::to_string(step) + ", space index " + std::to_string(space); }
@@ -197,7 +237,7 @@ namespace Dal {
     DupireQuoteSecondOrderPlan_ PrepareDupireEuropeanCallQuoteRisk(const DupireCalibrationSnapshot_& calibration,
                                                                    const DupireEuropeanCall_& call,
                                                                    const DupireEuropeanCallPdeGrid_& grid) {
-        RequireNearestRounding();
+        RequireNearestRounding("PrepareDupireEuropeanCallQuoteRisk");
         if (!(std::isfinite(call.strike_) && call.strike_ > 0.0 && std::isfinite(call.maturity_) && call.maturity_ > 0.0))
             ValidationError(Reason::INVALID_INPUT, "strike and maturity must be finite and positive");
         if (!(std::isfinite(grid.logSpotHalfWidth_) && grid.logSpotHalfWidth_ > 0.0))
@@ -225,10 +265,8 @@ namespace Dal {
         Registered(inputs.maxTimeSpacing_ == 0.5, "maxTimeSpacing");
         RegisteredAxis(calibration.Surface()->spots_, LOCAL_STRIKES, "completed spot");
         RegisteredAxis(calibration.Surface()->times_, LOCAL_TIMES, "completed time");
-        // Exact nonzero comparisons also accept either sign for zero.
-        // Persist the registered, canonical point below.
         for (size_t i = 0; i < QUOTE_SPREADS.size(); ++i)
-            if (inputs.quoteSpreads_.Data()[i] != QUOTE_SPREADS[i])
+            if (!MatchesRegisteredSpread(inputs.quoteSpreads_.Data()[i], QUOTE_SPREADS[i]))
                 ValidationError(Reason::OUTSIDE_DOMAIN, "unregistered spread at quote:" + std::to_string(i));
         SnapshotAccess_::ValidateFixedBase(calibration);
 
@@ -251,7 +289,7 @@ namespace Dal {
                                                         const Vector_<DupireQuoteCoordinate_>& axis,
                                                         const Matrix_<>& directions,
                                                         const AAD::SecondOrderOptions_& options) {
-        RequireNearestRounding();
+        RequireNearestRounding("EvaluateDupireQuoteSecondOrder");
         ValidateRequestAxis(axis, plan.InputAxis(), directions.Cols());
         const auto scalar = [kernel = &Kernel(plan)](const auto& x) { return (*kernel)(nullptr, x); };
         return DupireQuoteSecondOrderResult_(
