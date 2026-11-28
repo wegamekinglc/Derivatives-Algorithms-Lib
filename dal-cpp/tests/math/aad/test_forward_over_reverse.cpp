@@ -5,6 +5,7 @@
 #include <future>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <new>
 #include <sstream>
@@ -29,6 +30,26 @@ namespace {
     }
 
     ForwardOverReverseNumber_ Squared(RecordingScope_*, const Vector_<ForwardOverReverseNumber_>& x) { return x[0] * x[0]; }
+
+    bool NativeMultiplyRecordsPrimalFirst() {
+        const auto mode = SetNumResultsForAAD(false, 1);
+        RecordingScope_ recording;
+        Number_ x, v;
+        recording.RegisterInput(x, 0.5);
+        recording.RegisterInput(v, 0.5);
+        recording.StartRecording();
+        const auto formPair = [](Number_ primal, Number_ tangent) { return std::make_pair(primal, tangent); };
+        (void)formPair(x * x, v * x + x * v);
+        return std::prev(Tape()->nodes_.End(), 2)->NumArguments() == 2;
+    }
+
+    auto SquareTimesShift(double offset) {
+        return [offset](RecordingScope_*, const auto& x) {
+            const auto square = x[0] * x[0];
+            const auto rest = offset * (x[0] * x[0]);
+            return square * x[1] + rest;
+        };
+    }
 } // namespace
 
 TEST(AADForwardOverReverseTest, TestQuarticProductIsIndependentOfAnOuterStep) {
@@ -184,6 +205,24 @@ TEST(AADForwardOverReverseTest, TestPrimalGradientRetainsItsAccumulationOrder) {
     ASSERT_DOUBLE_EQ(result.Gradient()[0], 1.0);
     ASSERT_DOUBLE_EQ(result.DirectionalDerivatives()[0], 1.0);
     ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 0.0);
+}
+
+TEST(AADForwardOverReverseTest, TestPairedRecordingPreservesHvpCancellationOrder) {
+    const bool primalFirst = NativeMultiplyRecordsPrimalFirst();
+    const auto result = EvaluateForwardOverReverse(SquareTimesShift(-1e16), {0.5, 1e16}, Direction({0.5, 1.0}));
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), primalFirst ? 1.0 : 0.0);
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.5);
+}
+
+TEST(AADForwardOverReverseTest, TestPairedRecordingPreservesHvpAtOverflowBoundary) {
+    const auto evaluate = []() { return EvaluateForwardOverReverse(SquareTimesShift(1e308), {0.5, -1e308}, Direction({0.5, 1e308})); };
+    if (NativeMultiplyRecordsPrimalFirst()) {
+        const auto result = evaluate();
+        ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 1e308);
+        ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.5);
+    } else {
+        ASSERT_THROW((void)evaluate(), Exception_);
+    }
 }
 
 TEST(AADForwardOverReverseTest, TestActivePowersAgainstIndependentMixedDerivatives) {

@@ -28,9 +28,8 @@ namespace Dal::AAD {
                 auto* tape = NativeThread::retainedTape;
                 if (!tape)
                     tape = Tape();
-                auto recordedTangent = Materialize(tangent, tape);
-                auto recordedPrimal = Materialize(primal, tape);
-                return Make(std::move(recordedPrimal), std::move(recordedTangent));
+                // Match the original pair of implicit Number_ argument conversions.
+                return Make(Materialize(primal, tape), Materialize(tangent, tape));
             }
 
         private:
