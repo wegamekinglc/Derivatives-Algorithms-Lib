@@ -37,6 +37,7 @@ set(DAL_EXAMPLE_TARGETS
     aad
     aad_operators
     aad_financial
+    aad_second_order
     digital
     concurrency
     curve_calibration
@@ -61,6 +62,7 @@ set(DAL_EXAMPLE_TARGETS
     gsr_slv_calibration
     dal_hybrid_script_example
     dal_market_iv_local_vol_example
+    dupire_quote_second_order
     snowball
     sobol
     script

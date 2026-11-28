@@ -82,6 +82,41 @@ and [first-order quote risk](../dal-cpp/examples/curves/quote_risk/quote_risk.cp
 PDE derivative accuracy and grid convergence are separate checks; see
 [the PDE guide](methodology/pde/aad.md).
 
+### Pointwise second-order AAD and Dupire quote Greeks
+
+[`aad_second_order.cpp`](../dal-cpp/examples/methods/aad_second_order/aad_second_order.cpp)
+uses `AAD::EvaluateSecondOrder` on a European Black–Scholes call with spot 103
+and decimal volatility 0.24. The direction matrix has columns for spot and
+volatility. Its two basis rows give Gamma, Vanna and Volga, and the signed row
+`(-2, 0.5)` gives $g^T v$ and $Hv$. The program compares the price, gradient and
+Hessian products with analytic Greeks.
+
+[`dupire_quote_second_order.cpp`](../dal-cpp/examples/models/dupire_quote_second_order/dupire_quote_second_order.cpp)
+builds the six-quote snapshot and prepares the registered one-year call struck
+at 105. It passes the plan's exact quote axis to `EvaluateDupireQuoteSecondOrder`.
+A single `quote:3` basis direction uses pointwise AAD. A three-row request adds
+the `quote:2` basis direction and a mixed row and uses shared AAD. The table
+prints PV, six quote Vegas and the three HVP columns in plan order. In the
+`quote:3` basis HVP, entries `quote:3`, `quote:2` and `quote:1` give Volga,
+cross-tenor and cross-strike curvature, respectively. Quote spreads are decimal
+volatility units. Use round-to-nearest with gradual underflow as described in
+the [fixed-plan contract](models/dupire.md#fixed-plan-european-call-quote-greeks).
+
+Both programs link `DAL::cpp`, require no input files and are registered under
+the CTest `examples` label. From the workspace root, initialize the dependencies
+and run a Release build with only the core component enabled:
+
+```bash
+git submodule update --init dal-cpp/externals/rapidjson dal-cpp/externals/machinist
+cmake -S . -B build/core-second-order -DCMAKE_BUILD_TYPE=Release \
+  -DDAL_BUILD_PUBLIC=OFF -DDAL_BUILD_PYTHON=OFF -DDAL_BUILD_EXCEL=OFF \
+  -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF -DDAL_CPP_BUILD_TESTS=OFF \
+  -DDAL_CPP_BUILD_BENCHMARKS=OFF -DDAL_CPP_BUILD_EXAMPLES=ON -DDAL_USE_EIGEN=OFF
+cmake --build build/core-second-order --config Release --target aad_second_order dupire_quote_second_order --parallel 4
+ctest --test-dir build/core-second-order -C Release --output-on-failure \
+  -R '^(aad_second_order|dupire_quote_second_order)$' -V
+```
+
 ### Public facade and owning results
 
 The independent [`aad_public_risk.cpp`](../dal-public/examples/aad_public_risk/aad_public_risk.cpp)

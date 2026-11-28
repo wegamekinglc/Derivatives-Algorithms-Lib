@@ -206,7 +206,9 @@ snapshot from `CalibrateDupireWithRisk`, the one-year European call struck at
 registered snapshot, including its exact spreads, sampled base volatilities,
 grids and bands, then certifies positive stencil, PDE boundary and Thomas pivot
 margins. The [core test setup](../../dal-cpp/tests/model/test_dupire_quote_second_order.cpp)
-shows how to build the registered snapshot.
+shows how to build the registered snapshot. The
+[runnable C++ example](../examples.md#pointwise-second-order-aad-and-dupire-quote-greeks)
+prints the quote axis, Vega and Hessian products with pointwise and shared AAD.
 
 Call `EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), directions)` with
 one row per direction and six columns. The supplied quote IDs, strikes and

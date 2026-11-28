@@ -1,0 +1,3 @@
+add_executable(dupire_quote_second_order dupire_quote_second_order.cpp)
+target_link_libraries(dupire_quote_second_order PRIVATE DAL::cpp)
+install(TARGETS dupire_quote_second_order RUNTIME DESTINATION bin)
