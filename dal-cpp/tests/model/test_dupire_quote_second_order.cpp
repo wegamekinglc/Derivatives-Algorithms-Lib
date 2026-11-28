@@ -365,7 +365,7 @@ namespace {
         return {SecondOrderNumber_(lower), SecondOrderNumber_(diagonal), SecondOrderNumber_(upper)};
     }
 
-    void TryThomasSubstitution(Tape::Arena_& arena, bool transpose, bool firstRow, double coupling, const Matrix_<>& directions) {
+    void TryThomasSubstitution(SecondOrderDetail::Arena_& arena, bool transpose, bool firstRow, double coupling, const Matrix_<>& directions) {
         using namespace DupireSecondOrderDetail::Thomas;
         Factor_<2> factor;
         const bool lower = transpose && firstRow;
