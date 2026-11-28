@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <dal/platform/host.hpp>
 
 #include <dal/math/aad/detail/secondordertape.hpp>
@@ -400,7 +402,97 @@ namespace Dal::AAD::SecondOrderDetail {
 
     template <class E_> constexpr bool IsLeaf = std::is_same_v<E_, SecondOrderNumber_> || std::is_same_v<E_, Constant_>;
 
-    template <class E_> SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const E_& expression) { return Materialize<double>(arena, expression); }
+    // A statement holds leaf slots and local factors in two contiguous buffers.
+    // Preparation fills factors in place, with compile-time offsets for each
+    // subtree. Traversal still composes root-to-leaf only after tape admission.
+    struct CompactView_ {
+        Slot_* slots_;
+        Weight_<double>* factors_;
+    };
+
+    template <class E_> struct CompactEvaluation_;
+
+    template <> struct CompactEvaluation_<SecondOrderNumber_> {
+        static constexpr size_t factors_ = 0;
+        static FORCE_INLINE Dual_<double> Evaluate(const SecondOrderNumber_& number, Arena_& arena, CompactView_ view) {
+            const auto leaf = Prepare<double>(number, arena);
+            view.slots_[0] = leaf.edges_.slot_;
+            return leaf.dual_;
+        }
+        template <bool Root_> static FORCE_INLINE void Write(CompactView_ view, Weight_<double> weight, EdgeWriter_<double>& destination) {
+            destination.AddEdge(view.slots_[0], weight);
+        }
+    };
+
+    template <> struct CompactEvaluation_<Constant_> {
+        static constexpr size_t factors_ = 0;
+        static FORCE_INLINE Dual_<double> Evaluate(const Constant_& constant, Arena_& arena, CompactView_) {
+            return Prepare<double>(constant, arena).dual_;
+        }
+    };
+
+    template <class Op_, class A_> struct CompactEvaluation_<Unary_<Op_, A_>> {
+        using Child_ = CompactEvaluation_<A_>;
+        static constexpr size_t factors_ = 1 + Child_::factors_;
+
+        static FORCE_INLINE Dual_<double> Evaluate(const Unary_<Op_, A_>& expression, Arena_& arena, CompactView_ view) {
+            const auto operand = Child_::Evaluate(expression.input_, arena, {view.slots_, view.factors_ + 1});
+            const auto local = expression.op_.Apply(operand);
+            view.factors_[0] = local.weight_;
+            return local.result_;
+        }
+
+        template <bool Root_> static FORCE_INLINE void Write(CompactView_ view, Weight_<double> weight, EdgeWriter_<double>& destination) {
+            const auto local = view.factors_[0];
+            Child_::template Write<false>({view.slots_, view.factors_ + 1}, Root_ ? local : Compose(weight, local), destination);
+        }
+    };
+
+    template <class Op_, class A_, class B_> struct CompactEvaluation_<Binary_<Op_, A_, B_>> {
+        using Left_ = CompactEvaluation_<A_>;
+        using Right_ = CompactEvaluation_<B_>;
+        static constexpr bool LEFT = Leaves<A_>() != 0, RIGHT = Leaves<B_>() != 0;
+        static constexpr size_t LOCAL = LEFT + RIGHT, factors_ = LOCAL + Left_::factors_ + Right_::factors_;
+
+        static FORCE_INLINE Dual_<double> Evaluate(const Binary_<Op_, A_, B_>& expression, Arena_& arena, CompactView_ view) {
+            const auto left = Left_::Evaluate(expression.left_, arena, {view.slots_, view.factors_ + LOCAL});
+            const auto right = Right_::Evaluate(expression.right_, arena, {view.slots_ + Leaves<A_>(), view.factors_ + LOCAL + Left_::factors_});
+            const auto local = Op_::template Apply<LEFT, RIGHT>(left, right);
+            if constexpr (LEFT)
+                view.factors_[0] = local.left_;
+            if constexpr (RIGHT)
+                view.factors_[LEFT] = local.right_;
+            return local.result_;
+        }
+
+        template <bool Root_> static FORCE_INLINE void Write(CompactView_ view, Weight_<double> weight, EdgeWriter_<double>& destination) {
+            if constexpr (LEFT) {
+                const auto local = view.factors_[0];
+                Left_::template Write<false>({view.slots_, view.factors_ + LOCAL}, Root_ ? local : Compose(weight, local), destination);
+            }
+            if constexpr (RIGHT) {
+                const auto local = view.factors_[LEFT];
+                Right_::template Write<false>({view.slots_ + Leaves<A_>(), view.factors_ + LOCAL + Left_::factors_},
+                                              Root_ ? local : Compose(weight, local), destination);
+            }
+        }
+    };
+
+    template <class E_> SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const E_& expression) {
+        using Evaluator_ = CompactEvaluation_<E_>;
+        constexpr size_t preparation = ExpressionEdges_<double, E_>::preparationBytes_;
+        constexpr size_t temporary = sizeof(EdgeWriter_<double>) + preparation;
+        arena.AccountTemporary(temporary);
+        std::array<Slot_, Leaves<E_>()> slots;
+        std::array<Weight_<double>, Evaluator_::factors_> factors;
+        static_assert(sizeof(slots) + sizeof(factors) <= preparation, "compact statement must fit its preparation charge");
+        const CompactView_ view{slots.data(), factors.data()};
+        const auto value = Evaluator_::Evaluate(expression, arena, view);
+        auto result =
+            Append<double, Leaves<E_>()>(arena, value, temporary, [&](auto& edges) { Evaluator_::template Write<true>(view, {1.0, 0.0}, edges); });
+        arena.AccountLogical<double>(false, temporary);
+        return result;
+    }
 
     template <class Op_, class A_, class B_, std::enable_if_t<IsLeaf<A_> && IsLeaf<B_>, int> = 0>
     FORCE_INLINE SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const Binary_<Op_, A_, B_>& expression) {

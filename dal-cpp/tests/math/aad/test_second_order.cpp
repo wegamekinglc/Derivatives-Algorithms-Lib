@@ -97,6 +97,24 @@ TEST(AADSecondOrderTest, RejectsAFailedRightSubtreeAfterPreparingTheLeftSubtree)
     EXPECT_DOUBLE_EQ(risk.HessianProducts()(0, 0), 12.0);
 }
 
+TEST(AADSecondOrderTest, RecordsRepeatedSlotsAroundPassiveLeavesInNestedStatements) {
+    Matrix_<> direction(1, 2);
+    direction(0, 0) = 2.0;
+    direction(0, 1) = -1.0;
+    const auto risk = EvaluateSecondOrder(
+        [](const auto& x) -> SecondOrderNumber_ {
+            const SecondOrderNumber_ passive(3.0);
+            return (x[0] * passive + x[1]) * (3.0 * (x[0] - passive) + x[1]);
+        },
+        {1.0, 2.0}, direction);
+    EXPECT_DOUBLE_EQ(risk.Value(), -20.0);
+    EXPECT_EQ(risk.Gradient(), (Vector_<>{3.0, 1.0}));
+    EXPECT_DOUBLE_EQ(risk.DirectionalDerivatives()[0], 5.0);
+    EXPECT_DOUBLE_EQ(risk.HessianProducts()(0, 0), 30.0);
+    EXPECT_DOUBLE_EQ(risk.HessianProducts()(0, 1), 10.0);
+    EXPECT_EQ(risk.Execution().safePathActivations_, 0U);
+}
+
 TEST(AADSecondOrderTest, PreservesTermsThroughCancellationAndExtremeAdjoints) {
     for (double c : {-1e16, 1e308}) {
         const Vector_<> point{0.5, -c};
