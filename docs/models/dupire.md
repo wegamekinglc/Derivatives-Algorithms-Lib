@@ -199,32 +199,103 @@ Related flat-volatility baselines:
 
 ## Fixed-plan European call quote Greeks
 
-`dal/model/dupirequotesecondorder.hpp` exposes
+The core C++ header `dal/model/dupirequotesecondorder.hpp` exposes
 `PrepareDupireEuropeanCallQuoteRisk` for the registered six-quote plan. Pass a
-snapshot from `CalibrateDupireWithRisk`, the call metadata, and the fixed
-`{0.8, 81, 64}` log-spot grid. Preparation checks the exact spread inputs,
-sampled base volatilities and fixed bands, then certifies positive stencil and
-PDE margins.
+snapshot from `CalibrateDupireWithRisk`, the one-year European call struck at
+105, and the fixed `{0.8, 81, 64}` log-spot grid. Preparation checks the
+registered snapshot, including its exact spreads, sampled base volatilities,
+grids and bands, then certifies positive stencil, PDE boundary and Thomas pivot
+margins. The [core test setup](../../dal-cpp/tests/model/test_dupire_quote_second_order.cpp)
+shows how to build the registered snapshot.
 
-Call `EvaluateDupireQuoteSecondOrder(plan, axis, directions)` with the axis
-that labels the direction columns. `Risk()` owns the price, six Vega values,
-directional derivatives and HVPs. The axis is strike-major with maturity
-varying inside each strike. For the unit direction at quote 3, read HVP columns
-3, 2 and 1 for Volga, cross-tenor and cross-strike risk. Quote units are
-decimal volatility. `Risk().Pointwise()` exposes execution details for zero
-or one direction, and `Risk().Shared()` exposes the shared-graph record for
-multiple directions.
+Call `EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), directions)` with
+one row per direction and six columns. The supplied quote IDs, strikes and
+maturities must match the plan axis in order. The zero-based IDs `quote:0`
+through `quote:5` traverse strikes 75, 105 and 135, with maturities 0.4 and 1.2
+years within each strike. The result owns the axis and the numeric data exposed
+by `Risk()`. For each signed direction $v$, the directional derivative is
+$g^T v$ and the corresponding row of `HessianProducts()` is $Hv$, where $g$ and
+$H$ are the gradient and Hessian of the call price in the quote coordinates.
+For a $+1$ seed at `quote:3` and zeros elsewhere, columns 3, 2 and 1 give
+Volga, cross-tenor and cross-strike curvature, respectively.
+
+The coordinates are additive decimal implied-volatility spreads.
+`QuoteUnit()` returns `decimal-vol`. Each Vega is in price units per unit
+decimal volatility, and each Hessian entry is in price units per squared
+decimal-volatility unit. For reporting per volatility point, multiply Vega
+by 0.01 and Hessian entries by 0.0001.
 
 The quote identity accepts both signs of zero and returns the canonical
 `+0.0` at the registered zero in `Risk().Point()`. Nonzero spreads must match
-the registered binary64 representation exactly, including subnormals.
-Direction seeds preserve their sign, including `-0.0`.
-Prepare and evaluate check `FE_TONEAREST` on the calling thread before
-recording. A different mode or a failed query raises
+the registered binary64 representation exactly. A nonzero subnormal spread at
+the registered zero is rejected even with denormals-are-zero (DAZ) enabled.
+`Risk().Directions()` preserves the submitted seeds, including signed zeros.
+
+Use binary64 with round-to-nearest (`FE_TONEAREST`) and gradual underflow
+for both preparation and evaluation, with DAZ and flush-to-zero disabled.
+Both entry points check the rounding mode on the calling thread before
+recording. A different mode or a failed rounding-mode query raises
 `UNSUPPORTED_OPERATION/VALIDATION` with no direction index. The message
-identifies the entry point and the active mode or query failure. The check
-preserves the caller's mode, and the plan can be reused after the caller
-restores `FE_TONEAREST`.
+identifies the entry point and the active mode or query failure. The caller
+controls the rounding mode and subnormal handling. A subnormal seed can still
+appear in `Directions()` with DAZ enabled while contributing zero to the
+directional derivative and HVP.
+
+### AAD execution and budgets
+
+The derivatives include both the quote-to-local-volatility calibration and
+the local-volatility-to-price PDE rollback, with the plan's bands and grids
+fixed. A zero-row, six-column request returns the price and Vega vector.
+`Risk().Pointwise()` gives the original execution record for zero or one
+direction. A routine one-direction request records once and performs one
+native reverse sweep. The tridiagonal Thomas solves keep their primal
+operation order and use an analytic tangent solve and two transposed solves
+per rollback step to propagate the ordinary and directional adjoints into the
+calibration graph.
+
+The narrow Thomas path admits nonzero seeds with maximum absolute component
+in $[2^{-20}, 2^{20}]$ and minimum nonzero absolute component at least
+$2^{-20}$ times that maximum. It checks derivative range and guards the
+tangent and transposed solves before near-cancelled differences feed another
+substitution step. A guard hit reruns the direction from the original inputs
+with the scalar wide-precision tape. The execution record counts the abandoned
+recording and any reverse sweep it started.
+
+For two or more rows, `Risk().Shared()` gives the original shared AAD
+execution record. A routine request records one primal graph. The three-row
+case uses one tangent sweep and one reverse sweep over that graph. Each group
+of three and each leftover row gets one such pair of sweeps. If shared recording
+or propagation triggers numerical protection, the driver releases the shared
+graph and reruns the full request through scalar pointwise AAD in a private arena,
+using wide precision for the nonzero directions and the gradient. The public
+pointwise and shared arenas retain capacity independently.
+
+The optional `AAD::SecondOrderOptions_` sets two byte limits.
+`numericPayloadBudgetBytes_` covers the owning doubles for the price, point,
+Vega, directions, directional derivatives and HVPs. For $M$ directions the
+requirement is `AAD::SecondOrderPayloadBytes(6, M)`, or $104(1+M)$ bytes.
+`recordingCapacityBudgetBytes_` bounds the active arena's tape capacity and
+admitted workspace, including retained capacity in use and recording and
+propagation scratch. The same cap applies to a protected rerun. A cap
+violation raises `BUDGET_EXCEEDED` at the applicable stage. The limits cover
+these requests' numeric payload and tape workspace, respectively. Process
+memory also includes the plan, metadata and other retained arenas.
+
+### Measured performance
+
+In the single-threaded GCC Release benchmark on an i9-13900HX under WSL2, the
+registered routine one- and three-direction requests both meet the frozen
+DAL-to-XAD 1.8.0 latency limits of 1.10 at P50 and 1.15 at P95 in two qualified
+rounds. The one-direction P50/P95 ratios are 1.069/1.088 and 1.058/1.096.
+The three-direction ratios are 1.079/1.139 and 1.073/1.096. Protection cases
+have separate numerical, execution-count and capacity checks.
+
+Five of the six benchmark groups meet both latency limits. The other passing
+groups are the independently priced Black–Scholes one- and three-direction
+requests and the six-direction conditional basket. The one-direction
+conditional basket exceeds the limits on the default path. Its experimental
+quadrature fold exceeds the P50 limit in the two rounds selected by the
+confirmation rule.
 
 ## See Also
 
