@@ -699,6 +699,37 @@ are read-only and detached. Copy/deepcopy retain owning passive values. Planning
 and execution release the GIL after copying typed inputs. See the
 [native automatic request boundaries](../methodology/aad.md#automatic-c-dupire-risk-requests).
 
+## Fixed-plan native Dupire quote Greeks
+
+Use `DupireQuoteSecondOrderPlan_New(calibration, *, strike, maturity,
+underlying_id, currency, grid)` with an existing `DupireCalibrationSnapshot_`.
+The registered contract uses strike 105, maturity 1.0 and grid `(0.8, 81, 64)`
+in the order log-spot half-width, space nodes and time steps. The
+[fixed-plan contract](../models/dupire.md#fixed-plan-european-call-quote-greeks)
+specifies the exact quote spreads, grids and floating-point environment.
+
+`DupireQuoteSecondOrderResult_New(plan, *, input_axis, directions,
+numeric_payload_budget_bytes=None, recording_capacity_budget_bytes=None)`
+accepts a list or tuple of `(quote_id, strike, maturity)` entries in
+`plan.input_axis` order and a `DoubleMatrix_` with six columns. Use
+`DoubleMatrix_(0, 6)` for price and Vega only. One direction uses pointwise
+AAD, and multiple directions use the shared primal graph when qualified.
+
+The owning result exposes `value`, `point`, `input_axis`, `gradient`,
+`directions`, `directional_derivatives`, `hessian_products`, `quote_unit`
+and `method`. Row `i` of `hessian_products` is $Hv_i$, and column `j`
+uses quote `j` of the plan. For a unit seed at `quote:3`, columns 3, 2
+and 1 give Volga, cross-tenor and cross-strike curvature. Vega and curvature
+are in price units per decimal volatility and per squared decimal volatility.
+
+From the repository root with the updated `dal` package installed, run the
+[six-quote example](../../dal-python/examples/023.dupire_quote_second_order.py)
+to print both execution methods, all six Vegas and a signed mixed HVP.
+
+```bash
+python dal-python/examples/023.dupire_quote_second_order.py
+```
+
 ## Dupire quote Gamma and Hessian products
 
 `DupireScriptCurvaturePlan_New` plans finite-step differences of complete native
