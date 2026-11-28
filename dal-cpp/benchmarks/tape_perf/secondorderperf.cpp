@@ -18,6 +18,9 @@
 #include <dal/platform/platform.hpp>
 
 #include "secondorderperf.hpp"
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+#include "secondorderxad.hpp"
+#endif
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -49,6 +52,7 @@ namespace {
         double price_;
         Matrix_<> products_;
         double stencilDisagreement_ = 0.0;
+        Vector_<> gradient_{};
     };
 
     Matrix_<> Directions(std::initializer_list<double> mixed) {
@@ -88,6 +92,7 @@ namespace {
         const double volga = spot * dividend * density * rootTime * d1 * d2 / vol;
         const double price = spot * dividend * NormalCdf(d1) - BS_STRIKE * std::exp(-BS_RATE * BS_TIME) * NormalCdf(d2);
         Reference_ result{price, Matrix_<>(shape.directions_.Rows(), 2)};
+        result.gradient_ = {dividend * NormalCdf(d1), spot * dividend * density * rootTime};
         for (int row = 0; row < result.products_.Rows(); ++row) {
             const double v0 = shape.directions_(row, 0), v1 = shape.directions_(row, 1);
             result.products_(row, 0) = gamma * v0 + vanna * v1;
@@ -184,6 +189,17 @@ namespace {
 
     Reference_ BasketReference(const ConditionalBasket_& basket, const Case_& shape, const Vector_<>& coordinateSteps) {
         Reference_ result{BasketScalarPrice(basket, shape.point_), Matrix_<>(shape.directions_.Rows(), shape.directions_.Cols())};
+        result.gradient_.Resize(shape.point_.size());
+        for (size_t column = 0; column < shape.point_.size(); ++column) {
+            const auto slope = [&](double step) {
+                auto plus = shape.point_, minus = shape.point_;
+                plus[column] += step;
+                minus[column] -= step;
+                return (BasketScalarPrice(basket, plus) - BasketScalarPrice(basket, minus)) / (2.0 * step);
+            };
+            const double h = coordinateSteps[column];
+            result.gradient_[column] = (4.0 * slope(h / 2.0) - slope(h)) / 3.0;
+        }
         for (int row = 0; row < result.products_.Rows(); ++row) {
             for (int column = 0; column < result.products_.Cols(); ++column) {
                 const double h = REFERENCE_STEP_MULTIPLIER * shape.steps_[row], k = coordinateSteps[column];
@@ -302,7 +318,151 @@ namespace {
                   << ',' << adP95 << ',' << adMin << ',' << bumpMedian << ',' << bumpP95 << ',' << bumpMin << ',' << adMedian / bumpMedian << '\n';
     }
 
-    template <class K_> void Run(const Case_& shape, const K_& kernel, const Reference_& ref, bool verifyOnly, bool centeredFirst) {
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+    Vector_<> ProjectGradient(const Vector_<>& gradient, const Matrix_<>& directions) {
+        Vector_<> slopes(directions.Rows(), 0.0);
+        for (int row = 0; row < directions.Rows(); ++row)
+            for (int column = 0; column < directions.Cols(); ++column)
+                slopes[row] += directions(row, column) * gradient[column];
+        return slopes;
+    }
+
+    struct CenteredOutput_ {
+        BumpOverAADResult_ native_;
+        Vector_<> directional_;
+    };
+
+    struct TapeWork_ {
+        size_t recordings_;
+        size_t sweeps_;
+        size_t bytes_;
+        const char* byteKind_;
+    };
+
+    void VerifyRoute(const Case_& shape,
+                     const Reference_& ref,
+                     const Matrix_<>& directions,
+                     const char* name,
+                     double price,
+                     const Vector_<>& gradient,
+                     const Vector_<>& directional,
+                     const Matrix_<>& products,
+                     double hvpTolerance,
+                     const TapeWork_& work) {
+        const auto expectedSlopes = ProjectGradient(ref.gradient_, directions);
+        REQUIRE(gradient.size() == ref.gradient_.size() && directional.size() == expectedSlopes.size() && products.Rows() == directions.Rows() &&
+                    products.Cols() == directions.Cols(),
+                "second-order route output shape mismatch");
+        const double priceError = std::abs(price - ref.price_);
+        REQUIRE(priceError <= 1e-11, "second-order route price mismatch");
+        const auto check = [](double actual, double expected, double tolerance) {
+            const double error = std::abs(actual - expected);
+            REQUIRE(error <= tolerance * std::max(1.0, std::abs(expected)), "second-order route derivative differs from its independent reference");
+            return error;
+        };
+        constexpr double FIRST_ORDER_TOLERANCE = 5e-8;
+        const auto printOutput = [&](const char* kind, int row, int column, double expected, double value) {
+            std::cout << "output," << shape.name_ << ',' << directions.Rows() << ',' << name << ',' << kind << ',' << row << ',' << column << ','
+                      << expected << ',' << value << '\n';
+        };
+        printOutput("price", 0, 0, ref.price_, price);
+        double gradientError = 0.0, directionalError = 0.0, productError = 0.0;
+        for (int column = 0; column < directions.Cols(); ++column) {
+            gradientError = std::max(gradientError, check(gradient[column], ref.gradient_[column], FIRST_ORDER_TOLERANCE));
+            printOutput("gradient", 0, column, ref.gradient_[column], gradient[column]);
+        }
+        for (int row = 0; row < directions.Rows(); ++row) {
+            directionalError = std::max(directionalError, check(directional[row], expectedSlopes[row], FIRST_ORDER_TOLERANCE));
+            printOutput("directional", row, 0, expectedSlopes[row], directional[row]);
+            for (int column = 0; column < directions.Cols(); ++column) {
+                productError = std::max(productError, check(products(row, column), ref.products_(row, column), hvpTolerance));
+                printOutput("hvp", row, column, ref.products_(row, column), products(row, column));
+            }
+        }
+        std::cout << "metric," << shape.name_ << ',' << directions.Rows() << ',' << name << ',' << priceError << ',' << gradientError << ','
+                  << directionalError << ',' << productError << ',' << work.recordings_ << ',' << work.sweeps_ << ',' << work.bytes_ << ','
+                  << work.byteKind_ << '\n';
+    }
+
+    template <class P_, class B_, class X_>
+    void MeasureTriplets(const Case_& shape, int directions, const P_& pointwise, const B_& centered, const X_& xad, bool reverseOrder) {
+        Clear(*Tape());
+        for (int i = 0; i < WARMUP_PAIRS; ++i) {
+            (void)TimeBatch(pointwise, shape.callsPerBatch_);
+            (void)TimeBatch(centered, shape.callsPerBatch_);
+            (void)TimeBatch(xad, shape.callsPerBatch_);
+        }
+        const size_t initialCapacity = TapeCapacity();
+        std::array<Samples_, 3> samples{};
+        constexpr std::array<const char*, 3> NAMES{"pointwise", "centered", "xad"};
+        const auto order = [reverseOrder](size_t index) {
+            const size_t first = index / 2 % 3, second = (first + 1) % 3, third = (first + 2) % 3;
+            return (reverseOrder != (index % 2 != 0)) ? std::array{third, second, first} : std::array{first, second, third};
+        };
+        const auto measure = [&](size_t route) {
+            if (route == 0)
+                return TimeBatch(pointwise, shape.callsPerBatch_);
+            if (route == 1)
+                return TimeBatch(centered, shape.callsPerBatch_);
+            return TimeBatch(xad, shape.callsPerBatch_);
+        };
+        for (size_t i = 0; i < samples[0].size(); ++i)
+            for (size_t route : order(i))
+                samples[route][i] = measure(route);
+        REQUIRE(TapeCapacity() == initialCapacity, "second-order benchmark tape grew after warmup");
+        for (size_t i = 0; i < samples[0].size(); ++i) {
+            const auto ordering = order(i);
+            std::cout << "tri_sample," << shape.name_ << ',' << directions << ',' << 1 + i / PAIRS_PER_ROUND << ',' << 1 + i % PAIRS_PER_ROUND << ','
+                      << NAMES[ordering[0]] << ',' << NAMES[ordering[1]] << ',' << NAMES[ordering[2]] << ',' << shape.callsPerBatch_ << ','
+                      << samples[0][i] << ',' << samples[1][i] << ',' << samples[2][i] << '\n';
+        }
+        for (size_t route = 0; route < samples.size(); ++route) {
+            const auto [median, p95, minimum] = Summary(samples[route]);
+            std::cout << "tri_summary," << shape.name_ << ',' << directions << ',' << NAMES[route] << ',' << median << ',' << p95 << ',' << minimum
+                      << '\n';
+        }
+    }
+
+    template <class K_, class P_, class B_>
+    void RunWithXad(const Case_& shape,
+                    const Reference_& ref,
+                    const K_& kernel,
+                    const Matrix_<>& directions,
+                    const P_& pointwise,
+                    const B_& centered,
+                    bool verifyOnly,
+                    bool reverseOrder) {
+        TapePerfXad::Workspace_ workspace;
+        const auto xad = [&]() { return workspace.Evaluate(kernel, shape.point_, directions); };
+        const auto centeredWithDirectional = [&]() {
+            auto native = centered();
+            auto directional = ProjectGradient(native.Gradient(), directions);
+            return CenteredOutput_{std::move(native), std::move(directional)};
+        };
+        Clear(*Tape());
+        const auto pointwiseValue = pointwise();
+        Clear(*Tape());
+        const auto centeredValue = centeredWithDirectional();
+        const auto xadValue = workspace.Evaluate(kernel, shape.point_, directions, true);
+        const auto& adWork = pointwiseValue.Execution();
+        const auto& bumpWork = centeredValue.native_.Execution();
+        const size_t n = static_cast<size_t>(directions.Rows());
+        Verify(shape, ref, directions.Rows(), pointwiseValue, centeredValue.native_);
+        VerifyRoute(shape, ref, directions, "pointwise", pointwiseValue.Value(), pointwiseValue.Gradient(), pointwiseValue.DirectionalDerivatives(),
+                    pointwiseValue.HessianProducts(), shape.pointwiseTolerance_,
+                    {adWork.recordings_, adWork.reverseSweeps_, adWork.peakTapeBytes_, "dal_allocated_peak"});
+        VerifyRoute(shape, ref, directions, "centered", centeredValue.native_.Value(), centeredValue.native_.Gradient(), centeredValue.directional_,
+                    centeredValue.native_.HessianProducts(), shape.centeredTolerance_,
+                    {bumpWork.gradientEvaluations_, bumpWork.reverseSweeps_, bumpWork.peakTapeBytes_, "dal_allocated_peak"});
+        VerifyRoute(shape, ref, directions, "xad", xadValue.price_, xadValue.gradient_, xadValue.directional_, xadValue.products_,
+                    shape.pointwiseTolerance_, {n, n, xadValue.maxLogicalBytes_, "xad_max_logical_after_sweep"});
+        if (!verifyOnly)
+            MeasureTriplets(shape, directions.Rows(), pointwise, centeredWithDirectional, xad, reverseOrder);
+    }
+#endif
+
+    template <class K_>
+    void Run(const Case_& shape, const K_& kernel, const Reference_& ref, bool verifyOnly, bool centeredFirst, [[maybe_unused]] bool withXad) {
         const NativeDirectionalFunction_ pointwiseKernel = std::cref(kernel);
         const NativeScalarFunction_ centeredKernel = std::cref(kernel);
         for (int count : {1, shape.directions_.Rows()}) {
@@ -313,6 +473,12 @@ namespace {
             bumpRequest.steps_ = Vector_<>(shape.steps_.begin(), shape.steps_.begin() + count);
             const auto pointwise = [&]() { return EvaluateForwardOverReverse(pointwiseKernel, shape.point_, adRequest); };
             const auto centered = [&]() { return EvaluateBumpOverAAD(centeredKernel, shape.point_, bumpRequest); };
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+            if (withXad) {
+                RunWithXad(shape, ref, kernel, adRequest.directions_, pointwise, centered, verifyOnly, centeredFirst);
+                continue;
+            }
+#endif
             Clear(*Tape());
             const auto ad = pointwise();
             Clear(*Tape());
@@ -326,11 +492,21 @@ namespace {
 
 int RunSecondOrderBenchmarks(int argc, char** argv) {
     try {
-        const std::string option = argc == 2 ? argv[1] : "";
-        REQUIRE(argc == 1 || (argc == 2 && (option == "--verify-only" || option == "--centered-first")),
-                "expected --second-order [--verify-only|--centered-first]");
-        const bool verifyOnly = option == "--verify-only";
-        const bool centeredFirst = option == "--centered-first";
+        bool verifyOnly = false, centeredFirst = false, withXad = false;
+        for (int arg = 1; arg < argc; ++arg) {
+            const std::string option = argv[arg];
+            if (option == "--verify-only" && !verifyOnly)
+                verifyOnly = true;
+            else if (option == "--centered-first" && !centeredFirst)
+                centeredFirst = true;
+            else if (option == "--with-xad" && !withXad)
+                withXad = true;
+            else
+                THROW("expected --second-order [--verify-only] [--centered-first] [--with-xad]");
+        }
+#if !defined(DAL_TAPE_PERF_WITH_XAD)
+        REQUIRE(!withXad, "--with-xad requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
+#endif
         RegisterAll_::Init();
         const Case_ small{"black_scholes", {103.0, 0.24}, Directions({-2.0, 0.5}), {0.1, 0.0005, 0.0005}, 256, 1e-10, 2.5e-5};
         const Case_ basket{"conditional_basket",
@@ -351,8 +527,14 @@ int RunSecondOrderBenchmarks(int argc, char** argv) {
                   << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
                   << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
                      "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
-        Run(small, BlackScholes_{}, BlackScholesReference(small), verifyOnly, centeredFirst);
-        Run(basket, conditional, basketRef, verifyOnly, centeredFirst);
+        if (withXad)
+            std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
+                         "recordings,sweeps,tape_bytes,tape_byte_kind\n"
+                      << "# output,case,directions,route,kind,row,column,reference,value\n"
+                      << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
+                      << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
+        Run(small, BlackScholes_{}, BlackScholesReference(small), verifyOnly, centeredFirst, withXad);
+        Run(basket, conditional, basketRef, verifyOnly, centeredFirst, withXad);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
