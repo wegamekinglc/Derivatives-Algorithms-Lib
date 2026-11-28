@@ -422,11 +422,26 @@ namespace {
     using TapePerfComparison::Phase;
     using TapePerfComparison::Span_;
 
-    void PrintCounts(const Case_& shape, int directions, const char* route, const Counts_& counts, const char* byteKind) {
+    template <class C_> void PrintCounts(const Case_& shape, int directions, const char* route, const C_& counts, const char* byteKind) {
         std::cout << "tape_counts," << shape.name_ << ',' << directions << ',' << route << ',' << counts.recordings_ << ',' << counts.sweeps_ << ','
                   << counts.statements_ << ',' << counts.edges_ << ',' << counts.statementVisits_ << ',' << counts.edgeSlots_ << ','
                   << counts.maxBytes_ << ',' << byteKind << '\n';
     }
+
+#if defined(DAL_ENABLE_AAD_PROFILING)
+    template <class F_> ProfilingReverseGraphStatistics_ CountReverseGraphs(const F_& evaluate) {
+        Clear(*Tape());
+        ProfilingData_ data;
+        {
+            ProfilingScope_ profile(&data);
+            data.reverseGraphs_.emplace();
+            (void)evaluate();
+        }
+        REQUIRE(data.complete_ && data.reverseGraphs_->sweeps_ == data.Phase(Phase::REVERSE).calls_,
+                "AAD comparison reverse graph counts must cover every actual sweep");
+        return *data.reverseGraphs_;
+    }
+#endif
 
     template <class F_> void ProfileBatch(const Case_& shape, int directions, const char* route, size_t sample, const F_& evaluate) {
         ProfilingData_ data;
@@ -597,35 +612,23 @@ namespace {
         VerifyNativeRoutes(shape, ref, directions, pointwiseValue, centeredValue);
         VerifyRoute(shape, ref, directions, "xad", xadValue.price_, xadValue.gradient_, xadValue.directional_, xadValue.products_,
                     shape.pointwiseTolerance_, {n, n, xadValue.maxLogicalBytes_, "xad_max_logical_after_sweep"});
+#if defined(DAL_ENABLE_AAD_PROFILING)
         if (diagnostics) {
-            Counts_ dalCounts, centeredCounts, xadCounts;
-            const auto countDal = [&](RecordingScope_* scope, const Vector_<ForwardOverReverseNumber_>& inputs) {
-                const auto value = kernel(scope, inputs);
-                TapePerfComparison::CountDal(dalCounts, dalCounts.recordings_ == 0 ? 2 : 1);
-                return value;
-            };
-            const auto countCentered = [&](RecordingScope_* scope, const Vector_<Number_>& inputs) {
-                const auto value = kernel(scope, inputs);
-                TapePerfComparison::CountDal(centeredCounts, 1);
-                return value;
-            };
-            Clear(*Tape());
-            ForwardOverReverseRequest_ adRequest;
-            adRequest.directions_ = directions;
-            (void)EvaluateForwardOverReverse(countDal, shape.point_, adRequest);
-            Clear(*Tape());
-            BumpOverAADRequest_ bumpRequest;
-            bumpRequest.directions_ = directions;
-            bumpRequest.steps_ = Vector_<>(shape.steps_.begin(), shape.steps_.begin() + n);
-            (void)EvaluateBumpOverAAD(countCentered, shape.point_, bumpRequest);
+            const auto dalCounts = CountReverseGraphs(pointwise);
+            const auto centeredCounts = CountReverseGraphs(centered);
+            Counts_ xadCounts;
             (void)workspace.Evaluate(kernel, shape.point_, directions, false, &xadCounts);
-            REQUIRE(dalCounts.recordings_ == n && dalCounts.sweeps_ == n + 1 && centeredCounts.recordings_ == 2 * n + 1 &&
-                        centeredCounts.sweeps_ == 2 * n + 1 && xadCounts.recordings_ == n && xadCounts.sweeps_ == n,
+            const auto& adWork = pointwiseValue.Execution();
+            const auto& bumpWork = centeredValue.native_.Execution();
+            REQUIRE(dalCounts.recordings_ == adWork.recordings_ && dalCounts.sweeps_ == adWork.reverseSweeps_ &&
+                        centeredCounts.recordings_ == bumpWork.gradientEvaluations_ && centeredCounts.sweeps_ == bumpWork.reverseSweeps_ &&
+                        xadCounts.recordings_ == n && xadCounts.sweeps_ == n,
                     "AAD comparison unexpected diagnostic tape work");
-            PrintCounts(shape, directions.Rows(), "pointwise", dalCounts, "dal_allocated_at_callback");
-            PrintCounts(shape, directions.Rows(), "centered", centeredCounts, "dal_allocated_at_callback");
+            PrintCounts(shape, directions.Rows(), "pointwise", dalCounts, "dal_allocated_after_active_root");
+            PrintCounts(shape, directions.Rows(), "centered", centeredCounts, "dal_allocated_after_active_root");
             PrintCounts(shape, directions.Rows(), "xad", xadCounts, "xad_logical_after_sweep");
         }
+#endif
         if (!verifyOnly)
             MeasureTriplets(shape, directions.Rows(), pointwise, centered, xad, reverseOrder, diagnostics);
     }
@@ -735,15 +738,15 @@ namespace {
             REQUIRE(!options.withXad_ && !firstOrder, "XAD comparison requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
 #endif
             options.withXad_ = options.withXad_ || firstOrder;
-            REQUIRE(!options.diagnostics_ || (ProfilingAvailable() && options.withXad_ && !options.verifyOnly_),
-                    "--diagnostics requires DAL_ENABLE_AAD_PROFILING=ON, XAD and an enabled timing run");
+            REQUIRE(!options.diagnostics_ || (ProfilingAvailable() && options.withXad_),
+                    "--diagnostics requires DAL_ENABLE_AAD_PROFILING=ON and XAD");
             RegisterAll_::Init();
             std::cout << std::setprecision(17);
             if (options.diagnostics_ || firstOrder)
                 std::cout << "# "
                              "tape_counts,case,directions,route,recordings,sweeps,stored_statements,stored_edges,statement_visits,edge_slots,bytes,"
                              "byte_kind\n";
-            if (options.diagnostics_)
+            if (options.diagnostics_ && !options.verifyOnly_)
                 std::cout
                     << "# phase_sample,case,directions,route,batch,calls_per_batch,price_record_ns,reverse_ns,setup_cleanup_ns,pack_ns,total_ns,"
                        "unattributed_ns\n";

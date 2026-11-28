@@ -42,6 +42,9 @@ namespace Dal::AAD {
                 recording.ClearAdjoints();
                 NativeOperations_::SetSeed(root, 1.0);
                 seed.Finish();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                CaptureReverseGraphForProfiling(1);
+#endif
                 ProfilingSpan_ reverse(Phase::REVERSE);
                 recording.Reverse();
                 reverse.Finish();

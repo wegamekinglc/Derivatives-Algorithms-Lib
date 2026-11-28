@@ -253,6 +253,9 @@ namespace Dal::AAD {
             auto tangentRoot = NativeOperations_::ActiveRoot(Access::Tangent(output), zero);
             recording.FinishRecording();
             roots.Finish();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            CaptureReverseGraphForProfiling(row == 0 && directions.Rows() != 0 ? 2 : 1);
+#endif
             DirectionResult_ result{output.Value(), output.DirectionalDerivative(), {}, {}};
             if (row == 0) {
                 ProfilingSpan_ seed(Phase::PREPARE);
