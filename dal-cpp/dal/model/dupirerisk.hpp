@@ -9,6 +9,9 @@ namespace Dal {
     namespace AAD {
         class IVS_;
     } // namespace AAD
+    namespace DupireSecondOrderDetail {
+        struct SnapshotAccess_;
+    } // namespace DupireSecondOrderDetail
 
     struct DupireRiskInputs_ {
         Vector_<> quoteStrikes_;
@@ -29,6 +32,7 @@ namespace Dal {
         std::shared_ptr<const Data_> data_;
 
         explicit DupireCalibrationSnapshot_(std::shared_ptr<const Data_> data);
+        friend struct DupireSecondOrderDetail::SnapshotAccess_;
         friend DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const AAD::IVS_&, const DupireRiskInputs_&, const String_&);
         friend void ValidateDupireQuoteRecalibration(const DupireCalibrationSnapshot_&, const Matrix_<>&);
         friend DupireCalibrationSnapshot_ RecalibrateDupireWithRisk(const DupireCalibrationSnapshot_&, const Matrix_<>&);

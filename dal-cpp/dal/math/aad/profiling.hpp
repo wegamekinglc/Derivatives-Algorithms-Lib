@@ -64,11 +64,23 @@ namespace Dal::AAD {
         ProfilingArrayStatistics_ regressionArrays_;
     };
 
+#if defined(DAL_ENABLE_AAD_PROFILING)
+    struct ProfilingReverseGraphStatistics_ {
+        std::uint64_t recordings_ = 0, sweeps_ = 0, statements_ = 0, edges_ = 0;
+        std::uint64_t statementVisits_ = 0, edgeSlots_ = 0;
+        size_t maxBytes_ = 0;
+    };
+#endif
+
     struct ProfilingData_ {
         std::array<ProfilingPhaseStatistics_, static_cast<size_t>(AADProfilingPhase_::Value_::_N_VALUES)> phases_{};
         std::list<std::vector<ProfilingData_>> taskGroups_;
         TapeStatistics_ highWater_;
         ProfilingMemoryStatistics_ memory_;
+#if defined(DAL_ENABLE_AAD_PROFILING)
+        // Opt in after opening the scope, separately from phase timing.
+        std::optional<ProfilingReverseGraphStatistics_> reverseGraphs_;
+#endif
         std::thread::id thread_;
         std::uint64_t wallNanoseconds_ = 0;
         std::uint64_t cpuNanoseconds_ = 0;
@@ -95,6 +107,7 @@ namespace Dal::AAD {
 
 #if defined(DAL_ENABLE_AAD_PROFILING)
     [[nodiscard]] bool ProfilingActive() noexcept;
+    void CaptureReverseGraphForProfiling(size_t sweeps);
     void CaptureMemoryForProfiling(const ProfilingMemoryStatistics_& sample) noexcept;
     template <class F_> void CaptureMemoryForProfiling(const F_& measure) {
         if (ProfilingActive())

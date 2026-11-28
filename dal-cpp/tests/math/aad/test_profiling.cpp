@@ -4,6 +4,8 @@
 #include <thread>
 #include <type_traits>
 
+#include <dal/math/aad/bumpoveraad.hpp>
+#include <dal/math/aad/forwardoverreverse.hpp>
 #include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/recording.hpp>
 #include <dal/script/detail/profiling.hpp>
@@ -34,6 +36,66 @@ TEST(AADProfilingTest, TestCompiledAvailabilityMatchesConfiguration) {
 }
 
 #if defined(DAL_ENABLE_AAD_PROFILING)
+TEST(AADProfilingTest, TestCurvatureGraphCountsIncludeRootsAppendedAfterPricing) {
+    const Vector_<> point{2.0, 3.0};
+    Matrix_<> directions(2, 2, 0.0);
+    directions(0, 0) = directions(1, 1) = 1.0;
+    std::vector<TapeStatistics_> oldGraphs;
+    const auto nonTerminalPrice = [&](RecordingScope_*, const auto& x) {
+        using Active_ = std::decay_t<decltype(x[0])>;
+        const Active_ price = x[0] * x[0];
+        const Active_ later = x[1] * x[1];
+        (void)later;
+        oldGraphs.push_back(MeasureTape(*Tape()));
+        return price;
+    };
+
+    ProfilingData_ pointwise;
+    {
+        ProfilingScope_ profile(&pointwise);
+        pointwise.reverseGraphs_.emplace();
+        ForwardOverReverseRequest_ request;
+        request.directions_ = directions;
+        (void)EvaluateForwardOverReverse(nonTerminalPrice, point, request);
+    }
+    ASSERT_TRUE(pointwise.complete_);
+    ASSERT_EQ(oldGraphs.size(), 2);
+    const auto& ad = *pointwise.reverseGraphs_;
+    ASSERT_EQ(ad.recordings_, 2);
+    ASSERT_EQ(ad.sweeps_, 3);
+    const auto& first = oldGraphs[0];
+    const auto& second = oldGraphs[1];
+    EXPECT_EQ(ad.statements_, first.nodes_ + second.nodes_ + 4);
+    EXPECT_EQ(ad.edges_, first.edges_ + second.edges_ + 8);
+    EXPECT_EQ(ad.statementVisits_, 2 * (first.nodes_ + 2) + second.nodes_ + 2);
+    EXPECT_EQ(ad.edgeSlots_, 2 * (first.edges_ + 4) + second.edges_ + 4);
+
+    oldGraphs.clear();
+    ProfilingData_ centered;
+    {
+        ProfilingScope_ profile(&centered);
+        centered.reverseGraphs_.emplace();
+        BumpOverAADRequest_ request;
+        request.directions_ = directions;
+        request.steps_ = {0.01, 0.01};
+        (void)EvaluateBumpOverAAD(nonTerminalPrice, point, request);
+    }
+    ASSERT_TRUE(centered.complete_);
+    ASSERT_EQ(oldGraphs.size(), 5);
+    const auto& bump = *centered.reverseGraphs_;
+    ASSERT_EQ(bump.recordings_, 5);
+    ASSERT_EQ(bump.sweeps_, 5);
+    size_t nodes = 0, edges = 0;
+    for (const auto& graph : oldGraphs) {
+        nodes += graph.nodes_ + 1;
+        edges += graph.edges_ + 2;
+    }
+    EXPECT_EQ(bump.statements_, nodes);
+    EXPECT_EQ(bump.edges_, edges);
+    EXPECT_EQ(bump.statementVisits_, nodes);
+    EXPECT_EQ(bump.edgeSlots_, edges);
+}
+
 TEST(AADProfilingTest, TestArrayMeasurementRunsOnlyInsideExplicitScope) {
     size_t calls = 0;
     const auto measure = [&] {

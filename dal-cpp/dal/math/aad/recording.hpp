@@ -92,6 +92,8 @@ namespace Dal::AAD {
         friend struct NativeRecordedOperation_;
         friend std::exception_ptr LastRecordingCleanupFailure();
         friend void RequireRecordingModeChangeAllowed();
+        friend bool TryAcquireSecondOrderRecording();
+        friend void ReleaseSecondOrderRecording() noexcept;
 
     public:
         // Independent ownership; the scope and its destruction stay on the creating thread.

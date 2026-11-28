@@ -52,11 +52,12 @@ forward/DF checks and preparation counters. It builds with public and bindings o
 
 Complex model construction, calibration and pricing with GSR, SLV and hybrid composition.
 
-| Program                                            | Build target                | Shows                                                            |
-|----------------------------------------------------|-----------------------------|------------------------------------------------------------------|
-| [gsr_slv_calibration](models/gsr_slv_calibration/) | `gsr_slv_calibration`       | Multi-factor GSR and stochastic-local-volatility calibration     |
-| [gsr_swap_swaption](models/gsr_swap_swaption/)     | `gsr_swap_swaption`         | GSR swap and swaption pricing                                    |
-| [hybrid_script](models/hybrid_script/)             | `dal_hybrid_script_example` | Hybrid model composition with scripted rate and exercise payoffs |
+| Program                                                       | Build target                | Shows                                                            |
+|---------------------------------------------------------------|-----------------------------|------------------------------------------------------------------|
+| [dupire_quote_second_order](models/dupire_quote_second_order/) | `dupire_quote_second_order` | Fixed-plan European call PV, quote Vega, Volga and HVPs           |
+| [gsr_slv_calibration](models/gsr_slv_calibration/)              | `gsr_slv_calibration`       | Multi-factor GSR and stochastic-local-volatility calibration     |
+| [gsr_swap_swaption](models/gsr_swap_swaption/)                  | `gsr_swap_swaption`         | GSR swap and swaption pricing                                    |
+| [hybrid_script](models/hybrid_script/)                         | `dal_hybrid_script_example` | Hybrid model composition with scripted rate and exercise payoffs |
 
 ## Methods
 
@@ -67,6 +68,7 @@ Numerical methods and comparison results: Monte Carlo, PDEs, AAD, sampling and p
 | [aad](methods/aad/)                                         | `aad`                     | Native AAD and analytic Black Greeks                                          |
 | [aad_financial](methods/aad_financial/)                     | `aad_financial`           | Weighted and blocked risk, shared portfolios, segmented MC and LSMC curvature |
 | [aad_operators](methods/aad_operators/)                     | `aad_operators`           | Recorded solves and roots, structural Jacobians and HVPs                      |
+| [aad_second_order](methods/aad_second_order/)               | `aad_second_order`         | Pointwise Black–Scholes Gamma, Vanna, Volga and HVPs                           |
 | [american_put_mc](methods/american_put_mc/)                 | `american_put_mc`         | Compare LSMC early exercise with European and PDE references                  |
 | [concurrency](methods/concurrency/)                         | `concurrency`             | Compare serial and parallel execution                                         |
 | [european_aad_fd](methods/european_aad_fd/)                 | `european_aad_fd`         | Fixed-grid PDE risk with native AAD                                           |
@@ -95,6 +97,9 @@ at `build/Release-linux/dal-cpp/examples/products/snowball/snowball`; installati
 places it in `bin/snowball`. Multi-configuration generators also add the build
 configuration, such as `Release`, to the executable directory. CTest resolves the
 correct target location automatically.
+
+See [second-order AAD and Dupire quote Greeks](../../docs/examples.md#pointwise-second-order-aad-and-dupire-quote-greeks)
+for a core-only build and the input and output conventions of those two examples.
 
 Run the two uninstalled executables `dal_script_settings_example` and
 `dal_hybrid_script_example` through their CTest entries `ScriptSettingsExample`

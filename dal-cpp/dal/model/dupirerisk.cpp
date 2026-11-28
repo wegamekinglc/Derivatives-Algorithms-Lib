@@ -6,6 +6,7 @@
 #include <dal/math/aad/recording.hpp>
 #include <dal/model/dupire.hpp>
 #include <dal/model/dupirerisk.hpp>
+#include <dal/model/detail/dupirequoteplan.hpp>
 #include <dal/platform/platform.hpp>
 
 namespace Dal {
@@ -347,6 +348,19 @@ namespace Dal {
         Handle_<LocalVolSurfaceData_> surface_;
         String_ algorithm_ = "DupireCentral1e-4FixedBaseBand/v1";
     };
+
+    void DupireSecondOrderDetail::SnapshotAccess_::ValidateFixedBase(const DupireCalibrationSnapshot_& snapshot) {
+        const auto& base = snapshot.data_->base_;
+        for (const auto& [coordinate, volatility] : base.samples_)
+            if (volatility != BASE_VOL)
+                ValidationError(Reason::OUTSIDE_DOMAIN, "unregistered base sample at strike " + std::to_string(coordinate.first) +
+                                                            ", maturity " + std::to_string(coordinate.second));
+        if (base.bands_.size() != LOCAL_TIMES.size())
+            ValidationError(Reason::OUTSIDE_DOMAIN, "unregistered calibration band count");
+        for (size_t t = 0; t < LOCAL_TIMES.size(); ++t)
+            if (base.bands_[t] != Band_{static_cast<size_t>(FIRST[t]), static_cast<size_t>(LAST[t] + 1)})
+                ValidationError(Reason::OUTSIDE_DOMAIN, "unregistered calibration band at maturity index " + std::to_string(t));
+    }
 
     DupireCalibrationSnapshot_::DupireCalibrationSnapshot_(std::shared_ptr<const Data_> data) : data_(std::move(data)) {}
     const DupireRiskInputs_& DupireCalibrationSnapshot_::Inputs() const { return data_->inputs_; }

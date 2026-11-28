@@ -161,11 +161,24 @@ target_include_directories(dal_cpp
     PRIVATE
         ${PROJECT_SOURCE_DIR}/externals/rapidjson/include)
 
-dal_apply_platform_options(dal_cpp)
+dal_apply_platform_options(dal_cpp SOURCE_FP_OPTIONS)
 
+set(strict_fp_sources
+    dal/math/analytics/spotcallrisk.cpp
+    dal/math/analytics/conditionalbasketcallrisk.cpp
+    dal/math/aad/sharedsecondorder.cpp
+    dal/model/dupirequotesecondorder.cpp)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
-    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp
+    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp ${strict_fp_sources}
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+elseif(MSVC)
+    list(TRANSFORM strict_fp_sources PREPEND "${PROJECT_SOURCE_DIR}/")
+    set(contract_fp_sources ${DAL_CPP_SOURCES})
+    list(FILTER contract_fp_sources INCLUDE REGEX "\\.cpp$")
+    list(REMOVE_ITEM contract_fp_sources ${strict_fp_sources})
+    # cl rejects /fp:strict together with /fp:contract, even if strict is last.
+    set_property(SOURCE ${strict_fp_sources} APPEND PROPERTY COMPILE_OPTIONS "/fp:strict")
+    set_property(SOURCE ${contract_fp_sources} APPEND PROPERTY COMPILE_OPTIONS "$<$<CONFIG:Release>:/fp:contract>")
 endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
     set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp
@@ -206,6 +219,8 @@ endif()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/dal/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dal
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+        PATTERN "spotcallrisk.hpp" EXCLUDE
+        PATTERN "conditionalbasketcallrisk.hpp" EXCLUDE
         PATTERN "eigenbridge.hpp" EXCLUDE)
 
 install(TARGETS dal_cpp
@@ -270,6 +285,13 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/test-support"
         "${PROJECT_SOURCE_DIR}/externals/rapidjson/include")
     dal_apply_platform_options(dal_cpp_tests)
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
+        # The fixed-plan Dupire tests instantiate the passive oracle here and
+        # compare its rollback bit-for-bit with dupirequotesecondorder.cpp.
+        set_property(SOURCE tests/model/test_dupire_quote_second_order.cpp
+            APPEND PROPERTY COMPILE_OPTIONS "-ffp-contract=off")
+    endif()
 
     # Instrumented startup and listing can exceed CMake's five-second default.
     gtest_discover_tests(dal_cpp_tests DISCOVERY_TIMEOUT 60)

@@ -133,6 +133,23 @@ namespace Dal::AAD {
 
     bool ProfilingActive() noexcept { return currentData != nullptr; }
 
+    void CaptureReverseGraphForProfiling(size_t sweeps) {
+        auto* const data = currentData;
+        if (data == nullptr || !data->reverseGraphs_)
+            return;
+        const auto tape = MeasureTape(*Tape());
+        auto& counts = *data->reverseGraphs_;
+        AddMeasurement(&counts.recordings_, 1, data);
+        AddMeasurement(&counts.sweeps_, sweeps, data);
+        AddMeasurement(&counts.statements_, tape.nodes_, data);
+        AddMeasurement(&counts.edges_, tape.edges_, data);
+        for (size_t sweep = 0; sweep < sweeps; ++sweep) {
+            AddMeasurement(&counts.statementVisits_, tape.nodes_, data);
+            AddMeasurement(&counts.edgeSlots_, tape.edges_, data);
+        }
+        counts.maxBytes_ = std::max(counts.maxBytes_, tape.capacityBytes_);
+    }
+
     void CaptureMemoryForProfiling(const ProfilingMemoryStatistics_& sample) noexcept {
         if (currentData == nullptr)
             return;

@@ -7,6 +7,7 @@
 
 #include <dal/math/aad/forwardoverreverse.hpp>
 #include <dal/math/aad/native.hpp>
+#include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/reverseevent.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
 #include <dal/platform/platform.hpp>
@@ -15,11 +16,31 @@ namespace Dal::AAD {
     namespace ForwardOverReverseDetail {
         struct NumberAccess_ {
             static const Number_& Primal(const ForwardOverReverseNumber_& value) { return value.primal_; }
+            static Number_& Primal(ForwardOverReverseNumber_& value) { return value.primal_; }
             static const Number_& Tangent(const ForwardOverReverseNumber_& value) { return value.tangent_; }
             static ForwardOverReverseNumber_ Make(Number_ primal, Number_ tangent) {
                 REQUIRE(std::isfinite(Value(primal)) && std::isfinite(Value(tangent)),
                         "ForwardOverReverse: primitive value and directional derivative must be finite");
                 return {std::move(primal), std::move(tangent)};
+            }
+
+            template <class P_, class T_> static FORCE_INLINE ForwardOverReverseNumber_ Make(const P_& primal, const T_& tangent) {
+                // The retained pointer is the live default tape after registration.
+                auto* tape = NativeThread::retainedTape;
+                if (!tape)
+                    tape = Tape();
+                // Match the original pair of implicit Number_ argument conversions.
+                return Make(Materialize(primal, tape), Materialize(tangent, tape));
+            }
+
+        private:
+            static Number_ Materialize(const Number_& number, Tape_*) { return number; }
+
+            template <class E_> static FORCE_INLINE Number_ Materialize(const E_& expression, Tape_* tape) {
+                Number_ number;
+                number.value_ = Value(expression);
+                number.FromExpr(expression, tape);
+                return number;
             }
         };
     } // namespace ForwardOverReverseDetail
@@ -35,6 +56,24 @@ namespace Dal::AAD {
         };
 
         auto SmoothPower(const Number_& base, double exponent) { return UnaryExpression_<Number_, OPSmoothPower_>(base, exponent); }
+
+        struct LocalUnary_ : Expression_<LocalUnary_> {
+            const Number_& input_;
+            double value_;
+            double weight_;
+
+            LocalUnary_(const Number_& input, double value, double weight) : input_(input), value_(value), weight_(weight) {}
+            static constexpr int numNumbers_ = 1;
+            friend double Value(const LocalUnary_& term) { return term.value_; }
+
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            void ValidateOperands(Tape_* tape, const char* operation) const { input_.ValidateOperands(tape, operation); }
+#endif
+
+            template <size_t N_, size_t I_> void PushAdjoint(TapNode_& node, double adjoint, Tape_* tape) const {
+                input_.template PushAdjoint<N_, I_>(node, adjoint * weight_, tape);
+            }
+        };
 
         double FiniteConstant(double value) {
             REQUIRE(std::isfinite(value), "ForwardOverReverse: constant must be finite");
@@ -135,7 +174,13 @@ namespace Dal::AAD {
         const auto& x = Access::Primal(value);
         return Access::Make(AAD::erfc(x), -1.1283791670955125739 * AAD::exp(-x * x) * Access::Tangent(value));
     }
-    Dual NCDF(const Dual& value) { return Access::Make(AAD::NCDF(Access::Primal(value)), AAD::NPDF(Access::Primal(value)) * Access::Tangent(value)); }
+    Dual NCDF(const Dual& value) {
+        const auto& input = Access::Primal(value);
+        const double x = Value(input);
+        const double density = Dal::NPDF(x);
+        // Both scalar result nodes use the density, the first local weight of NCDF.
+        return Access::Make(LocalUnary_(input, Dal::NCDF(x), density), LocalUnary_(input, density, -x * density) * Access::Tangent(value));
+    }
     Dual NPDF(const Dual& value) {
         const Number_ primal = AAD::NPDF(Access::Primal(value));
         return Access::Make(primal, -Access::Primal(value) * primal * Access::Tangent(value));
@@ -162,10 +207,11 @@ namespace Dal::AAD {
             return bytes;
         }
 
-        Vector_<> ReadGradient(const Vector_<Number_>& inputs) {
+        Vector_<> ReadGradient(const Vector_<Dual>& inputs) {
+            const ProfilingSpan_ pack(AADProfilingPhase_::Value_::REDUCE);
             Vector_<> result(inputs.size());
             for (size_t column = 0; column < inputs.size(); ++column) {
-                result[column] = NativeOperations_::ReadAdjoint(inputs[column]);
+                result[column] = NativeOperations_::ReadAdjoint(Access::Primal(inputs[column]));
                 REQUIRE(std::isfinite(result[column]), "ForwardOverReverse: reverse components must be finite");
             }
             return result;
@@ -179,38 +225,66 @@ namespace Dal::AAD {
         };
 
         DirectionResult_ RecordDirection(const NativeDirectionalFunction_& function, const Vector_<>& point, const Matrix_<>& directions, int row) {
+            using Phase = AADProfilingPhase_::Value_;
+            ProfilingSpan_ setup(Phase::PREPARE);
             RecordingScope_ recording;
-            Vector_<Number_> primals(point.size()), tangents(point.size());
-            for (size_t column = 0; column < point.size(); ++column) {
-                recording.RegisterInput(primals[column], point[column]);
-                recording.RegisterInput(tangents[column], directions.Rows() == 0 ? 0.0 : directions(row, static_cast<int>(column)));
-            }
             Number_ zero;
             recording.RegisterInput(zero, 0.0);
-            recording.StartRecording();
             Vector_<Dual> inputs;
             inputs.reserve(point.size());
-            for (size_t column = 0; column < point.size(); ++column)
-                inputs.push_back(Access::Make(primals[column], tangents[column]));
+            for (size_t column = 0; column < point.size(); ++column) {
+                Number_ primal, tangent = zero;
+                recording.RegisterInput(primal, point[column]);
+                const double seed = directions.Rows() == 0 ? 0.0 : directions(row, static_cast<int>(column));
+                // Reuse the positive zero leaf while preserving signed zero and subnormal seeds.
+                if (seed != 0.0 || std::signbit(seed))
+                    recording.RegisterInput(tangent, seed);
+                inputs.push_back(Access::Make(primal, tangent));
+            }
+            recording.StartRecording();
+            setup.Finish();
+            ProfilingSpan_ price(Phase::PATH_FORWARD);
             const Dual output = function(&recording, inputs);
+            price.Finish();
+            ProfilingSpan_ roots(Phase::PREPARE);
             NativeRecordedOperation_::RequireUnsegmented(&recording);
             REQUIRE(Tape()->ReverseEventCount() == 0, "ForwardOverReverse: opaque reverse events are unsupported");
             auto primalRoot = NativeOperations_::ActiveRoot(Access::Primal(output), zero);
             auto tangentRoot = NativeOperations_::ActiveRoot(Access::Tangent(output), zero);
             recording.FinishRecording();
+            roots.Finish();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            CaptureReverseGraphForProfiling(row == 0 && directions.Rows() != 0 ? 2 : 1);
+#endif
             DirectionResult_ result{output.Value(), output.DirectionalDerivative(), {}, {}};
             if (row == 0) {
+                ProfilingSpan_ seed(Phase::PREPARE);
                 recording.ClearAdjoints();
                 NativeOperations_::SetSeed(primalRoot, 1.0);
+                seed.Finish();
+                ProfilingSpan_ reverse(Phase::REVERSE);
                 recording.Reverse();
-                result.gradient_ = ReadGradient(primals);
+                reverse.Finish();
+                result.gradient_ = ReadGradient(inputs);
             }
             if (directions.Rows() != 0) {
-                recording.ClearAdjoints();
+                ProfilingSpan_ seed(Phase::PREPARE);
+                if (row == 0) {
+                    // Scalar reverse clears nonleaf adjoints as it consumes them.
+                    // The product reads only the primal input leaves.
+                    for (auto& input : inputs)
+                        NativeOperations_::SetSeed(Access::Primal(input), 0.0);
+                } else {
+                    recording.ClearAdjoints();
+                }
                 NativeOperations_::SetSeed(tangentRoot, 1.0);
+                seed.Finish();
+                ProfilingSpan_ reverse(Phase::REVERSE);
                 recording.Reverse();
-                result.product_ = ReadGradient(primals);
+                reverse.Finish();
+                result.product_ = ReadGradient(inputs);
             }
+            const ProfilingSpan_ cleanup(Phase::PREPARE);
             recording.Close();
             return result;
         }
@@ -228,6 +302,8 @@ namespace Dal::AAD {
 
     ForwardOverReverseResult_
     EvaluateForwardOverReverse(const NativeDirectionalFunction_& function, const Vector_<>& point, const ForwardOverReverseRequest_& request) {
+        using Phase = AADProfilingPhase_::Value_;
+        ProfilingSpan_ setup(Phase::PREPARE);
         RequireRecordingModeChangeAllowed();
         const NativeDirectionalFunction_ fixedFunction = function;
         Vector_<> fixedPoint = point;
@@ -244,22 +320,29 @@ namespace Dal::AAD {
         tape->numAdj_ = 1;
         TapeCapacityBudget_ budget(fixedRequest.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         TapeCapacityScope_ capacity(&budget, true);
+        setup.Finish();
         auto first = EvaluateDirection(fixedFunction, fixedPoint, fixedRequest.directions_, 0);
+        ProfilingSpan_ allocateOutput(Phase::REDUCE);
         const double value = first.value_;
         auto gradient = std::move(first.gradient_);
         Vector_<> directionalDerivatives(fixedRequest.directions_.Rows());
         Matrix_<> products(fixedRequest.directions_.Rows(), fixedRequest.directions_.Cols());
+        allocateOutput.Finish();
         for (int row = 0; row < fixedRequest.directions_.Rows(); ++row) {
             auto direction = row == 0 ? std::move(first) : EvaluateDirection(fixedFunction, fixedPoint, fixedRequest.directions_, row);
+            const ProfilingSpan_ pack(Phase::REDUCE);
             REQUIRE(direction.value_ == value,
                     "ForwardOverReverse: direction=" + String_(std::to_string(row)) + "; callback value changed between directional recordings");
             directionalDerivatives[row] = direction.directionalDerivative_;
             for (int column = 0; column < products.Cols(); ++column)
                 products(row, column) = direction.product_[column];
         }
+        ProfilingSpan_ cleanup(Phase::PREPARE);
         execution.peakTapeBytes_ = budget.PeakCapacityBytes();
         execution.cleanupReserveBytes_ = TapeCleanupCapacityBytes();
         capacity.Close();
+        cleanup.Finish();
+        const ProfilingSpan_ pack(Phase::REDUCE);
         return {value,
                 std::move(gradient),
                 std::move(fixedPoint),

@@ -1,6 +1,7 @@
 add_subdirectory(aad)
 add_subdirectory(aad_financial)
 add_subdirectory(aad_operators)
+add_subdirectory(aad_second_order)
 add_subdirectory(american_put_mc)
 add_subdirectory(concurrency)
 add_subdirectory(european_aad_fd)

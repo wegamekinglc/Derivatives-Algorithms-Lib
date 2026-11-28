@@ -3,6 +3,7 @@
 
 #include <dal/math/aad/detail/gradientbumps.hpp>
 #include <dal/math/aad/native.hpp>
+#include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/reverseevent.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
 #include <dal/platform/platform.hpp>
@@ -20,6 +21,8 @@ namespace Dal::AAD {
 
         Gradient_ EvaluateGradient(const NativeScalarFunction_& function, const Vector_<>& point, const String_& context) {
             try {
+                using Phase = AADProfilingPhase_::Value_;
+                ProfilingSpan_ setup(Phase::PREPARE);
                 RecordingScope_ recording;
                 Vector_<Number_> inputs(point.size());
                 for (size_t column = 0; column < point.size(); ++column)
@@ -27,19 +30,32 @@ namespace Dal::AAD {
                 Number_ zero;
                 recording.RegisterInput(zero, 0.0);
                 recording.StartRecording();
+                setup.Finish();
+                ProfilingSpan_ price(Phase::PATH_FORWARD);
                 const auto output = function(&recording, inputs);
+                price.Finish();
+                ProfilingSpan_ seed(Phase::PREPARE);
                 NativeRecordedOperation_::RequireUnsegmented(&recording);
                 REQUIRE(std::isfinite(Value(output)), "BumpOverAAD: scalar value must be finite");
                 auto root = NativeOperations_::ActiveRoot(output, zero);
                 recording.FinishRecording();
                 recording.ClearAdjoints();
                 NativeOperations_::SetSeed(root, 1.0);
+                seed.Finish();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                CaptureReverseGraphForProfiling(1);
+#endif
+                ProfilingSpan_ reverse(Phase::REVERSE);
                 recording.Reverse();
+                reverse.Finish();
+                ProfilingSpan_ pack(Phase::REDUCE);
                 Gradient_ result{Value(output), Vector_<>(point.size())};
                 for (size_t column = 0; column < point.size(); ++column) {
                     result.gradient_[column] = NativeOperations_::ReadAdjoint(inputs[column]);
                     REQUIRE(std::isfinite(result.gradient_[column]), "BumpOverAAD: gradient components must be finite");
                 }
+                pack.Finish();
+                const ProfilingSpan_ cleanup(Phase::PREPARE);
                 recording.Close();
                 return result;
             } catch (const Exception_& error) {
@@ -55,6 +71,8 @@ namespace Dal::AAD {
     }
 
     BumpOverAADResult_ EvaluateBumpOverAAD(const NativeScalarFunction_& function, const Vector_<>& point, const BumpOverAADRequest_& request) {
+        using Phase = AADProfilingPhase_::Value_;
+        ProfilingSpan_ setup(Phase::PREPARE);
         RequireRecordingModeChangeAllowed();
         const NativeScalarFunction_ fixedFunction = function;
         Vector_<> fixedPoint = point;
@@ -71,12 +89,16 @@ namespace Dal::AAD {
         tape->numAdj_ = 1;
         TapeCapacityBudget_ budget(fixedRequest.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         TapeCapacityScope_ capacity(&budget, true);
+        setup.Finish();
         auto result = GradientBumpsDetail::Evaluate(
             [&](const Vector_<>& inputs, const String_& context) { return EvaluateGradient(fixedFunction, inputs, context); }, fixedPoint,
             fixedRequest);
+        ProfilingSpan_ cleanup(Phase::PREPARE);
         execution.peakTapeBytes_ = budget.PeakCapacityBytes();
         execution.cleanupReserveBytes_ = TapeCleanupCapacityBytes();
         capacity.Close();
+        cleanup.Finish();
+        const ProfilingSpan_ pack(Phase::REDUCE);
         return {result.base_.value_,     std::move(result.base_.gradient_), std::move(fixedPoint),
                 std::move(fixedRequest), std::move(result.products_),       std::move(execution)};
     }

@@ -3,8 +3,12 @@
 #include <cmath>
 #include <functional>
 #include <future>
+#include <iomanip>
+#include <iostream>
+#include <iterator>
 #include <limits>
 #include <new>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -26,6 +30,26 @@ namespace {
     }
 
     ForwardOverReverseNumber_ Squared(RecordingScope_*, const Vector_<ForwardOverReverseNumber_>& x) { return x[0] * x[0]; }
+
+    bool NativeMultiplyRecordsPrimalFirst() {
+        const auto mode = SetNumResultsForAAD(false, 1);
+        RecordingScope_ recording;
+        Number_ x, v;
+        recording.RegisterInput(x, 0.5);
+        recording.RegisterInput(v, 0.5);
+        recording.StartRecording();
+        const auto formPair = [](Number_ primal, Number_ tangent) { return std::make_pair(primal, tangent); };
+        (void)formPair(x * x, v * x + x * v);
+        return std::prev(Tape()->nodes_.End(), 2)->NumArguments() == 2;
+    }
+
+    auto SquareTimesShift(double offset) {
+        return [offset](RecordingScope_*, const auto& x) {
+            const auto square = x[0] * x[0];
+            const auto rest = offset * (x[0] * x[0]);
+            return square * x[1] + rest;
+        };
+    }
 } // namespace
 
 TEST(AADForwardOverReverseTest, TestQuarticProductIsIndependentOfAnOuterStep) {
@@ -139,6 +163,68 @@ TEST(AADForwardOverReverseTest, TestZeroTangentsAndPassiveIntegerPowersRetainCur
     ASSERT_DOUBLE_EQ(tiny.HessianProducts()(0, 0), 2e-200);
 }
 
+TEST(AADForwardOverReverseTest, TestZeroSeedsShareLeafWithoutDiscardingSignedZero) {
+    size_t registeredNodes = 0;
+    bool negativeZero = false;
+    const auto result = EvaluateForwardOverReverse(
+        [&](RecordingScope_*, const auto& x) {
+            registeredNodes = Tape()->nodes_.OccupiedSlots();
+            negativeZero = std::signbit(x[1].DirectionalDerivative());
+            return x[0] * x[1];
+        },
+        {2.0, 3.0}, Direction({0.0, -0.0}));
+    ASSERT_EQ(registeredNodes, 4);
+    ASSERT_TRUE(negativeZero);
+    ASSERT_EQ(result.Gradient(), (Vector_<>{3.0, 2.0}));
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 0.0);
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.0);
+}
+
+TEST(AADForwardOverReverseTest, TestNormalCdfRetainsTailCutoffAndTinyDirection) {
+    constexpr double direction = 1e-200;
+    for (double x : {-std::nextafter(10.0, 11.0), -10.0, 10.0, std::nextafter(10.0, 11.0)}) {
+        SCOPED_TRACE(x);
+        const auto result =
+            EvaluateForwardOverReverse([](RecordingScope_*, const auto& input) { return NCDF(input[0]); }, {x}, Direction({direction}));
+        const double density = std::abs(x) <= 10.0 ? std::exp(-0.5 * x * x) / std::sqrt(2.0 * std::acos(-1.0)) : 0.0;
+        ASSERT_DOUBLE_EQ(result.Gradient()[0], density);
+        ASSERT_DOUBLE_EQ(result.DirectionalDerivatives()[0], direction * density);
+        ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), direction * (-x * density));
+    }
+}
+
+TEST(AADForwardOverReverseTest, TestPrimalGradientRetainsItsAccumulationOrder) {
+    const auto result = EvaluateForwardOverReverse(
+        [](RecordingScope_*, const auto& x) {
+            const auto small = x[0] + 1.0;
+            const auto plus = 1e16 * x[0];
+            const auto minus = -1e16 * x[0];
+            return plus + minus + small;
+        },
+        {0.0}, Direction({1.0}));
+    ASSERT_DOUBLE_EQ(result.Gradient()[0], 1.0);
+    ASSERT_DOUBLE_EQ(result.DirectionalDerivatives()[0], 1.0);
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 0.0);
+}
+
+TEST(AADForwardOverReverseTest, TestPairedRecordingPreservesHvpCancellationOrder) {
+    const bool primalFirst = NativeMultiplyRecordsPrimalFirst();
+    const auto result = EvaluateForwardOverReverse(SquareTimesShift(-1e16), {0.5, 1e16}, Direction({0.5, 1.0}));
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), primalFirst ? 1.0 : 0.0);
+    ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.5);
+}
+
+TEST(AADForwardOverReverseTest, TestPairedRecordingPreservesHvpAtOverflowBoundary) {
+    const auto evaluate = []() { return EvaluateForwardOverReverse(SquareTimesShift(1e308), {0.5, -1e308}, Direction({0.5, 1e308})); };
+    if (NativeMultiplyRecordsPrimalFirst()) {
+        const auto result = evaluate();
+        ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 0), 1e308);
+        ASSERT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.5);
+    } else {
+        ASSERT_THROW((void)evaluate(), Exception_);
+    }
+}
+
 TEST(AADForwardOverReverseTest, TestActivePowersAgainstIndependentMixedDerivatives) {
     ForwardOverReverseRequest_ request;
     request.directions_ = Matrix_<>(2, 2, 0.0);
@@ -207,20 +293,84 @@ TEST(AADForwardOverReverseTest, TestBlackScholesGammaVannaVolgaAgainstAnalyticFo
         const auto first = (log(x[0] / strike) + (rate - q + 0.5 * x[1] * x[1]) * time) / (x[1] * rootTime);
         return x[0] * discounted * NCDF(first) - strike * discount * NCDF(first - x[1] * rootTime);
     };
-    const auto result = EvaluateForwardOverReverse(kernel, {spot, vol}, request);
-    BumpOverAADRequest_ gradientOnly;
-    gradientOnly.directions_ = Matrix_<>(0, 2);
-    const auto native = EvaluateBumpOverAAD(kernel, {spot, vol}, gradientOnly);
+
+    const Vector_<> point{spot, vol};
+    // Start each capacity measurement from the same default tape block allocation.
+    Clear(*Tape());
+    const auto pointwise = EvaluateForwardOverReverse(kernel, point, request);
+    const auto bump = [&](const Vector_<>& steps) {
+        BumpOverAADRequest_ bumpRequest;
+        bumpRequest.directions_ = request.directions_;
+        bumpRequest.steps_ = steps;
+        Clear(*Tape());
+        return EvaluateBumpOverAAD(kernel, point, bumpRequest);
+    };
+    const auto coarse = bump({0.4, 0.002, 0.002});
+    const auto half = bump({0.2, 0.001, 0.001});
+    const auto quarter = bump({0.1, 0.0005, 0.0005});
+    const auto bumpResults = {&coarse, &half, &quarter};
+    Clear(*Tape());
+
     const double price = spot * delta - strike * discount * 0.5 * std::erfc(-d2 / std::sqrt(2.0));
-    ASSERT_NEAR(result.Value(), price, 1e-11);
-    ASSERT_NEAR(result.Gradient()[0], delta, 1e-11);
-    ASSERT_NEAR(result.Gradient()[1], vega, 1e-10);
-    ASSERT_NEAR(result.Gradient()[0], native.Gradient()[0], 1e-12);
-    ASSERT_NEAR(result.Gradient()[1], native.Gradient()[1], 1e-12);
+    ASSERT_NEAR(pointwise.Value(), price, 1e-11);
+    ASSERT_NEAR(pointwise.Gradient()[0], delta, 1e-11);
+    ASSERT_NEAR(pointwise.Gradient()[1], vega, 1e-10);
+    ASSERT_EQ(pointwise.HessianProducts().Rows(), request.directions_.Rows());
+    ASSERT_EQ(pointwise.HessianProducts().Cols(), request.directions_.Cols());
+    ASSERT_EQ(pointwise.Execution().recordings_, 3);
+    ASSERT_EQ(pointwise.Execution().reverseSweeps_, 4);
+    ASSERT_GT(pointwise.Execution().peakTapeBytes_, 0);
+    for (const auto* comparison : bumpResults) {
+        ASSERT_NEAR(comparison->Value(), price, 1e-11);
+        ASSERT_NEAR(comparison->Gradient()[0], pointwise.Gradient()[0], 1e-12);
+        ASSERT_NEAR(comparison->Gradient()[1], pointwise.Gradient()[1], 1e-12);
+        ASSERT_EQ(comparison->HessianProducts().Rows(), request.directions_.Rows());
+        ASSERT_EQ(comparison->HessianProducts().Cols(), request.directions_.Cols());
+        ASSERT_EQ(comparison->Execution().gradientEvaluations_, 7);
+        ASSERT_EQ(comparison->Execution().reverseSweeps_, 7);
+        ASSERT_GT(comparison->Execution().peakTapeBytes_, 0);
+    }
+
     const double expected[3][2] = {{gamma, vanna}, {vanna, volga}, {-2.0 * gamma + 0.5 * vanna, -2.0 * vanna + 0.5 * volga}};
-    for (int row = 0; row < 3; ++row)
-        for (int column = 0; column < 2; ++column)
-            ASSERT_NEAR(result.HessianProducts()(row, column), expected[row][column], 1e-10);
+    const double fineTolerance[3][2] = {{1e-8, 3e-6}, {3e-6, 8e-5}, {1e-6, 2e-5}};
+    const char* const components[3][2] = {
+        {"Gamma", "Vanna (spot direction)"}, {"Vanna (vol direction)", "Volga"}, {"Mixed HVP, spot", "Mixed HVP, vol"}};
+    std::ostringstream report;
+    report << "\nBlack-Scholes HVPs at (spot, vol) = (" << spot << ", " << vol << ") (absolute errors in parentheses)\n"
+           << "| Component | Analytic | Pointwise AD | Centered h | Centered h/2 | Centered h/4 |\n"
+           << "|---|---|---|---|---|---|\n"
+           << std::scientific;
+    for (int row = 0; row < request.directions_.Rows(); ++row) {
+        for (int column = 0; column < request.directions_.Cols(); ++column) {
+            SCOPED_TRACE(components[row][column]);
+            const double analytic = expected[row][column];
+            const double ad = pointwise.HessianProducts()(row, column);
+            const double coarseValue = coarse.HessianProducts()(row, column);
+            const double halfValue = half.HessianProducts()(row, column);
+            const double quarterValue = quarter.HessianProducts()(row, column);
+            ASSERT_NEAR(ad, analytic, 1e-10);
+            ASSERT_NEAR(quarterValue, analytic, fineTolerance[row][column]);
+            ASSERT_NEAR(std::abs(coarseValue - analytic) / std::abs(halfValue - analytic), 4.0, 0.5);
+            ASSERT_NEAR(std::abs(halfValue - analytic) / std::abs(quarterValue - analytic), 4.0, 0.5);
+
+            report << "| " << components[row][column] << " | " << std::setprecision(14) << analytic;
+            for (const double value : {ad, coarseValue, halfValue, quarterValue})
+                report << " | " << std::setprecision(14) << value << " (" << std::setprecision(3) << std::abs(value - analytic) << ')';
+            report << " |\n";
+        }
+    }
+    report << "\n| Route | Step (spot, vol, mixed) | Recordings | Reverse sweeps | Peak tape bytes |\n"
+           << "|---|---|---|---|---|\n"
+           << "| Pointwise AD | - | " << pointwise.Execution().recordings_ << " | " << pointwise.Execution().reverseSweeps_ << " | "
+           << pointwise.Execution().peakTapeBytes_ << " |\n"
+           << std::defaultfloat << std::setprecision(6);
+    for (const auto* comparison : bumpResults) {
+        const auto& steps = comparison->Steps();
+        const auto& execution = comparison->Execution();
+        report << "| Centered | (" << steps[0] << ", " << steps[1] << ", " << steps[2] << ") | " << execution.gradientEvaluations_ << " | "
+               << execution.reverseSweeps_ << " | " << execution.peakTapeBytes_ << " |\n";
+    }
+    std::cout << report.str();
 }
 
 TEST(AADForwardOverReverseTest, TestAllocationFailurePreservesTypeAndCallerMode) {

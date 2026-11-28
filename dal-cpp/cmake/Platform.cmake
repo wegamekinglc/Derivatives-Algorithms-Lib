@@ -27,7 +27,10 @@ function(dal_apply_platform_options target)
             /wd4267
             /wd26812
             /utf-8
-            "$<$<CONFIG:Release>:/O2;/Oi;/Gy;/fp:contract>")
+            "$<$<CONFIG:Release>:/O2;/Oi;/Gy>")
+        if(NOT "SOURCE_FP_OPTIONS" IN_LIST ARGN)
+            target_compile_options(${target} PRIVATE "$<$<CONFIG:Release>:/fp:contract>")
+        endif()
 
         if(DAL_ENABLE_NATIVE_ARCH)
             target_compile_options(${target} PRIVATE "$<$<CONFIG:Release>:/arch:AVX2>")

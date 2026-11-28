@@ -26,9 +26,10 @@ namespace Dal::Python {
         return values ? std::optional<std::vector<std::string>>(RiskTextVector(*values)) : std::nullopt;
     }
 
-    inline py::sequence RequestSequence(const py::handle& value, const RiskRequestContext_& context) {
+    inline py::sequence
+    RequestSequence(const py::handle& value, const RiskRequestContext_& context, const char* expected = "list or tuple, or None") {
         if (!py::isinstance<py::list>(value) && !py::isinstance<py::tuple>(value))
-            throw py::type_error(InputContext(value, context.field_, "list or tuple, or None", context.identifier_));
+            throw py::type_error(InputContext(value, context.field_, expected, context.identifier_));
         return py::reinterpret_borrow<py::sequence>(value);
     }
 
