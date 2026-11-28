@@ -24,13 +24,45 @@ namespace Dal::ConditionalBasketDetail {
             double forward_, strike_, deviation_, d1_, d2_;
         };
 
+        inline bool NearCancellation(double sum, double scale) { return std::abs(sum) < 0x1p-28 * scale; }
+
         inline double AddProtected(double left, double right) {
             const double sum = left + right;
             const double scale = std::max(std::abs(left), std::abs(right));
-            if (std::abs(sum) < 0x1p-28 * scale || ((sum == left || sum == right) && std::min(std::abs(left), std::abs(right)) > 0x1p-42))
+            if (NearCancellation(sum, scale) || ((sum == left || sum == right) && std::min(std::abs(left), std::abs(right)) > 0x1p-42))
                 Tape::Promote("Black local derivative cancellation");
             return sum;
         }
+
+        inline double LinearTangent(double forward, double exercise) {
+            const double difference = Tape::Add(forward, -exercise);
+            // A difference of already-rounded leg products can hide their residuals.
+            if (NearCancellation(difference, std::max(std::abs(forward), std::abs(exercise))))
+                Tape::Promote("linear basket tangent cancellation");
+            return difference;
+        }
+
+        struct QuadratureTangent_ {
+            double correction_ = 0.0, largestTerm_ = 0.0;
+
+            double Accumulate(double previous, double weight, double dot) {
+                const double term = weight * dot;
+                const double sum = Tape::Add(previous, term);
+                const double fromTerm = sum - previous;
+                const double additionError = (previous - (sum - fromTerm)) + (term - fromTerm);
+                // The running low limb survives later cancellation of the high limb.
+                correction_ += additionError + std::fma(weight, dot, -term);
+                largestTerm_ = std::max(largestTerm_, std::abs(term));
+                return sum;
+            }
+
+            double Discount(double high, double discount) const {
+                // A small sum can also expose rounding inside a node's derivative.
+                if (NearCancellation(high, largestTerm_))
+                    Tape::Promote("basket quadrature tangent cancellation");
+                return std::fma(discount, high, discount * correction_);
+            }
+        };
 
         struct Local_ {
             Tape::Dual_<double> result_;
@@ -103,8 +135,14 @@ namespace Dal::ConditionalBasketDetail {
         }
 
         template <bool Trace_>
-        Number_ AccumulateBasketNode(
-            const Number_& sum, const BasketInputs_& inputs, double strike, double node, double quadrature, bool linear, double* trace) {
+        Number_ AccumulateBasketNode(const Number_& sum,
+                                     const BasketInputs_& inputs,
+                                     double strike,
+                                     double node,
+                                     double quadrature,
+                                     bool linear,
+                                     QuadratureTangent_* tangent,
+                                     double* trace) {
             auto& arena = *Tape::activeArena;
             if (arena.recordingFailure_)
                 std::rethrow_exception(arena.recordingFailure_);
@@ -119,14 +157,14 @@ namespace Dal::ConditionalBasketDetail {
                 const auto previous = Read(sum, arena);
                 const auto first = Leg(inputs.first_, node), second = Leg(inputs.second_, node);
                 const Input_ exercise{2.0 * strike - first.output_.value_, -first.output_.dot_, Tape::PASSIVE};
-                const auto local = linear ? Local_{{second.output_.value_ - exercise.value_, Tape::Add(second.output_.dot_, -exercise.dot_)},
+                const auto local = linear ? Local_{{second.output_.value_ - exercise.value_, LinearTangent(second.output_.dot_, exercise.dot_)},
                                                    {1.0, 0.0},
                                                    {-1.0, 0.0},
                                                    {0.0, 0.0}}
                                           : Weights(ForwardPoint(second.output_.value_, exercise.value_, inputs.deviation_.value_), second.output_,
                                                     exercise, inputs.deviation_);
                 const Tape::Dual_<double> accumulated{previous.value_ + quadrature * local.result_.value_,
-                                                      Tape::Add(previous.dot_, quadrature * local.result_.tangent_)};
+                                                      tangent->Accumulate(previous.dot_, quadrature, local.result_.tangent_)};
                 const auto fWeight = ScaleQuadrature(local.forward_, quadrature), aWeight = ScaleQuadrature(local.strike_, -quadrature);
                 const auto uWeight = ScaleQuadrature(local.deviation_, quadrature);
                 std::array<Tape::Weight_<double>, 3> firstWeights, secondWeights;
@@ -195,6 +233,7 @@ namespace Dal::ConditionalBasketDetail {
         const Number_ deviation = x[3] * sqrt(1.0 - x[4] * x[4]);
         auto& arena = *Tape::activeArena;
         Number_ sum(0.0);
+        Number_ price;
         if (arena.wide_) {
             constexpr double invRootTwo = 0.7071067811865475244;
             const auto cdf = [](const Number_& z) -> Number_ { return 0.5 * erfc(-invRootTwo * z); };
@@ -210,25 +249,30 @@ namespace Dal::ConditionalBasketDetail {
                 }
                 const Number_ d1 = log(forward / exercise) / deviation + 0.5 * deviation;
                 const Number_ d2 = d1 - deviation;
-                const Number_ price = forward * cdf(d1) - exercise * cdf(d2);
+                const Number_ nodePrice = forward * cdf(d1) - exercise * cdf(d2);
                 if constexpr (TraceNodes_)
-                    trace->prices_[i] = Tape::Access_::Value(price);
-                sum += node.weight_ * price;
+                    trace->prices_[i] = Tape::Access_::Value(nodePrice);
+                sum += node.weight_ * nodePrice;
             }
+            price = discount_ * sum;
         } else {
-            const Tape::Scratch_ storage(arena, sizeof(BasketInputs_));
+            const Tape::Scratch_ storage(arena, sizeof(BasketInputs_) + sizeof(QuadratureTangent_));
             const BasketInputs_ inputs{{Read(x[0], arena), Read(driftA, arena), Read(x[2], arena)},
                                        {Read(x[1], arena), Read(driftB, arena), Read(projectionB, arena)},
                                        Read(deviation, arena)};
+            QuadratureTangent_ tangent;
             for (size_t i = 0; i < nodes_.size(); ++i) {
                 const auto& node = nodes_[i];
-                double* price = nullptr;
+                double* nodePrice = nullptr;
                 if constexpr (TraceNodes_)
-                    price = &trace->prices_[i];
-                sum = AccumulateBasketNode<TraceNodes_>(sum, inputs, strike_, node.z_, node.weight_, node.linear_, price);
+                    nodePrice = &trace->prices_[i];
+                sum = AccumulateBasketNode<TraceNodes_>(sum, inputs, strike_, node.z_, node.weight_, node.linear_, &tangent, nodePrice);
             }
+            const double dot = tangent.Discount(Read(sum, arena).dot_, discount_);
+            const Number_ discounted = discount_ * sum;
+            // The passive discount's reverse weights do not use the tangent.
+            price = Tape::Access_::Bind(arena, Tape::Access_::Slot(discounted, arena), Tape::Access_::Value(discounted), dot);
         }
-        const Number_ price = discount_ * sum;
         if constexpr (TraceNodes_) {
             trace->statements_ = arena.statements_;
             trace->edges_ = arena.edges_;
