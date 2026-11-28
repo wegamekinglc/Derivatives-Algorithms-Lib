@@ -21,6 +21,7 @@ namespace Dal::AAD {
         struct ReplayFunction_ {
             const void* object_;
             SecondOrderNumber_ (*call_)(const void*, const Vector_<SecondOrderNumber_>&);
+            bool protectNonzeroDirections_;
 
             SecondOrderNumber_ operator()(const Vector_<SecondOrderNumber_>& point) const { return call_(object_, point); }
         };

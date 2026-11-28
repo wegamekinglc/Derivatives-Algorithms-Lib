@@ -261,3 +261,77 @@ TEST(AADSharedSecondOrderTest, TestTailCancellationAndTrueOverflowMatchPointwise
     const auto overflow = [](const auto& x) { return x[0] * 1e308; };
     CheckError([&] { (void)EvaluateSharedSecondOrder(overflow, {2.0}, seed); }, Reason::NUMERICAL_FAILURE, Stage::RECORDING, 0);
 }
+
+TEST(AADSharedSecondOrderTest, TestReplayPreservesProductResidualBeforeCancellation) {
+    const Vector_<> point{0x1p-6, 0.0};
+    const auto kernel = [](const auto& x) { return (log(x[0]) - (0x1p27 + 1.0) * x[1]) * 0x1p-12; };
+    for (int scale : {0, -15}) {
+        Matrix_<> directions(2, 2, 0.0);
+        directions(0, 0) = std::ldexp(0x1p48, scale);
+        directions(0, 1) = std::ldexp(0x1p27 - 1.0, scale);
+        directions(1, 1) = -0.0;
+        const auto result = EvaluateSharedSecondOrder(kernel, point, directions);
+        EXPECT_DOUBLE_EQ(result.Value(), std::log(point[0]) * 0x1p-12);
+        EXPECT_EQ(result.Gradient(), (Vector_<>{0x1p-6, -(0x1p27 + 1.0) * 0x1p-12}));
+        EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{std::ldexp(0x1p-12, scale), 0.0}));
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(0, 0), -directions(0, 0));
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(1, 0), 0.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(1, 1), 0.0);
+        EXPECT_TRUE(std::signbit(result.Directions()(1, 1)));
+        EXPECT_FALSE(std::signbit(result.DirectionalDerivatives()[1]));
+
+        const auto& work = result.Execution();
+        EXPECT_EQ(work.callbackEvaluations_, 4U);
+        EXPECT_EQ(work.sharedRecordings_, 1U);
+        EXPECT_EQ(work.sharedTangentSweeps_, 1U);
+        EXPECT_EQ(work.sharedReverseSweeps_, 0U);
+        EXPECT_EQ(work.replayDirections_, 2U);
+        EXPECT_EQ(work.pointwiseRecordings_, 3U);
+        EXPECT_EQ(work.pointwiseReverseSweeps_, 2U);
+        EXPECT_EQ(work.pointwiseSafePathActivations_, 1U);
+        EXPECT_EQ(work.retainedTapeBytes_, 0U);
+    }
+}
+
+TEST(AADSharedSecondOrderTest, TestCaughtRecordingErrorStopsLaterOperationsBeforeTheyAppend) {
+    bool attemptedLater = false;
+    std::exception_ptr first;
+    const auto kernel = [&](const auto& x) {
+        using T_ = std::decay_t<decltype(x[0])>;
+        const T_ prior = x[0] * x[0];
+        if constexpr (std::is_same_v<T_, SharedSecondOrderNumber_>) {
+            auto* const tape = SharedSecondOrderDetail::active;
+            const auto before = tape->size_;
+            EXPECT_EQ(before, 1U);
+            try {
+                const T_ invalid = log(x[0]);
+                (void)invalid;
+            } catch (const SecondOrderError_&) {
+                first = std::current_exception();
+            }
+            EXPECT_TRUE(first);
+            attemptedLater = true;
+            try {
+                const T_ later = x[0] * x[0];
+                (void)later;
+                ADD_FAILURE() << "a failed graph accepted a later operation";
+            } catch (const SecondOrderError_&) {
+                EXPECT_EQ(std::current_exception(), first);
+            }
+            EXPECT_EQ(tape->size_, before);
+        }
+        return prior;
+    };
+    const Matrix_<> directions(2, 1, 1.0);
+    try {
+        (void)EvaluateSharedSecondOrder(kernel, {-1.0}, directions);
+        ADD_FAILURE() << "a failed graph published its result";
+    } catch (const SecondOrderError_& error) {
+        EXPECT_EQ(std::current_exception(), first);
+        EXPECT_EQ(error.Reason().Switch(), Reason::OUTSIDE_DOMAIN);
+        EXPECT_EQ(error.Stage().Switch(), Stage::RECORDING);
+    }
+    EXPECT_TRUE(attemptedLater);
+    EXPECT_DOUBLE_EQ(EvaluateSharedSecondOrder(square, {-1.0}, directions).Value(), 1.0);
+}

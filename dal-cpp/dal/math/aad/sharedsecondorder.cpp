@@ -12,8 +12,20 @@
 
 namespace Dal::AAD::SharedSecondOrderDetail {
     namespace {
-        struct Retry_ {};
+        struct Retry_ {
+            bool roundedTangentProduct_ = false;
+        };
         thread_local bool failCleanup = false;
+
+        FORCE_INLINE double TangentProduct(double weight, double tangent) {
+            const double rounded = weight * tangent;
+            // At the large-sum guard's scale, a rounded product can hide a
+            // significant low part from a later cancellation, even on a
+            // different node. Test the residual while both factors are live.
+            if (std::abs(rounded) > 0x1p28 && std::isfinite(rounded) && std::fma(weight, tangent, -rounded) != 0.0)
+                throw Retry_{true};
+            return rounded;
+        }
 
         Tape_& RetainedTape() {
             thread_local Tape_ tape;
@@ -165,9 +177,11 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         }
     }
 
+    [[noreturn]] void Tape_::RethrowRecordingFailure() const { std::rethrow_exception(failure_); }
+
     [[noreturn]] void Tape_::Promote() {
         if (failure_)
-            std::rethrow_exception(failure_);
+            RethrowRecordingFailure();
         promote_ = true;
         throw Retry_{};
     }
@@ -222,11 +236,14 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             const auto left = static_cast<size_t>(node.left_) * L_, right = static_cast<size_t>(node.right_) * L_;
             const auto out = (1 + tape.inputs_ + i) * L_;
             if (node.right_) {
-                for (size_t lane = 0; lane < L_; ++lane)
-                    tangent[out + lane] = tape.Add(node.dl_ * tangent[left + lane], node.dr_ * tangent[right + lane]);
+                for (size_t lane = 0; lane < L_; ++lane) {
+                    const double a = TangentProduct(node.dl_, tangent[left + lane]);
+                    const double b = TangentProduct(node.dr_, tangent[right + lane]);
+                    tangent[out + lane] = tape.Add(a, b);
+                }
             } else {
                 for (size_t lane = 0; lane < L_; ++lane)
-                    tangent[out + lane] = node.dl_ * tangent[left + lane];
+                    tangent[out + lane] = TangentProduct(node.dl_, tangent[left + lane]);
             }
         }
         arithmetic.Check(tape);
@@ -304,7 +321,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
                 ++work.callbackEvaluations_;
                 const auto price = kernel.shared_(kernel.object_, inputs);
                 if (tape_.failure_)
-                    std::rethrow_exception(tape_.failure_);
+                    tape_.RethrowRecordingFailure();
                 if (tape_.promote_)
                     tape_.Promote();
                 root = tape_.Read(price);
@@ -328,13 +345,13 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             for (; row < rows.Rows(); ++row)
                 Propagate<1>(root.slot_, row, row == 0, arithmetic);
             work.peakTapeBytes_ = tape_.peak_;
-        } catch (const Retry_&) {
+        } catch (const Retry_& retry) {
             const auto sharedPeak = tape_.peak_;
             tape_.Release();
             SecondOrderExecution_ replay;
             work.replayDirections_ = rows.Rows();
             result_.value_ = SecondOrderDetail::ReplayPrivately(
-                {kernel.object_, kernel.pointwise_}, result_.point_, rows, tape_.cap_,
+                {kernel.object_, kernel.pointwise_, retry.roundedTangentProduct_}, result_.point_, rows, tape_.cap_,
                 {result_.gradient_, result_.directional_, result_.products_, replay}, trustedPrice);
             work.callbackEvaluations_ += replay.callbackEvaluations_;
             work.pointwiseRecordings_ = replay.recordings_;

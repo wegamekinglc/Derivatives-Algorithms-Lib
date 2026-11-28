@@ -43,6 +43,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         void GrowNodes();
         void GrowScratch(size_t required);
         [[noreturn]] void RecordingError(Reason reason, const char* message);
+        [[noreturn]] void RethrowRecordingFailure() const;
         [[noreturn]] void Promote();
 
         [[nodiscard]] Number_ Bind(double value, Slot_ slot) const { return {value, slot, identity_}; }
@@ -68,9 +69,12 @@ namespace Dal::AAD::SharedSecondOrderDetail {
     [[noreturn]] void NoActiveGraph();
 
     FORCE_INLINE Tape_& Current() {
-        if (!active)
+        auto* const tape = active;
+        if (!tape)
             NoActiveGraph();
-        return *active;
+        if (tape->failure_)
+            tape->RethrowRecordingFailure();
+        return *tape;
     }
 
     FORCE_INLINE Operand_ Tape_::Read(const Number_& number) {
