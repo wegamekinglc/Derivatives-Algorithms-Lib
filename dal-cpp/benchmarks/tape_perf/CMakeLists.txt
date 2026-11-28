@@ -22,7 +22,7 @@ if(DAL_CPP_XAD_BENCHMARK_SOURCE)
     endif()
     add_subdirectory("${DAL_CPP_XAD_BENCHMARK_SOURCE}" "${CMAKE_CURRENT_BINARY_DIR}/xad" EXCLUDE_FROM_ALL)
     target_compile_definitions(tape_perf PRIVATE DAL_TAPE_PERF_WITH_XAD)
-    target_link_libraries(tape_perf xad)
+    target_link_libraries(tape_perf xad ${CMAKE_DL_LIBS})
 endif()
 
 if(MSVC)

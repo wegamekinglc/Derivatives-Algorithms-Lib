@@ -21,8 +21,10 @@
 #include "dupirereference.hpp"
 #include "dupiresecondorder.hpp"
 #include "secondorderperf.hpp"
+#include "s0/basketreference.hpp"
 #if defined(DAL_TAPE_PERF_WITH_XAD)
 #include "secondorderxad.hpp"
+#include "s0/memory.hpp"
 #endif
 
 using namespace Dal;
@@ -41,8 +43,13 @@ namespace {
     constexpr int ROUNDS = 2;
     constexpr int PAIRS_PER_ROUND = 10;
 
+    enum class S0_ { NONE, PAIR, AA, DAL_COLD, DAL_HOT, XAD_COLD, XAD_HOT };
+
     struct Options_ {
         bool verifyOnly_ = false, centeredFirst_ = false, withXad_ = false, diagnostics_ = false, firstOrder_ = false, dupire_ = false;
+        S0_ s0_ = S0_::NONE;
+        std::string s0Case_;
+        int s0Directions_ = 0;
     };
 
     struct Case_ {
@@ -78,16 +85,27 @@ namespace {
 
     double NormalCdf(double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); }
 
-    template <class T_> T_ BlackCall(const T_& forward, const T_& strike, const T_& stdDev) {
+    template <class T_> T_ SmoothCdf(const T_& z) {
+        using std::erfc;
+        return 0.5 * erfc(-0.7071067811865475244 * z);
+    }
+
+    template <bool Smooth_, class T_> T_ BlackCall(const T_& forward, const T_& strike, const T_& stdDev) {
         const T_ d1 = log(forward / strike) / stdDev + 0.5 * stdDev;
         const T_ d2 = d1 - stdDev;
+        if constexpr (Smooth_)
+            return forward * SmoothCdf(d1) - strike * SmoothCdf(d2);
         return forward * NCDF(d1) - strike * NCDF(d2);
     }
 
-    struct BlackScholes_ {
+    template <bool Smooth_> struct BlackScholes_ {
         template <class T_> T_ operator()(RecordingScope_*, const Vector_<T_>& x) const {
             const double rootTime = std::sqrt(BS_TIME);
             const auto d1 = (log(x[0] / BS_STRIKE) + (BS_RATE - BS_DIVIDEND + 0.5 * x[1] * x[1]) * BS_TIME) / (x[1] * rootTime);
+            if constexpr (Smooth_) {
+                const T_ z = d1, d2 = z - x[1] * rootTime;
+                return x[0] * std::exp(-BS_DIVIDEND * BS_TIME) * SmoothCdf(z) - BS_STRIKE * std::exp(-BS_RATE * BS_TIME) * SmoothCdf(d2);
+            }
             return x[0] * std::exp(-BS_DIVIDEND * BS_TIME) * NCDF(d1) - BS_STRIKE * std::exp(-BS_RATE * BS_TIME) * NCDF(d1 - x[1] * rootTime);
         }
     };
@@ -118,7 +136,7 @@ namespace {
         bool linear_;
     };
 
-    struct ConditionalBasket_ {
+    template <bool Smooth_> struct ConditionalBasket_ {
         Vector_<BasketNode_> nodes_;
 
         template <class T_> T_ operator()(RecordingScope_*, const Vector_<T_>& x) const {
@@ -131,14 +149,14 @@ namespace {
             for (const auto& node : nodes_) {
                 const T_ strike = 2.0 * BASKET_STRIKE - x[0] * exp(driftA + x[2] * node.z_);
                 const T_ forwardB = x[1] * exp(driftB + projectionB * node.z_);
-                const T_ price = node.linear_ ? T_(forwardB - strike) : BlackCall(forwardB, strike, stdDev);
+                const T_ price = node.linear_ ? T_(forwardB - strike) : BlackCall<Smooth_>(forwardB, strike, stdDev);
                 sum += node.weight_ * price;
             }
             return 0.5 * std::exp(-BASKET_RATE) * sum;
         }
     };
 
-    ConditionalBasket_ MakeBasket(const Case_& shape, const Vector_<>& coordinateSteps) {
+    template <bool Smooth_> ConditionalBasket_<Smooth_> MakeBasket(const Case_& shape, const Vector_<>& coordinateSteps) {
         Vector_<> radius(shape.point_.size(), 0.0);
         for (int row = 0; row < shape.directions_.Rows(); ++row)
             for (int column = 0; column < shape.directions_.Cols(); ++column)
@@ -150,10 +168,10 @@ namespace {
         REQUIRE(std::abs(x[4]) + radius[4] < 1.0, "second-order basket requires nonsingular correlation throughout the stencil");
         const double volLow = x[2] - radius[2], volHigh = x[2] + radius[2];
         const NormalExpectation_<> quadrature(BASKET_NODES);
-        ConditionalBasket_ result;
+        ConditionalBasket_<Smooth_> result;
         result.nodes_.reserve(BASKET_NODES);
         for (int i = 0; i < BASKET_NODES; ++i) {
-            const double z = quadrature.Abscissa()[i];
+            const double z = Smooth_ ? TapePerfS0::BASKET_NODES[i][0] : quadrature.Abscissa()[i];
             // Bound the stock over the entire box before fixing the node's payoff branch.
             const double projectionLow = volLow * z, projectionHigh = volHigh * z;
             const auto projection = std::minmax(projectionLow, projectionHigh);
@@ -161,12 +179,13 @@ namespace {
             const double stockHigh = (x[0] + radius[0]) * std::exp(BASKET_RATE - 0.5 * volLow * volLow + projection.second);
             REQUIRE(stockHigh < 2.0 * BASKET_STRIKE || stockLow > 2.0 * BASKET_STRIKE,
                     "second-order basket stencil crosses a conditional strike zero");
-            result.nodes_.push_back({z, quadrature.Weight()[i], stockLow > 2.0 * BASKET_STRIKE});
+            const double weight = Smooth_ ? TapePerfS0::BASKET_NODES[i][1] : quadrature.Weight()[i];
+            result.nodes_.push_back({z, weight, stockLow > 2.0 * BASKET_STRIKE});
         }
         return result;
     }
 
-    double BasketScalarPrice(const ConditionalBasket_& basket, const Vector_<>& x) {
+    double BasketScalarPrice(const ConditionalBasket_<false>& basket, const Vector_<>& x) {
         const double conditionalStdDev = x[3] * std::sqrt((1.0 - x[4]) * (1.0 + x[4]));
         double price = 0.0;
         for (const auto& node : basket.nodes_) {
@@ -184,7 +203,7 @@ namespace {
         return 0.5 * std::exp(-BASKET_RATE) * price;
     }
 
-    double MixedPriceDifference(const ConditionalBasket_& basket, const Case_& shape, int row, int column, double h, double k) {
+    double MixedPriceDifference(const ConditionalBasket_<false>& basket, const Case_& shape, int row, int column, double h, double k) {
         Vector_<> upper = shape.point_, lower = shape.point_;
         for (int i = 0; i < shape.directions_.Cols(); ++i) {
             upper[i] += h * shape.directions_(row, i);
@@ -198,7 +217,7 @@ namespace {
         return ((upperPlus - BasketScalarPrice(basket, upper)) - (lowerPlus - BasketScalarPrice(basket, lower))) / (4.0 * h * k);
     }
 
-    Reference_ BasketReference(const ConditionalBasket_& basket, const Case_& shape, const Vector_<>& coordinateSteps) {
+    Reference_ BasketReference(const ConditionalBasket_<false>& basket, const Case_& shape, const Vector_<>& coordinateSteps) {
         Reference_ result{BasketScalarPrice(basket, shape.point_), Matrix_<>(shape.directions_.Rows(), shape.directions_.Cols())};
         result.gradient_.Resize(shape.point_.size());
         for (size_t column = 0; column < shape.point_.size(); ++column) {
@@ -227,6 +246,16 @@ namespace {
             }
         }
         return result;
+    }
+
+    Reference_ S0BasketReference(const Case_& shape) {
+        using namespace TapePerfS0;
+        Reference_ ref{BASKET_PRICE, Matrix_<>(shape.directions_.Rows(), 5, 0.0), 0.0, Vector_<>(BASKET_GRADIENT.begin(), BASKET_GRADIENT.end())};
+        for (int row = 0; row < ref.products_.Rows(); ++row)
+            for (int col = 0; col < ref.products_.Cols(); ++col)
+                for (int axis = 0; axis < ref.products_.Cols(); ++axis)
+                    ref.products_(row, col) += BASKET_HESSIAN[col][axis] * shape.directions_(row, axis);
+        return ref;
     }
 
     Matrix_<> Prefix(const Matrix_<>& full, int rows) {
@@ -417,6 +446,148 @@ namespace {
     }
 
 #if defined(DAL_TAPE_PERF_WITH_XAD)
+    bool S0Memory(S0_ mode) { return mode != S0_::PAIR && mode != S0_::AA && mode != S0_::NONE; }
+
+    void VerifySmoothNormal() {
+        const NativeDirectionalFunction_ dal = [](RecordingScope_*, const auto& x) { return SmoothCdf(x[0]); };
+        const TapePerfXad::OwnedFunction_ xad = [](RecordingScope_*, const auto& x) { return SmoothCdf(x[0]); };
+        TapePerfXad::Workspace_ workspace;
+        ForwardOverReverseRequest_ request;
+        request.directions_ = Matrix_<>(1, 1, 1.0);
+        for (double magnitude : {std::nextafter(10.0, 0.0), 10.0, std::nextafter(10.0, 20.0), 12.0, 20.0}) {
+            for (double z : {-magnitude, magnitude}) {
+                const auto native = EvaluateForwardOverReverse(dal, {z}, request);
+                const auto other = workspace.EvaluateOwning(xad, {z}, request);
+                const long double s = z;
+                const double value = 0.5L * std::erfc(-s / std::sqrt(2.0L));
+                const double density = std::exp(-s * s / 2.0L) / std::sqrt(2.0L * std::acos(-1.0L));
+                const auto near = [](double actual, double expected) { return std::abs(actual - expected) <= 2e-13 * std::abs(expected); };
+                REQUIRE(near(native.Value(), value) && near(other.risk_.price_, value) && near(native.Gradient()[0], density) &&
+                            near(other.risk_.gradient_[0], density) && near(native.DirectionalDerivatives()[0], density) &&
+                            near(other.risk_.directional_[0], density) && near(native.HessianProducts()(0, 0), -z * density) &&
+                            near(other.risk_.products_(0, 0), -z * density),
+                        "S0 smooth normal value or weight mismatch");
+                std::cout << "s0_normal," << z << ',' << value << ',' << density << ',' << -z * density << '\n';
+            }
+        }
+    }
+
+    template <class D_, class X_> void MeasureS0(const Case_& shape, int directions, const D_& first, const X_& second, bool aa, bool secondFirst) {
+        for (int i = 0; i < WARMUP_PAIRS; ++i) {
+            (void)TimeBatch(first, shape.callsPerBatch_);
+            (void)TimeBatch(second, shape.callsPerBatch_);
+        }
+        Samples_ left{}, right{};
+        for (size_t i = 0; i < left.size(); ++i) {
+            if (secondFirst != (i % 2 != 0)) {
+                right[i] = TimeBatch(second, shape.callsPerBatch_);
+                left[i] = TimeBatch(first, shape.callsPerBatch_);
+            } else {
+                left[i] = TimeBatch(first, shape.callsPerBatch_);
+                right[i] = TimeBatch(second, shape.callsPerBatch_);
+            }
+        }
+        for (size_t i = 0; i < left.size(); ++i)
+            std::cout << "s0_pair," << (aa ? "aa" : "comparison") << ',' << shape.name_ << ',' << directions << ',' << i + 1 << ','
+                      << ((secondFirst != (i % 2 != 0)) ? "B" : "A") << ',' << shape.callsPerBatch_ << ',' << left[i] << ',' << right[i] << '\n';
+    }
+
+    template <class K_>
+    void
+    S0Allocation(const Case_& shape, const K_& kernel, const ForwardOverReverseRequest_& request, S0_ mode, const TapePerfXad::OwnedFunction_& xad) {
+        using namespace TapePerfS0;
+        const MemoryRequest_ memory{mode == S0_::XAD_COLD || mode == S0_::XAD_HOT, mode == S0_::DAL_HOT || mode == S0_::XAD_HOT};
+        size_t logical = 0;
+        const NativeDirectionalFunction_ dal = [&](RecordingScope_* scope, const Vector_<ForwardOverReverseNumber_>& inputs) {
+            auto value = kernel(scope, inputs);
+            logical = std::max(logical, MeasureTape(*Tape()).liveBytes_);
+            return value;
+        };
+        MeasureMemory(shape.name_, request.directions_.Rows(), memory, [&](const auto& use) {
+            REQUIRE(!NativeThread::retainedTape, "S0 worker must start without a native tape");
+            if (memory.xad_) {
+                TapePerfXad::Workspace_ workspace;
+                use([&](const auto& observeResult) {
+                    const auto result = workspace.EvaluateOwning(xad, shape.point_, request, true);
+                    Bench::DoNotOptimize(&result);
+                    observeResult();
+                    return RiskMemory_{result.risk_.maxLogicalBytes_, std::nullopt, "xad_logical_after_sweep"};
+                });
+                REQUIRE(!NativeThread::retainedTape, "S0 XAD allocation process initialized a native tape");
+            } else {
+                use([&](const auto& observeResult) {
+                    logical = 0;
+                    const auto result = EvaluateForwardOverReverse(dal, shape.point_, request);
+                    Bench::DoNotOptimize(&result);
+                    observeResult();
+                    return RiskMemory_{logical, result.Execution().cleanupReserveBytes_, "dal_logical_before_root"};
+                });
+            }
+        });
+    }
+
+    template <class K_> void RunS0(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
+        if (!options.s0Case_.empty() && options.s0Case_ != shape.name_)
+            return;
+        const NativeDirectionalFunction_ dal = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
+        const TapePerfXad::OwnedFunction_ xad = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
+        for (int count : {1, shape.directions_.Rows()}) {
+            if (options.s0Directions_ && options.s0Directions_ != count)
+                continue;
+            ForwardOverReverseRequest_ request;
+            request.directions_ = Prefix(shape.directions_, count);
+            if (S0Memory(options.s0_)) {
+                S0Allocation(shape, kernel, request, options.s0_, xad);
+                continue;
+            }
+            TapePerfXad::Workspace_ workspace;
+            const auto native = [&] { return EvaluateForwardOverReverse(dal, shape.point_, request); };
+            const auto other = [&] { return workspace.EvaluateOwning(xad, shape.point_, request); };
+            if (!options.verifyOnly_) {
+                if (options.s0_ == S0_::AA) {
+                    TapePerfXad::Workspace_ alternate;
+                    const auto replica = [&] { return alternate.EvaluateOwning(xad, shape.point_, request); };
+                    MeasureS0(shape, count, other, replica, true, options.centeredFirst_);
+                } else {
+                    MeasureS0(shape, count, native, other, false, options.centeredFirst_);
+                }
+                continue;
+            }
+            const auto withExpiredSources = [&](const auto& function, const auto& engine) {
+                auto sourcePoint = shape.point_;
+                auto sourceRequest = request;
+                auto sourceFunction = function;
+                auto result = engine(sourceFunction, sourcePoint, sourceRequest);
+                sourcePoint.Fill(0.0);
+                sourceRequest.directions_.Fill(0.0);
+                sourceFunction = {};
+                return result;
+            };
+            const auto ad = withExpiredSources(dal, EvaluateForwardOverReverse);
+            const auto xv = withExpiredSources(xad, [&](const auto& f, const auto& p, const auto& r) { return workspace.EvaluateOwning(f, p, r); });
+            const auto& dw = ad.Execution();
+            const auto& xw = xv.execution_;
+            const auto& expected = request.directions_;
+            const auto sameDirections = [&](const Matrix_<>& actual) {
+                return actual.Rows() == expected.Rows() && actual.Cols() == expected.Cols() &&
+                       std::equal(expected.Data(), expected.Data() + expected.Rows() * expected.Cols(), actual.Data());
+            };
+            REQUIRE(ad.Point() == shape.point_ && xv.point_ == shape.point_ && sameDirections(ad.Directions()) && sameDirections(xv.directions_),
+                    "S0 point and directions must remain owning after source destruction");
+            const auto n = static_cast<size_t>(count);
+            REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n + 1 && xw.callbackEvaluations_ == n &&
+                        xw.recordings_ == n && xw.reverseSweeps_ == n && xw.numericPayloadBytes_ == dw.numericPayloadBytes_ && !xw.peakTapeBytes_ &&
+                        !xw.cleanupReserveBytes_,
+                    "S0 execution fields do not match the fixed request");
+            VerifyRoute(shape, ref, request.directions_, "dal_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(), ad.HessianProducts(),
+                        shape.pointwiseTolerance_, {dw.recordings_, dw.reverseSweeps_, dw.peakTapeBytes_, "dal_tape_capacity"});
+            VerifyRoute(shape, ref, request.directions_, "xad_s0", xv.risk_.price_, xv.risk_.gradient_, xv.risk_.directional_, xv.risk_.products_,
+                        shape.pointwiseTolerance_, {xw.recordings_, xw.reverseSweeps_, 0, "unavailable"});
+            std::cout << "s0_owned," << shape.name_ << ',' << count << ',' << dw.numericPayloadBytes_ << ',' << dw.method_ << ',' << xw.method_
+                      << '\n';
+        }
+    }
+
     using TapePerfComparison::Counts_;
     using TapePerfComparison::FirstOrderResult_;
     using TapePerfComparison::Phase;
@@ -636,6 +807,10 @@ namespace {
 
     template <class K_> void Run(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
 #if defined(DAL_TAPE_PERF_WITH_XAD)
+        if (options.s0_ != S0_::NONE) {
+            RunS0(shape, kernel, ref, options);
+            return;
+        }
         if (options.firstOrder_) {
             RunFirst(shape, kernel, ref, options.verifyOnly_, options.centeredFirst_, options.diagnostics_);
             return;
@@ -681,16 +856,34 @@ namespace {
 
     void RunDupire(const Options_& options) {
         namespace D = TapePerfDupire;
-        const Case_ shape{"dupire_quote", D::QuoteSpreads(), D::Directions(), Vector_<>(3, D::QUOTE_STEP), 1, 2e-2, 1e-1, 2e-6, 2e-4,
-                          true,           D::TIME_STEPS};
+        const bool s0 = options.s0_ != S0_::NONE;
+        const Case_ shape{"dupire_quote",
+                          D::QuoteSpreads(),
+                          D::Directions(),
+                          Vector_<>(3, D::QUOTE_STEP),
+                          1,
+                          s0 ? 1e-5 : 2e-2,
+                          1e-1,
+                          s0 ? 2e-7 : 2e-6,
+                          s0 ? 2e-6 : 2e-4,
+                          true,
+                          D::TIME_STEPS};
         Reference_ ref{D::Reference::PRICE, Matrix_<>(shape.directions_.Rows(), shape.directions_.Cols()), D::Reference::REFINEMENT,
                        Vector_<>(D::Reference::VEGA.begin(), D::Reference::VEGA.end())};
         for (int row = 0; row < ref.products_.Rows(); ++row)
             for (int column = 0; column < ref.products_.Cols(); ++column)
                 ref.products_(row, column) = D::Reference::PRODUCTS[row][column];
         const D::Kernel_ kernel;
-        D::Qualify(kernel, shape.point_, shape.directions_);
-        if (options.firstOrder_) {
+        if (!s0 || options.verifyOnly_)
+            D::Qualify(kernel, shape.point_, shape.directions_);
+        if (s0 && options.verifyOnly_) {
+            REQUIRE(D::Reference::REFINEMENT <= 2e-6, "S0 Dupire reference did not stabilize");
+            std::cout << "s0_dupire_spread" << std::hexfloat;
+            for (double spread : shape.point_)
+                std::cout << ',' << spread;
+            std::cout << std::defaultfloat << '\n';
+        }
+        if (options.firstOrder_ || s0) {
             Run(shape, kernel, ref, options);
             return;
         }
@@ -731,17 +924,56 @@ namespace {
                     options.dupire_ = true;
                 else if (option == "--diagnostics" && !options.diagnostics_)
                     options.diagnostics_ = true;
-                else
-                    THROW("expected --first-order or --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad] [--diagnostics]");
+                else if (option == "--s0" && options.s0_ == S0_::NONE)
+                    options.s0_ = S0_::PAIR;
+                else if (option == "--s0-aa" && options.s0_ == S0_::NONE)
+                    options.s0_ = S0_::AA;
+                else if (option == "--s0-dal-cold" && options.s0_ == S0_::NONE)
+                    options.s0_ = S0_::DAL_COLD;
+                else if (option == "--s0-dal-hot" && options.s0_ == S0_::NONE)
+                    options.s0_ = S0_::DAL_HOT;
+                else if (option == "--s0-xad-cold" && options.s0_ == S0_::NONE)
+                    options.s0_ = S0_::XAD_COLD;
+                else if (option == "--s0-xad-hot" && options.s0_ == S0_::NONE)
+                    options.s0_ = S0_::XAD_HOT;
+                else if (option.rfind("--s0-case=", 0) == 0 && options.s0Case_.empty())
+                    options.s0Case_ = option.substr(10);
+                else if (option.rfind("--s0-directions=", 0) == 0 && options.s0Directions_ == 0) {
+                    const auto n = option.substr(16);
+                    REQUIRE(n == "1" || n == "3" || n == "6", "expected S0 directions 1, 3, or 6");
+                    options.s0Directions_ = std::stoi(n);
+                } else
+                    THROW("expected --first-order or --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad] [--diagnostics] [--s0 "
+                          "mode]");
             }
+            const bool s0 = options.s0_ != S0_::NONE;
+            REQUIRE(s0 || (options.s0Case_.empty() && options.s0Directions_ == 0), "S0 selectors require an S0 mode");
 #if !defined(DAL_TAPE_PERF_WITH_XAD)
-            REQUIRE(!options.withXad_ && !firstOrder, "XAD comparison requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
+            REQUIRE(!options.withXad_ && !firstOrder && !s0, "XAD comparison requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
+#else
+            REQUIRE(!s0 || (!firstOrder && !options.diagnostics_ && !ProfilingAvailable()), "S0 requires second order, profiling OFF");
+            const bool memory = S0Memory(options.s0_);
+            REQUIRE(!memory || (!options.verifyOnly_ && !options.s0Case_.empty() && options.s0Directions_ != 0),
+                    "S0 memory requires exactly one case and direction count");
+            if (options.s0Case_ == "dupire_quote")
+                options.dupire_ = true;
+            if (s0 && (!options.s0Case_.empty() || options.s0Directions_ != 0)) {
+                REQUIRE(options.s0Case_ == "dupire_quote" || options.s0Case_ == "black_scholes" || options.s0Case_ == "conditional_basket",
+                        "unknown S0 case");
+                REQUIRE(options.dupire_ == (options.s0Case_ == "dupire_quote") &&
+                            (options.s0Directions_ <= 1 || options.s0Directions_ == (options.s0Case_ == "conditional_basket" ? 6 : 3)),
+                        "S0 case and direction mismatch");
+            }
 #endif
-            options.withXad_ = options.withXad_ || firstOrder;
+            options.withXad_ = options.withXad_ || firstOrder || s0;
             REQUIRE(!options.diagnostics_ || (ProfilingAvailable() && options.withXad_),
                     "--diagnostics requires DAL_ENABLE_AAD_PROFILING=ON and XAD");
             RegisterAll_::Init();
             std::cout << std::setprecision(17);
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+            if (s0 && options.verifyOnly_ && !options.dupire_)
+                VerifySmoothNormal();
+#endif
             if (options.diagnostics_ || firstOrder)
                 std::cout << "# "
                              "tape_counts,case,directions,route,recordings,sweeps,stored_statements,stored_edges,statement_visits,edge_slots,bytes,"
@@ -784,10 +1016,15 @@ namespace {
                                2e-6,
                                5e-5};
             const Vector_<> coordinateSteps{0.2, 0.2, 0.002, 0.002, 0.002};
-            const auto conditional = MakeBasket(basket, coordinateSteps);
-            const auto basketRef = BasketReference(conditional, basket, coordinateSteps);
-            Run(small, BlackScholes_{}, BlackScholesReference(small), options);
-            Run(basket, conditional, basketRef, options);
+            const auto bsRef = BlackScholesReference(small);
+            if (s0) {
+                Run(small, BlackScholes_<true>{}, bsRef, options);
+                Run(basket, MakeBasket<true>(basket, coordinateSteps), S0BasketReference(basket), options);
+            } else {
+                const auto conditional = MakeBasket<false>(basket, coordinateSteps);
+                Run(small, BlackScholes_<false>{}, bsRef, options);
+                Run(basket, conditional, BasketReference(conditional, basket, coordinateSteps), options);
+            }
             return 0;
         } catch (const std::exception& error) {
             std::cerr << error.what() << '\n';

@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <XAD/XAD.hpp>
+#include <dal/math/aad/forwardoverreverse.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/specialfunctions.hpp>
 
@@ -36,11 +37,31 @@ namespace TapePerfXad {
         size_t maxLogicalBytes_ = 0;
     };
 
+    using OwnedFunction_ = std::function<Active_(Dal::AAD::RecordingScope_*, const Dal::Vector_<Active_>&)>;
+
+    struct OwnedExecution_ {
+        Dal::String_ method_ = "XADForwardOverReverse";
+        size_t callbackEvaluations_ = 0, recordings_ = 0, reverseSweeps_ = 0, numericPayloadBytes_ = 0;
+        std::optional<size_t> peakTapeBytes_, cleanupReserveBytes_;
+    };
+
+    struct OwnedResult_ {
+        Result_ risk_;
+        Dal::Vector_<> point_;
+        Dal::Matrix_<> directions_;
+        OwnedExecution_ execution_;
+    };
+
     class Workspace_ {
         Tape_ tape_{false};
 
         template <class K_>
-        Result_ Record(const K_& kernel, const Dal::Vector_<>& point, const Dal::Matrix_<>& directions, bool measureMemory, Counts_* counts) {
+        Result_ Record(const K_& kernel,
+                       const Dal::Vector_<>& point,
+                       const Dal::Matrix_<>& directions,
+                       bool measureMemory,
+                       Counts_* counts,
+                       OwnedExecution_* work) {
             const int count = directions.Rows(), inputs = directions.Cols();
             Span_ allocateOutput(Phase::REDUCE);
             Result_ result{0.0, Dal::Vector_<>(point.size()), Dal::Vector_<>(count), Dal::Matrix_<>(count, inputs)};
@@ -71,13 +92,27 @@ namespace TapePerfXad {
                 Span_ pack(Phase::REDUCE);
                 if (row == 0) {
                     result.price_ = xad::value(xad::value(price));
-                    for (int column = 0; column < inputs; ++column)
+                    for (int column = 0; column < inputs; ++column) {
                         result.gradient_[column] = xad::value(xad::derivative(x[column]));
+                        if (work)
+                            REQUIRE(std::isfinite(result.gradient_[column]), "XAD S0 nonfinite gradient");
+                    }
                 }
                 result.directional_[row] = xad::derivative(xad::value(price));
-                for (int column = 0; column < inputs; ++column)
+                for (int column = 0; column < inputs; ++column) {
                     result.products_(row, column) = xad::derivative(xad::derivative(x[column]));
+                    if (work)
+                        REQUIRE(std::isfinite(result.products_(row, column)), "XAD S0 nonfinite HVP");
+                }
                 pack.Finish();
+                if (work) {
+                    REQUIRE(std::isfinite(result.price_) && std::isfinite(result.directional_[row]),
+                            "XAD S0 nonfinite price or directional derivative");
+                    REQUIRE(xad::value(xad::value(price)) == result.price_, "XAD S0 price changed across directions");
+                    ++work->recordings_;
+                    ++work->callbackEvaluations_;
+                    ++work->reverseSweeps_;
+                }
                 if (measureMemory)
                     result.maxLogicalBytes_ = std::max(result.maxLogicalBytes_, tape_.getMemory());
                 if (counts)
@@ -88,13 +123,17 @@ namespace TapePerfXad {
 
     public:
         template <class K_>
-        Result_ Evaluate(
-            const K_& kernel, const Dal::Vector_<>& point, const Dal::Matrix_<>& directions, bool measureMemory = false, Counts_* counts = nullptr) {
+        Result_ Evaluate(const K_& kernel,
+                         const Dal::Vector_<>& point,
+                         const Dal::Matrix_<>& directions,
+                         bool measureMemory = false,
+                         Counts_* counts = nullptr,
+                         OwnedExecution_* work = nullptr) {
             Span_ activate(Phase::PREPARE);
             tape_.activate();
             activate.Finish();
             try {
-                auto result = Record(kernel, point, directions, measureMemory, counts);
+                auto result = Record(kernel, point, directions, measureMemory, counts, work);
                 const Span_ cleanup(Phase::PREPARE);
                 // All active numbers have been destroyed before the tape is reset.
                 tape_.clearAll();
@@ -104,6 +143,31 @@ namespace TapePerfXad {
                 tape_.deactivate();
                 throw;
             }
+        }
+
+        OwnedResult_ EvaluateOwning(const OwnedFunction_& function,
+                                    const Dal::Vector_<>& point,
+                                    const Dal::AAD::ForwardOverReverseRequest_& request,
+                                    bool logicalMemory = false) {
+            const OwnedFunction_ fixedFunction = function;
+            Dal::Vector_<> fixedPoint = point;
+            auto fixedRequest = request;
+            const auto& directions = fixedRequest.directions_;
+            REQUIRE(fixedFunction && fixedPoint.size() <= static_cast<size_t>(std::numeric_limits<int>::max()) && directions.Rows() > 0 &&
+                        directions.Cols() == static_cast<int>(fixedPoint.size()),
+                    "XAD S0 invalid request shape");
+            REQUIRE(!fixedRequest.recordingCapacityBudgetBytes_, "XAD S0 has no tape cap");
+            OwnedExecution_ work;
+            work.numericPayloadBytes_ = Dal::AAD::ForwardOverReversePayloadBytes(fixedPoint.size(), directions.Rows());
+            REQUIRE(!fixedRequest.numericPayloadBudgetBytes_ || work.numericPayloadBytes_ <= *fixedRequest.numericPayloadBudgetBytes_,
+                    "XAD S0 numeric payload budget exceeded");
+            for (double value : fixedPoint)
+                REQUIRE(std::isfinite(value), "XAD S0 nonfinite point");
+            for (int row = 0; row < directions.Rows(); ++row)
+                for (int column = 0; column < directions.Cols(); ++column)
+                    REQUIRE(std::isfinite(directions(row, column)), "XAD S0 nonfinite direction");
+            auto risk = Evaluate(fixedFunction, fixedPoint, directions, logicalMemory, nullptr, &work);
+            return {std::move(risk), std::move(fixedPoint), std::move(fixedRequest.directions_), std::move(work)};
         }
     };
 
