@@ -25,6 +25,16 @@ namespace {
     Entry_ entries[TABLE_SIZE]{};
     TapePerfS0::AllocationSnapshot_ stats{};
 
+    Entry_* InsertionSlot(bool insert, Entry_* deleted, Entry_* empty) {
+        if (!insert)
+            return nullptr;
+        if (deleted)
+            return deleted;
+        if (!empty)
+            std::abort();
+        return empty;
+    }
+
     Entry_* Find(uintptr_t key, bool insert) {
         size_t slot = ((key >> 4) ^ (key >> 20)) & (TABLE_SIZE - 1);
         Entry_* deleted = nullptr;
@@ -33,14 +43,12 @@ namespace {
             if (entry.address_ == key)
                 return &entry;
             if (entry.address_ == 0)
-                return insert ? (deleted ? deleted : &entry) : nullptr;
+                return InsertionSlot(insert, deleted, &entry);
             if (entry.address_ == DELETED && !deleted)
                 deleted = &entry;
             slot = (slot + 1) & (TABLE_SIZE - 1);
         }
-        if (insert && !deleted)
-            std::abort();
-        return insert ? deleted : nullptr;
+        return InsertionSlot(insert, deleted, nullptr);
     }
 
     void Peak() { stats.peak_ = std::max(stats.peak_, stats.live_); }
@@ -64,6 +72,22 @@ namespace {
         stats.live_ -= entry->bytes_;
         ++stats.frees_;
         *entry = {DELETED, 0};
+    }
+
+    void FailedResize(Entry_* old, bool hadPointer, size_t bytes) {
+        // glibc releases a non-null pointer when realloc(ptr, 0) returns null.
+        if (hadPointer && bytes == 0)
+            Remove(old);
+        else
+            ++stats.reallocFailed_;
+    }
+
+    void ResizeInPlace(Entry_* old, size_t bytes) {
+        stats.live_ = stats.live_ - old->bytes_ + bytes;
+        old->bytes_ = bytes;
+        ++stats.reallocInPlace_;
+        stats.largest_ = std::max(stats.largest_, bytes);
+        Peak();
     }
 
     bool PowerOfTwo(size_t n) { return n != 0 && (n & (n - 1)) == 0; }
@@ -107,19 +131,13 @@ void* realloc(void* ptr, size_t bytes) noexcept {
     if (!tracking)
         return __libc_realloc(ptr, bytes);
     const auto address = reinterpret_cast<uintptr_t>(ptr);
-    auto* old = ptr ? Find(address, false) : nullptr;
+    const bool hadPointer = ptr != nullptr;
+    auto* old = hadPointer ? Find(address, false) : nullptr;
     void* result = __libc_realloc(ptr, bytes);
     if (!result) {
-        if (ptr && bytes == 0)
-            Remove(old);
-        else
-            ++stats.reallocFailed_;
+        FailedResize(old, hadPointer, bytes);
     } else if (old && reinterpret_cast<uintptr_t>(result) == address) {
-        stats.live_ = stats.live_ - old->bytes_ + bytes;
-        old->bytes_ = bytes;
-        ++stats.reallocInPlace_;
-        stats.largest_ = std::max(stats.largest_, bytes);
-        Peak();
+        ResizeInPlace(old, bytes);
     } else {
         // A moved realloc is charged as simultaneous old and new requested bytes.
         Add(result, bytes);
@@ -138,6 +156,8 @@ void* aligned_alloc(size_t alignment, size_t bytes) noexcept {
     return Aligned(alignment, bytes);
 }
 
+// Keep the glibc interposition symbol for callers of the legacy allocator.
+// flawfinder: ignore
 void* memalign(size_t alignment, size_t bytes) noexcept { return Aligned(alignment, bytes); }
 
 int posix_memalign(void** ptr, size_t alignment, size_t bytes) noexcept {

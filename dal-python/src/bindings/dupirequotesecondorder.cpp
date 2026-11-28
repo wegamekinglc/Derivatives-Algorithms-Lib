@@ -37,7 +37,7 @@ namespace {
 
     DupireEuropeanCallPdeGrid_ GridInput(const py::handle& value) {
         constexpr const char* FIELD = "DupireQuoteSecondOrderPlan_New; grid";
-        const auto grid = RequestSequence(value, {FIELD, IDENTIFIER});
+        const auto grid = RequestSequence(value, {FIELD, IDENTIFIER}, "list or tuple");
         if (grid.size() != 3)
             throw py::value_error("DupireQuoteSecondOrderPlan_New; grid requires (log_spot_half_width, space_nodes, time_steps)");
         return {NumberInput(grid[0], "DupireQuoteSecondOrderPlan_New; grid.log_spot_half_width"),
@@ -48,8 +48,8 @@ namespace {
     Vector_<DupireQuoteCoordinate_> AxisInput(const py::handle& value) {
         constexpr const char* FIELD = "DupireQuoteSecondOrderResult_New; input_axis";
         Vector_<DupireQuoteCoordinate_> axis;
-        for (const auto& entry : RequestSequence(value, {FIELD, IDENTIFIER})) {
-            const auto coordinate = RequestSequence(entry, {FIELD, IDENTIFIER});
+        for (const auto& entry : RequestSequence(value, {FIELD, IDENTIFIER}, "list or tuple")) {
+            const auto coordinate = RequestSequence(entry, {FIELD, IDENTIFIER}, "list or tuple");
             if (coordinate.size() != 3)
                 throw py::value_error("DupireQuoteSecondOrderResult_New; input_axis entries require (quote_id, strike, maturity)");
             axis.push_back(

@@ -29,7 +29,7 @@ POINTWISE = "NativePointwiseSecondOrderAAD"
 SHARED = "NativeSharedPrimalSecondOrderAAD"
 
 
-def make_plan():
+def make_plan(grid=(0.8, 81, 64)):
     base = dal.BSModelData_New(100.0, 0.20, 0.05, 0.02)
     inputs = dal.DupireRiskInputs_(
         quote_strikes=[75.0, 105.0, 135.0],
@@ -42,7 +42,7 @@ def make_plan():
     )
     return dal.DupireQuoteSecondOrderPlan_New(
         dal.DupireCalibration_New(base, inputs),
-        strike=105.0, maturity=1.0, underlying_id="EQ", currency="USD", grid=(0.8, 81, 64),
+        strike=105.0, maturity=1.0, underlying_id="EQ", currency="USD", grid=grid,
     )
 
 
@@ -101,6 +101,18 @@ def test_wrong_axis_and_direction_columns_are_rejected(plan):
             dal.DupireQuoteSecondOrderResult_New(plan, input_axis=mismatched, directions=seeds)
     with pytest.raises(RuntimeError, match="axis length and direction column count"):
         dal.DupireQuoteSecondOrderResult_New(plan, input_axis=AXIS, directions=dal.DoubleMatrix_(1, 5))
+
+
+def test_grid_requires_sequence():
+    with pytest.raises(TypeError, match=r"grid.*expected list or tuple") as grid_error:
+        make_plan(grid=None)
+    assert "or None" not in str(grid_error.value)
+
+
+def test_axis_requires_sequence(plan):
+    with pytest.raises(TypeError, match=r"input_axis.*expected list or tuple") as axis_error:
+        dal.DupireQuoteSecondOrderResult_New(plan, input_axis=None, directions=dal.DoubleMatrix_(0, 6))
+    assert "or None" not in str(axis_error.value)
 
 
 def test_result_owns_inputs_and_returns_copies():

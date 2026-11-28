@@ -98,6 +98,33 @@ namespace TapePerfDupire {
                       << result.passivePrice_ << ',' << result.surfaceError_ << ',' << result.priceError_ << ',' << m.iv_ << ',' << m.ckk_ << ','
                       << m.numerator_ << ',' << m.variance_ << ',' << m.curvatureUlps_ << ',' << m.pivot_ << '\n';
         }
+
+        void CheckBands(const LocalVolSurfaceData_& surface) {
+            const FlatImpliedVol_ flat;
+            const Vector_<> strikes(LOCAL_STRIKES.begin(), LOCAL_STRIKES.end()), times(LOCAL_TIMES.begin(), LOCAL_TIMES.end());
+            REQUIRE(surface.spots_ == strikes && surface.times_ == times, "Dupire benchmark production axes changed");
+            for (size_t t = 0; t < times.size(); ++t) {
+                const double halfWidth = 2.5 * flat.Call(SPOT, times[t]) * M_SQRT_2_PI;
+                const auto begin = std::lower_bound(strikes.begin(), strikes.end(), SPOT - halfWidth);
+                const auto end = std::upper_bound(strikes.begin(), strikes.end(), SPOT + halfWidth);
+                REQUIRE(begin - strikes.begin() == FIRST[t] && end - strikes.begin() == LAST[t] + 1, "Dupire benchmark production band changed");
+                std::cout << "dupire_band," << times[t] << ',' << *begin << ',' << *(end - 1) << ',' << halfWidth << '\n';
+            }
+        }
+
+        void PrintVolgaSteps(const std::array<double, Reference::SCENARIOS.size()>& prices, double basePrice) {
+            std::cout << "# dupire_price_volga_step,step,double_price_volga,abs_error_against_reference\n";
+            for (size_t i = 0; i + 1 < prices.size(); ++i) {
+                const auto& down = Reference::SCENARIOS[i];
+                if (down.direction_ == 0 && down.signedStep_ < 0.0) {
+                    const auto& up = Reference::SCENARIOS[i + 1];
+                    REQUIRE(up.direction_ == 0 && up.signedStep_ == -down.signedStep_, "Dupire benchmark reference scenario order changed");
+                    const double h = up.signedStep_;
+                    const double volga = (prices[i] + prices[i + 1] - 2.0 * basePrice) / (h * h);
+                    std::cout << "dupire_price_volga_step," << h << ',' << volga << ',' << std::abs(volga - Reference::PRODUCTS[0][3]) << '\n';
+                }
+            }
+        }
     } // namespace
 
     Vector_<> QuoteSpreads() { return Vector_<>(QUOTE_SPREADS.begin(), QUOTE_SPREADS.end()); }
@@ -125,17 +152,8 @@ namespace TapePerfDupire {
     }
 
     void Qualify(const Kernel_& kernel, const Vector_<>& quotes, const Matrix_<>& directions) {
-        const FlatImpliedVol_ flat;
-        const Vector_<> strikes(LOCAL_STRIKES.begin(), LOCAL_STRIKES.end()), times(LOCAL_TIMES.begin(), LOCAL_TIMES.end());
         const auto base = Snapshot(quotes);
-        REQUIRE(base.Surface()->spots_ == strikes && base.Surface()->times_ == times, "Dupire benchmark production axes changed");
-        for (size_t t = 0; t < times.size(); ++t) {
-            const double halfWidth = 2.5 * flat.Call(SPOT, times[t]) * M_SQRT_2_PI;
-            const auto begin = std::lower_bound(strikes.begin(), strikes.end(), SPOT - halfWidth);
-            const auto end = std::upper_bound(strikes.begin(), strikes.end(), SPOT + halfWidth);
-            REQUIRE(begin - strikes.begin() == FIRST[t] && end - strikes.begin() == LAST[t] + 1, "Dupire benchmark production band changed");
-            std::cout << "dupire_band," << times[t] << ',' << *begin << ',' << *(end - 1) << ',' << halfWidth << '\n';
-        }
+        CheckBands(*base.Surface());
         REQUIRE(Reference::REFINEMENT <= 5e-3, "Dupire benchmark high-precision HVP refinement exceeded tolerance");
         std::cout
             << "# dupire_surface,strike,time,kernel_vol,production_vol,high_precision_vol\n"
@@ -153,17 +171,7 @@ namespace TapePerfDupire {
             prices[i] = result.price_;
             PrintScenario(scenario.direction_, scenario.signedStep_, scenario.price_, result);
         }
-        std::cout << "# dupire_price_volga_step,step,double_price_volga,abs_error_against_reference\n";
-        for (size_t i = 0; i + 1 < prices.size(); ++i) {
-            const auto& down = Reference::SCENARIOS[i];
-            if (down.direction_ == 0 && down.signedStep_ < 0.0) {
-                const auto& up = Reference::SCENARIOS[i + 1];
-                REQUIRE(up.direction_ == 0 && up.signedStep_ == -down.signedStep_, "Dupire benchmark reference scenario order changed");
-                const double h = up.signedStep_;
-                const double volga = (prices[i] + prices[i + 1] - 2.0 * baseResult.price_) / (h * h);
-                std::cout << "dupire_price_volga_step," << h << ',' << volga << ',' << std::abs(volga - Reference::PRODUCTS[0][3]) << '\n';
-            }
-        }
+        PrintVolgaSteps(prices, baseResult.price_);
         std::cout << "dupire_qualification," << 1 + prices.size() << ',' << kernel.StrikeMargin() << ',' << kernel.TimeMargin() << ','
                   << Reference::REFINEMENT << '\n';
     }
