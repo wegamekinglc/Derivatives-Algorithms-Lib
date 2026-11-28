@@ -5,6 +5,7 @@
 #include <cfenv>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -14,6 +15,7 @@
 #endif
 
 #include <dal/model/detail/dupirequoteplan.hpp>
+#include <dal/model/detail/dupirethomas.hpp>
 #include <dal/model/dupirequotesecondorder.hpp>
 #include <dal/model/ivs.hpp>
 
@@ -238,6 +240,363 @@ TEST(DupireQuoteSecondOrderTest, PublicEntryReturnsOwningPointwiseAndSharedGreek
     }
 }
 
+TEST(DupireQuoteSecondOrderTest, FixedSingleDirectionFitsReducedTapeBudget) {
+    const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(), Call(), {0.8, 81, 64});
+    Matrix_<> direction(1, 6, 0.0);
+    direction(0, 3) = 1.0;
+    const auto result = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction, {{}, 2'800'000});
+    const auto* pointwise = result.Risk().Pointwise();
+    ASSERT_TRUE(pointwise);
+    EXPECT_NEAR(pointwise->HessianProducts()(0, 3), Reference::PRODUCTS[0][3], 1e-5);
+    EXPECT_EQ(pointwise->Execution().safePathActivations_, 0U);
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasRepeatsFactorsWithAnActiveBoundary) {
+    using namespace DupireSecondOrderDetail::Thomas;
+    using Number = SecondOrderNumber_;
+    const Vector_<> point{0.125, -0.25};
+    Matrix_<> directions(1, 2);
+    directions(0, 0) = 0.75;
+    directions(0, 1) = -1.25;
+    size_t matrices = 0;
+    const auto value = EvaluateSecondOrder(
+        [&](const Vector_<Number>& q) {
+            auto& arena = *Tape::activeArena;
+            using Work = Rollback_<2, 2, 1>;
+            const Tape::Scratch_ storage(arena, sizeof(Work));
+            Work work;
+            return work.Evaluate(arena, {0.5, 1.125}, {1.375, 1.875}, 0, [&](size_t step, const auto& make) {
+                if (step != 0)
+                    return;
+                ++matrices;
+                make([&](size_t i) -> std::array<Number, 3> {
+                    return i == 0 ? std::array<Number, 3>{Number(0.0), 2.0 + q[0] * q[0], -0.25 + q[1] / 8.0}
+                                  : std::array<Number, 3>{-0.375 + q[0] / 8.0, 2.0 + q[1] * q[1], q[0] * q[1] - 0.3125};
+                });
+            });
+        },
+        point, directions);
+    EXPECT_EQ(matrices, 1U);
+    EXPECT_NEAR(value.Value(), 0.28842254199326208848, 1e-15);
+    EXPECT_NEAR(value.Gradient()[0], -0.01003406493082375118, 1e-15);
+    EXPECT_NEAR(value.Gradient()[1], -0.04897250151653391421, 1e-15);
+    EXPECT_NEAR(value.DirectionalDerivatives()[0], 0.05369007819754957938, 1e-15);
+    EXPECT_NEAR(value.HessianProducts()(0, 0), -0.07969156263874146794, 1e-15);
+    EXPECT_NEAR(value.HessianProducts()(0, 1), 0.11936567741780483185, 1e-15);
+    EXPECT_EQ(value.Execution().recordings_, 1U);
+    EXPECT_EQ(value.Execution().reverseSweeps_, 1U);
+    EXPECT_EQ(value.Execution().safePathActivations_, 0U);
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasReplaysAnExactlyCancelledBoundaryTangent) {
+    using namespace DupireSecondOrderDetail::Thomas;
+    using Number = SecondOrderNumber_;
+    const auto value = EvaluateSecondOrder(
+        [](const Vector_<Number>& q) -> Number {
+            auto& arena = *Tape::activeArena;
+            if (arena.wide_) {
+                const Number first = (4.0 - q[0]) * 0.5;
+                return (first + 0.5 * q[0]) * 0.5;
+            }
+            using Work = Rollback_<2, 2, 1>;
+            const Tape::Scratch_ storage(arena, sizeof(Work));
+            Work work;
+            return work.Evaluate(arena, {1.0, 4.0}, {1.0, -0.5}, 1, [&](size_t step, const auto& make) {
+                if (step == 0)
+                    make([&](size_t i) -> std::array<Number, 3> { return {Number(0.0), Number(2.0), i == 0 ? Number(0.0) : q[0]}; });
+            });
+        },
+        {0.125}, Matrix_<>(1, 1, 1.0));
+    EXPECT_EQ(value.Value(), 1.0);
+    EXPECT_EQ(value.Gradient()[0], 0.0);
+    EXPECT_EQ(value.DirectionalDerivatives()[0], 0.0);
+    EXPECT_EQ(value.HessianProducts()(0, 0), 0.0);
+    EXPECT_EQ(value.Execution().recordings_, 2U);
+    EXPECT_EQ(value.Execution().reverseSweeps_, 1U);
+    EXPECT_EQ(value.Execution().safePathActivations_, 1U);
+    EXPECT_STREQ(Tape::LastSecondOrderProtection(), "Dupire Thomas derivative cancellation");
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasTangentEliminationReplaysBeforeLosingTheProductResidual) {
+    using namespace DupireSecondOrderDetail::Thomas;
+    using Number = SecondOrderNumber_;
+    constexpr double epsilon = 0x1p-27, coupling = 1.0 + epsilon;
+    for (double scale : {1.0, 0x1p-18, -0x1p18}) {
+        Matrix_<> directions(1, 2);
+        directions(0, 0) = scale * (1.0 - epsilon);
+        directions(0, 1) = scale;
+        const auto value = EvaluateSecondOrder(
+            [coupling](const Vector_<Number>& q) -> Number {
+                auto& arena = *Tape::activeArena;
+                const Number diagonal = 1.0 + q[0];
+                if (arena.wide_) {
+                    const Number first = 1.0 / diagonal;
+                    return 0.5 * (q[1] + coupling * first);
+                }
+                using Work = Rollback_<2, 1, 1>;
+                const Tape::Scratch_ storage(arena, sizeof(Work));
+                Work work;
+                return work.Evaluate(arena, {1.0, 0.0}, {1.0}, 1, [&](size_t, const auto& make) {
+                    make([&](size_t i) -> std::array<Number, 3> {
+                        return i == 0 ? std::array<Number, 3>{Number(0), diagonal, Number(0)}
+                                      : std::array<Number, 3>{Number(-coupling), Number(2), Number(-q[1])};
+                    });
+                });
+            },
+            {0.0, 0.0}, directions);
+        EXPECT_EQ(value.Value(), coupling * 0.5);
+        EXPECT_EQ(value.Gradient()[0], -coupling * 0.5);
+        EXPECT_EQ(value.Gradient()[1], 0.5);
+        EXPECT_EQ(value.DirectionalDerivatives()[0], scale * 0x1p-55);
+        EXPECT_EQ(value.HessianProducts()(0, 0), scale);
+        EXPECT_EQ(value.HessianProducts()(0, 1), 0.0);
+        EXPECT_EQ(value.Execution().callbackEvaluations_, 2U);
+        EXPECT_EQ(value.Execution().recordings_, 2U);
+        EXPECT_EQ(value.Execution().reverseSweeps_, 1U);
+        EXPECT_EQ(value.Execution().safePathActivations_, 1U);
+        EXPECT_STREQ(Tape::LastSecondOrderProtection(), "Dupire Thomas tangent elimination cancellation");
+        std::cout << "thomas_substitution,tangent_elimination," << std::hexfloat << scale << ',' << value.DirectionalDerivatives()[0] << std::defaultfloat
+                  << ',' << value.Execution().recordings_ << ',' << value.Execution().reverseSweeps_ << ',' << value.Execution().safePathActivations_ << '\n';
+    }
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasBackSubstitutionAndBothTransposeSubstitutionsProtectResiduals) {
+    using namespace DupireSecondOrderDetail::Thomas;
+    using Number = SecondOrderNumber_;
+    constexpr double eps = 0x1p-27, coupling = 1.0 + eps;
+    struct Case_ {
+        bool transpose_, firstRow_;
+        const char* reason_;
+    };
+    for (const auto& probe :
+         {Case_{false, true, "Dupire Thomas tangent back substitution cancellation"},
+          Case_{true, false, "Dupire Thomas transpose forward substitution cancellation"},
+          Case_{true, true, "Dupire Thomas transpose back substitution cancellation"}}) {
+        for (double scale : {1.0, 0x1p-18, -0x1p18}) {
+            SCOPED_TRACE(probe.reason_);
+            SCOPED_TRACE(scale);
+            Matrix_<> directions(1, 2);
+            directions(0, 0) = scale;
+            directions(0, 1) = -scale * (1.0 - eps);
+            const auto result = EvaluateSecondOrder(
+                [&](const Vector_<Number>& q) -> Number {
+                    auto& arena = *Tape::activeArena;
+                    if (arena.wide_)
+                        return 0.5 * (q[0] + coupling * q[1]);
+                    Factor_<2> factor;
+                    const bool lower = probe.transpose_ && probe.firstRow_;
+                    factor.Set(arena, 0, {Number(0), Number(probe.firstRow_ ? 2.0 : 1.0), Number(lower ? 0.0 : -coupling)});
+                    factor.Set(arena, 1, {Number(lower ? -coupling : 0.0), Number(probe.firstRow_ ? 1.0 : 2.0), Number(0)});
+                    Row_<2> rhs{directions(0, 0), directions(0, 1)};
+                    if (!probe.firstRow_)
+                        std::swap(rhs[0], rhs[1]);
+                    if (probe.transpose_)
+                        factor.Transpose(&rhs);
+                    else
+                        factor.Forward<true>(&rhs);
+                    ADD_FAILURE() << "unsafe substitution completed with " << rhs[probe.firstRow_ ? 0 : 1];
+                    return Number(0.0);
+                },
+                {0.0, 0.0}, directions);
+            EXPECT_EQ(result.Value(), 0.0);
+            EXPECT_EQ(result.Gradient(), (Vector_<>{0.5, 0.5 * coupling}));
+            EXPECT_EQ(result.DirectionalDerivatives()[0], scale * 0x1p-55);
+            for (int i = 0; i < 2; ++i) {
+                EXPECT_EQ(result.HessianProducts()(0, i), 0.0);
+                EXPECT_FALSE(std::signbit(result.HessianProducts()(0, i)));
+            }
+            EXPECT_EQ(result.Execution().recordings_, 2U);
+            EXPECT_EQ(result.Execution().reverseSweeps_, 1U);
+            EXPECT_EQ(result.Execution().safePathActivations_, 1U);
+            EXPECT_STREQ(Tape::LastSecondOrderProtection(), probe.reason_);
+            std::cout << "thomas_substitution," << probe.reason_ << ',' << std::hexfloat << scale << ',' << result.DirectionalDerivatives()[0]
+                      << std::defaultfloat << ',' << result.Execution().recordings_ << ',' << result.Execution().reverseSweeps_ << ','
+                      << result.Execution().safePathActivations_ << '\n';
+        }
+    }
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasTransposeReplayPreservesAnOtherwiseZeroHessianProduct) {
+    using namespace DupireSecondOrderDetail::Thomas;
+    using Number = SecondOrderNumber_;
+    constexpr double eps = 0x1p-27, coupling = 1.0 + eps;
+    for (double scale : {1.0, 0x1p-18, -0x1p18}) {
+        Matrix_<> directions(1, 3, 0.0);
+        directions(0, 0) = scale * (1.0 - eps);
+        directions(0, 1) = scale;
+        const auto value = EvaluateSecondOrder(
+            [coupling](const Vector_<Number>& q) -> Number {
+                auto& arena = *Tape::activeArena;
+                if (arena.wide_) {
+                    const Number denominator = 2.0 + 2.0 * (coupling * q[0] - q[1]);
+                    return q[2] / denominator;
+                }
+                using Work = Rollback_<2, 1, 1>;
+                const Tape::Scratch_ storage(arena, sizeof(Work));
+                Work work;
+                return work.Evaluate(arena, {0.0, 0.0}, {1.0}, 1, [&](size_t, const auto& make) {
+                    make([&](size_t i) -> std::array<Number, 3> {
+                        return i == 0 ? std::array<Number, 3>{Number(0), Number(1), Number(-coupling)}
+                                      : std::array<Number, 3>{2.0 * q[0], 2.0 - 2.0 * q[1], Number(-q[2])};
+                    });
+                });
+            },
+            {0.0, 0.0, 0.0}, directions);
+        EXPECT_EQ(value.Value(), 0.0);
+        EXPECT_EQ(value.Gradient(), (Vector_<>{0.0, 0.0, 0.5}));
+        EXPECT_EQ(value.DirectionalDerivatives()[0], 0.0);
+        EXPECT_EQ(value.HessianProducts()(0, 0), 0.0);
+        EXPECT_EQ(value.HessianProducts()(0, 1), 0.0);
+        EXPECT_EQ(value.HessianProducts()(0, 2), scale * 0x1p-55);
+        EXPECT_EQ(value.Execution().callbackEvaluations_, 2U);
+        EXPECT_EQ(value.Execution().recordings_, 2U);
+        EXPECT_EQ(value.Execution().reverseSweeps_, 1U);
+        EXPECT_EQ(value.Execution().safePathActivations_, 1U);
+        EXPECT_STREQ(Tape::LastSecondOrderProtection(), "Dupire Thomas transpose forward substitution cancellation");
+        std::cout << "thomas_substitution,transpose_hvp," << std::hexfloat << scale << ',' << value.HessianProducts()(0, 2) << std::defaultfloat << ','
+                  << value.Execution().recordings_ << ',' << value.Execution().reverseSweeps_ << ',' << value.Execution().safePathActivations_ << '\n';
+    }
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasMatchesAllPrimalStepsAndPointwiseWork) {
+    using namespace DupireSecondOrderDetail;
+    const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(), Call(), {0.8, 81, 64});
+    const auto& kernel = PlanAccess_::Kernel(plan);
+    const auto& point = PlanAccess_::Point(plan);
+    Kernel_::PrimalTrace_ expected, actual;
+    const auto price = kernel.Rollback(kernel.Calibrate(point), nullptr, &expected);
+    int row = 0;
+    for (const std::array<double, 6>& seed : {std::array<double, 6>{0, 0, 0, 1, 0, 0}, {0, 0, 1, 0, 0, 0}, {0.5, -0.25, -0.5, 1, 0.25, -0.5}}) {
+        Matrix_<> direction(1, 6);
+        std::copy(seed.begin(), seed.end(), direction.Row(0).begin());
+        std::pair<size_t, size_t> scalarWork, thomasWork;
+        const auto count = [] {
+            const auto& arena = *SecondOrderDetail::activeArena;
+            return std::pair<size_t, size_t>(arena.statements_, arena.edges_);
+        };
+        Kernel_::PrimalTrace_ scalarTrace;
+        const auto scalar = EvaluateSecondOrder([&](const auto& x) {
+            const auto result = kernel.Rollback(kernel.Calibrate(x), nullptr, &scalarTrace);
+            scalarWork = count();
+            return result;
+        }, point, direction);
+        const auto prototype = EvaluateSecondOrder([&](const auto& x) {
+            const auto result = kernel.RollbackSingleDirection(x, &actual);
+            thomasWork = count();
+            return result;
+        }, point, direction);
+        ASSERT_EQ(prototype.Execution().safePathActivations_, 0U) << SecondOrderDetail::LastSecondOrderProtection();
+        EXPECT_EQ(prototype.Value(), price);
+        for (size_t step = 0; step < actual.size(); ++step) {
+            EXPECT_EQ(std::memcmp(actual[step].data(), expected[step].data(), sizeof(actual[step])), 0) << step;
+            EXPECT_EQ(std::memcmp(actual[step].data(), scalarTrace[step].data(), sizeof(actual[step])), 0) << step;
+        }
+        EXPECT_LT(thomasWork.first, scalarWork.first);
+        EXPECT_LT(thomasWork.second, scalarWork.second);
+        std::cout << "thomas_work," << scalarWork.first << ',' << scalarWork.second << ',' << thomasWork.first << ',' << thomasWork.second << '\n';
+        double directionalReference = 0.0;
+        double gradientError = 0.0, hvpError = 0.0;
+        for (int i = 0; i < 6; ++i) {
+            directionalReference += seed[i] * Reference::VEGA[i];
+            EXPECT_NEAR(prototype.Gradient()[i], Reference::VEGA[i], 2e-6);
+            EXPECT_NEAR(prototype.HessianProducts()(0, i), Reference::PRODUCTS[row][i], 2e-6);
+            gradientError = std::max(gradientError, std::abs(prototype.Gradient()[i] - scalar.Gradient()[i]));
+            hvpError = std::max(hvpError, std::abs(prototype.HessianProducts()(0, i) - scalar.HessianProducts()(0, i)));
+        }
+        EXPECT_NEAR(prototype.DirectionalDerivatives()[0], directionalReference, 2e-6);
+        const auto directionalError = std::abs(prototype.DirectionalDerivatives()[0] - scalar.DirectionalDerivatives()[0]);
+        std::cout << "thomas_error," << gradientError << ',' << directionalError << ',' << hvpError << '\n';
+        ++row;
+    }
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasRangeProtectionAndBudgetRecovery) {
+    using namespace DupireSecondOrderDetail;
+    const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(), Call(), {0.8, 81, 64});
+    const auto& kernel = PlanAccess_::Kernel(plan);
+    const auto& point = PlanAccess_::Point(plan);
+    const auto evaluate = [&](const Matrix_<>& direction, const SecondOrderOptions_& options = {}) {
+        return EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction, options);
+    };
+    Matrix_<> direction(1, 6, 0.0);
+    direction(0, 3) = 1.0;
+    const auto regular = evaluate(direction);
+    const auto warm = evaluate(direction);
+    const auto cap = warm.Risk().Pointwise()->Execution().peakTapeBytes_;
+    EXPECT_EQ(evaluate(direction, {{}, cap}).Risk().Value(), regular.Risk().Value());
+    try {
+        (void)evaluate(direction, {{}, cap - 1});
+        FAIL() << "one byte below the measured hot cap";
+    } catch (const SecondOrderError_& error) {
+        EXPECT_EQ(error.Reason().Switch(), Reason::BUDGET_EXCEEDED);
+        EXPECT_EQ(error.DirectionIndex(), 0U);
+    }
+    EXPECT_EQ(evaluate(direction).Risk().Value(), regular.Risk().Value());
+    for (double scale : {0x1p-56, 0x1p56}) {
+        direction(0, 3) = scale;
+        const auto scalarWide = EvaluateSecondOrder([&](const auto& x) {
+            if (!SecondOrderDetail::activeArena->wide_)
+                SecondOrderDetail::Promote("test oracle uses original scalar wide arithmetic");
+            return kernel(nullptr, x);
+        }, point, direction);
+        const auto protectedResult = evaluate(direction);
+        const auto& ad = *protectedResult.Risk().Pointwise();
+        EXPECT_EQ(ad.Execution().recordings_, 2U);
+        EXPECT_EQ(ad.Execution().reverseSweeps_, 1U);
+        EXPECT_EQ(ad.Execution().safePathActivations_, 1U);
+        EXPECT_STREQ(SecondOrderDetail::LastSecondOrderProtection(), "Dupire Thomas direction range");
+        EXPECT_EQ(ad.Value(), scalarWide.Value());
+        EXPECT_EQ(ad.Gradient(), scalarWide.Gradient());
+        EXPECT_EQ(ad.DirectionalDerivatives(), scalarWide.DirectionalDerivatives());
+        EXPECT_NEAR(ad.DirectionalDerivatives()[0] / scale, Reference::VEGA[3], 2e-6);
+        for (int i = 0; i < 6; ++i) {
+            EXPECT_EQ(ad.HessianProducts()(0, i), scalarWide.HessianProducts()(0, i));
+            EXPECT_NEAR(ad.HessianProducts()(0, i) / scale, Reference::PRODUCTS[0][i], 2e-6);
+        }
+    }
+    direction(0, 3) = 0x1p1023;
+    EXPECT_THROW((void)evaluate(direction), SecondOrderError_);
+    direction(0, 3) = 1.0;
+    EXPECT_EQ(evaluate(direction).Risk().Value(), kernel(nullptr, point));
+}
+
+TEST(DupireQuoteSecondOrderTest, ThomasChecksFiniteSeedScaleAndFixedPlanCancellation) {
+    using namespace DupireSecondOrderDetail;
+    const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(), Call(), {0.8, 81, 64});
+    const double cancellation = -Reference::VEGA[3] / Reference::VEGA[2];
+    const auto check = [&](double scale, double earlySeed, size_t sweeps, size_t protections) {
+        SCOPED_TRACE(scale);
+        SCOPED_TRACE(earlySeed);
+        Matrix_<> direction(1, 6, 0.0);
+        direction(0, 2) = earlySeed * scale;
+        direction(0, 3) = scale;
+        const auto result = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction);
+        const auto& ad = *result.Risk().Pointwise();
+        EXPECT_EQ(ad.Value(), PlanAccess_::Margins(plan).price_);
+        EXPECT_NEAR(ad.DirectionalDerivatives()[0] / scale, Reference::VEGA[3] + earlySeed * Reference::VEGA[2], 2e-6);
+        for (int i = 0; i < 6; ++i) {
+            EXPECT_NEAR(ad.Gradient()[i], Reference::VEGA[i], 2e-6);
+            EXPECT_NEAR(ad.HessianProducts()(0, i) / scale, Reference::PRODUCTS[0][i] + earlySeed * Reference::PRODUCTS[1][i], 2e-6);
+        }
+        const auto& work = ad.Execution();
+        EXPECT_EQ(work.recordings_, 1 + protections);
+        EXPECT_EQ(work.reverseSweeps_, sweeps);
+        EXPECT_EQ(work.safePathActivations_, protections);
+        const char* reason = SecondOrderDetail::LastSecondOrderProtection();
+        std::cout << "thomas_seed_admission," << std::hexfloat << scale << ',' << earlySeed << std::defaultfloat << ',' << work.recordings_ << ','
+                  << work.reverseSweeps_ << ',' << work.safePathActivations_ << ',' << reason << '\n';
+    };
+    check(1.0, cancellation, 1, 1);
+    EXPECT_STREQ(SecondOrderDetail::LastSecondOrderProtection(), "Dupire Thomas tangent back substitution cancellation");
+    check(0x1p-20, 0.0, 1, 0);
+    check(-0x1p20, 0.0, 2, 1);
+    EXPECT_STREQ(SecondOrderDetail::LastSecondOrderProtection(), "narrow addition lost term");
+    check(std::nextafter(0x1p-20, 0.0), 0.0, 1, 1);
+    EXPECT_STREQ(SecondOrderDetail::LastSecondOrderProtection(), "Dupire Thomas direction range");
+    check(1.0, std::nextafter(0x1p-20, 0.0), 1, 1);
+    EXPECT_STREQ(SecondOrderDetail::LastSecondOrderProtection(), "Dupire Thomas direction range");
+}
+
 TEST(DupireQuoteSecondOrderTest, RejectsNonregisteredInputsAndMisidentifiedAxesBeforeRecording) {
     const auto calibration = Snapshot();
     const auto call = Call();
@@ -325,6 +684,8 @@ TEST(DupireQuoteSecondOrderTest, IncludesBothCalibrationAndPricingCurvature) {
     const auto full = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction);
     EXPECT_GT(std::abs(fromPricing.HessianProducts()(0, 3)), 1.0);
     EXPECT_GT(std::abs(fromCalibration.HessianProducts()(0, 3)), 1.0);
+    std::cout << "thomas_curvature,quote:3," << fromPricing.HessianProducts()(0, 3) << ',' << fromCalibration.HessianProducts()(0, 3) << ','
+              << full.Risk().HessianProducts()(0, 3) << '\n';
     for (int col = 0; col < direction.Cols(); ++col)
         EXPECT_NEAR(full.Risk().HessianProducts()(0, col), fromPricing.HessianProducts()(0, col) + fromCalibration.HessianProducts()(0, col), 1e-5);
 }

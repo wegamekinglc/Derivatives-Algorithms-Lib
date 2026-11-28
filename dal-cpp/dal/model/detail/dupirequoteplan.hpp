@@ -153,6 +153,15 @@ namespace Dal::DupireSecondOrderDetail {
         double strikeMargin_ = std::numeric_limits<double>::infinity();
         double timeMargin_ = std::numeric_limits<double>::infinity();
 
+        template <class T_> std::array<T_, 3> MatrixRow(const T_& vol) const {
+            const T_ diffusion = 0.5 * vol * vol;
+            const T_ drift = RATE - DIVIDEND - diffusion;
+            const T_ lower = drift_ * drift - diffusion_ * diffusion;
+            const T_ upper = -drift_ * drift - diffusion_ * diffusion;
+            const T_ diagonal = 1.0 + RATE * DT + (2.0 * diffusion_) * diffusion;
+            return {lower, diagonal, upper};
+        }
+
     public:
         explicit Kernel_(double strike = STRIKE, double halfWidth = HALF_WIDTH);
         [[nodiscard]] Margins_ Certify(const Vector_<>& quotes) const;
@@ -173,7 +182,9 @@ namespace Dal::DupireSecondOrderDetail {
             return vols;
         }
 
-        template <class T_> T_ Rollback(const Surface_<T_>& vols, Margins_* margins = nullptr) const {
+        using PrimalTrace_ = std::array<std::array<double, INTERIOR>, TIME_STEPS>;
+
+        template <class T_> T_ Rollback(const Surface_<T_>& vols, Margins_* margins = nullptr, PrimalTrace_* trace = nullptr) const {
             std::array<std::array<T_, INTERIOR>, LOCAL_TIMES.size()> slices;
             for (size_t t = 0; t < LOCAL_TIMES.size(); ++t)
                 for (int i = 0; i < INTERIOR; ++i)
@@ -226,11 +237,19 @@ namespace Dal::DupireSecondOrderDetail {
                 }
                 for (int i = INTERIOR - 2; i >= 0; --i)
                     values[i] -= scaledUpper[i] * values[i + 1];
+                if constexpr (std::is_same_v<T_, double>)
+                    if (trace)
+                        std::copy(values.begin(), values.end(), (*trace)[step].begin());
+                if constexpr (std::is_same_v<T_, AAD::SecondOrderNumber_>)
+                    if (trace)
+                        std::transform(values.begin(), values.end(), (*trace)[step].begin(), AAD::SecondOrderDetail::Access_::Value);
             }
             return values[INTERIOR / 2];
         }
 
         template <class T_> T_ operator()(Dal::AAD::RecordingScope_*, const Dal::Vector_<T_>& quotes) const { return Rollback(Calibrate(quotes)); }
+
+        AAD::SecondOrderNumber_ RollbackSingleDirection(const Vector_<AAD::SecondOrderNumber_>& quotes, PrimalTrace_* trace = nullptr) const;
     };
 
     struct SnapshotAccess_ {

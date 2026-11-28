@@ -127,6 +127,7 @@ namespace Dal::AAD {
             wide_ = wide;
             edgeCapacity_ = std::min(rhs_.capacity_, wide ? wideWeight_.capacity_ : weight_.capacity_);
             retry_ = false;
+            adjointsSeeded_ = false;
             liveDirection_ = true;
             stage_ = Stage::RECORDING;
             recordingFailure_ = nullptr;
@@ -253,10 +254,12 @@ namespace Dal::AAD {
                 arena.Ensure(buffer, 0, arena.slots_);
                 arena.AccountLogical<T_>(true);
                 auto* const adjoints = buffer.Data();
-                std::fill_n(adjoints, arena.slots_, Weight_<T_>{T_(0), T_(0)});
-                if (root == PASSIVE)
-                    return;
-                adjoints[root].value_ = T_(1);
+                if (!arena.adjointsSeeded_) {
+                    std::fill_n(adjoints, arena.slots_, Weight_<T_>{T_(0), T_(0)});
+                    if (root == PASSIVE)
+                        return;
+                    adjoints[root].value_ = T_(1);
+                }
                 const auto* const statements = arena.statement_.Data();
                 const auto* const weights = arena.Weights<T_>().Data();
                 const auto* const targets = arena.rhs_.Data();

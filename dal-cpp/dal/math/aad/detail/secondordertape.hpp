@@ -106,6 +106,7 @@ namespace Dal::AAD::SecondOrderDetail {
         size_t cap_ = std::numeric_limits<size_t>::max(), live_ = 0, peak_ = 0, logicalPeak_ = 0, scratch_ = 0;
         size_t admittedTemporary_ = 0;
         bool wide_ = false, retry_ = false, liveDirection_ = false;
+        bool adjointsSeeded_ = false;
         bool poisoned_ = false;
         const char* protection_ = "";
         Stage stage_ = Stage::VALIDATION;

@@ -3,9 +3,11 @@
 #include <cstring>
 #include <iomanip>
 #include <limits>
+#include <memory>
 #include <sstream>
 
 #include <dal/model/detail/dupirequoteplan.hpp>
+#include <dal/model/detail/dupirethomas.hpp>
 
 namespace Dal::DupireSecondOrderDetail {
     void ValidationError(Reason reason, const std::string& message) {
@@ -217,6 +219,48 @@ namespace Dal::DupireSecondOrderDetail {
         margins.price_ = price;
         return margins;
     }
+
+    AAD::SecondOrderNumber_ Kernel_::RollbackSingleDirection(const Vector_<AAD::SecondOrderNumber_>& quotes, PrimalTrace_* trace) const {
+        using namespace Thomas;
+        auto& arena = *Tape::activeArena;
+        if (arena.wide_)
+            return (*this)(nullptr, quotes);
+
+        // The plan already certifies diagonal dominance and pivot margins.
+        // Restrict seed scale and spread before checking derivative arithmetic
+        // during the solve. The scalar wide replay uses the submitted seed.
+        double maxSeed = 0.0, minSeed = std::numeric_limits<double>::infinity();
+        for (const auto& quote : quotes) {
+            const auto slot = Tape::Access_::Slot(quote, arena);
+            const auto seed = std::abs(Tape::Access_::Tangent<double>(quote, arena, slot));
+            if (seed != 0.0) {
+                maxSeed = std::max(maxSeed, seed);
+                minSeed = std::min(minSeed, seed);
+            }
+        }
+        if (maxSeed > 0x1p20 || (maxSeed != 0.0 && (maxSeed < 0x1p-20 || minSeed < 0x1p-20 * maxSeed)))
+            Tape::Promote("Dupire Thomas direction range");
+
+        using Number = AAD::SecondOrderNumber_;
+        using Work = Rollback_<INTERIOR, TIME_STEPS, 33>;
+        const auto vols = Calibrate(quotes);
+        std::array<std::array<Number, INTERIOR>, LOCAL_TIMES.size()> slices;
+        for (size_t t = 0; t < LOCAL_TIMES.size(); ++t)
+            for (int i = 0; i < INTERIOR; ++i)
+                slices[t][i] = Interpolate<Number>(vols[t], space_[i]);
+        const Tape::Scratch_ storage(arena, sizeof(Work));
+        const auto work = std::unique_ptr<Work>(new Work);
+        const auto coefficients = [&](size_t step, const auto& makeFactor) {
+            const auto& t = time_[step];
+            if (step == 0 || !t.SameCell(time_[step - 1]) || t.weight_ != time_[step - 1].weight_)
+                makeFactor([&](size_t i) {
+                    const Number vol = t.left_ == t.right_ ? slices[t.left_][i]
+                                                           : Number(slices[t.left_][i] + (slices[t.right_][i] - slices[t.left_][i]) * t.weight_);
+                    return MatrixRow(vol);
+                });
+        };
+        return work->Evaluate(arena, payoff_, rightBoundary_, INTERIOR / 2, coefficients, trace);
+    }
 } // namespace Dal::DupireSecondOrderDetail
 
 namespace Dal {
@@ -292,6 +336,10 @@ namespace Dal {
         RequireNearestRounding("EvaluateDupireQuoteSecondOrder");
         ValidateRequestAxis(axis, plan.InputAxis(), directions.Cols());
         const auto scalar = [kernel = &Kernel(plan)](const auto& x) { return (*kernel)(nullptr, x); };
+        if (directions.Rows() == 1) {
+            const auto rollback = [kernel = &Kernel(plan)](const Vector_<AAD::SecondOrderNumber_>& x) { return kernel->RollbackSingleDirection(x); };
+            return DupireQuoteSecondOrderResult_(plan, DupireQuoteSecondOrderRisk_(AAD::EvaluateSecondOrder(rollback, Point(plan), directions, options)));
+        }
         return DupireQuoteSecondOrderResult_(
             plan, directions.Rows() <= 1 ? DupireQuoteSecondOrderRisk_(AAD::EvaluateSecondOrder(scalar, Point(plan), directions, options))
                                          : DupireQuoteSecondOrderRisk_(AAD::EvaluateSharedSecondOrder(scalar, Point(plan), directions, options)));
