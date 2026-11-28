@@ -13,6 +13,7 @@
 #include <dal/benchmarks/bench.hpp>
 #include <dal/math/aad/bumpoveraad.hpp>
 #include <dal/math/aad/forwardoverreverse.hpp>
+#include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/platform/platform.hpp>
@@ -39,6 +40,10 @@ namespace {
     constexpr int WARMUP_PAIRS = 3;
     constexpr int ROUNDS = 2;
     constexpr int PAIRS_PER_ROUND = 10;
+
+    struct Options_ {
+        bool verifyOnly_ = false, centeredFirst_ = false, withXad_ = false, diagnostics_ = false, firstOrder_ = false, dupire_ = false;
+    };
 
     struct Case_ {
         const char* name_;
@@ -412,8 +417,118 @@ namespace {
     }
 
 #if defined(DAL_TAPE_PERF_WITH_XAD)
+    using TapePerfComparison::Counts_;
+    using TapePerfComparison::FirstOrderResult_;
+    using TapePerfComparison::Phase;
+    using TapePerfComparison::Span_;
+
+    void PrintCounts(const Case_& shape, int directions, const char* route, const Counts_& counts, const char* byteKind) {
+        std::cout << "tape_counts," << shape.name_ << ',' << directions << ',' << route << ',' << counts.recordings_ << ',' << counts.sweeps_ << ','
+                  << counts.statements_ << ',' << counts.edges_ << ',' << counts.statementVisits_ << ',' << counts.edgeSlots_ << ','
+                  << counts.maxBytes_ << ',' << byteKind << '\n';
+    }
+
+    template <class F_> void ProfileBatch(const Case_& shape, int directions, const char* route, size_t sample, const F_& evaluate) {
+        ProfilingData_ data;
+        double total;
+        {
+            ProfilingScope_ profile(&data);
+            total = TimeBatch(evaluate, shape.callsPerBatch_);
+        }
+        REQUIRE(data.complete_ && !data.invalidMeasurement_, "AAD comparison phase profiling did not complete");
+        const auto phase = [&](Phase kind) { return double(data.Phase(kind).selfWallNanoseconds_) / shape.callsPerBatch_; };
+        const double record = phase(Phase::PATH_FORWARD), reverse = phase(Phase::REVERSE), manage = phase(Phase::PREPARE),
+                     pack = phase(Phase::REDUCE);
+        REQUIRE(record > 0.0 && reverse > 0.0 && manage > 0.0 && pack > 0.0, "AAD comparison phase was not measured");
+        std::cout << "phase_sample," << shape.name_ << ',' << directions << ',' << route << ',' << sample + 1 << ',' << shape.callsPerBatch_ << ','
+                  << record << ',' << reverse << ',' << manage << ',' << pack << ',' << total << ',' << total - record - reverse - manage - pack
+                  << '\n';
+    }
+
+    void VerifyFirst(const Case_& shape, const Reference_& ref, const FirstOrderResult_& result, const char* route) {
+        REQUIRE(std::abs(result.price_ - ref.price_) <= shape.priceTolerance_ && result.gradient_.size() == ref.gradient_.size(),
+                "first-order benchmark price or gradient size differs from reference");
+        double error = 0.0;
+        std::cout << "first_output," << shape.name_ << ',' << route << ",price,-1," << ref.price_ << ',' << result.price_ << '\n';
+        for (size_t i = 0; i < ref.gradient_.size(); ++i) {
+            const double actual = result.gradient_[i], expected = ref.gradient_[i];
+            const double absError = std::abs(actual - expected);
+            REQUIRE(absError <= Tolerance(shape, shape.firstOrderTolerance_, expected), "first-order benchmark gradient differs from reference");
+            error = std::max(error, absError);
+            std::cout << "first_output," << shape.name_ << ',' << route << ",gradient," << i << ',' << expected << ',' << actual << '\n';
+        }
+        std::cout << "first_metric," << shape.name_ << ',' << route << ',' << std::abs(ref.price_ - result.price_) << ',' << error << '\n';
+    }
+
+    template <class K_>
+    void RunFirst(const Case_& shape, const K_& kernel, const Reference_& ref, bool verifyOnly, bool reverseOrder, bool diagnostics) {
+        TapePerfXad::FirstOrderWorkspace_ workspace;
+        Counts_ dalCounts, xadCounts;
+        Clear(*Tape());
+        const auto dalCheck = TapePerfComparison::DalFirst(kernel, shape.point_, &dalCounts);
+        const auto xadCheck = workspace.Evaluate(kernel, shape.point_, &xadCounts);
+        VerifyFirst(shape, ref, dalCheck, "dal_first");
+        VerifyFirst(shape, ref, xadCheck, "xad_first");
+        PrintCounts(shape, 0, "dal_first", dalCounts, "dal_allocated_peak");
+        PrintCounts(shape, 0, "xad_first", xadCounts, "xad_logical_after_sweep");
+        if (verifyOnly)
+            return;
+        const auto dal = [&]() { return TapePerfComparison::DalFirst(kernel, shape.point_); };
+        const auto xad = [&]() { return workspace.Evaluate(kernel, shape.point_); };
+        for (int i = 0; i < WARMUP_PAIRS; ++i) {
+            (void)TimeBatch(dal, shape.callsPerBatch_);
+            (void)TimeBatch(xad, shape.callsPerBatch_);
+        }
+        if (diagnostics) {
+            Counts_ dalTwiceCounts, xadTwiceCounts;
+            const auto dalTwice = [&]() { return TapePerfComparison::DalFirst(kernel, shape.point_, nullptr, 2); };
+            const auto xadTwice = [&]() { return workspace.Evaluate(kernel, shape.point_, nullptr, 2); };
+            const auto dalRepeated = TapePerfComparison::DalFirst(kernel, shape.point_, &dalTwiceCounts, 2);
+            const auto xadRepeated = workspace.Evaluate(kernel, shape.point_, &xadTwiceCounts, 2);
+            REQUIRE(dalRepeated.price_ == dalCheck.price_ && dalRepeated.gradient_ == dalCheck.gradient_ && xadRepeated.price_ == xadCheck.price_ &&
+                        xadRepeated.gradient_ == xadCheck.gradient_,
+                    "AAD comparison repeat sweep changed its result");
+            REQUIRE(dalCounts.statements_ == dalTwiceCounts.statements_ && dalCounts.edges_ == dalTwiceCounts.edges_ &&
+                        xadCounts.statements_ == xadTwiceCounts.statements_ && xadCounts.edges_ == xadTwiceCounts.edges_,
+                    "AAD comparison repeat sweep changed recording size");
+            PrintCounts(shape, 0, "dal_repeat", dalTwiceCounts, "dal_allocated_peak");
+            PrintCounts(shape, 0, "xad_repeat", xadTwiceCounts, "xad_logical_after_sweep");
+            for (size_t i = 0; i < Samples_{}.size(); ++i) {
+                for (size_t j = 0; j < 4; ++j) {
+                    const size_t route = (i / 2 + ((reverseOrder != (i % 2 != 0)) ? 3 - j : j)) % 4;
+                    if (route == 0)
+                        ProfileBatch(shape, 0, "dal_first", i, dal);
+                    else if (route == 1)
+                        ProfileBatch(shape, 0, "xad_first", i, xad);
+                    else if (route == 2)
+                        ProfileBatch(shape, 0, "dal_repeat", i, dalTwice);
+                    else
+                        ProfileBatch(shape, 0, "xad_repeat", i, xadTwice);
+                }
+            }
+            return;
+        }
+        const size_t initialCapacity = TapeCapacity();
+        Samples_ dalSamples{}, xadSamples{};
+        for (size_t i = 0; i < dalSamples.size(); ++i) {
+            if (reverseOrder != (i % 2 != 0)) {
+                xadSamples[i] = TimeBatch(xad, shape.callsPerBatch_);
+                dalSamples[i] = TimeBatch(dal, shape.callsPerBatch_);
+            } else {
+                dalSamples[i] = TimeBatch(dal, shape.callsPerBatch_);
+                xadSamples[i] = TimeBatch(xad, shape.callsPerBatch_);
+            }
+        }
+        REQUIRE(TapeCapacity() == initialCapacity, "first-order benchmark tape grew after warmup");
+        for (size_t i = 0; i < dalSamples.size(); ++i)
+            std::cout << "first_sample," << shape.name_ << ',' << 1 + i / PAIRS_PER_ROUND << ',' << 1 + i % PAIRS_PER_ROUND << ','
+                      << ((reverseOrder != (i % 2 != 0)) ? "xad_first" : "dal_first") << ',' << shape.callsPerBatch_ << ',' << dalSamples[i] << ','
+                      << xadSamples[i] << '\n';
+    }
+
     template <class P_, class B_, class X_>
-    void MeasureTriplets(const Case_& shape, int directions, const P_& pointwise, const B_& centered, const X_& xad, bool reverseOrder) {
+    void
+    MeasureTriplets(const Case_& shape, int directions, const P_& pointwise, const B_& centered, const X_& xad, bool reverseOrder, bool diagnostics) {
         Clear(*Tape());
         for (int i = 0; i < WARMUP_PAIRS; ++i) {
             (void)TimeBatch(pointwise, shape.callsPerBatch_);
@@ -427,17 +542,25 @@ namespace {
             const size_t first = index / 2 % 3, second = (first + 1) % 3, third = (first + 2) % 3;
             return (reverseOrder != (index % 2 != 0)) ? std::array{third, second, first} : std::array{first, second, third};
         };
-        const auto measure = [&](size_t route) {
+        const auto measure = [&](size_t route, size_t sample) {
+            const auto batch = [&](const auto& f) {
+                if (!diagnostics)
+                    return TimeBatch(f, shape.callsPerBatch_);
+                ProfileBatch(shape, directions, NAMES[route], sample, f);
+                return 0.0;
+            };
             if (route == 0)
-                return TimeBatch(pointwise, shape.callsPerBatch_);
+                return batch(pointwise);
             if (route == 1)
-                return TimeBatch(centered, shape.callsPerBatch_);
-            return TimeBatch(xad, shape.callsPerBatch_);
+                return batch(centered);
+            return batch(xad);
         };
         for (size_t i = 0; i < samples[0].size(); ++i)
             for (size_t route : order(i))
-                samples[route][i] = measure(route);
+                samples[route][i] = measure(route, i);
         REQUIRE(TapeCapacity() == initialCapacity, "second-order benchmark tape grew after warmup");
+        if (diagnostics)
+            return;
         if (shape.rollSteps_ != 0)
             std::cout << "dupire_warm_dal_tape_bytes," << directions << ',' << initialCapacity << '\n';
         for (size_t i = 0; i < samples[0].size(); ++i) {
@@ -461,7 +584,8 @@ namespace {
                     const P_& pointwise,
                     const B_& centered,
                     bool verifyOnly,
-                    bool reverseOrder) {
+                    bool reverseOrder,
+                    bool diagnostics) {
         TapePerfXad::Workspace_ workspace;
         const auto xad = [&]() { return workspace.Evaluate(kernel, shape.point_, directions); };
         Clear(*Tape());
@@ -473,13 +597,47 @@ namespace {
         VerifyNativeRoutes(shape, ref, directions, pointwiseValue, centeredValue);
         VerifyRoute(shape, ref, directions, "xad", xadValue.price_, xadValue.gradient_, xadValue.directional_, xadValue.products_,
                     shape.pointwiseTolerance_, {n, n, xadValue.maxLogicalBytes_, "xad_max_logical_after_sweep"});
+        if (diagnostics) {
+            Counts_ dalCounts, centeredCounts, xadCounts;
+            const auto countDal = [&](RecordingScope_* scope, const Vector_<ForwardOverReverseNumber_>& inputs) {
+                const auto value = kernel(scope, inputs);
+                TapePerfComparison::CountDal(dalCounts, dalCounts.recordings_ == 0 ? 2 : 1);
+                return value;
+            };
+            const auto countCentered = [&](RecordingScope_* scope, const Vector_<Number_>& inputs) {
+                const auto value = kernel(scope, inputs);
+                TapePerfComparison::CountDal(centeredCounts, 1);
+                return value;
+            };
+            Clear(*Tape());
+            ForwardOverReverseRequest_ adRequest;
+            adRequest.directions_ = directions;
+            (void)EvaluateForwardOverReverse(countDal, shape.point_, adRequest);
+            Clear(*Tape());
+            BumpOverAADRequest_ bumpRequest;
+            bumpRequest.directions_ = directions;
+            bumpRequest.steps_ = Vector_<>(shape.steps_.begin(), shape.steps_.begin() + n);
+            (void)EvaluateBumpOverAAD(countCentered, shape.point_, bumpRequest);
+            (void)workspace.Evaluate(kernel, shape.point_, directions, false, &xadCounts);
+            REQUIRE(dalCounts.recordings_ == n && dalCounts.sweeps_ == n + 1 && centeredCounts.recordings_ == 2 * n + 1 &&
+                        centeredCounts.sweeps_ == 2 * n + 1 && xadCounts.recordings_ == n && xadCounts.sweeps_ == n,
+                    "AAD comparison unexpected diagnostic tape work");
+            PrintCounts(shape, directions.Rows(), "pointwise", dalCounts, "dal_allocated_at_callback");
+            PrintCounts(shape, directions.Rows(), "centered", centeredCounts, "dal_allocated_at_callback");
+            PrintCounts(shape, directions.Rows(), "xad", xadCounts, "xad_logical_after_sweep");
+        }
         if (!verifyOnly)
-            MeasureTriplets(shape, directions.Rows(), pointwise, centered, xad, reverseOrder);
+            MeasureTriplets(shape, directions.Rows(), pointwise, centered, xad, reverseOrder, diagnostics);
     }
 #endif
 
-    template <class K_>
-    void Run(const Case_& shape, const K_& kernel, const Reference_& ref, bool verifyOnly, bool centeredFirst, [[maybe_unused]] bool withXad) {
+    template <class K_> void Run(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+        if (options.firstOrder_) {
+            RunFirst(shape, kernel, ref, options.verifyOnly_, options.centeredFirst_, options.diagnostics_);
+            return;
+        }
+#endif
         const NativeDirectionalFunction_ pointwiseKernel = std::cref(kernel);
         const NativeScalarFunction_ centeredKernel = std::cref(kernel);
         for (int count : {1, shape.directions_.Rows()}) {
@@ -496,8 +654,9 @@ namespace {
                 return CenteredOutput_{std::move(native), std::move(directional)};
             };
 #if defined(DAL_TAPE_PERF_WITH_XAD)
-            if (withXad) {
-                RunWithXad(shape, ref, kernel, adRequest.directions_, pointwise, centeredWithDirectional, verifyOnly, centeredFirst);
+            if (options.withXad_) {
+                RunWithXad(shape, ref, kernel, adRequest.directions_, pointwise, centeredWithDirectional, options.verifyOnly_, options.centeredFirst_,
+                           options.diagnostics_);
                 continue;
             }
 #endif
@@ -506,18 +665,18 @@ namespace {
             Clear(*Tape());
             if (shape.rollSteps_ != 0) {
                 VerifyNativeRoutes(shape, ref, adRequest.directions_, ad, centeredWithDirectional());
-                if (!verifyOnly)
-                    Measure(shape, count, pointwise, centeredWithDirectional, centeredFirst);
+                if (!options.verifyOnly_)
+                    Measure(shape, count, pointwise, centeredWithDirectional, options.centeredFirst_);
                 continue;
             }
             const auto bump = centered();
             Verify(shape, ref, count, ad, bump);
-            if (!verifyOnly)
-                Measure(shape, count, pointwise, centered, centeredFirst);
+            if (!options.verifyOnly_)
+                Measure(shape, count, pointwise, centered, options.centeredFirst_);
         }
     }
 
-    void RunDupire(bool verifyOnly, bool centeredFirst, bool withXad) {
+    void RunDupire(const Options_& options) {
         namespace D = TapePerfDupire;
         const Case_ shape{"dupire_quote", D::QuoteSpreads(), D::Directions(), Vector_<>(3, D::QUOTE_STEP), 1, 2e-2, 1e-1, 2e-6, 2e-4,
                           true,           D::TIME_STEPS};
@@ -528,6 +687,10 @@ namespace {
                 ref.products_(row, column) = D::Reference::PRODUCTS[row][column];
         const D::Kernel_ kernel;
         D::Qualify(kernel, shape.point_, shape.directions_);
+        if (options.firstOrder_) {
+            Run(shape, kernel, ref, options);
+            return;
+        }
         const NativeScalarFunction_ scalarKernel = std::cref(kernel);
         std::cout << "# dupire_gradient_step,step,max_abs_hvp_error,volga,volga_abs_error\n"
                   << "# dupire_work,directions,route,calibrations,rollbacks,rollback_steps\n";
@@ -546,64 +709,89 @@ namespace {
             const double volga = result.HessianProducts()(0, 3);
             std::cout << "dupire_gradient_step," << step << ',' << maxError << ',' << volga << ',' << std::abs(volga - ref.products_(0, 3)) << '\n';
         }
-        Run(shape, kernel, ref, verifyOnly, centeredFirst, withXad);
+        Run(shape, kernel, ref, options);
+    }
+
+    int RunComparison(int argc, char** argv, bool firstOrder) {
+        try {
+            Options_ options;
+            options.firstOrder_ = firstOrder;
+            for (int arg = 1; arg < argc; ++arg) {
+                const std::string option = argv[arg];
+                if (option == "--verify-only" && !options.verifyOnly_)
+                    options.verifyOnly_ = true;
+                else if (option == "--centered-first" && !options.centeredFirst_)
+                    options.centeredFirst_ = true;
+                else if (option == "--with-xad" && !options.withXad_)
+                    options.withXad_ = true;
+                else if (option == "--dupire" && !options.dupire_)
+                    options.dupire_ = true;
+                else if (option == "--diagnostics" && !options.diagnostics_)
+                    options.diagnostics_ = true;
+                else
+                    THROW("expected --first-order or --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad] [--diagnostics]");
+            }
+#if !defined(DAL_TAPE_PERF_WITH_XAD)
+            REQUIRE(!options.withXad_ && !firstOrder, "XAD comparison requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
+#endif
+            options.withXad_ = options.withXad_ || firstOrder;
+            REQUIRE(!options.diagnostics_ || (ProfilingAvailable() && options.withXad_ && !options.verifyOnly_),
+                    "--diagnostics requires DAL_ENABLE_AAD_PROFILING=ON, XAD and an enabled timing run");
+            RegisterAll_::Init();
+            std::cout << std::setprecision(17);
+            if (options.diagnostics_ || firstOrder)
+                std::cout << "# "
+                             "tape_counts,case,directions,route,recordings,sweeps,stored_statements,stored_edges,statement_visits,edge_slots,bytes,"
+                             "byte_kind\n";
+            if (options.diagnostics_)
+                std::cout
+                    << "# phase_sample,case,directions,route,batch,calls_per_batch,price_record_ns,reverse_ns,setup_cleanup_ns,pack_ns,total_ns,"
+                       "unattributed_ns\n";
+            if (firstOrder)
+                std::cout << "# first_output,case,route,kind,coordinate,reference,value\n"
+                          << "# first_metric,case,route,price_error,gradient_max_abs_error\n"
+                          << "# first_sample,case,round,pair,first,calls_per_batch,dal_ns,xad_ns\n";
+            else
+                std::cout
+                    << "# hvp,case,directions,direction_index,coordinate_index,bump_step,reference,pointwise,centered\n"
+                    << "# "
+                       "accuracy,case,directions,reference_price,reference_stencil_max_disagreement,pointwise_max_abs_error,centered_max_abs_error\n"
+                    << "# "
+                       "work,case,directions,pointwise_recordings,pointwise_sweeps,pointwise_peak_bytes,centered_recordings,centered_sweeps,centered_"
+                       "peak_bytes\n"
+                    << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
+                    << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
+                       "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
+            if (!firstOrder && (options.withXad_ || options.dupire_))
+                std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
+                             "recordings,sweeps,tape_bytes,tape_byte_kind\n"
+                          << "# output,case,directions,route,kind,row,column,reference,value\n"
+                          << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
+                          << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
+            if (options.dupire_) {
+                RunDupire(options);
+                return 0;
+            }
+            const Case_ small{"black_scholes", {103.0, 0.24}, Directions({-2.0, 0.5}), {0.1, 0.0005, 0.0005}, 256, 1e-10, 2.5e-5};
+            const Case_ basket{"conditional_basket",
+                               {100.0, 120.0, 0.20, 0.30, 0.40},
+                               Directions({-2.0, 0.75, 0.20, -0.15, 0.35}),
+                               {0.05, 0.05, 0.0002, 0.0002, 0.0002, 0.0005},
+                               16,
+                               2e-6,
+                               5e-5};
+            const Vector_<> coordinateSteps{0.2, 0.2, 0.002, 0.002, 0.002};
+            const auto conditional = MakeBasket(basket, coordinateSteps);
+            const auto basketRef = BasketReference(conditional, basket, coordinateSteps);
+            Run(small, BlackScholes_{}, BlackScholesReference(small), options);
+            Run(basket, conditional, basketRef, options);
+            return 0;
+        } catch (const std::exception& error) {
+            std::cerr << error.what() << '\n';
+            return 2;
+        }
     }
 } // namespace
 
-int RunSecondOrderBenchmarks(int argc, char** argv) {
-    try {
-        bool verifyOnly = false, centeredFirst = false, withXad = false, dupire = false;
-        for (int arg = 1; arg < argc; ++arg) {
-            const std::string option = argv[arg];
-            if (option == "--verify-only" && !verifyOnly)
-                verifyOnly = true;
-            else if (option == "--centered-first" && !centeredFirst)
-                centeredFirst = true;
-            else if (option == "--with-xad" && !withXad)
-                withXad = true;
-            else if (option == "--dupire" && !dupire)
-                dupire = true;
-            else
-                THROW("expected --second-order [--dupire] [--verify-only] [--centered-first] [--with-xad]");
-        }
-#if !defined(DAL_TAPE_PERF_WITH_XAD)
-        REQUIRE(!withXad, "--with-xad requires DAL_CPP_XAD_BENCHMARK_SOURCE at configure time");
-#endif
-        RegisterAll_::Init();
-        std::cout << std::setprecision(17) << "# hvp,case,directions,direction_index,coordinate_index,bump_step,reference,pointwise,centered\n"
-                  << "# accuracy,case,directions,reference_price,reference_stencil_max_disagreement,pointwise_max_abs_error,centered_max_abs_error\n"
-                  << "# "
-                     "work,case,directions,pointwise_recordings,pointwise_sweeps,pointwise_peak_bytes,centered_recordings,centered_sweeps,centered_"
-                     "peak_bytes\n"
-                  << "# sample,case,directions,round,pair,first,calls_per_batch,pointwise_ns_per_call,centered_ns_per_call\n"
-                  << "# summary,case,directions,pairs,warm_tape_bytes,pointwise_median_ns,pointwise_p95_ns,pointwise_min_ns,"
-                     "centered_median_ns,centered_p95_ns,centered_min_ns,pointwise_over_centered_median\n";
-        if (withXad || dupire)
-            std::cout << "# metric,case,directions,route,price_error,gradient_max_abs_error,directional_max_abs_error,hvp_max_abs_error,"
-                         "recordings,sweeps,tape_bytes,tape_byte_kind\n"
-                      << "# output,case,directions,route,kind,row,column,reference,value\n"
-                      << "# tri_sample,case,directions,round,pair,first,second,third,calls_per_batch,pointwise_ns,centered_ns,xad_ns\n"
-                      << "# tri_summary,case,directions,route,median_ns,p95_ns,min_ns\n";
-        if (dupire) {
-            RunDupire(verifyOnly, centeredFirst, withXad);
-            return 0;
-        }
-        const Case_ small{"black_scholes", {103.0, 0.24}, Directions({-2.0, 0.5}), {0.1, 0.0005, 0.0005}, 256, 1e-10, 2.5e-5};
-        const Case_ basket{"conditional_basket",
-                           {100.0, 120.0, 0.20, 0.30, 0.40},
-                           Directions({-2.0, 0.75, 0.20, -0.15, 0.35}),
-                           {0.05, 0.05, 0.0002, 0.0002, 0.0002, 0.0005},
-                           16,
-                           2e-6,
-                           5e-5};
-        const Vector_<> coordinateSteps{0.2, 0.2, 0.002, 0.002, 0.002};
-        const auto conditional = MakeBasket(basket, coordinateSteps);
-        const auto basketRef = BasketReference(conditional, basket, coordinateSteps);
-        Run(small, BlackScholes_{}, BlackScholesReference(small), verifyOnly, centeredFirst, withXad);
-        Run(basket, conditional, basketRef, verifyOnly, centeredFirst, withXad);
-        return 0;
-    } catch (const std::exception& error) {
-        std::cerr << error.what() << '\n';
-        return 2;
-    }
-}
+int RunSecondOrderBenchmarks(int argc, char** argv) { return RunComparison(argc, argv, false); }
+int RunFirstOrderBenchmarks(int argc, char** argv) { return RunComparison(argc, argv, true); }

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <dal/math/aad/bumpoveraad.hpp>
+#include <dal/math/aad/profiling.hpp>
 #include <dal/platform/platform.hpp>
 
 namespace Dal::AAD::GradientBumpsDetail {
@@ -80,15 +81,20 @@ namespace Dal::AAD::GradientBumpsDetail {
     };
 
     template <class F_> auto Evaluate(F_&& gradient, const Vector_<>& point, const BumpOverAADRequest_& request) {
+        using Phase = AADProfilingPhase_::Value_;
         auto base = gradient(point, "base");
+        ProfilingSpan_ allocateOutput(Phase::REDUCE);
         Matrix_<> products(request.directions_.Rows(), request.directions_.Cols(), 0.0);
+        allocateOutput.Finish();
         for (int row = 0; row < request.directions_.Rows(); ++row) {
             const String_ context = DirectionContext(row);
             const auto plus = gradient(BumpedPoint(point, request, row, 1.0), context + "; plus");
             const auto minus = gradient(BumpedPoint(point, request, row, -1.0), context + "; minus");
+            const ProfilingSpan_ pack(Phase::REDUCE);
             for (int column = 0; column < products.Cols(); ++column)
                 products(row, column) = CentralQuotient(plus.Gradient()[column], minus.Gradient()[column], request.steps_[row]);
         }
+        const ProfilingSpan_ pack(Phase::REDUCE);
         return Result_<decltype(base)>{std::move(base), std::move(products)};
     }
 } // namespace Dal::AAD::GradientBumpsDetail

@@ -25,11 +25,12 @@ namespace {
     BenchmarkRunner_ SelectedBenchmark(int argc, char** argv) {
         if (argc < 2)
             return nullptr;
-        constexpr std::array<std::pair<const char*, BenchmarkRunner_>, 6> COMMANDS{{
+        constexpr std::array<std::pair<const char*, BenchmarkRunner_>, 7> COMMANDS{{
             {"--bump-over-aad", RunBumpOverAADBenchmarks},
             {"--financial-mc-curvature", RunMonteCarloCurvatureBenchmarks},
             {"--financial-segmented-mc", RunSegmentedMonteCarloBenchmarks},
             {"--financial-segmented-path", RunBlackScholesSegmentedBenchmarks},
+            {"--first-order", RunFirstOrderBenchmarks},
             {"--second-order", RunSecondOrderBenchmarks},
             {"--segmented-path", RunSegmentedPathBenchmarks},
         }};
