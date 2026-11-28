@@ -3,6 +3,7 @@
 #include <climits>
 #include <string>
 
+#include <dal/math/aad/detail/secondorderreplay.hpp>
 #include <dal/math/aad/secondorder.hpp>
 #include <dal/math/aad/tape.hpp>
 
@@ -13,9 +14,6 @@
 namespace Dal::AAD {
 #include <dal/auto/MG_SecondOrderErrorReason_enum.inc>
 #include <dal/auto/MG_SecondOrderStage_enum.inc>
-
-    bool TryAcquireSecondOrderRecording();
-    void ReleaseSecondOrderRecording() noexcept;
 
     SecondOrderError_::SecondOrderError_(SecondOrderErrorReason_ reason,
                                          SecondOrderStage_ stage,
@@ -206,17 +204,6 @@ namespace Dal::AAD {
                 void Check() const {}
             };
 
-            class Exclusive_ {
-            public:
-                Exclusive_() {
-                    if (!TryAcquireSecondOrderRecording())
-                        Access_::Fail(Reason::LIFECYCLE, Stage::VALIDATION, {}, "nested independent recording is unsupported");
-                }
-                ~Exclusive_() { ReleaseSecondOrderRecording(); }
-                Exclusive_(const Exclusive_&) = delete;
-                Exclusive_& operator=(const Exclusive_&) = delete;
-            };
-
             class ActiveArena_ {
             public:
                 explicit ActiveArena_(Arena_& arena) { activeArena = &arena; }
@@ -293,16 +280,9 @@ namespace Dal::AAD {
                 return static_cast<double>(total);
             }
 
-            struct DirectionOutput_ {
-                Vector_<>& gradient_;
-                Vector_<>& directional_;
-                Matrix_<>& products_;
-                SecondOrderExecution_& work_;
-            };
-
-            template <class T_>
+            template <class T_, class F_>
             double Record(Arena_& arena,
-                          const SecondOrderFunction_& function,
+                          const F_& function,
                           const Vector_<>& point,
                           const Matrix_<>& directions,
                           int row,
@@ -351,7 +331,44 @@ namespace Dal::AAD {
                 }
                 return value;
             }
+
+            template <class F_>
+            double RecordDirections(Arena_& arena, const F_& function, const Vector_<>& point, const Matrix_<>& directions,
+                                    DirectionOutput_ output, std::optional<double> recordedPrice = {}) {
+                double value = 0.0;
+                for (int row = 0; row < std::max(1, directions.Rows()); ++row) {
+                    arena.direction_ = directions.Rows() ? std::optional<size_t>(row) : std::nullopt;
+                    try {
+                        value = Record<double>(arena, function, point, directions, row, output, recordedPrice);
+                    } catch (const Retry_&) {
+                        ++output.work_.safePathActivations_;
+                        value = Record<Wide_>(arena, function, point, directions, row, output, recordedPrice);
+                    }
+                }
+                return value;
+            }
         } // namespace
+
+        double ReplayPrivately(const ReplayFunction_& function, const Vector_<>& point, const Matrix_<>& directions, size_t cap,
+                               DirectionOutput_ output, std::optional<double> recordedPrice) {
+            Arena_ arena;
+            arena.BeginRequest(cap);
+            const ActiveArena_ active(arena);
+            double value;
+            try {
+                value = RecordDirections(arena, function, point, directions, output, recordedPrice);
+            } catch (...) {
+                try {
+                    arena.FinishRequest(true);
+                } catch (...) {
+                    // The private arena is still destroyed on this exit.
+                }
+                throw;
+            }
+            arena.FinishRequest(false);
+            output.work_.peakTapeBytes_ = arena.peak_;
+            return value;
+        }
     } // namespace SecondOrderDetail
 
     size_t SecondOrderPayloadBytes(size_t inputs, size_t directions) {
@@ -407,16 +424,7 @@ namespace Dal::AAD {
             result.products_.Resize(result.directions_.Rows(), result.directions_.Cols());
             result.execution_.numericPayloadBytes_ = bytes;
             DirectionOutput_ output{result.gradient_, result.directional_, result.products_, result.execution_};
-            std::optional<double> recordedPrice;
-            for (int row = 0; row < std::max(1, result.directions_.Rows()); ++row) {
-                arena.direction_ = result.directions_.Rows() ? std::optional<size_t>(row) : std::nullopt;
-                try {
-                    result.value_ = Record<double>(arena, fixedFunction, result.point_, result.directions_, row, output, recordedPrice);
-                } catch (const Retry_&) {
-                    ++result.execution_.safePathActivations_;
-                    result.value_ = Record<Wide_>(arena, fixedFunction, result.point_, result.directions_, row, output, recordedPrice);
-                }
-            }
+            result.value_ = RecordDirections(arena, fixedFunction, result.point_, result.directions_, output);
             cleanupStarted = true;
             arena.FinishRequest(false);
             result.execution_.peakTapeBytes_ = arena.peak_;

@@ -77,7 +77,8 @@ def run_memory(run, out, processes=10):
                         assert int(cells["construct_aligned_bytes"]) == 268435456 and int(cells["construct_live"]) >= 268435456
                         assert int(cells["post_result_live"]) >= 268435456 and int(cells["post_backend_live"]) == 0
                     else:
-                        limit = 256 * 1024 if int(cells["logical_bytes"]) <= 64 * 1024 else 8 * 1024 * 1024
+                        large_limit = 16 if cells["logical_kind"] == "shared_logical_tape_peak" else 8
+                        limit = 256 * 1024 if int(cells["logical_bytes"]) <= 64 * 1024 else large_limit * 1024 * 1024
                         assert int(cells["retained_tape"]) <= min(int(cells["post_result_live"]), limit)
                     rows.append((p, *row))
     write_csv(out / "allocations.csv", header, rows)
@@ -139,7 +140,10 @@ def main():
     parser.add_argument("--cpu", type=int, default=4)
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--baseline", type=Path, help="independent 1860c950 Release core build for first-order replay")
+    parser.add_argument("--shared", action="store_true", help="use explicit sharing for the qualified basket/6 and Dupire/3 S0 requests")
     args = parser.parse_args()
+    if args.shared and args.mode == "first-order":
+        parser.error("--shared applies to second-order timing and memory")
     build, out = args.build.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
     logs = out / "runs"
@@ -180,13 +184,14 @@ def main():
     (out / "CMakeCache.txt").write_text(cache_text)
     commit = output("git", "-C", source, "rev-parse", "HEAD").strip()
     (out / "environment.txt").write_text(
-        f"core={commit}\nxad={xad_commit}\ncpu={args.cpu}\nDAL_NUM_THREADS=1\n"
+        f"core={commit}\nxad={xad_commit}\ncpu={args.cpu}\nDAL_NUM_THREADS=1\nshared={args.shared}\n"
         + output(config["CMAKE_CXX_COMPILER"], "--version") + output("cmake", "--version") + output("uname", "-srmo") + output("lscpu")
     )
     before = hashes(binaries)
 
     def run(name, *options, executable=binary, mode="--second-order"):
-        command = ["taskset", "-c", str(args.cpu), str(executable), mode, *options]
+        shared = ["--s0-shared"] if args.shared else []
+        command = ["taskset", "-c", str(args.cpu), str(executable), mode, *shared, *options]
         p = sp.run(command, env=env, stdout=sp.PIPE, stderr=sp.STDOUT, text=True)
         (logs / f"{name}.csv").write_text(p.stdout)
         p.check_returncode()
