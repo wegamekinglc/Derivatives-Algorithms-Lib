@@ -344,19 +344,21 @@ TEST(AADSecondOrderTest, AppliesTheSmallRetentionTierAtTheExactLogicalBoundary) 
                     auto sum = x[0];
                     for (int i = 0; i < nodes; ++i)
                         sum += x[1];
-                    return sum;
+                    return SecondOrderNumber_(sum + 1.0);
                 },
-                {1.0, 0.0, 0.0, 0.0}, Matrix_<>(1, 4, 1.0));
+                {1.0, 0.0}, Matrix_<>(1, 2, 1.0));
         };
         const auto large = evaluate(10000);
         ASSERT_GT(large.Execution().retainedTapeBytes_, 256U * 1024U);
-        const auto above = evaluate(1022);
+        // Two input slots, one single-edge statement, and 1090 two-edge
+        // statements account for exactly 64 KiB with implicit output slots.
+        const auto above = evaluate(1091);
         EXPECT_GT(SecondOrderDetail::LastSecondOrderLogicalPeak(), 64U * 1024U);
         EXPECT_EQ(above.Execution().retainedTapeBytes_, large.Execution().retainedTapeBytes_);
-        const auto boundary = evaluate(1021);
+        const auto boundary = evaluate(1090);
         EXPECT_EQ(SecondOrderDetail::LastSecondOrderLogicalPeak(), 64U * 1024U);
         EXPECT_EQ(boundary.Execution().retainedTapeBytes_, 0U);
-        EXPECT_DOUBLE_EQ(evaluate(10000).Value(), 1.0);
+        EXPECT_DOUBLE_EQ(evaluate(10000).Value(), 2.0);
     }).get();
 }
 
@@ -417,4 +419,34 @@ TEST(AADSecondOrderTest, RejectsAHandleAfterPoisonRecoveryWithSlotAndGenerationR
         CheckError([&] { (void)EvaluateSecondOrder(readsStale, {1.0}, seed); }, Reason::LIFECYCLE, Stage::RECORDING, 0);
         EXPECT_DOUBLE_EQ(EvaluateSecondOrder(square, {2.0}, seed).Value(), 4.0);
     }).get();
+}
+
+TEST(AADSecondOrderTest, BatchAppendPreservesEdgeOrderAndEarlierRootAcrossReplay) {
+    Matrix_<> directions(2, 2);
+    directions(0, 0) = 1.0;
+    directions(0, 1) = -2.0;
+    directions(1, 0) = -2.0;
+    directions(1, 1) = 1.0;
+
+    for (bool forceProtection : {false, true}) {
+        const SecondOrderFunction_ price = [forceProtection](const auto& x) {
+            const SecondOrderNumber_ passive = SecondOrderNumber_(2.0) + 0.0;
+            const SecondOrderNumber_ root = (x[0] + x[0]) * (x[0] + passive) + x[1] * (x[0] - passive);
+            const SecondOrderNumber_ unused = x[1] * (forceProtection ? 0x1p60 : 4.0);
+            (void)unused;
+            return root;
+        };
+        const auto result = EvaluateSecondOrder(price, {2.0, 3.0}, directions);
+        EXPECT_DOUBLE_EQ(result.Value(), 16.0);
+        EXPECT_EQ(result.Gradient(), (Vector_<>{15.0, 0.0}));
+        EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{15.0, -30.0}));
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(0, 0), 2.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(0, 1), 1.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(1, 0), -7.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(1, 1), -2.0);
+        EXPECT_EQ(result.Execution().callbackEvaluations_, forceProtection ? 4U : 2U);
+        EXPECT_EQ(result.Execution().recordings_, forceProtection ? 4U : 2U);
+        EXPECT_EQ(result.Execution().reverseSweeps_, 2U);
+        EXPECT_EQ(result.Execution().safePathActivations_, forceProtection ? 2U : 0U);
+    }
 }

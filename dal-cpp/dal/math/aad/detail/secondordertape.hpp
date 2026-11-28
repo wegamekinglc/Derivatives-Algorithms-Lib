@@ -83,7 +83,7 @@ namespace Dal::AAD::SecondOrderDetail {
     }
 
     struct Statement_ {
-        Slot_ end_, lhs_;
+        Slot_ end_;
     };
 
     template <class T_> struct Block_ {
