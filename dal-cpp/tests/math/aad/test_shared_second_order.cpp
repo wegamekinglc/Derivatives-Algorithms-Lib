@@ -294,6 +294,79 @@ TEST(AADSharedSecondOrderTest, TestReplayPreservesProductResidualBeforeCancellat
     }
 }
 
+TEST(AADSharedSecondOrderTest, TestCancellationReplayUsesResidualAcrossScales) {
+    constexpr double factor = 0x1p27 + 1.0;
+    const auto check = [&](int k, int pointExponent, int priceExponent, double sign) {
+        SCOPED_TRACE(k);
+        const Vector_<> point{std::ldexp(1.0, pointExponent), 0.0};
+        const double priceScale = std::ldexp(1.0, priceExponent);
+        const auto kernel = [=](const auto& x) { return (log(x[0]) - factor * x[1]) * priceScale; };
+        Matrix_<> directions(2, 2, 0.0);
+        directions(0, 0) = sign * std::ldexp(1.0, k + pointExponent);
+        directions(0, 1) = sign * std::ldexp(0x1p27 - 1.0, k - 54);
+        directions(1, 1) = -0.0;
+        const auto result = EvaluateSharedSecondOrder(kernel, point, directions);
+        EXPECT_DOUBLE_EQ(result.Value(), std::log(point[0]) * priceScale);
+        EXPECT_EQ(result.Gradient(), (Vector_<>{std::ldexp(priceScale, -pointExponent), -factor * priceScale}));
+        EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{sign * std::ldexp(priceScale, k - 54), 0.0}));
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(0, 0), -sign * std::ldexp(priceScale, k - pointExponent));
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(0, 1), 0.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(1, 0), 0.0);
+        EXPECT_DOUBLE_EQ(result.HessianProducts()(1, 1), 0.0);
+        EXPECT_TRUE(std::signbit(result.Directions()(1, 1)));
+        EXPECT_FALSE(std::signbit(result.DirectionalDerivatives()[1]));
+
+        const auto& work = result.Execution();
+        EXPECT_EQ(work.callbackEvaluations_, 4U);
+        EXPECT_EQ(work.sharedRecordings_, 1U);
+        EXPECT_EQ(work.sharedTangentSweeps_, 1U);
+        EXPECT_EQ(work.sharedReverseSweeps_, 0U);
+        EXPECT_EQ(work.replayDirections_, 2U);
+        EXPECT_EQ(work.pointwiseRecordings_, 3U);
+        EXPECT_EQ(work.pointwiseReverseSweeps_, 2U);
+        EXPECT_EQ(work.pointwiseSafePathActivations_, 1U);
+        EXPECT_EQ(work.retainedTapeBytes_, 0U);
+    };
+    for (int k : {27, 28, 29})
+        check(k, -24, 24 - k, 1.0);
+    for (int k : {-600, -80, 0, 40})
+        check(k, 0, 0, -1.0);
+}
+
+TEST(AADSharedSecondOrderTest, TestOrdinaryRoundingAndExactCancellationStayShared) {
+    constexpr double factor = 0x1p27 + 1.0;
+    constexpr double seed = (0x1p27 - 1.0) * 0x1p-54;
+    const auto kernel = [factor](const auto& x) { return factor * x[0] - factor * x[1]; };
+    Matrix_<> directions(3, 2, 0.0);
+    directions(0, 0) = seed;
+    directions(1, 0) = directions(1, 1) = seed;
+    directions(2, 0) = -seed;
+    const auto result = EvaluateSharedSecondOrder(kernel, {0.0, 0.0}, directions);
+    EXPECT_DOUBLE_EQ(result.Value(), 0.0);
+    EXPECT_EQ(result.Gradient(), (Vector_<>{factor, -factor}));
+    EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{1.0, 0.0, -1.0}));
+    for (int row = 0; row < directions.Rows(); ++row)
+        for (int col = 0; col < directions.Cols(); ++col)
+            EXPECT_DOUBLE_EQ(result.HessianProducts()(row, col), 0.0);
+    const auto& work = result.Execution();
+    EXPECT_EQ(work.callbackEvaluations_, 1U);
+    EXPECT_EQ(work.sharedRecordings_, 1U);
+    EXPECT_EQ(work.sharedTangentSweeps_, 1U);
+    EXPECT_EQ(work.sharedReverseSweeps_, 1U);
+    EXPECT_EQ(work.replayDirections_, 0U);
+    EXPECT_EQ(work.pointwiseRecordings_, 0U);
+
+    const auto difference = [factor](const auto& x) { return x[0] - factor * x[1]; };
+    Matrix_<> close(2, 2, 0.0);
+    close(0, 0) = 0x1.0000000000001p+0;
+    close(0, 1) = seed;
+    const auto corrected = EvaluateSharedSecondOrder(difference, {0.0, 0.0}, close);
+    EXPECT_EQ(corrected.DirectionalDerivatives(), (Vector_<>{5.0 * 0x1p-54, 0.0}));
+    EXPECT_EQ(corrected.Execution().sharedTangentSweeps_, 2U);
+    EXPECT_EQ(corrected.Execution().sharedReverseSweeps_, 2U);
+    EXPECT_EQ(corrected.Execution().replayDirections_, 0U);
+}
+
 TEST(AADSharedSecondOrderTest, TestCaughtRecordingErrorStopsLaterOperationsBeforeTheyAppend) {
     bool attemptedLater = false;
     std::exception_ptr first;

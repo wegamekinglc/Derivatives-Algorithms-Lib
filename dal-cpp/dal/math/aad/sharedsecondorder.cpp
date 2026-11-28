@@ -13,18 +13,39 @@
 namespace Dal::AAD::SharedSecondOrderDetail {
     namespace {
         struct Retry_ {
-            bool roundedTangentProduct_ = false;
+            bool lostTangentPrecision_ = false;
         };
         thread_local bool failCleanup = false;
 
-        FORCE_INLINE double TangentProduct(double weight, double tangent) {
-            const double rounded = weight * tangent;
-            // At the large-sum guard's scale, a rounded product can hide a
-            // significant low part from a later cancellation, even on a
-            // different node. Test the residual while both factors are live.
-            if (std::abs(rounded) > 0x1p28 && std::isfinite(rounded) && std::fma(weight, tangent, -rounded) != 0.0)
+        struct Tangent_ {
+            double high_, low_;
+        };
+
+        FORCE_INLINE Tangent_ Normalize(double high, double low) {
+            const double rounded = high + low;
+            return {rounded, (high - rounded) + low};
+        }
+
+        FORCE_INLINE Tangent_ ScaleTangent(double weight, Tangent_ tangent) {
+            const double high = weight * tangent.high_;
+            if (std::abs(weight) == 1.0 || weight == 0.0 || tangent.high_ == 0.0)
+                return {high, weight * tangent.low_};
+            const double error = std::fma(weight, tangent.high_, -high);
+            return Normalize(high, error + weight * tangent.low_);
+        }
+
+        FORCE_INLINE Tangent_ SumTangents(Tape_& tape, Tangent_ left, Tangent_ right) {
+            const double high = tape.Add(left.high_, right.high_);
+            // TwoSum also retains the residual of a rounded addition.
+            const double fromRight = high - left.high_;
+            const double error = (left.high_ - (high - fromRight)) + (right.high_ - fromRight);
+            const double low = error + (left.low_ + right.low_);
+            // Carry rounding error across nodes. If cancellation leaves no
+            // leading term larger than its correction, rebuild from the
+            // original inputs using the protected pointwise arithmetic.
+            if (low != 0.0 && std::abs(high) <= std::abs(low))
                 throw Retry_{true};
-            return rounded;
+            return Normalize(high, low);
         }
 
         Tape_& RetainedTape() {
@@ -93,12 +114,15 @@ namespace Dal::AAD::SharedSecondOrderDetail {
                 std::feupdateenv(&saved_);
 #endif
             }
-            void Check(Tape_& tape) const {
+            bool Faulted() const {
 #if defined(__SSE2__)
-                if (_mm_getcsr() & FAULTS)
+                return (_mm_getcsr() & FAULTS) != 0;
 #else
-                if (std::fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW))
+                return std::fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW) != 0;
 #endif
+            }
+            void Check(Tape_& tape) const {
+                if (Faulted())
                     tape.Promote();
             }
         };
@@ -218,10 +242,13 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         auto* const gradient = tape.scratch_.values_.get();
         auto* const tangent = gradient + slots;
         auto* const product = tangent + slots * L_;
+        // HVP scratch serves as the tangent's low limb until the reverse sweep.
+        auto* const low = product;
         const Node_* nodes = tape.nodes_.values_.get();
         std::array<bool, L_> zero;
         zero.fill(true);
         std::fill_n(tangent, L_, 0.0);
+        std::fill_n(low, (tape.inputs_ + 1) * L_, 0.0);
         for (size_t i = 0; i < tape.inputs_; ++i) {
             for (size_t lane = 0; lane < L_; ++lane) {
                 const double seed = result_.directions_(first + static_cast<int>(lane), static_cast<int>(i));
@@ -237,16 +264,22 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             const auto out = (1 + tape.inputs_ + i) * L_;
             if (node.right_) {
                 for (size_t lane = 0; lane < L_; ++lane) {
-                    const double a = TangentProduct(node.dl_, tangent[left + lane]);
-                    const double b = TangentProduct(node.dr_, tangent[right + lane]);
-                    tangent[out + lane] = tape.Add(a, b);
+                    const auto a = ScaleTangent(node.dl_, {tangent[left + lane], low[left + lane]});
+                    const auto b = ScaleTangent(node.dr_, {tangent[right + lane], low[right + lane]});
+                    const auto sum = SumTangents(tape, a, b);
+                    tangent[out + lane] = sum.high_;
+                    low[out + lane] = sum.low_;
                 }
             } else {
-                for (size_t lane = 0; lane < L_; ++lane)
-                    tangent[out + lane] = TangentProduct(node.dl_, tangent[left + lane]);
+                for (size_t lane = 0; lane < L_; ++lane) {
+                    const auto scaled = ScaleTangent(node.dl_, {tangent[left + lane], low[left + lane]});
+                    tangent[out + lane] = scaled.high_;
+                    low[out + lane] = scaled.low_;
+                }
             }
         }
-        arithmetic.Check(tape);
+        if (arithmetic.Faulted())
+            throw Retry_{true};
         ++work.sharedReverseSweeps_;
         if (makeGradient) {
             std::fill_n(gradient, slots, 0.0);
@@ -351,7 +384,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             SecondOrderExecution_ replay;
             work.replayDirections_ = rows.Rows();
             result_.value_ = SecondOrderDetail::ReplayPrivately(
-                {kernel.object_, kernel.pointwise_, retry.roundedTangentProduct_}, result_.point_, rows, tape_.cap_,
+                {kernel.object_, kernel.pointwise_, retry.lostTangentPrecision_}, result_.point_, rows, tape_.cap_,
                 {result_.gradient_, result_.directional_, result_.products_, replay}, trustedPrice);
             work.callbackEvaluations_ += replay.callbackEvaluations_;
             work.pointwiseRecordings_ = replay.recordings_;

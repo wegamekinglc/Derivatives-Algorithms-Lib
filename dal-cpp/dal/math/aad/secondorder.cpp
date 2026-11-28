@@ -314,7 +314,7 @@ namespace Dal::AAD {
                 const Slot_ slot = Access_::Slot(price, arena);
                 if constexpr (std::is_same_v<F_, ReplayFunction_> && std::is_same_v<T_, double>) {
                     if (function.protectNonzeroDirections_ && !zero)
-                        Promote("shared tangent product lost a rounding residual");
+                        Promote("shared tangent propagation needs protected arithmetic");
                 }
                 const T_ tangent = zero ? T_(0) : Access_::Tangent<T_>(price, arena, slot);
                 arena.liveDirection_ = false;
