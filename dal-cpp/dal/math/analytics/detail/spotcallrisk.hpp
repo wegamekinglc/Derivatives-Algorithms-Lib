@@ -25,7 +25,7 @@ namespace Dal::SpotCallDetail {
         // The scalar formula is also the independent comparator and wide replay.
         template <class T_> T_ Scalar(const T_& spot, const T_& vol) const {
             using std::erfc;
-            constexpr double invRootTwo = 0.7071067811865475244;
+            static constexpr double invRootTwo = 0.7071067811865475244;
             const T_ d1 = D1(spot, vol), d2 = d1 - vol * rootTime_;
             const auto cdf = [](const T_& d) -> T_ { return 0.5 * erfc(-invRootTwo * d); };
             return spot * spotDiscount_ * cdf(d1) - strikePv_ * cdf(d2);

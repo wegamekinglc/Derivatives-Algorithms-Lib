@@ -235,7 +235,7 @@ namespace Dal::ConditionalBasketDetail {
         Number_ sum(0.0);
         Number_ price;
         if (arena.wide_) {
-            constexpr double invRootTwo = 0.7071067811865475244;
+            static constexpr double invRootTwo = 0.7071067811865475244;
             const auto cdf = [](const Number_& z) -> Number_ { return 0.5 * erfc(-invRootTwo * z); };
             for (size_t i = 0; i < nodes_.size(); ++i) {
                 const auto& node = nodes_[i];
