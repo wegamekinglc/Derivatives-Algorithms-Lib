@@ -13,6 +13,13 @@ namespace Dal::AAD::SharedSecondOrderDetail {
 
     struct Node_ {
         Slot_ left_, right_;
+        // Binary operators have zero left-left curvature. A unary node
+        // uses the otherwise unused right weight for its curvature.
+        double dl_, rightWeightOrCurvature_, dlr_, drr_;
+    };
+
+    struct Local_ {
+        Slot_ left_, right_;
         double dl_, dr_, dll_, dlr_, drr_;
     };
 
@@ -48,18 +55,26 @@ namespace Dal::AAD::SharedSecondOrderDetail {
 
         [[nodiscard]] Number_ Bind(double value, Slot_ slot) const { return {value, slot, identity_}; }
         [[nodiscard]] Operand_ Read(const Number_& number);
-        Number_ Append(double value, Node_ node);
+        Number_ Append(double value, Local_ local);
+
+        static FORCE_INLINE bool IsNarrow(double value) {
+            const double magnitude = std::abs(value);
+            return magnitude <= 0x1p48 && (magnitude == 0.0 || magnitude >= 0x1p-900);
+        }
 
         FORCE_INLINE void CheckNarrow(double value) {
-            const double magnitude = std::abs(value);
-            if (!(magnitude <= 0x1p48) || (magnitude != 0.0 && magnitude < 0x1p-900))
+            if (!IsNarrow(value))
                 Promote();
+        }
+
+        static FORCE_INLINE bool UnsafeSum(double a, double b, double sum) {
+            return std::abs(sum) > 0x1p28 &&
+                (std::abs(sum) > 0x1p48 || (sum == a && std::abs(b) > 0x1p-24) || (sum == b && std::abs(a) > 0x1p-24));
         }
 
         FORCE_INLINE double Add(double a, double b) {
             const double sum = a + b;
-            if (std::abs(sum) > 0x1p28 &&
-                (std::abs(sum) > 0x1p48 || (sum == a && std::abs(b) > 0x1p-24) || (sum == b && std::abs(a) > 0x1p-24)))
+            if (UnsafeSum(a, b, sum))
                 Promote();
             return sum;
         }
@@ -90,7 +105,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         return {number.value_, slot};
     }
 
-    FORCE_INLINE Number_ Tape_::Append(double value, Node_ node) {
+    FORCE_INLINE Number_ Tape_::Append(double value, Local_ node) {
         CheckNarrow(value);
         if (!node.left_) {
             std::swap(node.left_, node.right_);
@@ -110,7 +125,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             RecordingError(Reason::CAPACITY_EXCEEDED, "shared graph slot limit exceeded");
         if (size_ == nodes_.capacity_)
             GrowNodes();
-        nodes_.values_[size_++] = node;
+        nodes_.values_[size_++] = {node.left_, node.right_, node.dl_, node.right_ ? node.dr_ : node.dll_, node.dlr_, node.drr_};
         return Bind(value, static_cast<Slot_>(inputs_ + size_));
     }
 

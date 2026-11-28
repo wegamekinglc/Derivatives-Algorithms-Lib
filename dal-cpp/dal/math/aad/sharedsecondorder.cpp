@@ -1,9 +1,20 @@
 #include <array>
 #include <atomic>
 #include <cfenv>
+#include <type_traits>
 
 #if defined(__SSE2__)
 #include <xmmintrin.h>
+#endif
+
+#if defined(__x86_64__) && defined(__ELF__) && defined(__has_attribute)
+#if __has_attribute(target_clones)
+// Dispatch once per sweep so the explicit product residual can use hardware FMA.
+#define DAL_SHARED_FMA_SWEEP __attribute__((target_clones("fma", "default")))
+#endif
+#endif
+#ifndef DAL_SHARED_FMA_SWEEP
+#define DAL_SHARED_FMA_SWEEP
 #endif
 
 #include <dal/math/aad/detail/secondorderreplay.hpp>
@@ -13,39 +24,83 @@
 namespace Dal::AAD::SharedSecondOrderDetail {
     namespace {
         struct Retry_ {
-            bool lostTangentPrecision_ = false;
+            bool protectNonzeroDirections_ = false;
         };
         thread_local bool failCleanup = false;
 
-        struct Tangent_ {
+        struct Twofold_ {
             double high_, low_;
         };
 
-        FORCE_INLINE Tangent_ Normalize(double high, double low) {
+        FORCE_INLINE Twofold_ Normalize(double high, double low) {
             const double rounded = high + low;
             return {rounded, (high - rounded) + low};
         }
 
-        FORCE_INLINE Tangent_ ScaleTangent(double weight, Tangent_ tangent) {
+        template <bool Normalize_ = false> FORCE_INLINE Twofold_ Multiply(double weight, Twofold_ tangent) {
             const double high = weight * tangent.high_;
-            if (std::abs(weight) == 1.0 || weight == 0.0 || tangent.high_ == 0.0)
-                return {high, weight * tangent.low_};
-            const double error = std::fma(weight, tangent.high_, -high);
-            return Normalize(high, error + weight * tangent.low_);
+            const double low = std::fma(weight, tangent.low_, std::fma(weight, tangent.high_, -high));
+            if constexpr (Normalize_)
+                return Normalize(high, low);
+            return {high, low};
         }
 
-        FORCE_INLINE Tangent_ SumTangents(Tape_& tape, Tangent_ left, Tangent_ right) {
-            const double high = tape.Add(left.high_, right.high_);
+        FORCE_INLINE double PropagationSum(double left, double right) {
+            const double sum = left + right;
+            if (Tape_::UnsafeSum(left, right, sum))
+                throw Retry_{true};
+            return sum;
+        }
+
+        FORCE_INLINE Twofold_ Add(Twofold_ left, Twofold_ right) {
+            const double high = PropagationSum(left.high_, right.high_);
             // TwoSum also retains the residual of a rounded addition.
             const double fromRight = high - left.high_;
             const double error = (left.high_ - (high - fromRight)) + (right.high_ - fromRight);
-            const double low = error + (left.low_ + right.low_);
-            // Carry rounding error across nodes. If cancellation leaves no
-            // leading term larger than its correction, rebuild from the
-            // original inputs using the protected pointwise arithmetic.
-            if (low != 0.0 && std::abs(high) <= std::abs(low))
+            return {high, error + (left.low_ + right.low_)};
+        }
+
+        FORCE_INLINE Twofold_ SumTangents(Twofold_ left, Twofold_ right) {
+            const auto sum = Add(left, right);
+            if (sum.low_ != 0.0 && std::abs(sum.high_) <= std::abs(sum.low_))
                 throw Retry_{true};
-            return Normalize(high, low);
+            return Normalize(sum.high_, sum.low_);
+        }
+
+        FORCE_INLINE Twofold_ NormalizeReverse(Twofold_ sum) {
+            // Cancellation can expose the correction while a reverse slot
+            // still has consumers. Normalize with its larger limb first.
+            if (std::abs(sum.high_) < std::abs(sum.low_))
+                return Normalize(sum.low_, sum.high_);
+            return Normalize(sum.high_, sum.low_);
+        }
+
+        struct Lanes_ {
+            double* high_;
+            double* low_;
+
+            FORCE_INLINE Twofold_ Read(size_t index) const { return {high_[index], low_[index]}; }
+            FORCE_INLINE void Write(size_t index, Twofold_ value) const {
+                high_[index] = value.high_;
+                low_[index] = value.low_;
+            }
+            void Clear(size_t count) const {
+                std::fill_n(high_, count, 0.0);
+                std::fill_n(low_, count, 0.0);
+            }
+        };
+
+        FORCE_INLINE void Accumulate(const Lanes_& product, size_t target, double weight, Twofold_ dot, double bar, Twofold_ local) {
+            const bool propagated = weight != 0.0 && dot.high_ != 0.0;
+            const bool curvature = bar != 0.0 && (local.high_ != 0.0 || local.low_ != 0.0);
+            if (!propagated && !curvature)
+                return;
+            auto total = product.Read(target);
+            if (propagated)
+                total = Add(total, Multiply(weight, dot));
+            if (curvature)
+                total = Add(total, Multiply(bar, local));
+            product.Write(target, NormalizeReverse(total));
         }
 
         Tape_& RetainedTape() {
@@ -73,7 +128,8 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             const auto limit = std::numeric_limits<size_t>::max() / sizeof(T_);
             if (required > limit)
                 Fail(Reason::CAPACITY_EXCEEDED, stage, "shared tape byte count exceeds size_t");
-            const auto increment = std::min(buffer.capacity_ / 2, limit - buffer.capacity_);
+            // Leave room in the retained budget for both propagation pairs.
+            const auto increment = std::min(buffer.capacity_ / (std::is_same_v<T_, Node_> ? 3 : 2), limit - buffer.capacity_);
             const auto capacity = buffer.capacity_ ? std::max(required, buffer.capacity_ + increment) : std::max<size_t>(required, 64);
             tape.Admit(capacity * sizeof(T_), stage);
             std::unique_ptr<T_[]> next(new T_[capacity]);
@@ -224,7 +280,13 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         }
 
         template <size_t L_>
-        void Propagate(Slot_ root, int first, bool makeGradient, const Floating_& arithmetic);
+        FORCE_INLINE void Propagate(Slot_ root, int first, bool makeGradient, const Floating_& arithmetic);
+        DAL_SHARED_FMA_SWEEP void PropagateSingle(Slot_ root, int first, const Floating_& arithmetic) {
+            Propagate<1>(root, first, first == 0, arithmetic);
+        }
+        DAL_SHARED_FMA_SWEEP void PropagateBlock(Slot_ root, int first, const Floating_& arithmetic) {
+            Propagate<3>(root, first, first == 0, arithmetic);
+        }
         void Execute(const Kernel_& kernel);
 
         SharedSecondOrderResult_ Finish() {
@@ -240,20 +302,20 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         auto& work = result_.execution_;
         const auto slots = 1 + tape.inputs_ + tape.size_;
         auto* const gradient = tape.scratch_.values_.get();
-        auto* const tangent = gradient + slots;
-        auto* const product = tangent + slots * L_;
-        // HVP scratch serves as the tangent's low limb until the reverse sweep.
-        auto* const low = product;
+        const auto lanes = slots * L_;
+        const Lanes_ tangent{gradient + slots, gradient + slots + lanes};
+        // A fan-out can read a tangent after other parents have already
+        // contributed to the same slot's HVP. Both low limbs must stay live.
+        const Lanes_ product{tangent.low_ + lanes, tangent.low_ + 2 * lanes};
         const Node_* nodes = tape.nodes_.values_.get();
         std::array<bool, L_> zero;
         zero.fill(true);
-        std::fill_n(tangent, L_, 0.0);
-        std::fill_n(low, (tape.inputs_ + 1) * L_, 0.0);
+        tangent.Clear((tape.inputs_ + 1) * L_);
         for (size_t i = 0; i < tape.inputs_; ++i) {
             for (size_t lane = 0; lane < L_; ++lane) {
                 const double seed = result_.directions_(first + static_cast<int>(lane), static_cast<int>(i));
                 tape.CheckNarrow(seed);
-                tangent[(i + 1) * L_ + lane] = seed;
+                tangent.high_[(i + 1) * L_ + lane] = seed;
                 zero[lane] &= seed == 0.0;
             }
         }
@@ -264,17 +326,13 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             const auto out = (1 + tape.inputs_ + i) * L_;
             if (node.right_) {
                 for (size_t lane = 0; lane < L_; ++lane) {
-                    const auto a = ScaleTangent(node.dl_, {tangent[left + lane], low[left + lane]});
-                    const auto b = ScaleTangent(node.dr_, {tangent[right + lane], low[right + lane]});
-                    const auto sum = SumTangents(tape, a, b);
-                    tangent[out + lane] = sum.high_;
-                    low[out + lane] = sum.low_;
+                    const auto a = Multiply<true>(node.dl_, tangent.Read(left + lane));
+                    const auto b = Multiply<true>(node.rightWeightOrCurvature_, tangent.Read(right + lane));
+                    tangent.Write(out + lane, SumTangents(a, b));
                 }
             } else {
                 for (size_t lane = 0; lane < L_; ++lane) {
-                    const auto scaled = ScaleTangent(node.dl_, {tangent[left + lane], low[left + lane]});
-                    tangent[out + lane] = scaled.high_;
-                    low[out + lane] = scaled.low_;
+                    tangent.Write(out + lane, Multiply<true>(node.dl_, tangent.Read(left + lane)));
                 }
             }
         }
@@ -286,7 +344,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             if (root)
                 gradient[root] = 1.0;
         }
-        std::fill_n(product, slots * L_, 0.0);
+        product.Clear(lanes);
         if (root) {
             for (size_t i = tape.size_; i > 0; --i) {
                 const auto out = tape.inputs_ + i;
@@ -294,42 +352,50 @@ namespace Dal::AAD::SharedSecondOrderDetail {
                 const double bar = gradient[out];
                 const auto left = static_cast<size_t>(node.left_) * L_, right = static_cast<size_t>(node.right_) * L_;
                 if (makeGradient)
-                    gradient[node.left_] = tape.Add(gradient[node.left_], bar * node.dl_);
+                    gradient[node.left_] = PropagationSum(gradient[node.left_], bar * node.dl_);
                 if (node.right_) {
                     if (makeGradient)
-                        gradient[node.right_] = tape.Add(gradient[node.right_], bar * node.dr_);
+                        gradient[node.right_] = PropagationSum(gradient[node.right_], bar * node.rightWeightOrCurvature_);
                     // Keep occurrence order for repeated operands, including x*x.
                     for (size_t lane = 0; lane < L_; ++lane) {
-                        const double tl = tangent[left + lane], tr = tangent[right + lane], dot = product[out * L_ + lane];
-                        const double dl = tape.Add(node.dll_ * tl, node.dlr_ * tr);
-                        const double dr = tape.Add(node.dlr_ * tl, node.drr_ * tr);
-                        product[left + lane] = tape.Add(tape.Add(product[left + lane], node.dl_ * dot), bar * dl);
-                        product[right + lane] = tape.Add(tape.Add(product[right + lane], node.dr_ * dot), bar * dr);
+                        const auto dot = product.Read(out * L_ + lane);
+                        const auto dl = Multiply(node.dlr_, tangent.Read(right + lane));
+                        auto dr = Multiply(node.dlr_, tangent.Read(left + lane));
+                        if (node.drr_ != 0.0)
+                            dr = NormalizeReverse(Add(dr, Multiply(node.drr_, tangent.Read(right + lane))));
+                        Accumulate(product, left + lane, node.dl_, dot, bar, dl);
+                        Accumulate(product, right + lane, node.rightWeightOrCurvature_, dot, bar, dr);
                     }
                 } else {
                     for (size_t lane = 0; lane < L_; ++lane) {
-                        const double dot = product[out * L_ + lane];
-                        const double local = node.dll_ * tangent[left + lane];
-                        product[left + lane] = tape.Add(tape.Add(product[left + lane], node.dl_ * dot), bar * local);
+                        const auto dot = product.Read(out * L_ + lane);
+                        const auto local = Multiply(node.rightWeightOrCurvature_, tangent.Read(left + lane));
+                        Accumulate(product, left + lane, node.dl_, dot, bar, local);
                     }
                 }
             }
         }
-        arithmetic.Check(tape);
+        if (arithmetic.Faulted())
+            throw Retry_{true};
         for (size_t i = 0; i < tape.inputs_; ++i) {
             if (makeGradient) {
-                tape.CheckNarrow(gradient[i + 1]);
+                if (!Tape_::IsNarrow(gradient[i + 1]))
+                    throw Retry_{true};
                 result_.gradient_[i] = gradient[i + 1];
             }
             for (size_t lane = 0; lane < L_; ++lane) {
-                const double hvp = zero[lane] ? 0.0 : product[(i + 1) * L_ + lane];
-                tape.CheckNarrow(hvp);
+                // The pair is normalized after every operation. Its high
+                // limb is the rounded result; the input slot has no consumers.
+                const double hvp = zero[lane] ? 0.0 : product.high_[(i + 1) * L_ + lane];
+                if (!Tape_::IsNarrow(hvp))
+                    throw Retry_{true};
                 result_.products_(first + static_cast<int>(lane), static_cast<int>(i)) = hvp;
             }
         }
         for (size_t lane = 0; lane < L_; ++lane) {
-            const double direction = zero[lane] ? 0.0 : tangent[static_cast<size_t>(root) * L_ + lane];
-            tape.CheckNarrow(direction);
+            const double direction = zero[lane] ? 0.0 : tangent.high_[static_cast<size_t>(root) * L_ + lane];
+            if (!Tape_::IsNarrow(direction))
+                throw Retry_{true};
             result_.directional_[first + static_cast<int>(lane)] = direction;
         }
     }
@@ -365,7 +431,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             const auto recordingBytes = tape_.size_ * sizeof(Node_) + tape_.reservedInputs_;
             tape_.reservedInputs_ = 0;
             const auto slots = 1 + tape_.inputs_ + tape_.size_;
-            const size_t width = rows.Rows() >= 3 ? 7 : 3;
+            const size_t width = rows.Rows() >= 3 ? 13 : 5;
             if (slots > std::numeric_limits<size_t>::max() / width)
                 Fail(Reason::CAPACITY_EXCEEDED, Stage::REVERSE, "shared propagation slots exceed size_t");
             const auto scratch = width * slots;
@@ -374,9 +440,9 @@ namespace Dal::AAD::SharedSecondOrderDetail {
 
             int row = 0;
             for (; row <= rows.Rows() - 3; row += 3)
-                Propagate<3>(root.slot_, row, row == 0, arithmetic);
+                PropagateBlock(root.slot_, row, arithmetic);
             for (; row < rows.Rows(); ++row)
-                Propagate<1>(root.slot_, row, row == 0, arithmetic);
+                PropagateSingle(root.slot_, row, arithmetic);
             work.peakTapeBytes_ = tape_.peak_;
         } catch (const Retry_& retry) {
             const auto sharedPeak = tape_.peak_;
@@ -384,7 +450,7 @@ namespace Dal::AAD::SharedSecondOrderDetail {
             SecondOrderExecution_ replay;
             work.replayDirections_ = rows.Rows();
             result_.value_ = SecondOrderDetail::ReplayPrivately(
-                {kernel.object_, kernel.pointwise_, retry.lostTangentPrecision_}, result_.point_, rows, tape_.cap_,
+                {kernel.object_, kernel.pointwise_, retry.protectNonzeroDirections_}, result_.point_, rows, tape_.cap_,
                 {result_.gradient_, result_.directional_, result_.products_, replay}, trustedPrice);
             work.callbackEvaluations_ += replay.callbackEvaluations_;
             work.pointwiseRecordings_ = replay.recordings_;
@@ -435,3 +501,5 @@ namespace Dal::AAD::SharedSecondOrderDetail {
         }
     }
 } // namespace Dal::AAD::SharedSecondOrderDetail
+
+#undef DAL_SHARED_FMA_SWEEP

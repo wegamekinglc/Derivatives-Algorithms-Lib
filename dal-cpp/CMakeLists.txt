@@ -165,7 +165,10 @@ dal_apply_platform_options(dal_cpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
     set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp
+        dal/math/aad/sharedsecondorder.cpp
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+elseif(MSVC)
+    set_source_files_properties(dal/math/aad/sharedsecondorder.cpp PROPERTIES COMPILE_OPTIONS "/fp:strict")
 endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
     set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp

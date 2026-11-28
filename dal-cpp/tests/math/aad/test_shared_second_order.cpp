@@ -333,6 +333,77 @@ TEST(AADSharedSecondOrderTest, TestCancellationReplayUsesResidualAcrossScales) {
         check(k, 0, 0, -1.0);
 }
 
+TEST(AADSharedSecondOrderTest, TestReverseProductPreservesTangentResidual) {
+    const Vector_<> point{0x1p-24, 0.0, 0.0};
+    const double baseLog = std::log(point[0]);
+    const auto kernel = [baseLog](const auto& x) {
+        return x[2] * (log(x[0]) - baseLog) - x[2] * ((0x1p27 + 1.0) * x[1]);
+    };
+    Matrix_<> directions(2, 3, 0.0);
+    directions(0, 0) = 0x1p24;
+    directions(0, 1) = (0x1p27 - 1.0) * 0x1p-6;
+    directions(1, 2) = -0.0;
+    const auto result = EvaluateSharedSecondOrder(kernel, point, directions);
+
+    EXPECT_EQ(result.Value(), 0.0);
+    EXPECT_EQ(result.Gradient(), (Vector_<>{0.0, 0.0, 0.0}));
+    EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{0.0, 0.0}));
+    EXPECT_EQ(result.HessianProducts()(0, 0), 0.0);
+    EXPECT_EQ(result.HessianProducts()(0, 1), 0.0);
+    EXPECT_EQ(result.HessianProducts()(0, 2), 0x1p-6);
+    EXPECT_FALSE(std::signbit(result.Value()));
+    EXPECT_TRUE(std::signbit(result.Directions()(1, 2)));
+    EXPECT_FALSE(std::signbit(result.DirectionalDerivatives()[0]));
+    EXPECT_FALSE(std::signbit(result.DirectionalDerivatives()[1]));
+    for (int col = 0; col < directions.Cols(); ++col) {
+        EXPECT_FALSE(std::signbit(result.Gradient()[col]));
+        EXPECT_EQ(result.HessianProducts()(1, col), 0.0);
+        EXPECT_FALSE(std::signbit(result.HessianProducts()(1, col)));
+    }
+    EXPECT_FALSE(std::signbit(result.HessianProducts()(0, 0)));
+    EXPECT_FALSE(std::signbit(result.HessianProducts()(0, 1)));
+    const auto& work = result.Execution();
+    EXPECT_EQ(work.callbackEvaluations_, 1U);
+    EXPECT_EQ(work.sharedRecordings_, 1U);
+    EXPECT_EQ(work.sharedTangentSweeps_, 2U);
+    EXPECT_EQ(work.sharedReverseSweeps_, 2U);
+    EXPECT_EQ(work.replayDirections_, 0U);
+    EXPECT_EQ(work.pointwiseRecordings_, 0U);
+    EXPECT_EQ(work.pointwiseReverseSweeps_, 0U);
+    EXPECT_EQ(work.pointwiseSafePathActivations_, 0U);
+}
+
+TEST(AADSharedSecondOrderTest, TestReverseResidualThroughInternalRepeatedOperand) {
+    const Vector_<> point{0x1p-24, 0.0, 0.5};
+    const double baseLog = std::log(point[0]);
+    const auto kernel = [baseLog](const auto& x) {
+        const auto scale = x[2] * x[2] - 0.25;
+        return scale * (log(x[0]) - baseLog) - scale * ((0x1p27 + 1.0) * x[1]);
+    };
+    Matrix_<> directions(2, 3, 0.0);
+    directions(0, 0) = 0x1p24 - 0x1p-28;
+    directions(0, 1) = (0x1p27 - 1.0) * 0x1p-6;
+    const auto result = EvaluateSharedSecondOrder(kernel, point, directions);
+
+    EXPECT_EQ(result.Value(), 0.0);
+    EXPECT_EQ(result.Gradient(), (Vector_<>{0.0, 0.0, 0.0}));
+    EXPECT_EQ(result.DirectionalDerivatives(), (Vector_<>{0.0, 0.0}));
+    EXPECT_EQ(result.HessianProducts()(0, 0), 0.0);
+    EXPECT_EQ(result.HessianProducts()(0, 1), 0.0);
+    EXPECT_EQ(result.HessianProducts()(0, 2), -3.0 * 0x1p-6);
+    for (int col = 0; col < directions.Cols(); ++col) {
+        EXPECT_EQ(result.HessianProducts()(1, col), 0.0);
+        EXPECT_FALSE(std::signbit(result.HessianProducts()(1, col)));
+    }
+    const auto& work = result.Execution();
+    EXPECT_EQ(work.callbackEvaluations_, 1U);
+    EXPECT_EQ(work.sharedRecordings_, 1U);
+    EXPECT_EQ(work.sharedTangentSweeps_, 2U);
+    EXPECT_EQ(work.sharedReverseSweeps_, 2U);
+    EXPECT_EQ(work.replayDirections_, 0U);
+    EXPECT_EQ(work.pointwiseRecordings_, 0U);
+}
+
 TEST(AADSharedSecondOrderTest, TestOrdinaryRoundingAndExactCancellationStayShared) {
     constexpr double factor = 0x1p27 + 1.0;
     constexpr double seed = (0x1p27 - 1.0) * 0x1p-54;
