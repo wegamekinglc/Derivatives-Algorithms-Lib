@@ -272,12 +272,9 @@ namespace Dal::AAD {
                 const auto* const statements = arena.statement_.Data();
                 const auto* const weights = arena.Weights<T_>().Data();
                 const auto* const targets = arena.rhs_.Data();
-                auto lhs = arena.slots_;
                 for (auto row = arena.statements_; row > 0; --row) {
                     const auto statement = statements[row - 1];
-                    // Appending a statement allocates exactly one consecutive
-                    // output slot after all inputs, including in protected mode.
-                    const auto outgoing = adjoints[--lhs];
+                    const auto outgoing = adjoints[statement.lhs_];
                     if (Zero(outgoing.value_) && Zero(outgoing.tangent_))
                         continue;
                     const Slot_ begin = row == 1 ? 0 : statements[row - 2].end_;

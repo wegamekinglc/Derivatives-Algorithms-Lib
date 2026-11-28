@@ -1,7 +1,5 @@
 #pragma once
 
-#include <array>
-
 #include <dal/platform/host.hpp>
 
 #include <dal/math/aad/detail/secondordertape.hpp>
@@ -357,21 +355,21 @@ namespace Dal::AAD::SecondOrderDetail {
         return local.result_;
     }
 
-    template <class T_, size_t N_> FORCE_INLINE void ReserveStatement(Arena_& arena, size_t temporary) {
+    template <class T_, size_t N_, class Emit_>
+    SecondOrderNumber_ Append(Arena_& arena, const Dual_<T_>& result, size_t temporary, const Emit_& emit) {
         static_assert(N_ < PASSIVE, "second-order expression exceeds the edge index range");
         constexpr auto n = static_cast<Slot_>(N_);
         if (arena.slots_ >= PASSIVE - 1 || arena.edges_ >= PASSIVE - n)
             Error(Reason::CAPACITY_EXCEEDED, "second-order slot or edge limit exceeded");
+        auto& weights = arena.template Weights<T_>();
         const auto edgeEnd = arena.edges_ + n;
         if ((arena.statements_ >= arena.statement_.capacity_) | (edgeEnd > arena.edgeCapacity_)) {
             const Scratch_ duringGrowth(arena, temporary);
             arena.template GrowStatement<T_>(edgeEnd);
         }
-    }
-
-    template <class T_>
-    FORCE_INLINE SecondOrderNumber_ CommitStatement(Arena_& arena, const Dual_<T_>& result, size_t temporary, Slot_ count) {
-        if (count == 0)
+        EdgeWriter_<T_> edges{arena.rhs_.Data() + arena.edges_, weights.Data() + arena.edges_};
+        emit(edges);
+        if (edges.size_ == 0)
             return SecondOrderNumber_(result.value_);
         const auto slot = arena.slots_;
         double tangent = 0.0;
@@ -382,42 +380,10 @@ namespace Dal::AAD::SecondOrderDetail {
             arena.Ensure(arena.wideTangent_, slot, slot + 1);
             arena.wideTangent_.Data()[slot] = result.tangent_;
         }
-        arena.edges_ += count;
-        arena.statement_.Data()[arena.statements_++] = {arena.edges_};
+        arena.edges_ += edges.size_;
+        arena.statement_.Data()[arena.statements_++] = {arena.edges_, slot};
         ++arena.slots_;
         return Access_::Bind(arena, slot, result.value_, tangent);
-    }
-
-    template <class T_, size_t N_, class Emit_>
-    SecondOrderNumber_ Append(Arena_& arena, const Dual_<T_>& result, size_t temporary, const Emit_& emit) {
-        ReserveStatement<T_, N_>(arena, temporary);
-        EdgeWriter_<T_> edges{arena.rhs_.Data() + arena.edges_, arena.template Weights<T_>().Data() + arena.edges_};
-        emit(edges);
-        return CommitStatement(arena, result, temporary, edges.size_);
-    }
-
-    template <size_t N_>
-    FORCE_INLINE SecondOrderNumber_
-    PublishBatch(Arena_& arena, const Dual_<double>& result, const Slot_* slots, Weight_<double>* coefficients) {
-        auto* const rhs = arena.rhs_.Data() + arena.edges_;
-        if constexpr (N_ != 0) {
-            bool allActive = true;
-            for (size_t i = 0; i < N_; ++i)
-                allActive &= slots[i] != PASSIVE;
-            if (allActive) {
-                std::memcpy(rhs, slots, N_ * sizeof(Slot_));
-                return CommitStatement(arena, result, 0, static_cast<Slot_>(N_));
-            }
-        }
-        Slot_ used = 0;
-        for (size_t i = 0; i < N_; ++i) {
-            if (slots[i] != PASSIVE) {
-                rhs[used] = slots[i];
-                coefficients[used] = coefficients[i];
-                ++used;
-            }
-        }
-        return CommitStatement(arena, result, 0, used);
     }
 
     template <class T_, class E_> SecondOrderNumber_ Materialize(Arena_& arena, const E_& expression) {
@@ -434,100 +400,7 @@ namespace Dal::AAD::SecondOrderDetail {
 
     template <class E_> constexpr bool IsLeaf = std::is_same_v<E_, SecondOrderNumber_> || std::is_same_v<E_, Constant_>;
 
-    // A statement holds leaf slots and local factors in two contiguous buffers.
-    // The forward pass records local factors at static offsets. Compose the
-    // final weights into the reserved tape tail before committing the batch.
-    struct CompactView_ {
-        Slot_* slots_;
-        Weight_<double>* factors_;
-    };
-
-    template <class E_> struct CompactEvaluation_;
-
-    template <> struct CompactEvaluation_<SecondOrderNumber_> {
-        static constexpr size_t factors_ = 0;
-        static FORCE_INLINE Dual_<double> Evaluate(const SecondOrderNumber_& number, Arena_& arena, CompactView_ view) {
-            const auto leaf = Prepare<double>(number, arena);
-            view.slots_[0] = leaf.edges_.slot_;
-            return leaf.dual_;
-        }
-        template <bool Root_> static FORCE_INLINE void Flatten(const Weight_<double>*, Weight_<double> weight, Weight_<double>* output) {
-            *output = weight;
-        }
-    };
-
-    template <> struct CompactEvaluation_<Constant_> {
-        static constexpr size_t factors_ = 0;
-        static FORCE_INLINE Dual_<double> Evaluate(const Constant_& constant, Arena_& arena, CompactView_) {
-            return Prepare<double>(constant, arena).dual_;
-        }
-    };
-
-    template <class Op_, class A_> struct CompactEvaluation_<Unary_<Op_, A_>> {
-        using Child_ = CompactEvaluation_<A_>;
-        static constexpr size_t factors_ = 1 + Child_::factors_;
-
-        static FORCE_INLINE Dual_<double> Evaluate(const Unary_<Op_, A_>& expression, Arena_& arena, CompactView_ view) {
-            const auto operand = Child_::Evaluate(expression.input_, arena, {view.slots_, view.factors_ + 1});
-            const auto local = expression.op_.Apply(operand);
-            view.factors_[0] = local.weight_;
-            return local.result_;
-        }
-
-        template <bool Root_>
-        static FORCE_INLINE void Flatten(const Weight_<double>* factors, Weight_<double> weight, Weight_<double>* output) {
-            const auto local = *factors;
-            Child_::template Flatten<false>(factors + 1, Root_ ? local : Compose(weight, local), output);
-        }
-    };
-
-    template <class Op_, class A_, class B_> struct CompactEvaluation_<Binary_<Op_, A_, B_>> {
-        using Left_ = CompactEvaluation_<A_>;
-        using Right_ = CompactEvaluation_<B_>;
-        static constexpr bool LEFT = Leaves<A_>() != 0, RIGHT = Leaves<B_>() != 0;
-        static constexpr size_t LOCAL = LEFT + RIGHT, factors_ = LOCAL + Left_::factors_ + Right_::factors_;
-
-        static FORCE_INLINE Dual_<double> Evaluate(const Binary_<Op_, A_, B_>& expression, Arena_& arena, CompactView_ view) {
-            const auto left = Left_::Evaluate(expression.left_, arena, {view.slots_, view.factors_ + LOCAL});
-            const auto right = Right_::Evaluate(expression.right_, arena, {view.slots_ + Leaves<A_>(), view.factors_ + LOCAL + Left_::factors_});
-            const auto local = Op_::template Apply<LEFT, RIGHT>(left, right);
-            if constexpr (LEFT)
-                view.factors_[0] = local.left_;
-            if constexpr (RIGHT)
-                view.factors_[LEFT] = local.right_;
-            return local.result_;
-        }
-
-        template <bool Root_>
-        static FORCE_INLINE void Flatten(const Weight_<double>* factors, Weight_<double> weight, Weight_<double>* output) {
-            if constexpr (LEFT) {
-                const auto local = factors[0];
-                Left_::template Flatten<false>(factors + LOCAL, Root_ ? local : Compose(weight, local), output);
-            }
-            if constexpr (RIGHT) {
-                const auto right = factors[LEFT];
-                Right_::template Flatten<false>(factors + LOCAL + Left_::factors_, Root_ ? right : Compose(weight, right), output + Leaves<A_>());
-            }
-        }
-    };
-
-    template <class E_> SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const E_& expression) {
-        using Evaluator_ = CompactEvaluation_<E_>;
-        constexpr size_t preparation = ExpressionEdges_<double, E_>::preparationBytes_;
-        constexpr size_t temporary = sizeof(EdgeWriter_<double>) + preparation;
-        arena.AccountTemporary(temporary);
-        std::array<Slot_, Leaves<E_>()> slots;
-        std::array<Weight_<double>, Evaluator_::factors_> factors;
-        static_assert(sizeof(slots) + sizeof(factors) <= preparation, "compact statement must fit its preparation charge");
-        const CompactView_ view{slots.data(), factors.data()};
-        const auto value = Evaluator_::Evaluate(expression, arena, view);
-        ReserveStatement<double, Leaves<E_>()>(arena, temporary);
-        auto* const coefficients = arena.weight_.Data() + arena.edges_;
-        Evaluator_::template Flatten<true>(factors.data(), {1.0, 0.0}, coefficients);
-        auto result = PublishBatch<Leaves<E_>()>(arena, value, slots.data(), coefficients);
-        arena.AccountLogical<double>(false, temporary);
-        return result;
-    }
+    template <class E_> SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const E_& expression) { return Materialize<double>(arena, expression); }
 
     template <class Op_, class A_, class B_, std::enable_if_t<IsLeaf<A_> && IsLeaf<B_>, int> = 0>
     FORCE_INLINE SecondOrderNumber_ MaterializeNarrow(Arena_& arena, const Binary_<Op_, A_, B_>& expression) {
@@ -538,14 +411,12 @@ namespace Dal::AAD::SecondOrderDetail {
         const auto left = Prepare<double>(expression.left_, arena);
         const auto right = Prepare<double>(expression.right_, arena);
         const auto local = Op_::template Apply<Left::active_, Right::active_>(left.dual_, right.dual_);
-        constexpr auto count = Leaves<Binary_<Op_, A_, B_>>();
-        ReserveStatement<double, count>(arena, temporary);
-        const Slot_ slots[2]{Left::active_ ? left.edges_.slot_ : right.edges_.slot_, right.edges_.slot_};
-        auto* const coefficients = arena.weight_.Data() + arena.edges_;
-        coefficients[0] = Left::active_ ? local.left_ : local.right_;
-        if constexpr (count == 2)
-            coefficients[1] = local.right_;
-        const auto result = PublishBatch<count>(arena, local.result_, slots, coefficients);
+        const auto result = Append<double, Leaves<Binary_<Op_, A_, B_>>()>(arena, local.result_, temporary, [&](auto& edges) {
+            if constexpr (Left::active_)
+                edges.AddEdge(left.edges_.slot_, local.left_);
+            if constexpr (Right::active_)
+                edges.AddEdge(right.edges_.slot_, local.right_);
+        });
         arena.AccountLogical<double>(false, temporary);
         return result;
     }
