@@ -193,4 +193,14 @@ namespace Dal::AAD {
     void RequireRecordingModeChangeAllowed() {
         REQUIRE(!RecordingScope_::Context().active_, "SetNumResultsForAAD: mode must be selected before independent scope entry");
     }
+
+    bool TryAcquireSecondOrderRecording() {
+        auto& context = RecordingScope_::Context();
+        if (context.active_)
+            return false;
+        context.active_ = true;
+        return true;
+    }
+
+    void ReleaseSecondOrderRecording() noexcept { RecordingScope_::Context().active_ = false; }
 } // namespace Dal::AAD

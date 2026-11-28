@@ -6,7 +6,7 @@ import os
 import subprocess as sp
 from pathlib import Path
 
-from verdict import GROUPS, P1_FIELDS, judge_p1
+from verdict import GROUPS, P1_FIELDS, P3_FIELDS, duration, judge_p1, judge_p3
 
 
 def output(*command):
@@ -76,6 +76,9 @@ def run_memory(run, out, processes=10):
                     if route == "xad":
                         assert int(cells["construct_aligned_bytes"]) == 268435456 and int(cells["construct_live"]) >= 268435456
                         assert int(cells["post_result_live"]) >= 268435456 and int(cells["post_backend_live"]) == 0
+                    else:
+                        limit = 256 * 1024 if int(cells["logical_bytes"]) <= 64 * 1024 else 8 * 1024 * 1024
+                        assert int(cells["retained_tape"]) <= min(int(cells["post_result_live"]), limit)
                     rows.append((p, *row))
     write_csv(out / "allocations.csv", header, rows)
     groups = {}
@@ -84,22 +87,58 @@ def run_memory(run, out, processes=10):
         key = tuple(cells[column] for column in ("case", "directions", "route", "state"))
         groups.setdefault(key, []).append(cells)
     metrics = ("construct_live", "construct_aligned_bytes", "pre_request_live", "peak", "result_live", "post_result_live", "post_backend_live", "post_thread_live", "largest_request",
-               "aligned_allocs", "realloc_in_place", "realloc_moved", "realloc_failed", "cleanup_reserve", "logical_bytes", "maxrss_kib")
+               "aligned_allocs", "realloc_in_place", "realloc_moved", "realloc_failed", "cleanup_reserve", "logical_bytes", "maxrss_kib",
+               "tape_peak", "retained_tape")
     def maximum(data, field):
         values = [int(row[field]) for row in data if row[field] != "unavailable"]
         return max(values) if values else "unavailable"
 
     write_csv(out / "allocation-maxima.csv", ("case", "directions", "route", "state", "processes", *metrics),
               ((*key, len(data), *(maximum(data, c) for c in metrics)) for key, data in groups.items()))
+    verdict = {}
+    for case, directions in GROUPS:
+        for state in ("cold", "hot"):
+            dal = maximum(groups[case, str(directions), "dal", state], "peak")
+            xad = maximum(groups[case, str(directions), "xad", state], "peak")
+            verdict[f"{case}/{directions}/{state}"] = {"dal": dal, "xad": xad, "pass": 10 * dal <= 11 * xad + 40960}
+    (out / "verdict.json").write_text(json.dumps(verdict, indent=2) + "\n")
+
+
+def run_first_order(run, out, candidate, baseline):
+    def measure(binary, name):
+        minima = {}
+        for shape, extra in (("vanilla", ()), ("dupire", ("--dupire",))):
+            raw = run(f"{name}-{shape}", "--with-xad", *extra, executable=binary, mode="--first-order")
+            for row in csv.reader(raw.splitlines()):
+                if row and row[0] == "first_sample":
+                    case, value = row[1], duration(row[6])
+                    minima[case] = min(minima.get(case, value), value)
+        return minima
+
+    rows = []
+    cases = {case for case, _ in GROUPS}
+    for r in (1, 2):
+        for p in range(1, 11):
+            order = [("candidate", candidate), ("baseline", baseline)]
+            if (r + p) % 2:
+                order.reverse()
+            results = {arm: measure(binary, f"r{r}-p{p:02d}-{arm}") for arm, binary in order}
+            common = results["candidate"].keys() & results["baseline"].keys()
+            for case in sorted(common):
+                rows.append((case, r, p, order[0][0], results["candidate"][case], results["baseline"][case]))
+    write_csv(out / "paired.csv", P3_FIELDS, rows)
+    verdict = judge_p3([dict(zip(P3_FIELDS, row)) for row in rows], cases=cases)
+    (out / "verdict.json").write_text(json.dumps(verdict, indent=2) + "\n")
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("timing", "memory"))
+    parser.add_argument("mode", choices=("timing", "memory", "first-order"))
     parser.add_argument("build", type=Path)
     parser.add_argument("out", type=Path)
     parser.add_argument("--cpu", type=int, default=4)
     parser.add_argument("--ledger", type=Path)
+    parser.add_argument("--baseline", type=Path, help="independent 1860c950 Release core build for first-order replay")
     args = parser.parse_args()
     build, out = args.build.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -121,6 +160,17 @@ def main():
     env = dict(os.environ, DAL_NUM_THREADS="1")
     env.pop("LD_PRELOAD", None)
     binaries = [binary, build / "libdal_cpp.so", build / "lib/libxad.a"]
+    if args.mode == "first-order":
+        if args.baseline is None:
+            parser.error("--baseline is required for first-order")
+        baseline = args.baseline.resolve(strict=True)
+        baseline_binary = baseline / "benchmarks/tape_perf/tape_perf"
+        baseline_cache = (baseline / "CMakeCache.txt").read_text()
+        baseline_source, = [line.split("=", 1)[1] for line in baseline_cache.splitlines() if line.startswith("CMAKE_HOME_DIRECTORY:")]
+        assert output("git", "-C", baseline_source, "rev-parse", "HEAD").strip() == "1860c950a2eba87bf5fd45faa357e06df340298a"
+        assert not output("git", "-C", baseline_source, "status", "--porcelain")
+        (out / "baseline-CMakeCache.txt").write_text(baseline_cache)
+        binaries.extend((baseline_binary, baseline / "libdal_cpp.so", baseline / "lib/libxad.a"))
     if args.mode == "memory":
         if args.ledger is None:
             parser.error("--ledger is required for memory")
@@ -135,8 +185,8 @@ def main():
     )
     before = hashes(binaries)
 
-    def run(name, *options):
-        command = ["taskset", "-c", str(args.cpu), str(binary), "--second-order", *options]
+    def run(name, *options, executable=binary, mode="--second-order"):
+        command = ["taskset", "-c", str(args.cpu), str(executable), mode, *options]
         p = sp.run(command, env=env, stdout=sp.PIPE, stderr=sp.STDOUT, text=True)
         (logs / f"{name}.csv").write_text(p.stdout)
         p.check_returncode()
@@ -144,8 +194,10 @@ def main():
 
     if args.mode == "timing":
         run_timing(run, out, 3)
-    else:
+    elif args.mode == "memory":
         run_memory(run, out)
+    else:
+        run_first_order(run, out, binary, baseline_binary)
     after = hashes(binaries)
     assert after == before
     (out / "hashes.json").write_text(json.dumps({"before": before, "after": after}, indent=2) + "\n")

@@ -14,6 +14,7 @@
 #include <dal/math/aad/bumpoveraad.hpp>
 #include <dal/math/aad/forwardoverreverse.hpp>
 #include <dal/math/aad/profiling.hpp>
+#include <dal/math/aad/secondorder.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/platform/platform.hpp>
@@ -449,14 +450,14 @@ namespace {
     bool S0Memory(S0_ mode) { return mode != S0_::PAIR && mode != S0_::AA && mode != S0_::NONE; }
 
     void VerifySmoothNormal() {
-        const NativeDirectionalFunction_ dal = [](RecordingScope_*, const auto& x) { return SmoothCdf(x[0]); };
+        const SecondOrderFunction_ dal = [](const auto& x) { return SmoothCdf(x[0]); };
         const TapePerfXad::OwnedFunction_ xad = [](RecordingScope_*, const auto& x) { return SmoothCdf(x[0]); };
         TapePerfXad::Workspace_ workspace;
         ForwardOverReverseRequest_ request;
         request.directions_ = Matrix_<>(1, 1, 1.0);
         for (double magnitude : {std::nextafter(10.0, 0.0), 10.0, std::nextafter(10.0, 20.0), 12.0, 20.0}) {
             for (double z : {-magnitude, magnitude}) {
-                const auto native = EvaluateForwardOverReverse(dal, {z}, request);
+                const auto native = EvaluateSecondOrder(dal, {z}, request.directions_);
                 const auto other = workspace.EvaluateOwning(xad, {z}, request);
                 const long double s = z;
                 const double value = 0.5L * std::erfc(-s / std::sqrt(2.0L));
@@ -492,17 +493,11 @@ namespace {
                       << ((secondFirst != (i % 2 != 0)) ? "B" : "A") << ',' << shape.callsPerBatch_ << ',' << left[i] << ',' << right[i] << '\n';
     }
 
-    template <class K_>
     void
-    S0Allocation(const Case_& shape, const K_& kernel, const ForwardOverReverseRequest_& request, S0_ mode, const TapePerfXad::OwnedFunction_& xad) {
+    S0Allocation(const Case_& shape, const SecondOrderFunction_& dal, const ForwardOverReverseRequest_& request, S0_ mode,
+                 const TapePerfXad::OwnedFunction_& xad) {
         using namespace TapePerfS0;
         const MemoryRequest_ memory{mode == S0_::XAD_COLD || mode == S0_::XAD_HOT, mode == S0_::DAL_HOT || mode == S0_::XAD_HOT};
-        size_t logical = 0;
-        const NativeDirectionalFunction_ dal = [&](RecordingScope_* scope, const Vector_<ForwardOverReverseNumber_>& inputs) {
-            auto value = kernel(scope, inputs);
-            logical = std::max(logical, MeasureTape(*Tape()).liveBytes_);
-            return value;
-        };
         MeasureMemory(shape.name_, request.directions_.Rows(), memory, [&](const auto& use) {
             REQUIRE(!NativeThread::retainedTape, "S0 worker must start without a native tape");
             if (memory.xad_) {
@@ -511,16 +506,18 @@ namespace {
                     const auto result = workspace.EvaluateOwning(xad, shape.point_, request, true);
                     Bench::DoNotOptimize(&result);
                     observeResult();
-                    return RiskMemory_{result.risk_.maxLogicalBytes_, std::nullopt, "xad_logical_after_sweep"};
+                    return RiskMemory_{result.risk_.maxLogicalBytes_, std::nullopt, "xad_logical_after_sweep", {}, {}};
                 });
                 REQUIRE(!NativeThread::retainedTape, "S0 XAD allocation process initialized a native tape");
             } else {
                 use([&](const auto& observeResult) {
-                    logical = 0;
-                    const auto result = EvaluateForwardOverReverse(dal, shape.point_, request);
+                    const auto result = EvaluateSecondOrder(dal, shape.point_, request.directions_);
+                    REQUIRE(!NativeThread::retainedTape, "cold second order initialized a first-order tape");
+                    const auto& work = result.Execution();
                     Bench::DoNotOptimize(&result);
                     observeResult();
-                    return RiskMemory_{logical, result.Execution().cleanupReserveBytes_, "dal_logical_before_root"};
+                    return RiskMemory_{SecondOrderDetail::LastSecondOrderLogicalPeak(), work.cleanupReserveBytes_, "dal_logical_tape_peak",
+                                       work.peakTapeBytes_, work.retainedTapeBytes_};
                 });
             }
         });
@@ -529,7 +526,7 @@ namespace {
     template <class K_> void RunS0(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
         if (!options.s0Case_.empty() && options.s0Case_ != shape.name_)
             return;
-        const NativeDirectionalFunction_ dal = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
+        const SecondOrderFunction_ dal = [plan = &kernel](const auto& x) { return (*plan)(nullptr, x); };
         const TapePerfXad::OwnedFunction_ xad = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
         for (int count : {1, shape.directions_.Rows()}) {
             if (options.s0Directions_ && options.s0Directions_ != count)
@@ -537,11 +534,11 @@ namespace {
             ForwardOverReverseRequest_ request;
             request.directions_ = Prefix(shape.directions_, count);
             if (S0Memory(options.s0_)) {
-                S0Allocation(shape, kernel, request, options.s0_, xad);
+                S0Allocation(shape, dal, request, options.s0_, xad);
                 continue;
             }
             TapePerfXad::Workspace_ workspace;
-            const auto native = [&] { return EvaluateForwardOverReverse(dal, shape.point_, request); };
+            const auto native = [&] { return EvaluateSecondOrder(dal, shape.point_, request.directions_); };
             const auto other = [&] { return workspace.EvaluateOwning(xad, shape.point_, request); };
             if (!options.verifyOnly_) {
                 if (options.s0_ == S0_::AA) {
@@ -563,7 +560,7 @@ namespace {
                 sourceFunction = {};
                 return result;
             };
-            const auto ad = withExpiredSources(dal, EvaluateForwardOverReverse);
+            const auto ad = withExpiredSources(dal, [](const auto& f, const auto& p, const auto& r) { return EvaluateSecondOrder(f, p, r.directions_); });
             const auto xv = withExpiredSources(xad, [&](const auto& f, const auto& p, const auto& r) { return workspace.EvaluateOwning(f, p, r); });
             const auto& dw = ad.Execution();
             const auto& xw = xv.execution_;
@@ -575,10 +572,12 @@ namespace {
             REQUIRE(ad.Point() == shape.point_ && xv.point_ == shape.point_ && sameDirections(ad.Directions()) && sameDirections(xv.directions_),
                     "S0 point and directions must remain owning after source destruction");
             const auto n = static_cast<size_t>(count);
-            REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n + 1 && xw.callbackEvaluations_ == n &&
+            REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n && dw.safePathActivations_ == 0 &&
+                        xw.callbackEvaluations_ == n &&
                         xw.recordings_ == n && xw.reverseSweeps_ == n && xw.numericPayloadBytes_ == dw.numericPayloadBytes_ && !xw.peakTapeBytes_ &&
                         !xw.cleanupReserveBytes_,
-                    "S0 execution fields do not match the fixed request");
+                    std::string("S0 execution fields do not match the fixed request. Protection: ") +
+                        SecondOrderDetail::LastSecondOrderProtection());
             VerifyRoute(shape, ref, request.directions_, "dal_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(), ad.HessianProducts(),
                         shape.pointwiseTolerance_, {dw.recordings_, dw.reverseSweeps_, dw.peakTapeBytes_, "dal_tape_capacity"});
             VerifyRoute(shape, ref, request.directions_, "xad_s0", xv.risk_.price_, xv.risk_.gradient_, xv.risk_.directional_, xv.risk_.products_,

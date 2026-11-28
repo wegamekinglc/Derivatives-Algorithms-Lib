@@ -23,6 +23,7 @@ namespace TapePerfS0 {
         size_t logical_ = 0;
         std::optional<size_t> cleanup_;
         const char* logicalKind_ = nullptr;
+        std::optional<size_t> tapePeak_, retained_;
     };
 
 #if defined(__linux__)
@@ -86,13 +87,14 @@ namespace TapePerfS0 {
                      "s0_memory,case,directions,route,state,construct_live,construct_aligned_bytes,pre_request_live,peak,result_live,"
                      "post_result_live,post_backend_live,"
                      "post_thread_live,largest_request,aligned_allocs,allocs,frees,realloc_in_place,realloc_moved,realloc_failed,"
-                     "cleanup_reserve,logical_bytes,logical_kind,maxrss_kib\n"
+                     "cleanup_reserve,logical_bytes,logical_kind,maxrss_kib,tape_peak,retained_tape\n"
                   << "s0_memory," << name << ',' << directions << ',' << (request.xad_ ? "xad" : "dal") << ',' << (request.hot_ ? "hot" : "cold")
                   << ',' << created.live_ << ',' << created.alignedBytes_ << ',' << before.live_ << ',' << after.peak_ << ',' << resultLive << ','
                   << after.live_ << ',' << afterBackend << ',' << end.live_ << ',' << after.largest_ << ',' << after.aligned_ << ','
                   << end.allocations_ << ',' << end.frees_ << ',' << end.reallocInPlace_ << ',' << end.reallocMoved_ << ',' << end.reallocFailed_
                   << ',' << (risk.cleanup_ ? std::to_string(*risk.cleanup_) : "unavailable") << ',' << risk.logical_ << ',' << risk.logicalKind_
-                  << ',' << rss << '\n';
+                  << ',' << rss << ',' << (risk.tapePeak_ ? std::to_string(*risk.tapePeak_) : "unavailable") << ','
+                  << (risk.retained_ ? std::to_string(*risk.retained_) : "unavailable") << '\n';
         REQUIRE(resultLive > after.live_, "S0 memory ledger did not observe the owning result release");
         REQUIRE(end.live_ == 0 && end.allocations_ == end.frees_, "S0 memory ledger did not close after backend and thread destruction");
     }
