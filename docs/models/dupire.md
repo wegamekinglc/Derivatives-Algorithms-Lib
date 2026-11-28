@@ -215,6 +215,14 @@ decimal volatility. `Risk().Pointwise()` exposes execution details for zero
 or one direction, and `Risk().Shared()` exposes the shared-graph record for
 multiple directions.
 
+The quote identity accepts both signs of zero and returns the canonical
+`+0.0` at the registered zero in `Risk().Point()`. Nonzero spreads must match
+exactly. Direction seeds preserve their sign, including `-0.0`.
+Prepare and evaluate check `FE_TONEAREST` on the calling thread before
+recording. A different mode raises `UNSUPPORTED_OPERATION/VALIDATION` with
+no direction index. The check preserves the caller's mode, and the plan can
+be reused after the caller restores `FE_TONEAREST`.
+
 ## See Also
 
 - [AAD methodology](../methodology/aad.md) — the reverse-mode machinery that makes a

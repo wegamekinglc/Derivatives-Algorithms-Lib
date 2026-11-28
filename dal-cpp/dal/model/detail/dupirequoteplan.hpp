@@ -182,37 +182,47 @@ namespace Dal::DupireSecondOrderDetail {
             values.reserve(INTERIOR);
             for (double payoff : payoff_)
                 values.emplace_back(payoff);
+            std::array<T_, INTERIOR> lower, invPivot;
             std::array<T_, INTERIOR - 1> scaledUpper;
+            T_ boundaryUpper(0.0);
             for (int step = 0; step < TIME_STEPS; ++step) {
                 const auto& t = time_[step];
-                for (int i = 0; i < INTERIOR; ++i) {
-                    const T_ vol =
-                        t.left_ == t.right_ ? slices[t.left_][i] : T_(slices[t.left_][i] + (slices[t.right_][i] - slices[t.left_][i]) * t.weight_);
-                    const T_ diffusion = 0.5 * vol * vol;
-                    const T_ drift = RATE - DIVIDEND - diffusion;
-                    const T_ lower = drift_ * drift - diffusion_ * diffusion;
-                    const T_ upper = -drift_ * drift - diffusion_ * diffusion;
-                    T_ pivot = 1.0 + RATE * DT + (2.0 * diffusion_) * diffusion;
-                    if constexpr (std::is_same_v<T_, Bound_>)
-                        CertifyRow(lower, pivot, upper, step, i, *margins);
-                    if (i != 0)
-                        pivot -= lower * scaledUpper[i - 1];
-                    if constexpr (std::is_same_v<T_, Bound_>)
-                        CertifyActualPivot(pivot.value_, step, i, margins->pivot_);
-                    if constexpr (std::is_same_v<T_, double>) {
-                        if (margins) {
-                            REQUIRE(std::isfinite(pivot) && pivot > 0.0, "Dupire benchmark requires a positive Thomas pivot");
-                            margins->pivot_ = std::min(margins->pivot_, pivot);
+                // Equal passive interpolation plans give exactly the same
+                // active matrix. Reuse its factors within this recording.
+                if (step == 0 || !t.SameCell(time_[step - 1]) || t.weight_ != time_[step - 1].weight_) {
+                    for (int i = 0; i < INTERIOR; ++i) {
+                        const T_ vol = t.left_ == t.right_ ? slices[t.left_][i]
+                                                           : T_(slices[t.left_][i] + (slices[t.right_][i] - slices[t.left_][i]) * t.weight_);
+                        const T_ diffusion = 0.5 * vol * vol;
+                        const T_ drift = RATE - DIVIDEND - diffusion;
+                        lower[i] = drift_ * drift - diffusion_ * diffusion;
+                        T_ upper = -drift_ * drift - diffusion_ * diffusion;
+                        T_ pivot = 1.0 + RATE * DT + (2.0 * diffusion_) * diffusion;
+                        if constexpr (std::is_same_v<T_, Bound_>)
+                            CertifyRow(lower[i], pivot, upper, step, i, *margins);
+                        if (i != 0)
+                            pivot -= lower[i] * scaledUpper[i - 1];
+                        if constexpr (std::is_same_v<T_, Bound_>)
+                            CertifyActualPivot(pivot.value_, step, i, margins->pivot_);
+                        if constexpr (std::is_same_v<T_, double>) {
+                            if (margins) {
+                                REQUIRE(std::isfinite(pivot) && pivot > 0.0, "Dupire benchmark requires a positive Thomas pivot");
+                                margins->pivot_ = std::min(margins->pivot_, pivot);
+                            }
                         }
+                        invPivot[i] = 1.0 / pivot;
+                        if (i + 1 != INTERIOR)
+                            scaledUpper[i] = upper * invPivot[i];
+                        else
+                            boundaryUpper = std::move(upper);
                     }
-                    const T_ invPivot = 1.0 / pivot;
-                    if (i + 1 != INTERIOR)
-                        scaledUpper[i] = upper * invPivot;
-                    else
-                        values[i] -= upper * rightBoundary_[step];
+                }
+                for (int i = 0; i < INTERIOR; ++i) {
+                    if (i + 1 == INTERIOR)
+                        values[i] -= boundaryUpper * rightBoundary_[step];
                     if (i != 0)
-                        values[i] -= lower * values[i - 1];
-                    values[i] *= invPivot;
+                        values[i] -= lower[i] * values[i - 1];
+                    values[i] *= invPivot[i];
                 }
                 for (int i = INTERIOR - 2; i >= 0; --i)
                     values[i] -= scaledUpper[i] * values[i + 1];

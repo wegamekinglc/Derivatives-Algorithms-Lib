@@ -76,6 +76,8 @@ namespace Dal {
         [[nodiscard]] const String_& CalibrationAlgorithm() const;
     };
 
+    // Prepare and evaluate require FE_TONEAREST on the calling thread.
+    // The registered quote point uses +0.0 for either input zero sign.
     [[nodiscard]] DupireQuoteSecondOrderPlan_ PrepareDupireEuropeanCallQuoteRisk(const DupireCalibrationSnapshot_& calibration,
                                                                                  const DupireEuropeanCall_& call,
                                                                                  const DupireEuropeanCallPdeGrid_& grid);

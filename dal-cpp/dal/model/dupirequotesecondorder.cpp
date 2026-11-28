@@ -1,3 +1,4 @@
+#include <cfenv>
 #include <iomanip>
 #include <sstream>
 
@@ -9,6 +10,11 @@ namespace Dal::DupireSecondOrderDetail {
     }
 
     namespace {
+        void RequireNearestRounding() {
+            if (std::fegetround() != FE_TONEAREST)
+                ValidationError(Reason::UNSUPPORTED_OPERATION, "fixed Dupire quote risk requires FE_TONEAREST");
+        }
+
         std::string PdeNode(int step, int space) { return " at PDE step " + std::to_string(step) + ", space index " + std::to_string(space); }
 
         double RequirePositive(Bound_ value, const char* field, const std::string& where) {
@@ -191,6 +197,7 @@ namespace Dal {
     DupireQuoteSecondOrderPlan_ PrepareDupireEuropeanCallQuoteRisk(const DupireCalibrationSnapshot_& calibration,
                                                                    const DupireEuropeanCall_& call,
                                                                    const DupireEuropeanCallPdeGrid_& grid) {
+        RequireNearestRounding();
         if (!(std::isfinite(call.strike_) && call.strike_ > 0.0 && std::isfinite(call.maturity_) && call.maturity_ > 0.0))
             ValidationError(Reason::INVALID_INPUT, "strike and maturity must be finite and positive");
         if (!(std::isfinite(grid.logSpotHalfWidth_) && grid.logSpotHalfWidth_ > 0.0))
@@ -218,6 +225,8 @@ namespace Dal {
         Registered(inputs.maxTimeSpacing_ == 0.5, "maxTimeSpacing");
         RegisteredAxis(calibration.Surface()->spots_, LOCAL_STRIKES, "completed spot");
         RegisteredAxis(calibration.Surface()->times_, LOCAL_TIMES, "completed time");
+        // Exact nonzero comparisons also accept either sign for zero.
+        // Persist the registered, canonical point below.
         for (size_t i = 0; i < QUOTE_SPREADS.size(); ++i)
             if (inputs.quoteSpreads_.Data()[i] != QUOTE_SPREADS[i])
                 ValidationError(Reason::OUTSIDE_DOMAIN, "unregistered spread at quote:" + std::to_string(i));
@@ -242,6 +251,7 @@ namespace Dal {
                                                         const Vector_<DupireQuoteCoordinate_>& axis,
                                                         const Matrix_<>& directions,
                                                         const AAD::SecondOrderOptions_& options) {
+        RequireNearestRounding();
         ValidateRequestAxis(axis, plan.InputAxis(), directions.Cols());
         const auto scalar = [kernel = &Kernel(plan)](const auto& x) { return (*kernel)(nullptr, x); };
         return DupireQuoteSecondOrderResult_(

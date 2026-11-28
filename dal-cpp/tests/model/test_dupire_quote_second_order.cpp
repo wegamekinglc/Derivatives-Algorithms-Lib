@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cfenv>
 #include <cmath>
 #include <limits>
 #include <string>
@@ -30,10 +31,11 @@ namespace {
         }
     };
 
-    DupireCalibrationSnapshot_ Snapshot(bool subtractSpread = false, bool changedBase = false) {
+    DupireCalibrationSnapshot_ Snapshot(bool subtractSpread = false, bool changedBase = false, double middleSpread = 0.0) {
         Matrix_<> spreads(3, 2, 0.0);
         spreads(0, 0) = subtractSpread ? 0.208 - 0.20 : 0.008;
         spreads(0, 1) = 0.012;
+        spreads(1, 0) = middleSpread;
         spreads(1, 1) = 0.004;
         spreads(2, 0) = 0.006;
         spreads(2, 1) = 0.009;
@@ -56,6 +58,53 @@ namespace {
         }
     }
 } // namespace
+
+TEST(DupireQuoteSecondOrderTest, CanonicalizesQuoteZeroButRetainsDirectionZero) {
+    for (double zero : {0.0, -0.0}) {
+        const auto plan = PrepareDupireEuropeanCallQuoteRisk(Snapshot(false, false, zero), Call(), {0.8, 81, 64});
+        Matrix_<> direction(1, 6, 0.0);
+        direction(0, 2) = -0.0;
+        const auto result = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction);
+        EXPECT_EQ(result.Risk().Point()[2], 0.0);
+        EXPECT_FALSE(std::signbit(result.Risk().Point()[2]));
+        EXPECT_TRUE(std::signbit(result.Risk().Directions()(0, 2)));
+    }
+    for (double neighbor : {std::nextafter(0.0, -1.0), std::nextafter(0.0, 1.0)}) {
+        const auto snapshot = Snapshot(false, false, neighbor);
+        CheckValidation([&] { (void)PrepareDupireEuropeanCallQuoteRisk(snapshot, Call(), {0.8, 81, 64}); }, Reason::OUTSIDE_DOMAIN, "quote:2");
+    }
+}
+
+TEST(DupireQuoteSecondOrderTest, RejectsOtherRoundingModesBeforeRecordingAndKeepsThePlan) {
+    const auto snapshot = Snapshot();
+    const auto prepare = [&] { return PrepareDupireEuropeanCallQuoteRisk(snapshot, Call(), {0.8, 81, 64}); };
+    const auto plan = prepare();
+    struct Restore_ {
+        int mode_ = std::fegetround();
+        ~Restore_() { (void)std::fesetround(mode_); }
+    } restore;
+    const auto nativeBefore = SecondOrderDetail::LastSecondOrderLogicalPeak();
+    const auto sharedBefore = SharedSecondOrderDetail::LastLogicalPeak();
+    for (int mode : {FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO}) {
+        ASSERT_EQ(std::fesetround(mode), 0);
+        CheckValidation([&] { (void)prepare(); }, Reason::UNSUPPORTED_OPERATION, "FE_TONEAREST");
+        EXPECT_EQ(std::fegetround(), mode);
+        for (int rows : {1, 3}) {
+            const Matrix_<> direction(rows, 6, 1.0);
+            CheckValidation([&] { (void)EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), direction, {0, 0}); }, Reason::UNSUPPORTED_OPERATION,
+                            "FE_TONEAREST");
+            EXPECT_EQ(std::fegetround(), mode);
+        }
+        EXPECT_EQ(SecondOrderDetail::LastSecondOrderLogicalPeak(), nativeBefore);
+        EXPECT_EQ(SharedSecondOrderDetail::LastLogicalPeak(), sharedBefore);
+    }
+    ASSERT_EQ(std::fesetround(FE_TONEAREST), 0);
+    for (int rows : {1, 3}) {
+        const auto risk = EvaluateDupireQuoteSecondOrder(plan, plan.InputAxis(), Matrix_<>(rows, 6, 1.0));
+        EXPECT_EQ(risk.Risk().Value(), DupireSecondOrderDetail::PlanAccess_::Margins(plan).price_);
+        EXPECT_EQ(std::fegetround(), FE_TONEAREST);
+    }
+}
 
 TEST(DupireQuoteSecondOrderTest, PublicEntryReturnsOwningPointwiseAndSharedGreeks) {
     const auto run = [](int rows) {
