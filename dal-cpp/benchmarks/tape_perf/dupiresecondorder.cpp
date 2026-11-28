@@ -19,19 +19,6 @@ namespace TapePerfDupire {
             double ImpliedVol(double, double) const override { return BASE_VOL; }
         };
 
-        StencilCall_ PrepareCall(double strike, double time) {
-            const double forward = SPOT * std::exp((RATE - DIVIDEND) * time);
-            return {Bracket(QUOTE_STRIKES, strike), Bracket(QUOTE_TIMES, time), strike, std::exp(-RATE * time), forward, std::sqrt(time),
-                    std::log(forward / strike)};
-        }
-
-        template <size_t N_> double Distance(const std::array<double, N_>& axis, double value) {
-            double result = std::numeric_limits<double>::infinity();
-            for (double coordinate : axis)
-                result = std::min(result, std::abs(value - coordinate));
-            return result;
-        }
-
         double PassivePrice(const LocalVolSurfaceData_& surface) {
             Vector_<> logSpots(surface.spots_.size());
             for (size_t i = 0; i < logSpots.size(); ++i)
@@ -113,45 +100,7 @@ namespace TapePerfDupire {
         }
     } // namespace
 
-    Kernel_::Kernel_() {
-        for (size_t t = 0; t < LOCAL_TIMES.size(); ++t) {
-            const double time = LOCAL_TIMES[t], ht = 1e-4 * time;
-            for (int row = FIRST[t]; row <= LAST[t]; ++row) {
-                const double strike = LOCAL_STRIKES[row], hk = 1e-4 * strike;
-                auto& stencil = stencils_[t][row];
-                stencil = {strike,
-                           hk,
-                           ht,
-                           PrepareCall(strike, time),
-                           PrepareCall(strike, time - ht),
-                           PrepareCall(strike, time + ht),
-                           PrepareCall(strike - hk, time),
-                           PrepareCall(strike + hk, time)};
-                REQUIRE(stencil.base_.strikes_.SameCell(stencil.strikeMinus_.strikes_) &&
-                            stencil.base_.strikes_.SameCell(stencil.strikePlus_.strikes_) &&
-                            stencil.base_.times_.SameCell(stencil.timeMinus_.times_) && stencil.base_.times_.SameCell(stencil.timePlus_.times_),
-                        "Dupire benchmark stencil crosses a quote interpolation knot");
-                strikeMargin_ = std::min(strikeMargin_, Distance(QUOTE_STRIKES, strike) - hk);
-                timeMargin_ = std::min(timeMargin_, Distance(QUOTE_TIMES, time) - ht);
-            }
-        }
-        REQUIRE(strikeMargin_ > 0.0 && timeMargin_ > 0.0, "Dupire benchmark stencil needs positive interpolation margin");
-        std::array<double, LOCAL_STRIKES.size()> logSpots;
-        for (size_t j = 0; j < logSpots.size(); ++j)
-            logSpots[j] = std::log(LOCAL_STRIKES[j] / SPOT);
-        for (int row = 0; row < INTERIOR; ++row) {
-            const double x = LOG_LOW + DX * (row + 1);
-            space_[row] = Bracket(logSpots, x);
-            payoff_[row] = std::max(SPOT * std::exp(x) - STRIKE, 0.0);
-        }
-        for (int step = 0; step < TIME_STEPS; ++step) {
-            time_[step] = Bracket(LOCAL_TIMES, 1.0 - (step + 0.5) * DT);
-            const double tau = (step + 1) * DT;
-            rightBoundary_[step] = SPOT * std::exp(0.8 - DIVIDEND * tau) - STRIKE * std::exp(-RATE * tau);
-        }
-    }
-
-    Vector_<> QuoteSpreads() { return {0.008, 0.012, 0.0, 0.004, 0.006, 0.009}; }
+    Vector_<> QuoteSpreads() { return Vector_<>(QUOTE_SPREADS.begin(), QUOTE_SPREADS.end()); }
 
     Matrix_<> Directions() {
         Matrix_<> result(3, 6, 0.0);
@@ -162,7 +111,7 @@ namespace TapePerfDupire {
         return result;
     }
 
-    void Qualify(const Kernel_& kernel, const Vector_<>& quotes, const Matrix_<>& directions) {
+    DupireCalibrationSnapshot_ Snapshot(const Vector_<>& quotes) {
         const FlatImpliedVol_ flat;
         const Vector_<> strikes(LOCAL_STRIKES.begin(), LOCAL_STRIKES.end()), times(LOCAL_TIMES.begin(), LOCAL_TIMES.end());
         const DupireRiskInputs_ inputs{Vector_<>(QUOTE_STRIKES.begin(), QUOTE_STRIKES.end()),
@@ -172,7 +121,13 @@ namespace TapePerfDupire {
                                        10.0,
                                        times,
                                        0.5};
-        const auto base = CalibrateDupireWithRisk(flat, inputs, "second-order benchmark");
+        return CalibrateDupireWithRisk(flat, inputs, "second-order benchmark");
+    }
+
+    void Qualify(const Kernel_& kernel, const Vector_<>& quotes, const Matrix_<>& directions) {
+        const FlatImpliedVol_ flat;
+        const Vector_<> strikes(LOCAL_STRIKES.begin(), LOCAL_STRIKES.end()), times(LOCAL_TIMES.begin(), LOCAL_TIMES.end());
+        const auto base = Snapshot(quotes);
         REQUIRE(base.Surface()->spots_ == strikes && base.Surface()->times_ == times, "Dupire benchmark production axes changed");
         for (size_t t = 0; t < times.size(); ++t) {
             const double halfWidth = 2.5 * flat.Call(SPOT, times[t]) * M_SQRT_2_PI;

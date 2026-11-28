@@ -495,6 +495,16 @@ namespace {
                       << ((secondFirst != (i % 2 != 0)) ? "B" : "A") << ',' << shape.callsPerBatch_ << ',' << left[i] << ',' << right[i] << '\n';
     }
 
+    template <class R_, class F_> decltype(auto) VisitS0Risk(const R_& result, const F_& inspect) {
+        if constexpr (std::is_same_v<R_, DupireQuoteSecondOrderResult_>) {
+            if (const auto* shared = result.Risk().Shared())
+                return inspect(*shared);
+            return inspect(*result.Risk().Pointwise());
+        } else {
+            return inspect(result);
+        }
+    }
+
     template <class D_>
     void S0Allocation(const Case_& shape, const D_& evaluate, const ForwardOverReverseRequest_& request, S0_ mode,
                  const TapePerfXad::OwnedFunction_& xad) {
@@ -515,15 +525,17 @@ namespace {
                 use([&](const auto& observeResult) {
                     const auto result = evaluate();
                     REQUIRE(!NativeThread::retainedTape, "cold second order initialized a first-order tape");
-                    const auto& work = result.Execution();
                     Bench::DoNotOptimize(&result);
                     observeResult();
-                    if constexpr (std::is_same_v<std::decay_t<decltype(result)>, SharedSecondOrderResult_>)
-                        return RiskMemory_{SharedSecondOrderDetail::LastLogicalPeak(), work.cleanupReserveBytes_, "shared_logical_tape_peak",
-                                           work.peakTapeBytes_, work.retainedTapeBytes_};
-                    else
-                        return RiskMemory_{SecondOrderDetail::LastSecondOrderLogicalPeak(), work.cleanupReserveBytes_, "dal_logical_tape_peak",
-                                           work.peakTapeBytes_, work.retainedTapeBytes_};
+                    return VisitS0Risk(result, [](const auto& risk) {
+                        const auto& work = risk.Execution();
+                        if constexpr (std::is_same_v<std::decay_t<decltype(risk)>, SharedSecondOrderResult_>)
+                            return RiskMemory_{SharedSecondOrderDetail::LastLogicalPeak(), work.cleanupReserveBytes_, "shared_logical_tape_peak",
+                                               work.peakTapeBytes_, work.retainedTapeBytes_};
+                        else
+                            return RiskMemory_{SecondOrderDetail::LastSecondOrderLogicalPeak(), work.cleanupReserveBytes_, "dal_logical_tape_peak",
+                                               work.peakTapeBytes_, work.retainedTapeBytes_};
+                    });
                 });
             }
         });
@@ -560,44 +572,46 @@ namespace {
             sourceRequest.directions_.Fill(0.0);
             return result;
         };
-        const auto ad = withExpiredSources(dal, engine);
+        const auto dalResult = withExpiredSources(dal, engine);
         const auto xv = withExpiredSources(xad, [&](const auto& f, const auto& p, const auto& r) { return workspace.EvaluateOwning(f, p, r); });
-        const auto& dw = ad.Execution();
         const auto& xw = xv.execution_;
         const auto& expected = request.directions_;
         const auto sameDirections = [&](const Matrix_<>& actual) {
             return actual.Rows() == expected.Rows() && actual.Cols() == expected.Cols() &&
                    std::equal(expected.Data(), expected.Data() + expected.Rows() * expected.Cols(), actual.Data());
         };
-        REQUIRE(ad.Point() == shape.point_ && xv.point_ == shape.point_ && sameDirections(ad.Directions()) && sameDirections(xv.directions_),
-                "S0 point and directions must remain owning after source destruction");
-        const auto n = static_cast<size_t>(count);
-        REQUIRE(xw.callbackEvaluations_ == n && xw.recordings_ == n && xw.reverseSweeps_ == n &&
-                    xw.numericPayloadBytes_ == dw.numericPayloadBytes_ && !xw.peakTapeBytes_ && !xw.cleanupReserveBytes_,
-                "S0 XAD execution fields do not match the fixed request");
-        if constexpr (std::is_same_v<std::decay_t<decltype(ad)>, SharedSecondOrderResult_>) {
-            const auto blocks = n / 3 + n % 3;
-            REQUIRE(dw.callbackEvaluations_ == 1 && dw.sharedRecordings_ == 1 && dw.sharedTangentSweeps_ == blocks &&
-                        dw.sharedReverseSweeps_ == blocks && !dw.replayDirections_ && !dw.pointwiseRecordings_,
-                    "S0 shared graph replayed or did unexpected work");
-            const SecondOrderFunction_ pointwise = dal;
-            REQUIRE(ad.Value() == EvaluateSecondOrder(pointwise, shape.point_, request.directions_).Value(),
-                    "S0 shared and pointwise price differs at the fixed point");
-            VerifyRoute(shape, ref, request.directions_, "shared_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(),
-                        ad.HessianProducts(), shape.pointwiseTolerance_,
-                        {dw.sharedRecordings_, dw.sharedReverseSweeps_, dw.peakTapeBytes_, "shared_tape_capacity"});
-        } else {
-            REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n && dw.safePathActivations_ == 0,
-                    std::string("S0 pointwise execution fields do not match the fixed request. Protection: ") +
-                        SecondOrderDetail::LastSecondOrderProtection());
-            VerifyRoute(shape, ref, request.directions_, "dal_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(),
-                        ad.HessianProducts(), shape.pointwiseTolerance_,
-                        {dw.recordings_, dw.reverseSweeps_, dw.peakTapeBytes_, "dal_tape_capacity"});
-        }
+        VisitS0Risk(dalResult, [&](const auto& ad) {
+            const auto& dw = ad.Execution();
+            REQUIRE(ad.Point() == shape.point_ && xv.point_ == shape.point_ && sameDirections(ad.Directions()) && sameDirections(xv.directions_),
+                    "S0 point and directions must remain owning after source destruction");
+            const auto n = static_cast<size_t>(count);
+            REQUIRE(xw.callbackEvaluations_ == n && xw.recordings_ == n && xw.reverseSweeps_ == n &&
+                        xw.numericPayloadBytes_ == dw.numericPayloadBytes_ && !xw.peakTapeBytes_ && !xw.cleanupReserveBytes_,
+                    "S0 XAD execution fields do not match the fixed request");
+            if constexpr (std::is_same_v<std::decay_t<decltype(ad)>, SharedSecondOrderResult_>) {
+                const auto blocks = n / 3 + n % 3;
+                REQUIRE(dw.callbackEvaluations_ == 1 && dw.sharedRecordings_ == 1 && dw.sharedTangentSweeps_ == blocks &&
+                            dw.sharedReverseSweeps_ == blocks && !dw.replayDirections_ && !dw.pointwiseRecordings_,
+                        "S0 shared graph replayed or did unexpected work");
+                const SecondOrderFunction_ pointwise = dal;
+                REQUIRE(ad.Value() == EvaluateSecondOrder(pointwise, shape.point_, request.directions_).Value(),
+                        "S0 shared and pointwise price differs at the fixed point");
+                VerifyRoute(shape, ref, request.directions_, "shared_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(),
+                            ad.HessianProducts(), shape.pointwiseTolerance_,
+                            {dw.sharedRecordings_, dw.sharedReverseSweeps_, dw.peakTapeBytes_, "shared_tape_capacity"});
+            } else {
+                REQUIRE(dw.callbackEvaluations_ == n && dw.recordings_ == n && dw.reverseSweeps_ == n && dw.safePathActivations_ == 0,
+                        std::string("S0 pointwise execution fields do not match the fixed request. Protection: ") +
+                            SecondOrderDetail::LastSecondOrderProtection());
+                VerifyRoute(shape, ref, request.directions_, "dal_s0", ad.Value(), ad.Gradient(), ad.DirectionalDerivatives(),
+                            ad.HessianProducts(), shape.pointwiseTolerance_,
+                            {dw.recordings_, dw.reverseSweeps_, dw.peakTapeBytes_, "dal_tape_capacity"});
+            }
+            std::cout << "s0_owned," << shape.name_ << ',' << count << ',' << dw.numericPayloadBytes_ << ',' << dw.method_ << ',' << xw.method_
+                      << '\n';
+        });
         VerifyRoute(shape, ref, request.directions_, "xad_s0", xv.risk_.price_, xv.risk_.gradient_, xv.risk_.directional_, xv.risk_.products_,
                     shape.pointwiseTolerance_, {xw.recordings_, xw.reverseSweeps_, 0, "unavailable"});
-        std::cout << "s0_owned," << shape.name_ << ',' << count << ',' << dw.numericPayloadBytes_ << ',' << dw.method_ << ',' << xw.method_
-                  << '\n';
     }
 
     template <class K_> void RunS0(const Case_& shape, const K_& kernel, const Reference_& ref, const Options_& options) {
@@ -620,6 +634,34 @@ namespace {
             RunS0Directions(shape, ref, options, count, dal,
                             [](const auto& f, const auto& p, const auto& r) { return EvaluateSecondOrder(f, p, r.directions_); }, xad);
         }
+    }
+
+    void RunS0DupireProduct(const Case_& shape, const Reference_& reference, const Options_& options,
+                            const DupireQuoteSecondOrderPlan_& plan) {
+        if (!options.s0Case_.empty() && options.s0Case_ != shape.name_)
+            return;
+        const auto& kernel = DupireSecondOrderDetail::PlanAccess_::Kernel(plan);
+        const auto scalar = [plan = &kernel](const auto& x) { return (*plan)(nullptr, x); };
+        const TapePerfXad::OwnedFunction_ xad = [plan = &kernel](RecordingScope_* scope, const auto& x) { return (*plan)(scope, x); };
+        const auto axis = plan.InputAxis();
+        const auto evaluate = [&](const auto&, const auto&, const auto& request) {
+            const auto result = EvaluateDupireQuoteSecondOrder(plan, axis, request.directions_);
+            if (options.verifyOnly_)
+                REQUIRE(result.Risk().Value() == DupireSecondOrderDetail::PlanAccess_::Margins(plan).price_,
+                        "public Dupire price differs from the certified binary64 price");
+            return result;
+        };
+        if (options.verifyOnly_) {
+            const auto& m = DupireSecondOrderDetail::PlanAccess_::Margins(plan);
+            std::cout << "# dupire_fixed_certificate,iv,stddev,ckk,numerator,variance,left_boundary,right_boundary,dominance,pivot,"
+                         "pivot_lower,normalized_margin,price\n";
+            std::cout << "dupire_fixed_certificate," << m.ivLower_ << ',' << m.stdDevLower_ << ',' << m.ckkLower_ << ','
+                      << m.numeratorLower_ << ',' << m.varianceLower_ << ',' << m.leftBoundary_ << ',' << m.rightBoundary_ << ','
+                      << m.diagonalMargin_ << ',' << m.pivot_ << ',' << m.pivotLower_ << ',' << m.normalizedMargin_ << ',' << m.price_ << '\n';
+        }
+        for (int count : {1, shape.directions_.Rows()})
+            if (!options.s0Directions_ || options.s0Directions_ == count)
+                RunS0Directions(shape, reference, options, count, scalar, evaluate, xad);
     }
 
     using TapePerfComparison::Counts_;
@@ -917,6 +959,14 @@ namespace {
                 std::cout << ',' << spread;
             std::cout << std::defaultfloat << '\n';
         }
+#if defined(DAL_TAPE_PERF_WITH_XAD)
+        if (s0 && options.s0Shared_) {
+            const auto plan = PrepareDupireEuropeanCallQuoteRisk(D::Snapshot(shape.point_), {D::STRIKE, 1.0, "EQ", Ccy_("USD")},
+                                                               {D::HALF_WIDTH, D::SPACE_NODES, D::TIME_STEPS});
+            RunS0DupireProduct(shape, ref, options, plan);
+            return;
+        }
+#endif
         if (options.firstOrder_ || s0) {
             Run(shape, kernel, ref, options);
             return;

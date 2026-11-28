@@ -197,6 +197,24 @@ Related flat-volatility baselines:
   finite-difference European pricer that recovers the Black-Scholes closed form
   from the PDE.
 
+## Fixed-plan European call quote Greeks
+
+`dal/model/dupirequotesecondorder.hpp` exposes
+`PrepareDupireEuropeanCallQuoteRisk` for the registered six-quote plan. Pass a
+snapshot from `CalibrateDupireWithRisk`, the call metadata, and the fixed
+`{0.8, 81, 64}` log-spot grid. Preparation checks the exact spread inputs,
+sampled base volatilities and fixed bands, then certifies positive stencil and
+PDE margins.
+
+Call `EvaluateDupireQuoteSecondOrder(plan, axis, directions)` with the axis
+that labels the direction columns. `Risk()` owns the price, six Vega values,
+directional derivatives and HVPs. The axis is strike-major with maturity
+varying inside each strike. For the unit direction at quote 3, read HVP columns
+3, 2 and 1 for Volga, cross-tenor and cross-strike risk. Quote units are
+decimal volatility. `Risk().Pointwise()` exposes execution details for zero
+or one direction, and `Risk().Shared()` exposes the shared-graph record for
+multiple directions.
+
 ## See Also
 
 - [AAD methodology](../methodology/aad.md) — the reverse-mode machinery that makes a
